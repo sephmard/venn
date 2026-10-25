@@ -67,7 +67,7 @@ These can't be stored in the code, so set them by hand. They're listed in order.
 
 ### 5. Deploy environment (only if you use `deploy.yml`)
 
-**Settings → Environments → New environment** named `production`:
+**Settings → Environments → New environment** named `Venn-App` (the name `deploy.yml` uses):
 
 - **Deployment branches:** _Selected branches_ → `main`.
 - Optionally add yourself as a **Required reviewer**, so each deploy waits for one click.
