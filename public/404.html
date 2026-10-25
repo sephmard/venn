@@ -7,32 +7,46 @@
     <meta name="robots" content="noindex" />
     <title>Page not found · Venn</title>
     <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
-    <link rel="stylesheet" href="/styles.css" />
     <link rel="stylesheet" href="/site.css" />
   </head>
-  <body class="site">
-    <header class="topbar">
+  <body>
+    <a class="skip" href="#main">Skip to content</a>
+    <header class="wrap nav">
       <a href="/" class="brand">
         <svg viewBox="0 0 120 80" width="36" height="24" aria-hidden="true">
           <defs>
             <clipPath id="brand-left"><circle cx="45" cy="40" r="30" /></clipPath>
           </defs>
-          <circle cx="45" cy="40" r="30" fill="var(--accent)" fill-opacity=".28" />
-          <circle cx="75" cy="40" r="30" fill="var(--accent)" fill-opacity=".28" />
-          <circle cx="75" cy="40" r="30" fill="var(--accent)" clip-path="url(#brand-left)" />
+          <circle cx="45" cy="40" r="30" fill="var(--green)" fill-opacity=".28" />
+          <circle cx="75" cy="40" r="30" fill="var(--green)" fill-opacity=".28" />
+          <circle cx="75" cy="40" r="30" fill="var(--green)" clip-path="url(#brand-left)" />
         </svg>
         Venn
       </a>
+      <nav class="nav-links" aria-label="Main">
+        <a href="https://docs.venn.day" class="hide-sm">Docs</a>
+        <a href="https://github.com/sephmard/venn" class="hide-sm">GitHub</a>
+        <a href="/new" class="btn btn-sm">Create a poll</a>
+      </nav>
     </header>
-    <main>
-      <section class="site-hero">
-        <h1>Page not found</h1>
-        <p class="lede">There's nothing at this address. If someone sent you a poll link, check it was copied in full.</p>
-        <div class="btn-row site-cta">
-          <a href="/new" class="btn btn-primary btn-lg">Create a poll</a>
-          <a href="/" class="btn btn-lg">Go home</a>
-        </div>
-      </section>
+
+    <main id="main" class="wrap page">
+      <h1>Page not found</h1>
+      <p class="lede">There's nothing at this address. If someone sent you a poll link, check it was copied in full.</p>
+      <div class="cta-row" style="margin-top: 32px">
+        <a href="/new" class="btn">Create a poll</a>
+        <a href="/" class="link-arrow">Go home <span aria-hidden="true">→</span></a>
+      </div>
     </main>
+
+    <footer class="wrap footer">
+      <span>© Venn · Free and open source</span>
+      <nav aria-label="Footer">
+        <a href="/privacy">Privacy</a>
+        <a href="https://docs.venn.day">Docs</a>
+        <a href="https://github.com/sephmard/venn">GitHub</a>
+        <a href="https://github.com/sephmard/venn/issues/new/choose">Feedback</a>
+      </nav>
+    </footer>
   </body>
 </html>
