@@ -8,21 +8,23 @@ The marketing pages (`public/index.html`, `privacy.html`, `404.html`, styled by 
 
 Every color is a CSS variable in `site.css`. Pages use the names, never raw values.
 
-| Token           | Light     | Dark      | Role                                               |
-| --------------- | --------- | --------- | -------------------------------------------------- |
-| `--paper`       | `#faf8f4` | `#0f1112` | Page background                                    |
-| `--paper-2`     | `#f2eee6` | `#171a1c` | Quiet panels, product-shot frame                   |
-| `--line`        | `#e4dfd4` | `#2a2e31` | Borders and dividers                               |
-| `--ink`         | `#16181a` | `#f1eee8` | Text and headings                                  |
-| `--ink-2`       | `#55585c` | `#a6a9ad` | Secondary text (≥ 6:1 on paper)                    |
-| `--green`       | `#0b7a5c` | `#2fc497` | Primary: buttons, links, the overlap               |
-| `--green-ink`   | `#ffffff` | `#06140f` | Text on green                                      |
-| `--green-soft`  | `#dcefe6` | `#163a2f` | Tints, step numbers                                |
-| `--amber`       | `#e0a12e` | `#e9b14a` | Second circle in the hero (matches "If needed")    |
-| `--blue`        | `#4a63d9` | `#7c95ff` | Third circle in the hero (matches the final pick)  |
-| `--band`        | `#16181a` | `#171a1c` | The one dark band ("No accounts…")                 |
-| `--band-ink`    | `#faf8f4` | `#f1eee8` | Text on the band (`--band-ink-2` for secondary)    |
-| `--band-accent` | `#2fc497` | `#2fc497` | Green on the band (the band is dark in both modes) |
+| Token                     | Light                 | Dark                  | Role                                                                                       |
+| ------------------------- | --------------------- | --------------------- | ------------------------------------------------------------------------------------------ |
+| `--paper`                 | `#faf8f4`             | `#0f1112`             | Page background                                                                            |
+| `--paper-2`               | `#f2eee6`             | `#171a1c`             | Quiet panels, product-shot frame                                                           |
+| `--line`                  | `#e4dfd4`             | `#2a2e31`             | Borders and dividers                                                                       |
+| `--ink`                   | `#16181a`             | `#f1eee8`             | Text and headings                                                                          |
+| `--ink-2`                 | `#55585c`             | `#a6a9ad`             | Secondary text (≥ 6:1 on paper)                                                            |
+| `--green`                 | `#0b7a5c`             | `#2fc497`             | Primary: buttons, links, the overlap                                                       |
+| `--green-ink`             | `#ffffff`             | `#06140f`             | Text on green                                                                              |
+| `--green-soft`            | `#dcefe6`             | `#163a2f`             | Tints, step numbers                                                                        |
+| `--mint`                  | `#c3f2de`             | `#1d4d3d`             | The logo's lightest shade; soft glows behind the hero and the screenshot                   |
+| `--green-deep`            | `#064c39`             | `#8ff0c8`             | The logo's deepest shade; end of the call-to-action gradient                               |
+| `--cta-from` / `--cta-to` | `#0b7a5c` → `#064c39` | `#3fd8a6` → `#1f9d72` | The main call-to-action gradient; text is `--cta-ink` (white in light, near-black in dark) |
+| `--card`                  | `#ffffff`             | `#171a1c`             | The hero's start card                                                                      |
+| `--band`                  | `#16181a`             | `#171a1c`             | The one dark band ("No accounts…")                                                         |
+| `--band-ink`              | `#faf8f4`             | `#f1eee8`             | Text on the band (`--band-ink-2` for secondary)                                            |
+| `--band-accent`           | `#2fc497`             | `#2fc497`             | Green on the band (the band is dark in both modes)                                         |
 
 Contrast: body text ≥ 7:1, secondary ≥ 4.5:1, white on green 5.3:1.
 
@@ -60,20 +62,22 @@ Lines stay under 65 characters. Italic serif is the only emphasis inside headlin
 - **Primary button:** green pill, `--green-ink` text, 48px tall (44px minimum tap target). Hover darkens slightly; focus shows a 3px `--green` ring with 3px offset; no disabled state on these pages.
 - **Secondary button:** text link style with an arrow, `--ink`, underline on hover.
 - **Links:** `--green`, underlined in prose, plain in navigation.
-- **Nav bar:** sticky, `--paper` at 96% with a light blur and a `--line` bottom border. Logo left; How it works, Docs, Privacy, a bordered **GitHub** pill (mark + label) and the primary button right. Under 900px the text links move into a menu (a `<details>` panel, no script); under 640px the GitHub pill becomes a 44px icon button, but it is always visible.
-- **Ink button:** like the primary button, in `--ink` with `--paper` text. Used once, for **View on GitHub** in the open-source section.
-- **Code card:** `--band` background, 20px radius, monospace at 15px (13px on phones, wrapping), `$` prompts in `--band-accent`.
+- **Nav bar:** sticky, `--paper` at 96% with a light blur and a `--line` bottom border. Logo left; For groups, For developers, Docs, Privacy, a bordered **GitHub** pill (mark + label) and the primary button right. Under 900px the text links move into a menu (a `<details>` panel, no script); under 640px the GitHub pill becomes a 44px icon button, but it is always visible.
+- **Start card:** the hero's centrepiece. A `--card` panel (28px radius, `--card-shadow`) with a large "What are you planning?" field and two choice buttons: **Vote on a few dates** (the `--cta` gradient; Enter picks it) and **Ask when people are free** (paper with a border). Each is a plain form submit to `/new/pick` or `/new/free` with `?title=`, so the landing page needs no script.
+- **Ghost button (on the dark band):** transparent with a light inset border. Used for **View on GitHub** next to **Read the API docs**.
+- **Code card:** near-black on the dark band, 20px radius, monospace at 14px (12px on phones, wrapping), `$` prompts in `--band-accent`. It shows a real API request that works against venn.day.
 - **Footer:** one row of small links on `--line` top border.
 - **Focus:** every interactive element shows the green ring with `:focus-visible`.
 
 ## Imagery and motion
 
-- The hero is the Venn diagram itself, drawn in SVG: three translucent circles (green, amber, blue) whose shared center fills solid green and carries the agreed time.
-- **Icon** (`favicon.svg`, `favicon.ico`, `icons/icon.svg` and its PNGs, all from `npm run icons`): on a dark `--band` tile, a green circle and an amber circle with a white overlap. It is drawn on a 16 px grid with two colours, so the circles stay distinct in a browser tab instead of blurring into one shape. The app icon is full-bleed, with the circles inside the maskable safe zone. When the icon changes, bump the `?v=` on the icon links so browsers drop their cached copy.
+- **Logo:** three circles in a triangle, a three-way Venn. One shade where one circle covers, a deeper one where two overlap, and the deepest green where all three meet. Each shade is a green gradient. The header shows `favicon.svg` itself, so there is one source.
+- The hero's background is the same three circles, very large and soft (radial `--mint` glows), behind the start card.
+- **Icon** (`favicon.svg`, `favicon.ico`, `icons/icon.svg` and its PNGs, all from `npm run icons`): the logo, drawn on a 16 px grid so the three overlap levels stay distinct in a browser tab. The app icon puts it on `--paper`, inside the maskable safe zone. When the icon changes, bump the `?v=` on the icon links so browsers drop their cached copy.
 - The GitHub mark (Octicons, official) appears only on links to the repository.
 - One real product screenshot (light and dark versions), framed on `--paper-2` and faded at the bottom.
-- No icons, emoji, stock photos or gradients on text.
-- Motion: the circles drift a few pixels on a slow loop. Everything stays still under `prefers-reduced-motion`.
+- Benefits use the logo as their bullet. No other icons, no emoji, no stock photos, no gradients on text.
+- Motion: only small hover lifts on the choice buttons.
 
 ## The app
 

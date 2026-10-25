@@ -286,20 +286,22 @@ test('landing page: nav bar with GitHub, and the way to both kinds of poll', asy
   } else {
     await expect(nav.getByRole('link', { name: 'Privacy' })).toBeVisible();
   }
-  await expect(page.locator('h1')).toHaveText(/Find the time that works/);
-  // Type what you're planning in the hero and land in the creator with it filled in.
-  await page.locator('.hero').getByRole('textbox', { name: 'What are you planning?' }).fill('Team lunch');
-  await page.keyboard.press('Enter');
-  await expect(page).toHaveURL(/\/new\?title=Team\+lunch$/);
-  await expect(page.getByRole('heading', { name: 'What kind of poll?' })).toBeVisible();
-  await page.getByRole('link', { name: /Ask when people are free/ }).click();
-  // The title from the landing page carries through the chooser into the Name field.
+  await expect(page.locator('h1')).toHaveText(/Find the day that works/);
+  // The hero card starts a poll: type the plan, then pick the kind of poll. Enter means "Vote on a few dates".
+  const card = page.locator('.start-card');
+  await card.getByRole('textbox', { name: 'What are you planning?' }).fill('Team lunch');
+  await card.getByRole('button', { name: /Ask when people are free/ }).click();
   await expect(page).toHaveURL(/\/new\/free$/);
   await expect(page.locator('#title')).toHaveValue('Team lunch');
-  await page.getByRole('link', { name: 'Both kinds of poll' }).click();
-  await page.getByRole('link', { name: /Vote on a few dates/ }).click();
+  await page.goto('/');
+  await card.getByRole('textbox', { name: 'What are you planning?' }).fill('Book club');
+  await page.keyboard.press('Enter');
   await expect(page).toHaveURL(/\/new\/pick$/);
-  await page.getByRole('link', { name: 'Venn' }).click();
+  await expect(page.locator('#title')).toHaveValue('Book club');
+  // The nav's "Create a poll" still offers both kinds of poll.
+  await page.goto('/new');
+  await expect(page.getByRole('heading', { name: 'What kind of poll?' })).toBeVisible();
+  await page.getByRole('link', { name: 'Venn', exact: true }).click();
   await expect(page).toHaveURL(/\/$/);
 });
 
