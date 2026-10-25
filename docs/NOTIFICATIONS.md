@@ -2,23 +2,40 @@
 
 Organizers can be told whenever someone responds to a poll, changes their answers or removes them. There are two ways:
 
-- **Email**, sent through [Resend](https://resend.com). Off unless the server has an email key.
+- **Email**, the default. Off until the server has an email provider: [Cloudflare Email Sending](https://developers.cloudflare.com/email-service/) or [Resend](https://resend.com) are built in, and [others can be added](#adding-an-email-provider).
 - **Custom notifications** (webhooks), to Slack, Discord, Zapier, Make or your own endpoint. Always available. The panel shows an example of the JSON and how to check the signature.
 
 Organizers set these up from the **Notifications** button on their poll. Email can also be turned on when creating a poll.
 
 ## Turning on email
 
-1. Create a Resend account and [verify your domain](https://resend.com/docs/dashboard/domains/introduction). Emails will come from an address on it.
+Every provider needs the address emails come from. It must be on a domain the provider has verified, and doesn't need to be a real inbox:
+
+| Setting      | Example                            |
+| ------------ | ---------------------------------- |
+| `EMAIL_FROM` | `Venn <notifications@example.com>` |
+
+Then set up one provider. If several are set up, the first in this list is used, or the one named by `EMAIL_PROVIDER` (`cloudflare` or `resend`).
+
+### Cloudflare Email Sending (Cloudflare only)
+
+No API key: the Worker sends through a binding.
+
+1. In the Cloudflare dashboard, open **Compute & AI → Email Service → Email Sending → Onboard Domain**, and pick your domain (or run `npx wrangler email sending enable example.com`). This adds the SPF and DKIM records.
+2. Add the binding to the Worker. With the deploy workflow, set the repository variable `CLOUDFLARE_EMAIL` to `true`. Deploying by hand, add this to `wrangler.toml`:
+
+   ```toml
+   [[send_email]]
+   name = "EMAIL"
+   ```
+
+3. Set the sender: `npx wrangler secret put EMAIL_FROM`.
+
+### Resend (Cloudflare or Node)
+
+1. Create a Resend account and [verify your domain](https://resend.com/docs/dashboard/domains/introduction). If the domain's DNS is on Cloudflare, Resend can add the records for you.
 2. Create an API key with **Sending access**.
-3. Give the server two settings:
-
-   | Setting          | Example                            |
-   | ---------------- | ---------------------------------- |
-   | `RESEND_API_KEY` | `re_123…` (secret)                 |
-   | `EMAIL_FROM`     | `Venn <notifications@example.com>` |
-
-   On Cloudflare:
+3. Set `RESEND_API_KEY` and `EMAIL_FROM`. On Cloudflare:
 
    ```sh
    npx wrangler secret put RESEND_API_KEY
@@ -27,7 +44,23 @@ Organizers set these up from the **Notifications** button on their poll. Email c
 
    With Node, set them as environment variables.
 
-The "Email me when people answer" field appears on the create pages automatically once both settings are present, and email becomes the first choice in the Notifications panel. Until then, both say that email isn't switched on, and point to custom notifications (webhooks).
+Once a provider and `EMAIL_FROM` are set, `GET /api/config` reports `"email": true`. The "Email me when people answer" field appears on the create pages, and email becomes the first choice in the Notifications panel. Until then, both say that email isn't switched on, and point to custom notifications.
+
+### Adding an email provider
+
+Providers live in [`src/email.js`](../src/email.js). Each one is a small object:
+
+```js
+{
+  name: 'postmark',
+  configured: (env) => Boolean(env.POSTMARK_TOKEN),
+  async send(env, { to, subject, text, html, headers }, { fetchImpl }) {
+    // Send one message. Throw if the provider doesn't accept it.
+  },
+}
+```
+
+Add it to `EMAIL_PROVIDERS`, add a test next to the others in `test/email.test.js`, and document its settings here. Outbound requests run on the server, so the browser's Content Security Policy doesn't change.
 
 ### How email stays safe
 

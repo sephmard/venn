@@ -44,12 +44,12 @@ Put it behind a reverse proxy (Caddy, nginx) for HTTPS. The SQLite file is the o
 
 Each one switches on when its settings exist, and `GET /api/config` reports which are on. Keep secrets in Cloudflare secrets (`npx wrangler secret put NAME`) or environment variables, never in `wrangler.toml`.
 
-| Feature                      | Settings                                         | Guide                             |
-| ---------------------------- | ------------------------------------------------ | --------------------------------- |
-| Email notifications (Resend) | `RESEND_API_KEY`, `EMAIL_FROM`                   | [Notifications](NOTIFICATIONS.md) |
-| Webhook notifications        | Always on. Organizers add a URL from their poll. | [Notifications](NOTIFICATIONS.md) |
-| Google Calendar / Outlook    | `GOOGLE_CLIENT_ID` and/or `MICROSOFT_CLIENT_ID`  | [Calendars](CALENDARS.md)         |
-| AI features (Claude)         | `ANTHROPIC_API_KEY`                              | [AI features](AI.md)              |
+| Feature                   | Settings                                                                             | Guide                             |
+| ------------------------- | ------------------------------------------------------------------------------------ | --------------------------------- |
+| Email notifications       | `EMAIL_FROM`, plus Cloudflare Email Sending (an `EMAIL` binding) or `RESEND_API_KEY` | [Notifications](NOTIFICATIONS.md) |
+| Webhook notifications     | Always on. Organizers add a URL from their poll.                                     | [Notifications](NOTIFICATIONS.md) |
+| Google Calendar / Outlook | `GOOGLE_CLIENT_ID` and/or `MICROSOFT_CLIENT_ID`                                      | [Calendars](CALENDARS.md)         |
+| AI features (Claude)      | `ANTHROPIC_API_KEY`                                                                  | [AI features](AI.md)              |
 
 ## Running a public instance
 
