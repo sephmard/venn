@@ -145,6 +145,7 @@ let cleanup = () => {};
 function route() {
   cleanup();
   cleanup = () => {};
+  document.getElementById('toast').hidden = true;
   const m = location.pathname.match(/^\/e\/([A-Za-z0-9]+)\/?$/);
   if (m) renderEvent(m[1]);
   else renderCreate();
@@ -335,7 +336,7 @@ function renderCreate() {
           .join('');
         const sugg = suggestNext(d);
         return `<div class="day-times">
-          <div class="day-times-head"><b>${esc(dayLabel(d))}</b>${list.length && dates.length > 1 ? `<button type="button" class="btn btn-sm btn-ghost" data-copy="${d}">Use these times on every day</button>` : ''}</div>
+          <div class="day-times-head"><b>${esc(dayLabel(d))}</b>${list.length && dates.length > 1 ? `<button type="button" class="btn btn-sm btn-ghost link-btn" data-copy="${d}">Use these times on every day</button>` : ''}</div>
           <div class="names">${chips || '<span class="small muted">No times yet</span>'}</div>
           <div class="add-time">
             <select data-time="${d}" aria-label="Time to add on ${esc(dayLabel(d))}">${timeChoices.map((m) => `<option value="${m}"${m === sugg ? ' selected' : ''}>${minutesLabel(m)}</option>`).join('')}</select>
@@ -401,12 +402,24 @@ function renderCreate() {
     btn.classList.toggle('selected', dragMode === 'add');
     btn.setAttribute('aria-pressed', dragMode === 'add');
   };
+  let lastPointer = null;
   cal.addEventListener('pointerdown', (e) => {
+    lastPointer = e.pointerType;
     const btn = e.target.closest('.cal-day');
-    if (!btn || btn.disabled) return;
+    if (!btn || btn.disabled || e.pointerType !== 'mouse') return;
     e.preventDefault();
     dragMode = selected.has(btn.dataset.date) ? 'remove' : 'add';
     apply(btn);
+  });
+  // Touch: a click only fires for a tap, not for a scroll that started on the calendar.
+  cal.addEventListener('click', (e) => {
+    const btn = e.target.closest('.cal-day');
+    if (!btn || btn.disabled || !lastPointer || lastPointer === 'mouse') return;
+    lastPointer = null;
+    dragMode = selected.has(btn.dataset.date) ? 'remove' : 'add';
+    apply(btn);
+    dragMode = null;
+    renderCal();
   });
   cal.addEventListener('pointermove', (e) => {
     if (dragMode) apply(document.elementFromPoint(e.clientX, e.clientY)?.closest('.cal-day'));
@@ -570,6 +583,8 @@ async function renderEvent(id) {
   document.title = `${st.ev.title} · Venn`;
   const shareUrl = `${location.origin}/e/${id}`;
   const optionsMode = isOptionsPoll(st.ev);
+  // Phones get the native share sheet (Messages, WhatsApp…); desktops keep copy-to-clipboard.
+  const canShare = !!navigator.share && matchMedia('(pointer: coarse)').matches;
   st.touched = new Set(); // options this visitor explicitly answered (so "No" shows as chosen)
   const me = () => st.ev.participants.find((p) => p.id === saved(id).participantId);
 
@@ -582,7 +597,7 @@ async function renderEvent(id) {
       </div>
       <div class="share">
         <input type="text" readonly value="${esc(shareUrl)}" aria-label="Share link">
-        <button class="btn" id="copy">Copy link</button>
+        <button class="btn" id="copy">${canShare ? 'Share' : 'Copy link'}</button>
       </div>
     </div>
     <div id="banners"></div>
@@ -607,7 +622,7 @@ ${
     ? `
           <div class="btn-row" style="justify-content:space-between">
             <p class="small muted" style="margin:0">Answer each proposed time, then save.</p>
-            <div class="btn-row">
+            <div class="btn-row quick-actions">
               <div class="cal-connect">
                 <button type="button" class="btn btn-sm" id="cal-btn" aria-haspopup="true" aria-expanded="false" aria-controls="cal-menu">Check my calendar</button>
                 <div class="cal-menu" id="cal-menu" hidden>
@@ -628,7 +643,7 @@ ${
               <button type="button" data-brush="${IF_NEEDED}"><span class="swatch swatch-maybe"></span>If needed</button>
               <button type="button" data-brush="0"><span class="swatch swatch-no"></span>Busy</button>
             </div>
-            <div class="btn-row">
+            <div class="btn-row quick-actions">
               <div class="cal-connect">
                 <button type="button" class="btn btn-sm" id="cal-btn" aria-haspopup="true" aria-expanded="false" aria-controls="cal-menu">Check my calendar</button>
                 <div class="cal-menu" id="cal-menu" hidden>
@@ -646,15 +661,17 @@ ${
           <div class="grid-scroll"><div class="grid" id="mine" role="grid" aria-label="Your availability"></div></div>`
 }
         </div>
-        <div class="save-bar">
-          <span id="save-state" class="small"></span>
-          <div class="btn-row">
-            <button type="button" class="btn btn-ghost btn-danger btn-sm" id="leave" hidden>Remove my response</button>
-            <button type="button" class="btn btn-primary" id="save">Save</button>
-          </div>
+        <div class="mine-footer">
+          <p class="small muted" id="edit-link" hidden style="margin:0"></p>
+          <button type="button" class="btn btn-ghost btn-danger btn-sm" id="leave" hidden>Remove my response</button>
         </div>
-        <div class="error" id="save-err" role="alert"></div>
-        <p class="small muted" id="edit-link" hidden style="margin:12px 0 0"></p>
+        <div class="save-bar">
+          <div>
+            <span id="save-state" class="small"></span>
+            <div class="error" id="save-err" role="alert"></div>
+          </div>
+          <button type="button" class="btn btn-primary" id="save">Save</button>
+        </div>
       </section>
       <div class="stack">
         <section class="card" aria-labelledby="best-h">
@@ -676,7 +693,10 @@ ${
     </div>
     </div>`;
 
-  $('#copy').onclick = () => copy(shareUrl);
+  $('#copy').onclick = () =>
+    canShare
+      ? navigator.share({ title: st.ev.title, text: `Which times work for you? ${st.ev.title}`, url: shareUrl }).catch(() => {})
+      : copy(shareUrl);
   $('.share input').onclick = (e) => e.target.select();
   $('#name').value = me()?.name || lastName();
   $('#name').oninput = () => setDirty(true);
@@ -1045,6 +1065,10 @@ ${
     if (v) {
       el.className = 'dirty';
       el.textContent = 'Unsaved changes';
+      if (optionsMode) {
+        const answered = st.ev.slots.filter((s) => st.mine[s] || st.touched.has(String(s))).length;
+        el.textContent += ` · ${answered} of ${st.ev.slots.length} answered`;
+      }
     } else {
       el.className = 'small muted';
       el.textContent = me() ? 'Saved' : '';
@@ -1087,6 +1111,9 @@ ${
       setDirty(false);
       renderAll();
       toast(created ? 'Saved! Others can now see your availability.' : 'Saved');
+      // On phones the results are below a long list: take people there after their first save.
+      if (created && matchMedia('(max-width: 900px)').matches)
+        $('#best-h').scrollIntoView({ behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth' });
     } catch (ex) {
       err.textContent = ex.message;
     } finally {
