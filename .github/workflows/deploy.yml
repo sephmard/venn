@@ -1,0 +1,37 @@
+# Deploys main to Cloudflare Workers. Off by default so forks don't try to deploy.
+# To enable, set in the repo's Settings → Secrets and variables → Actions:
+#   variables: CLOUDFLARE_DEPLOY=true, D1_DATABASE_ID=<from `npx wrangler d1 create overlap`>
+#   secrets:   CLOUDFLARE_API_TOKEN (Workers + D1 edit), CLOUDFLARE_ACCOUNT_ID
+name: Deploy
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: deploy
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    if: vars.CLOUDFLARE_DEPLOY == 'true'
+    runs-on: ubuntu-latest
+    environment: production
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - run: npm ci
+      - run: npm test
+      - name: Set D1 database id
+        run: sed -i "s/REPLACE_WITH_YOUR_D1_DATABASE_ID/${{ vars.D1_DATABASE_ID }}/" wrangler.toml
+      - run: npx wrangler deploy
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
