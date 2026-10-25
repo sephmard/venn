@@ -1,0 +1,5 @@
+User-agent: *
+Disallow: /api/
+Disallow: /e/
+
+Sitemap: https://venn.day/sitemap.xml

@@ -627,7 +627,7 @@ async function renderEvent(id) {
     const me = await load();
     if (me && !st.dirty) st.mine = { ...me.availability };
   } catch (e) {
-    app.innerHTML = `<div class="card empty"><h1>Poll not found</h1><p class="muted">${esc(e.message)}</p><a class="btn btn-primary" href="/" data-link>Create a new poll</a></div>`;
+    app.innerHTML = `<div class="card empty"><h1>Poll not found</h1><p class="muted">${esc(e.message)}</p><a class="btn btn-primary" href="/new" data-link>Create a new poll</a></div>`;
     return;
   }
 
@@ -1651,7 +1651,7 @@ ${
           await api(`events/${id}`, { method: 'DELETE', headers: authHeaders() });
           forget(id, 'adminToken', 'participantId', 'editToken');
           st.dirty = false;
-          navigate('/');
+          navigate('/new');
           toast('Poll deleted');
         } catch (ex) {
           toast(ex.message);

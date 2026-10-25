@@ -6,4 +6,6 @@ test-results/
 playwright-report/
 .DS_Store
 docs/.video/
+.dev.vars*
+.env*
 site/

@@ -2,7 +2,7 @@
   "name": "Venn",
   "short_name": "Venn",
   "description": "Find a time that works for everyone.",
-  "start_url": "/",
+  "start_url": "/new",
   "scope": "/",
   "display": "standalone",
   "background_color": "#f7f7f5",

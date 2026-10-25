@@ -77,14 +77,14 @@ These can't be stored in the code, so set them by hand. They're listed in order.
 
 **Settings → Pages → Build and deployment → Source:** _GitHub Actions_. `pages.yml` then publishes the product page and docs on every push to `main`, at `https://<owner>.github.io/venn/`.
 
-The project's site uses the custom domain **venn.day**, whose DNS is on Cloudflare. To set up a domain like it:
+The project's docs use the subdomain **docs.venn.day** (the app itself is on `venn.day`; see [below](#the-official-site-vennday)). To set up a subdomain like it:
 
-1. **Settings → Pages → Custom domain:** enter the domain and save. Pages deployed by Actions don't need a `CNAME` file.
-2. **Cloudflare → DNS:** add `A` records for the bare domain pointing to `185.199.108.153`, `185.199.109.153`, `185.199.110.153` and `185.199.111.153`. Add `AAAA` records too: `2606:50c0:8000::153`, `2606:50c0:8001::153`, `2606:50c0:8002::153` and `2606:50c0:8003::153`. Add a `CNAME` for `www` pointing to `<owner>.github.io`. Set them all to **DNS only** (grey cloud), so GitHub can issue the HTTPS certificate.
-3. **GitHub → your account → Settings → Pages → Add a domain:** verify the domain with the `TXT` record it gives you. This stops anyone else's repository from claiming it.
+1. **Settings → Pages → Custom domain:** enter `docs.venn.day` and save. Pages deployed by Actions don't need a `CNAME` file.
+2. **Cloudflare → DNS:** add `CNAME docs → <owner>.github.io` set to **DNS only** (grey cloud), so GitHub can issue the HTTPS certificate.
+3. **GitHub → your account → Settings → Pages → Add a domain:** verify `venn.day` with the `TXT` record it gives you. This stops anyone else's repository from claiming any of its subdomains.
 4. Once the certificate is issued, tick **Enforce HTTPS** under the repository's Pages settings.
 
-- Optionally, under **Settings → Secrets and variables → Actions → Variables**, add `APP_URL` with the address of your hosted instance. The site's main button then says **Open Venn** and links there.
+The site's main button links to `https://venn.day`. Forks can point it at their own instance with the repository variable `APP_URL`.
 
 ### 7. Automated review
 
@@ -115,6 +115,21 @@ The app ships with sensible defaults: a strict Content Security Policy, no-refer
 - **Turn on calendar connections (optional).** Follow [CALENDARS.md](CALENDARS.md). Google requires app verification and Microsoft recommends publisher verification before public launch, so start early.
 - **Turn on AI (optional).** Follow [AI.md](AI.md). Keep `ANTHROPIC_API_KEY` in Cloudflare secrets, set a monthly spend limit on your Anthropic account, and consider the `AI_RATE_LIMITER` binding.
 - **Add a privacy page.** Mention that AI features, when used, send the poll text and answers to Anthropic. Say what's stored (titles, names, answers) and how long you keep polls.
+
+## The official site: venn.day
+
+The landing page, privacy page and app are all served by the one Worker. To set it up:
+
+1. **Register the domain.** In the Cloudflare dashboard, go to **Domain Registration → Register Domains** and buy `venn.day`. Registering it with Cloudflare adds it as a zone on the same account automatically. If you buy it elsewhere, add it as a site in Cloudflare and point the registrar's nameservers at the two Cloudflare gives you.
+2. **Create the database**: `npx wrangler d1 create venn`.
+3. **Create an API token** under **My Profile → API Tokens** with _Account → Workers Scripts: Edit_, _Account → D1: Edit_, _Zone → Workers Routes: Edit_ and _Zone → DNS: Edit_ (zone: `venn.day`).
+4. **Set the repository's Actions settings**: variables `CLOUDFLARE_DEPLOY=true`, `D1_DATABASE_ID` and `CUSTOM_DOMAIN=venn.day`; secrets `CLOUDFLARE_API_TOKEN` and `CLOUDFLARE_ACCOUNT_ID`.
+5. **Deploy**: run the **Deploy** workflow, or merge to `main`. Wrangler attaches `venn.day` as a Custom Domain and creates its DNS record and certificate.
+6. **Redirect `www`.** Add a proxied DNS record for `www` (for example `AAAA www 100::`) and a **Rules → Redirect Rules** rule from `www.venn.day/*` to `https://venn.day/${1}` (301, keep the query string).
+7. **Harden it**: work through [hosting a public instance](#hosting-a-public-instance) below: HSTS, the rate-limiting rule and backups. The privacy page is already at `/privacy`; update it if you add another service that handles data.
+8. **Optional extras**: verify `venn.day` in Resend for notification emails (`EMAIL_FROM="Venn <notifications@venn.day>"`), and add `https://venn.day/oauth-callback.html` as a redirect URI for the Google and Microsoft calendar apps.
+
+After changing the landing page's main screenshot, regenerate the social preview with `npm run og`.
 
 ## Releases
 

@@ -120,7 +120,7 @@ async function stills(dark) {
   await tidyShareLink(desktop);
   await shoot(desktop, '#event-root', join(out, `results-${suffix}.png`));
 
-  await desktop.goto(base);
+  await desktop.goto(`${base}/new`);
   await desktop.addStyleTag({ content: HIDE_TOAST });
   await desktop.fill('#title', 'Design review');
   await desktop.fill('#organizer', 'Priya');
@@ -191,7 +191,7 @@ async function recordDemo() {
   };
 
   // 1. Create a poll.
-  await page.goto(base);
+  await page.goto(`${base}/new`);
   await page.waitForTimeout(600);
   await type('#title', 'Design review');
   await type('#organizer', 'Priya');

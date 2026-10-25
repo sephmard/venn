@@ -27,7 +27,7 @@ Branch protection requires one check, **CI passed**. It turns green only when ev
 ## After merging
 
 - **CI runs again on `main`** as a safety net. Pull requests don't have to be up to date with `main` before merging, which keeps them from waiting on each other. If two changes clash, this run shows it right away.
-- **Docs site:** the [website](https://venn.day) rebuilds.
+- **Docs site:** the [docs site](https://docs.venn.day) rebuilds.
 - **Scorecard:** OpenSSF Scorecard re-scores the project's security practices (also weekly).
 - **Dependabot:** proposes updates weekly. Patch and minor updates **merge themselves** once CI passes. Major updates wait for a person.
 
