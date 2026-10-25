@@ -39,22 +39,33 @@ const OCCASIONS = [
 ];
 const DEFAULT_TIMES = [600, 720, 900, 1080, 1140];
 
+// The landing page's "What are you planning?" box sends its text as ?title=. The chooser passes
+// it on, and the form puts it in the Name field.
+const titleFromUrl = () => (new URLSearchParams(location.search).get('title') || '').trim().slice(0, 120);
+function prefillTitle() {
+  const title = titleFromUrl();
+  if (!title) return;
+  $('#title').value = title;
+  history.replaceState(null, '', location.pathname);
+}
+
 // ---------- chooser ----------
 
 export function renderChooser() {
   document.title = 'New poll · Venn';
+  const carry = titleFromUrl() ? `?title=${encodeURIComponent(titleFromUrl())}` : '';
   app.innerHTML = `
     <section class="chooser">
       <h1>What kind of poll?</h1>
       <p class="lede">Two ways to find a date. Pick the one that fits your plans.</p>
       <div class="choices">
-        <a class="choice" href="/new/pick" data-link>
+        <a class="choice" href="/new/pick${carry}" data-link>
           <span class="choice-art art-pick" aria-hidden="true"><i>Fri</i><i class="on">Sat</i><i>Sun</i></span>
           <span class="choice-title">Vote on a few dates</span>
           <span class="choice-text">You suggest some dates or times. Everyone says yes, if needed or no to each one.</span>
           <span class="choice-fit">Good for dinners, book clubs and parties</span>
         </a>
-        <a class="choice" href="/new/free" data-link>
+        <a class="choice" href="/new/free${carry}" data-link>
           <span class="choice-art art-free" aria-hidden="true"><i></i><i></i></span>
           <span class="choice-title">Ask when people are free</span>
           <span class="choice-text">You pick a range of days. Everyone marks when they're free, and Venn finds the overlap.</span>
@@ -542,6 +553,7 @@ export function renderPick() {
   setLength(120);
   showConfig();
   getConfig().then((c) => $('#ai-draft') && ($('#ai-draft').hidden = !c.ai));
+  prefillTitle();
   $('#title').focus();
   return cal.cleanup;
 }
@@ -704,6 +716,7 @@ export function renderFree() {
   setMark('days');
   setWindow('evening');
   showConfig();
+  prefillTitle();
   $('#title').focus();
   return cal.cleanup;
 }

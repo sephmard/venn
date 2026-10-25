@@ -79,15 +79,20 @@
       <section class="wrap hero">
         <div>
           <h1>Find the time that works for <em>everyone.</em></h1>
-          <p class="lede">
-            Dinners, book clubs, game nights and trips. Suggest a few dates or ask when people are free, share one link, and see
-            where everyone overlaps. Free, with no sign-up for you or anyone you invite.
-          </p>
-          <div class="cta-row">
-            <a href="/new" class="btn">Create a poll</a>
-            <a href="#how" class="link-arrow">How it works <span aria-hidden="true">→</span></a>
-          </div>
-          <p class="fine">Takes about a minute. Works on any phone.</p>
+          <p class="lede">Dinners, game nights, trips. Share one link and see when everyone's free. No sign-up.</p>
+          <form class="start" action="/new" method="get">
+            <label for="start-title" class="sr-only">What are you planning?</label>
+            <input
+              id="start-title"
+              name="title"
+              type="text"
+              maxlength="120"
+              placeholder="What are you planning?"
+              autocomplete="off"
+              enterkeyhint="go"
+            />
+            <button class="btn" type="submit">Create poll</button>
+          </form>
         </div>
 
         <svg
@@ -132,20 +137,18 @@
           <ol class="steps">
             <li>
               <span class="num" aria-hidden="true">1</span>
-              <h3>Suggest dates, or ask who's free</h3>
-              <p>
-                Tap a few dates and times for people to vote on, or pick a range of days and let everyone mark when they're free.
-              </p>
+              <h3>Suggest dates</h3>
+              <p>Pick a few dates to vote on, or ask when people are free.</p>
             </li>
             <li>
               <span class="num" aria-hidden="true">2</span>
               <h3>Share one link</h3>
-              <p>People type a name and tap Yes, If needed or No. No app, no account, great on a phone.</p>
+              <p>Everyone taps Yes, If needed or No. No account needed.</p>
             </li>
             <li>
               <span class="num" aria-hidden="true">3</span>
-              <h3>Pick the overlap</h3>
-              <p>Venn ranks every option by who can make it. Choose one and everyone can add it to their calendar.</p>
+              <h3>Pick the winner</h3>
+              <p>Venn ranks every option. Pick one and everyone adds it to their calendar.</p>
             </li>
           </ol>
           <figure class="shot">
@@ -171,20 +174,20 @@
           <h2>No accounts. No ads. <em>No tracking.</em></h2>
           <ul class="facts">
             <li>
-              <h3>Time zones, handled</h3>
-              <p>Everyone sees the times in their own time zone, automatically.</p>
+              <h3>Any time zone</h3>
+              <p>Everyone sees times in their own zone.</p>
             </li>
             <li>
-              <h3>Check your calendar</h3>
-              <p>Fill in answers from Google, Outlook or a calendar file. It stays in your browser.</p>
+              <h3>Your calendar</h3>
+              <p>Fill in answers from Google or Outlook, in your browser.</p>
             </li>
             <li>
-              <h3>Know when people answer</h3>
-              <p>Get an email, or a message in Slack, Discord or any webhook.</p>
+              <h3>Instant updates</h3>
+              <p>Email, Slack or Discord when someone answers.</p>
             </li>
             <li>
               <h3>Two kinds of poll</h3>
-              <p>Vote on a few dates, or find when people are free, even several days in a row for a trip.</p>
+              <p>Vote on dates, or find when people are free, even days in a row.</p>
             </li>
           </ul>
         </div>
@@ -195,10 +198,7 @@
           <div>
             <p class="eyebrow">Open source</p>
             <h2>Free, open, and <em>yours&nbsp;to&nbsp;run.</em></h2>
-            <p class="lede">
-              Venn is MIT licensed and built in the open on GitHub. Read every line, suggest a feature, or run your own copy on
-              Cloudflare or any server with Node.
-            </p>
+            <p class="lede">MIT licensed and built in the open. Read the code, suggest a feature, or run your own.</p>
             <div class="cta-row">
               <a href="https://github.com/sephmard/venn" class="btn btn-ink"
                 ><svg class="gh-mark" viewBox="0 0 16 16" width="20" height="20" aria-hidden="true">
@@ -225,7 +225,19 @@
 
       <section class="wrap closing">
         <h2>Stop the <em>back-and-forth.</em></h2>
-        <a href="/new" class="btn">Create a poll</a>
+        <form class="start" action="/new" method="get">
+          <label for="end-title" class="sr-only">What are you planning?</label>
+          <input
+            id="end-title"
+            name="title"
+            type="text"
+            maxlength="120"
+            placeholder="What are you planning?"
+            autocomplete="off"
+            enterkeyhint="go"
+          />
+          <button class="btn" type="submit">Create poll</button>
+        </form>
       </section>
     </main>
 
