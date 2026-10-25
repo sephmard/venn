@@ -366,88 +366,119 @@ h2 em {
   max-width: 32em;
 }
 
-.start-card {
-  max-width: 620px;
-  margin: 0 auto;
-  padding: 26px;
-  text-align: left;
-  background: var(--card);
-  border-radius: 28px;
-  box-shadow: var(--card-shadow);
-}
-.start-card label {
-  display: block;
-  font-weight: 600;
-  margin: 0 0 10px 4px;
-}
-.start-card input {
-  width: 100%;
-  min-height: 60px;
-  padding: 0 20px;
-  border: 1.5px solid var(--line);
-  border-radius: 16px;
-  background: var(--paper);
-  color: var(--ink);
-  font: 1.25rem var(--sans);
-}
-.start-card input::placeholder {
-  color: var(--ink-2);
-  opacity: 0.8;
-}
-.start-card input:focus {
-  outline: none;
-  border-color: var(--green);
-  box-shadow: 0 0 0 4px var(--green-soft);
-}
-.start-choices {
+/* The two kinds of poll, as big cards: the main way into the app. */
+.start-cards {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: 12px;
-  margin-top: 14px;
+  gap: 20px;
+  max-width: 820px;
+  margin: 0 auto;
+  text-align: left;
 }
-.choice-btn {
+.poll-card {
+  position: relative;
   display: flex;
   flex-direction: column;
-  gap: 4px;
-  min-height: 84px;
-  padding: 16px 18px;
-  border-radius: 18px;
-  border: 1.5px solid var(--line);
-  background: var(--paper);
+  gap: 8px;
+  padding: 28px;
+  background: var(--card);
+  border: 1.5px solid transparent;
+  border-radius: 28px;
+  box-shadow: var(--card-shadow);
   color: var(--ink);
-  text-align: left;
-  font: inherit;
-  cursor: pointer;
+  text-decoration: none;
   transition:
-    transform 0.15s,
-    box-shadow 0.15s,
-    border-color 0.15s;
+    transform 0.18s,
+    border-color 0.18s,
+    box-shadow 0.18s;
 }
-.choice-btn:hover {
-  transform: translateY(-2px);
+.poll-card:hover {
+  transform: translateY(-4px);
   border-color: var(--green);
 }
-.choice-primary {
-  border: 0;
-  background: linear-gradient(135deg, var(--cta-from) 0%, var(--cta-to) 100%);
-  color: var(--cta-ink);
-  box-shadow: 0 12px 28px -12px rgb(6 76 57 / 0.6);
+.poll-card:focus-visible {
+  outline: 3px solid var(--green);
+  outline-offset: 4px;
+  border-radius: 28px;
 }
-.choice-primary .choice-sub {
-  color: var(--cta-ink);
-  opacity: 0.82;
+.poll-art {
+  display: flex;
+  align-items: center;
+  height: 64px;
+  margin-bottom: 10px;
 }
-.choice-title {
-  font-weight: 700;
-  font-size: 1.0625rem;
-}
-.choice-sub {
-  font-size: 0.875rem;
+.art-dates i {
+  display: grid;
+  place-items: center;
+  width: 52px;
+  height: 56px;
+  margin-right: 8px;
+  border-radius: 14px;
+  background: var(--paper-2);
+  border: 1px solid var(--line);
+  font: 600 0.875rem var(--sans);
+  font-style: normal;
   color: var(--ink-2);
 }
-.choice-btn:focus-visible {
-  outline: 3px solid var(--green);
-  outline-offset: 3px;
+.art-dates i.on {
+  background: linear-gradient(135deg, var(--cta-from) 0%, var(--cta-to) 100%);
+  border-color: transparent;
+  color: var(--cta-ink);
+  transform: rotate(-4deg) scale(1.08);
+}
+/* The logo's three circles. */
+.art-free {
+  position: relative;
+  width: 76px;
+}
+.art-free i {
+  position: absolute;
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  background: color-mix(in srgb, var(--green-mid) 45%, transparent);
+}
+.art-free i:nth-child(1) {
+  left: 0;
+  top: 2px;
+}
+.art-free i:nth-child(2) {
+  left: 26px;
+  top: 2px;
+}
+.art-free i:nth-child(3) {
+  left: 13px;
+  top: 22px;
+}
+.poll-title {
+  font: 400 clamp(1.7rem, 3vw, 2.1rem) / 1.05 var(--serif);
+}
+.poll-text {
+  color: var(--ink-2);
+}
+.poll-fit {
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: var(--green);
+}
+.poll-go {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  align-self: flex-start;
+  margin-top: 14px;
+  min-height: 48px;
+  padding: 0 24px;
+  border-radius: 999px;
+  background: linear-gradient(135deg, var(--cta-from) 0%, var(--cta-to) 100%);
+  color: var(--cta-ink);
+  font-weight: 700;
+}
+.poll-go span {
+  transition: transform 0.18s;
+}
+.poll-card:hover .poll-go span {
+  transform: translateX(4px);
 }
 .trust {
   list-style: none;
@@ -843,11 +874,10 @@ h3 {
     width: 380px;
     height: 380px;
   }
-  .start-card {
-    padding: 18px;
-    border-radius: 22px;
+  .poll-card {
+    padding: 22px;
   }
-  .start-choices,
+  .start-cards,
   .dev-points,
   .story {
     grid-template-columns: minmax(0, 1fr);
