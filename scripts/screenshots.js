@@ -1,6 +1,5 @@
-// Regenerates the README images (docs/screenshots/*.png, docs/demo.gif) and the landing page's
-// product shots (public/img/results-*.webp and mobile-*.webp): `npm run screenshots`.
-// Needs Playwright's Chromium (`npx playwright install chromium`) and ffmpeg (for the GIF and WebP).
+// Regenerates the README images (docs/screenshots/*.png, docs/demo.gif): `npm run screenshots`.
+// Needs Playwright's Chromium (`npx playwright install chromium`) and ffmpeg (for the GIF).
 
 import { execFileSync } from 'node:child_process';
 import { mkdirSync, rmSync, readdirSync } from 'node:fs';
@@ -12,7 +11,6 @@ import { zonedToUtc, addDays, weekdayOf } from '../public/core.js';
 
 const root = join(dirname(fileURLToPath(import.meta.url)), '..');
 const out = join(root, 'docs', 'screenshots');
-const web = join(root, 'public', 'img');
 const TZ = 'America/New_York';
 mkdirSync(out, { recursive: true });
 
@@ -59,9 +57,9 @@ const toAvailability = (votes) => Object.fromEntries(OPTIONS.map((o, i) => [o.st
 
 async function seedPoll() {
   const { id, adminToken } = await api('/api/events', {
-    title: 'Dinner at Luca’s',
+    title: 'Dinner at Finn’s',
     emoji: '🍝',
-    location: 'Luca’s Trattoria, 14 Elm St',
+    location: 'Finn’s Trattoria, 14 Elm St',
     description: 'Long table in the back. Bring an appetite.',
     organizer: 'Priya Shah',
     timezone: TZ,
@@ -93,14 +91,6 @@ async function shoot(page, selector, path, { from, crop, pad = 24 } = {}) {
     fullPage: true,
     clip: { x, y: top, width: Math.min(width, c.right + pad) - x, height: bottom - top },
   });
-}
-
-/** The landing page uses WebP copies of some screenshots. */
-function toWebp(png, name) {
-  execFileSync('ffmpeg', [
-    ...['-y', '-loglevel', 'error', '-i', png, '-vf', "scale='min(1600,iw)':-2"],
-    ...['-c:v', 'libwebp', '-quality', '80', join(web, `${name}.webp`)],
-  ]);
 }
 
 const browser = await chromium.launch(process.env.CHROMIUM_PATH ? { executablePath: process.env.CHROMIUM_PATH } : {});
@@ -140,13 +130,12 @@ async function stills(dark) {
   await answerAsSam(desktop, id);
   await desktop.addStyleTag({ content: HIDE_TOAST });
   await shoot(desktop, '#panel-group', join(out, `results-${suffix}.png`), { crop: '#event-root' });
-  toWebp(join(out, `results-${suffix}.png`), `results-${suffix}`);
 
   await desktop.goto(`${base}/new/pick`);
   await desktop.addStyleTag({ content: HIDE_TOAST });
   await desktop.click('[data-occasion="0"]');
-  await desktop.fill('#title', 'Dinner at Luca’s');
-  await desktop.fill('#location', 'Luca’s Trattoria, 14 Elm St');
+  await desktop.fill('#title', 'Dinner at Finn’s');
+  await desktop.fill('#location', 'Finn’s Trattoria, 14 Elm St');
   for (const d of [0, 1, 7, 8]) {
     const date = addDays(fri, d);
     if (!(await desktop.locator(`[data-date="${date}"]`).count())) await desktop.click('[data-nav="1"]');
@@ -167,7 +156,6 @@ async function stills(dark) {
     window.scrollTo(0, document.querySelector('.tabs').getBoundingClientRect().top + window.scrollY - 12),
   );
   await phone.screenshot({ path: join(out, `mobile-${suffix}.png`) });
-  toWebp(join(out, `mobile-${suffix}.png`), `mobile-${suffix}`);
   await phone.context().close();
 }
 
@@ -216,7 +204,7 @@ async function recordDemo() {
   await page.waitForTimeout(700);
   await click('a[href="/new/pick"]', 600);
   await click('[data-occasion="0"]', 300);
-  await type('#title', 'Dinner at Luca’s');
+  await type('#title', 'Dinner at Finn’s');
   for (const d of [0, 1, 7, 8]) {
     const date = addDays(fri, d);
     if (!(await page.locator(`[data-date="${date}"]`).count())) await click('[data-nav="1"]', 300);

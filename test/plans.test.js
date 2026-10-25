@@ -95,8 +95,8 @@ test('options can be all day or span several days', () => {
 });
 
 test('location and emoji are kept; anything that is not emoji is refused', () => {
-  const ev = days({ location: '  Luca’s, 12 Main St ', emoji: '🍝' });
-  assert.equal(ev.location, 'Luca’s, 12 Main St');
+  const ev = days({ location: '  Finn’s, 12 Main St ', emoji: '🍝' });
+  assert.equal(ev.location, 'Finn’s, 12 Main St');
   assert.equal(ev.emoji, '🍝');
   assert.equal(days({ emoji: '🧑‍🤝‍🧑' }).emoji, '🧑‍🤝‍🧑');
   assert.equal('location' in days(), false);
