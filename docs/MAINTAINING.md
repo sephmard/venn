@@ -32,7 +32,7 @@ These can't be stored in the code, so set them by hand. They're listed in order.
 **Settings → Rules → Rulesets → New ruleset → Import a ruleset**, and choose [`.github/rulesets/protect-main.json`](../.github/rulesets/protect-main.json). It:
 
 - requires a pull request, with all review threads resolved, and allows squash merges only
-- requires the **CI passed** check, on a branch that's up to date with `main`
+- requires the **CI passed** check. Branches don't have to be up to date with `main`; CI runs again on `main` after each merge. If you imported an earlier version of this ruleset, edit it and untick **Require branches to be up to date before merging**
 - blocks force-pushes and deleting `main`, and keeps history linear
 - lets repository admins bypass only when merging a pull request (for emergencies), never by pushing directly
 
@@ -68,7 +68,25 @@ These can't be stored in the code, so set them by hand. They're listed in order.
 - Optionally add yourself as a **Required reviewer**, so each deploy waits for one click.
 - Put `CLOUDFLARE_API_TOKEN` and `CLOUDFLARE_ACCOUNT_ID` here as **environment secrets**, not repository secrets, so only this job can read them. Use a Cloudflare API token limited to Workers and D1 for this one account.
 
-### 6. Community
+### 6. GitHub Pages
+
+**Settings → Pages → Build and deployment → Source:** _GitHub Actions_. `pages.yml` then publishes the product page and docs on every push to `main`, at `https://<owner>.github.io/venn/`.
+
+- Optionally, under **Settings → Secrets and variables → Actions → Variables**, add `APP_URL` with the address of your hosted instance. The site's main button then says **Open Venn** and links there.
+
+### 7. Automated review
+
+`claude-review.yml` reviews every non-draft pull request from this repository and leaves inline comments. It's advisory: it never blocks merging.
+
+- Add an Anthropic API key as the repository secret **`ANTHROPIC_API_KEY`** (**Settings → Secrets and variables → Actions**). Without it the job skips with a notice.
+- Pull requests from forks are never reviewed automatically, because they can't read secrets.
+- The review follows the rules in [`CLAUDE.md`](../CLAUDE.md). Edit that file to change what it looks for.
+
+### 8. Dependabot auto-merge
+
+`dependabot-auto-merge.yml` turns on auto-merge for Dependabot's patch and minor updates, so they merge once **CI passed** is green. This needs **Allow auto-merge** from step 2. Major updates wait for a person.
+
+### 9. Community
 
 - In `CODE_OF_CONDUCT.md`, replace `[INSERT CONTACT METHOD]` with an address for reporting conduct issues.
 - Add the repository description, website and topics under **About** on the repository page.

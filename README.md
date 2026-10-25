@@ -14,9 +14,11 @@
   <a href="https://github.com/sephmard/venn/actions/workflows/ci.yml"><img src="https://github.com/sephmard/venn/actions/workflows/ci.yml/badge.svg" alt="CI status"></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-0f9d76.svg" alt="MIT license"></a>
   <a href="CONTRIBUTING.md"><img src="https://img.shields.io/badge/PRs-welcome-0f9d76.svg" alt="PRs welcome"></a>
+  <a href="https://scorecard.dev/viewer/?uri=github.com/sephmard/venn"><img src="https://api.scorecard.dev/projects/github.com/sephmard/venn/badge" alt="OpenSSF Scorecard"></a>
 </p>
 
 <p align="center">
+  <a href="https://sephmard.github.io/venn/">Website &amp; docs</a> ·
   <a href="#quick-start">Quick start</a> ·
   <a href="#self-hosting">Self-hosting</a> ·
   <a href="#privacy">Privacy</a> ·

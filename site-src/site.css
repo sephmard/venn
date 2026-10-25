@@ -1,0 +1,341 @@
+/* Styles for the GitHub Pages site (product page + docs). Same colours as the app. */
+:root {
+  --bg: #f7f7f5;
+  --surface: #ffffff;
+  --surface-2: #f0f0ec;
+  --border: #e2e2dc;
+  --text: #1c1d1f;
+  --muted: #5c5f63;
+  --accent: #0b7a5c;
+  --accent-ink: #ffffff;
+  --accent-soft: #dff3ec;
+  --code-bg: #f0f0ec;
+  --radius: 12px;
+  color-scheme: light;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #131416;
+    --surface: #1c1d20;
+    --surface-2: #25262a;
+    --border: #33353a;
+    --text: #ececec;
+    --muted: #a3a5aa;
+    --accent: #2fc497;
+    --accent-ink: #0b1f19;
+    --accent-soft: #173a30;
+    --code-bg: #25262a;
+    color-scheme: dark;
+  }
+}
+* {
+  box-sizing: border-box;
+}
+html,
+body {
+  margin: 0;
+}
+body {
+  background: var(--bg);
+  color: var(--text);
+  font:
+    16px/1.6 system-ui,
+    -apple-system,
+    'Segoe UI',
+    Roboto,
+    sans-serif;
+}
+a {
+  color: var(--accent);
+}
+img {
+  max-width: 100%;
+  height: auto;
+}
+.wrap {
+  max-width: 1080px;
+  margin: 0 auto;
+  padding: 0 20px;
+}
+
+/* top bar */
+.top {
+  border-bottom: 1px solid var(--border);
+  background: var(--surface);
+}
+.top .wrap {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  min-height: 60px;
+}
+.brand {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-weight: 700;
+  font-size: 1.15rem;
+  color: var(--text);
+  text-decoration: none;
+}
+.top nav {
+  display: flex;
+  gap: 18px;
+  flex-wrap: wrap;
+}
+.top nav a {
+  color: var(--text);
+  text-decoration: none;
+  font-weight: 500;
+}
+.top nav a:hover,
+.top nav a[aria-current='page'] {
+  color: var(--accent);
+}
+
+/* buttons */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 46px;
+  padding: 10px 20px;
+  border-radius: 10px;
+  font-weight: 600;
+  text-decoration: none;
+  border: 1px solid var(--border);
+  color: var(--text);
+  background: var(--surface);
+}
+.btn-primary {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--accent-ink);
+}
+.btn-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  justify-content: center;
+}
+
+/* landing */
+.hero {
+  text-align: center;
+  padding: 64px 0 32px;
+}
+.hero h1 {
+  font-size: clamp(2rem, 6vw, 3.4rem);
+  line-height: 1.1;
+  letter-spacing: -0.02em;
+  margin: 16px 0 12px;
+}
+.hero p {
+  font-size: 1.15rem;
+  color: var(--muted);
+  max-width: 620px;
+  margin: 0 auto 28px;
+}
+.demo {
+  margin: 40px auto 0;
+  max-width: 900px;
+  border-radius: var(--radius);
+  border: 1px solid var(--border);
+  overflow: hidden;
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.12);
+}
+.demo img {
+  display: block;
+  width: 100%;
+}
+section {
+  padding: 56px 0;
+}
+section h2 {
+  font-size: 1.8rem;
+  letter-spacing: -0.01em;
+  margin: 0 0 8px;
+  text-align: center;
+}
+.lead {
+  text-align: center;
+  color: var(--muted);
+  max-width: 640px;
+  margin: 0 auto 32px;
+}
+.features {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 16px;
+}
+.feature {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 20px;
+}
+.feature h3 {
+  margin: 0 0 6px;
+  font-size: 1.05rem;
+}
+.feature p {
+  margin: 0;
+  color: var(--muted);
+}
+.steps {
+  display: grid;
+  gap: 40px;
+}
+.step {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1.4fr);
+  gap: 32px;
+  align-items: center;
+}
+.step img {
+  border-radius: var(--radius);
+  border: 1px solid var(--border);
+}
+.step .num {
+  display: inline-grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: var(--accent);
+  color: var(--accent-ink);
+  font-weight: 700;
+}
+.step h3 {
+  font-size: 1.4rem;
+  margin: 10px 0 6px;
+}
+.step p {
+  color: var(--muted);
+  margin: 0;
+}
+.step.phone img {
+  max-width: 300px;
+  justify-self: center;
+}
+@media (max-width: 760px) {
+  .step {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 16px;
+  }
+}
+.band {
+  background: var(--surface);
+  border-top: 1px solid var(--border);
+  border-bottom: 1px solid var(--border);
+}
+.cta {
+  text-align: center;
+}
+
+/* docs */
+.docs {
+  display: grid;
+  grid-template-columns: 220px minmax(0, 1fr);
+  gap: 40px;
+  padding: 32px 0 64px;
+}
+.docs aside nav {
+  position: sticky;
+  top: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.docs aside a {
+  color: var(--text);
+  text-decoration: none;
+  padding: 6px 10px;
+  border-radius: 8px;
+}
+.docs aside a:hover {
+  background: var(--surface-2);
+}
+.docs aside a[aria-current='page'] {
+  background: var(--accent-soft);
+  color: var(--text);
+  font-weight: 600;
+}
+@media (max-width: 760px) {
+  .docs {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 16px;
+  }
+  .docs aside nav {
+    position: static;
+    flex-direction: row;
+    flex-wrap: wrap;
+  }
+}
+.prose {
+  min-width: 0;
+}
+.prose h1 {
+  font-size: 2rem;
+  line-height: 1.2;
+  margin-top: 0;
+}
+.prose h2 {
+  margin-top: 2em;
+  padding-bottom: 4px;
+  border-bottom: 1px solid var(--border);
+}
+.prose code {
+  background: var(--code-bg);
+  border-radius: 5px;
+  padding: 0.1em 0.35em;
+  font-size: 0.9em;
+}
+.prose pre {
+  background: var(--code-bg);
+  border-radius: 10px;
+  padding: 14px 16px;
+  overflow-x: auto;
+}
+.prose pre code {
+  background: none;
+  padding: 0;
+}
+.prose table {
+  border-collapse: collapse;
+  display: block;
+  overflow-x: auto;
+  margin: 1em 0;
+}
+.prose th,
+.prose td {
+  border: 1px solid var(--border);
+  padding: 6px 10px;
+  text-align: left;
+  vertical-align: top;
+}
+.prose th {
+  background: var(--surface-2);
+}
+.prose blockquote {
+  margin: 1em 0;
+  padding: 4px 16px;
+  border-left: 4px solid var(--accent);
+  background: var(--surface);
+  border-radius: 0 8px 8px 0;
+}
+
+footer {
+  border-top: 1px solid var(--border);
+  color: var(--muted);
+  font-size: 0.9rem;
+}
+footer .wrap {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  justify-content: space-between;
+  padding-top: 24px;
+  padding-bottom: 24px;
+}
