@@ -1,10 +1,10 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
-  <rect width="512" height="512" fill="#0b7a5c"/>
-  <!-- Same drawing as favicon.svg, scaled to 512 and kept inside the maskable safe zone. -->
-  <g transform="translate(256 256) scale(13.6) translate(-16 -16)">
-    <defs><clipPath id="a"><circle cx="11.6" cy="16" r="7.6"/></clipPath></defs>
-    <circle cx="20.4" cy="16" r="7.6" fill="#fff" clip-path="url(#a)"/>
-    <circle cx="11.6" cy="16" r="7.6" fill="none" stroke="#fff" stroke-width="2.4"/>
-    <circle cx="20.4" cy="16" r="7.6" fill="none" stroke="#fff" stroke-width="2.4"/>
+  <rect width="512" height="512" fill="#faf8f4"/>
+  <!-- favicon.svg's drawing, scaled up and kept inside the maskable safe zone. -->
+  <g transform="translate(256 256) scale(21) translate(-8 -8.2)">
+    <defs><linearGradient id="one" x1="0" y1="0" x2="16" y2="16" gradientUnits="userSpaceOnUse"><stop offset="0" stop-color="#c3f2de"/><stop offset="1" stop-color="#7fd9b4"/></linearGradient><linearGradient id="two" x1="0" y1="0" x2="16" y2="16" gradientUnits="userSpaceOnUse"><stop offset="0" stop-color="#5fd0a2"/><stop offset="1" stop-color="#1f9d72"/></linearGradient><linearGradient id="three" x1="0" y1="0" x2="16" y2="16" gradientUnits="userSpaceOnUse"><stop offset="0" stop-color="#0f8a63"/><stop offset="1" stop-color="#064c39"/></linearGradient><clipPath id="a"><circle cx="5.6" cy="6.1" r="4.6"/></clipPath><clipPath id="b"><circle cx="10.4" cy="6.1" r="4.6"/></clipPath></defs>
+<g fill="url(#one)"><circle cx="5.6" cy="6.1" r="4.6"/><circle cx="10.4" cy="6.1" r="4.6"/><circle cx="8" cy="10.3" r="4.6"/></g>
+<g fill="url(#two)"><circle cx="10.4" cy="6.1" r="4.6" clip-path="url(#a)"/><circle cx="8" cy="10.3" r="4.6" clip-path="url(#a)"/><circle cx="8" cy="10.3" r="4.6" clip-path="url(#b)"/></g>
+<g clip-path="url(#a)"><g clip-path="url(#b)"><circle cx="8" cy="10.3" r="4.6" fill="url(#three)"/></g></g>
   </g>
 </svg>
