@@ -3,27 +3,23 @@
 [![CI](https://github.com/sephmard/venn/actions/workflows/ci.yml/badge.svg)](https://github.com/sephmard/venn/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 
-A free, open-source alternative to Doodle for finding a time to meet. Everyone's availability is a circle; Venn finds where they overlap. Propose some times, share one link, and everyone marks what works. Venn shows the best time straight away.
+Free scheduling polls for finding a time to meet. Everyone's availability is a circle; Venn finds where they overlap. Propose some times, share one link, and everyone marks what works. Venn shows the best time straight away.
 
 Two kinds of poll:
 
 - **Propose specific times** (default): you suggest exact times, like "Tue 2pm, Wed 10am". Invitees answer each one with _Yes_, _If needed_ or _No_, like a survey.
-- **Open time range**: you pick days and an hours window, and people paint when they're free on a grid (like when2meet).
+- **Open time range**: you pick days and an hours window, and people paint when they're free on a grid.
 
-## Why it's better than Doodle
+## Why Venn
 
-|                     | Doodle (free)              | Venn                                                                                                    |
-| ------------------- | -------------------------- | ------------------------------------------------------------------------------------------------------- |
-| Accounts            | Organizer must sign up     | None, for anyone                                                                                        |
-| Ads / tracking      | Yes                        | None                                                                                                    |
-| Proposing times     | Type each option           | Pick dates on a calendar, add times with one click, and copy a day's times to every day                 |
-| Answering           | Small checkboxes           | Big Yes / If needed / No buttons per time with live tallies, or click-and-drag painting for range polls |
-| "If needed" answers | Yes                        | Yes                                                                                                     |
-| Time zones          | Confusing for participants | Every viewer sees times in their own zone, and can switch zones                                         |
-| Meeting length      | You pre-pick fixed options | Ranks every start time where people can make the _whole_ meeting                                        |
-| Your calendar       | Paid feature               | Check an `.ics` export against the proposed times, privately in your browser                            |
-| Finalizing          | Paid features for invites  | Pick the time, then everyone gets Google / Outlook / Apple calendar links                               |
-| Hosting             | Their servers              | Yours, free on Cloudflare or any Node host                                                              |
+- **Free, with no accounts and no ads.** Nobody signs up, not even the organizer.
+- **Fast to set up.** Pick dates on a calendar, add times with one click, and copy a day's times to every day.
+- **Easy to answer.** Big _Yes_ / _If needed_ / _No_ buttons for each time with live tallies, or click-and-drag painting for range polls. Works well on phones.
+- **Time zones handled.** Everyone sees times in their own zone, and can switch zones.
+- **Picks the best time for you.** Ranks options by how many people can make the _whole_ meeting.
+- **Private calendar check.** Check a calendar export (`.ics`) against the proposed times. The file never leaves your browser.
+- **Ready for calendars.** Once a time is picked, everyone gets Google, Outlook and Apple calendar links.
+- **Yours to host.** Run it free on Cloudflare or on any Node server.
 
 ## How it works
 
@@ -31,7 +27,7 @@ Two kinds of poll:
    - _Specific times_: add the times you want to propose for each date. "Use these times on every day" copies them across.
    - _Open range_: set the daily window, slot size (15/30/60 min) and meeting length.
 2. **Share**: send the link. People enter their name and answer each time (or paint the grid). They can also check against a calendar file. They don't need an account.
-3. **Decide**: **Best times** ranks options by how many people can make it, then by firm yeses. The **Everyone** table shows who answered what, Doodle-style, with the most popular times highlighted.
+3. **Decide**: **Best times** ranks options by how many people can make it, then by firm yeses. The **Everyone** table shows who answered what, with the most popular times highlighted.
 4. **Finalize**: the organizer picks a time. The poll then shows add-to-calendar buttons for everyone.
 
 Secrets for the organizer and for each participant's edits live in the URL _fragment_, which is never sent to the server, and in the browser's local storage. Only their SHA-256 hashes are stored on the server. Personal "edit links" let people edit their response from another device.

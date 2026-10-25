@@ -1,7 +1,7 @@
 {
   "name": "venn",
   "version": "0.1.0",
-  "description": "Free, open-source Doodle alternative: propose times, share one link, everyone marks what works. No accounts, no ads.",
+  "description": "Free scheduling polls. Propose times, share a link, see when everyone overlaps. No accounts, no ads.",
   "private": true,
   "type": "module",
   "license": "MIT",
