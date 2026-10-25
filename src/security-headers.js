@@ -4,7 +4,8 @@
 export const SECURITY_HEADERS = {
   'content-security-policy':
     "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; " +
-    "connect-src 'self'; font-src 'self'; object-src 'none'; base-uri 'none'; form-action 'self'; frame-ancestors 'none'",
+    // Calendar free/busy lookups happen in the browser, straight to Google and Microsoft.
+    "connect-src 'self' https://www.googleapis.com https://login.microsoftonline.com https://graph.microsoft.com; font-src 'self'; object-src 'none'; base-uri 'none'; form-action 'self'; frame-ancestors 'none'",
   // Poll links are shared secrets of a sort: never leak them to sites people click through to.
   'referrer-policy': 'no-referrer',
   'x-content-type-options': 'nosniff',

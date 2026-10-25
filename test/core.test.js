@@ -213,3 +213,17 @@ test('calendar import checks each proposed time against busy events', () => {
   const busy = [{ start: t0 + 3.25 * H, end: t0 + 4 * H }];
   assert.deepEqual(Object.keys(availabilityFromBusy(eventWindows(ev), busy)).map(Number), [t0, t0 + 24 * H]);
 });
+
+test('tentative clashes become "if needed"', () => {
+  const windows = [
+    { start: 0, end: 10 },
+    { start: 10, end: 20 },
+    { start: 20, end: 30 },
+  ];
+  const busy = [
+    { start: 12, end: 15, tentative: true },
+    { start: 25, end: 26 },
+    { start: 28, end: 40, tentative: true },
+  ];
+  assert.deepEqual(availabilityFromBusy(windows, busy), { 0: YES, 10: IF_NEEDED });
+});
