@@ -4,11 +4,23 @@ updates:
     directory: /
     schedule:
       interval: weekly
+    # Wait a few days before proposing a new release, so compromised versions
+    # that get pulled quickly never reach us.
+    cooldown:
+      default-days: 3
     groups:
       dev-dependencies:
         dependency-type: development
     open-pull-requests-limit: 5
+    labels: [dependencies]
+
   - package-ecosystem: github-actions
     directory: /
     schedule:
       interval: weekly
+    cooldown:
+      default-days: 3
+    groups:
+      github-actions:
+        patterns: ['*']
+    labels: [dependencies]

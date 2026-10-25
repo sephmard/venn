@@ -20,17 +20,23 @@ jobs:
   deploy:
     if: vars.CLOUDFLARE_DEPLOY == 'true'
     runs-on: ubuntu-latest
+    timeout-minutes: 15
+    # Add protection rules to this environment (Settings → Environments) so only main can deploy.
     environment: production
     steps:
-      - uses: actions/checkout@v5
-      - uses: actions/setup-node@v5
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version-file: .nvmrc
           cache: npm
       - run: npm ci
       - run: npm test
       - name: Set D1 database id
-        run: sed -i "s/REPLACE_WITH_YOUR_D1_DATABASE_ID/${{ vars.D1_DATABASE_ID }}/" wrangler.toml
+        env:
+          D1_DATABASE_ID: ${{ vars.D1_DATABASE_ID }}
+        run: sed -i "s/REPLACE_WITH_YOUR_D1_DATABASE_ID/${D1_DATABASE_ID}/" wrangler.toml
       - run: npx wrangler deploy
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
