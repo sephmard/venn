@@ -18,7 +18,13 @@ export default defineConfig({
   ],
   webServer: {
     command: 'node server.js',
-    env: { PORT: String(PORT), DB_PATH: ':memory:' },
+    // Fake OAuth client IDs switch on the calendar buttons; the tests mock Google and Microsoft.
+    env: {
+      PORT: String(PORT),
+      DB_PATH: ':memory:',
+      GOOGLE_CLIENT_ID: 'test-google-client',
+      MICROSOFT_CLIENT_ID: 'test-ms-client',
+    },
     url: `http://localhost:${PORT}`,
     reuseExistingServer: !process.env.CI,
   },

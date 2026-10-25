@@ -139,7 +139,15 @@ export async function handleApi(
   try {
     // GET /api/config — which optional features this server has switched on
     if (parts.length === 1 && parts[0] === 'config' && method === 'GET') {
-      return json({ email: emailEnabled(env) });
+      return json({
+        email: emailEnabled(env),
+        // OAuth client IDs are public by design; they only identify the app to Google/Microsoft.
+        calendars: {
+          google: env.GOOGLE_CLIENT_ID || null,
+          microsoft: env.MICROSOFT_CLIENT_ID || null,
+          microsoftTenant: env.MICROSOFT_TENANT || 'common',
+        },
+      });
     }
 
     // POST /api/events

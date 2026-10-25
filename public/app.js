@@ -15,6 +15,7 @@ import {
   utcToZoned,
   zonedToUtc,
 } from './core.js';
+import { PROVIDERS, fetchBusy, needsSignIn, openSignInWindow } from './calendars.js';
 
 const app = document.getElementById('app');
 const localTz = Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC';
@@ -607,7 +608,15 @@ ${
           <div class="btn-row" style="justify-content:space-between">
             <p class="small muted" style="margin:0">Answer each proposed time, then save.</p>
             <div class="btn-row">
-              <span class="btn btn-sm file-btn" title="Check the proposed times against a calendar export (.ics)">Check my calendar<input type="file" id="ics" accept=".ics,text/calendar"></span>
+              <div class="cal-connect">
+                <button type="button" class="btn btn-sm" id="cal-btn" aria-haspopup="true" aria-expanded="false" aria-controls="cal-menu">Check my calendar</button>
+                <div class="cal-menu" id="cal-menu" hidden>
+                  <button type="button" class="cal-item" data-provider="google" hidden>Google Calendar</button>
+                  <button type="button" class="cal-item" data-provider="microsoft" hidden>Outlook / Microsoft 365</button>
+                  <label class="cal-item file-item">Calendar file (.ics)<input type="file" id="ics" accept=".ics,text/calendar"></label>
+                  <p class="small muted">Only busy and free times are read, right here in your browser. Nothing is shared until you save.</p>
+                </div>
+              </div>
               <button type="button" class="btn btn-sm btn-ghost" id="fill">Yes to all</button>
               <button type="button" class="btn btn-sm btn-ghost" id="none">Clear</button>
             </div>
@@ -620,7 +629,15 @@ ${
               <button type="button" data-brush="0"><span class="swatch swatch-no"></span>Busy</button>
             </div>
             <div class="btn-row">
-              <span class="btn btn-sm file-btn" title="Mark the times you're busy from a calendar export (.ics)">Import calendar<input type="file" id="ics" accept=".ics,text/calendar"></span>
+              <div class="cal-connect">
+                <button type="button" class="btn btn-sm" id="cal-btn" aria-haspopup="true" aria-expanded="false" aria-controls="cal-menu">Check my calendar</button>
+                <div class="cal-menu" id="cal-menu" hidden>
+                  <button type="button" class="cal-item" data-provider="google" hidden>Google Calendar</button>
+                  <button type="button" class="cal-item" data-provider="microsoft" hidden>Outlook / Microsoft 365</button>
+                  <label class="cal-item file-item">Calendar file (.ics)<input type="file" id="ics" accept=".ics,text/calendar"></label>
+                  <p class="small muted">Only busy and free times are read, right here in your browser. Nothing is shared until you save.</p>
+                </div>
+              </div>
               <button type="button" class="btn btn-sm btn-ghost" id="fill">All</button>
               <button type="button" class="btn btn-sm btn-ghost" id="none">None</button>
             </div>
@@ -955,23 +972,66 @@ ${
     setDirty(true);
   };
 
+  // ----- check my calendar: Google, Outlook or an .ics file -----
+  const windows = eventWindows(st.ev);
+  const range = [windows[0].start, Math.max(...windows.map((w) => w.end))];
+  const calBtn = $('#cal-btn');
+  const calMenu = $('#cal-menu');
+  const setMenu = (open) => {
+    calMenu.hidden = !open;
+    calBtn.setAttribute('aria-expanded', open);
+  };
+  calBtn.onclick = () => setMenu(calMenu.hidden);
+  const closeMenu = (e) => !calMenu.hidden && !e.target.closest('.cal-connect') && setMenu(false);
+  document.addEventListener('click', closeMenu);
+  getConfig().then((c) => {
+    for (const b of calMenu.querySelectorAll('[data-provider]')) b.hidden = !c.calendars?.[b.dataset.provider];
+  });
+
+  function applyBusy(busy, source) {
+    if (Object.keys(st.mine).length && !confirm(`Replace your current answers with what ${source} says?`)) return;
+    st.mine = availabilityFromBusy(windows, busy);
+    for (const w of windows) st.touched.add(String(w.start));
+    refreshMine();
+    setDirty(true);
+    renderGroup();
+    renderBest();
+    const free = windows.filter((w) => st.mine[w.start] === YES).length;
+    const maybe = windows.filter((w) => st.mine[w.start] === IF_NEEDED).length;
+    const what = optionsMode ? 'time' : 'slot';
+    toast(
+      `Checked ${source}: ${free} of ${windows.length} ${what}s are free${maybe ? `, ${maybe} clash with tentative events` : ''}. Review and save.`,
+    );
+  }
+
+  calMenu.addEventListener('click', async (e) => {
+    const item = e.target.closest('[data-provider]');
+    if (!item) return;
+    const provider = item.dataset.provider;
+    // Open the popup right away: browsers block popups opened after an await.
+    const popup = needsSignIn(provider) ? openSignInWindow() : null;
+    setMenu(false);
+    calBtn.disabled = true;
+    calBtn.textContent = 'Checking…';
+    try {
+      const { calendars } = await getConfig();
+      applyBusy(await fetchBusy(provider, calendars, range[0], range[1], popup), `your ${PROVIDERS[provider].label}`);
+    } catch (ex) {
+      popup?.close();
+      toast(ex.message);
+    } finally {
+      calBtn.disabled = false;
+      calBtn.textContent = 'Check my calendar';
+    }
+  });
+
   $('#ics').onchange = async (e) => {
     const file = e.target.files[0];
     e.target.value = '';
+    setMenu(false);
     if (!file) return;
     try {
-      const windows = eventWindows(st.ev);
-      const busy = parseIcsBusy(await file.text(), windows[0].start, Math.max(...windows.map((w) => w.end)), st.tz);
-      if (Object.keys(st.mine).length && !confirm('Replace what you have painted with the free times from your calendar?'))
-        return;
-      st.mine = availabilityFromBusy(windows, busy);
-      for (const w of windows) st.touched.add(String(w.start));
-      refreshMine();
-      setDirty(true);
-      const free = Object.keys(st.mine).length;
-      toast(
-        `Found ${busy.length} busy event${busy.length === 1 ? '' : 's'}; marked ${free} free slot${free === 1 ? '' : 's'}. Review and save.`,
-      );
+      applyBusy(parseIcsBusy(await file.text(), range[0], range[1], st.tz), 'your calendar file');
     } catch (ex) {
       console.error(ex);
       toast("Couldn't read that calendar file.");
@@ -1444,6 +1504,7 @@ ${
     window.removeEventListener('pointerup', endPaint);
     window.removeEventListener('pointercancel', endPaint);
     window.removeEventListener('beforeunload', beforeUnload);
+    document.removeEventListener('click', closeMenu);
   };
 
   renderAll();

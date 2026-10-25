@@ -519,11 +519,16 @@ export function eventWindows(ev) {
   return buildSlots(ev).map((s) => ({ start: s, end: s + ev.slotMinutes * MINUTE }));
 }
 
-/** Turn busy intervals into an availability map: free windows = YES, busy ones omitted. */
+/**
+ * Turn busy intervals into an availability map: free windows = YES, windows that only
+ * clash with tentative events = IF_NEEDED, busy ones omitted (no).
+ */
 export function availabilityFromBusy(windows, busy) {
   const out = {};
   for (const w of windows) {
-    if (!busy.some((b) => b.start < w.end && b.end > w.start)) out[w.start] = YES;
+    const clashes = busy.filter((b) => b.start < w.end && b.end > w.start);
+    if (!clashes.length) out[w.start] = YES;
+    else if (clashes.every((b) => b.tentative)) out[w.start] = IF_NEEDED;
   }
   return out;
 }

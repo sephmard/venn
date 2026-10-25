@@ -88,7 +88,7 @@ const poll = {
 const emails = () => sent.filter((s) => s.url === 'https://api.resend.com/emails');
 
 test('email notifications need confirming, then arrive, and can be stopped', async () => {
-  assert.deepEqual((await call('/api/config')).data, { email: true });
+  assert.equal((await call('/api/config')).data.email, true);
 
   const { data } = await call('/api/events', { method: 'POST', body: { ...poll, notifyEmail: 'Sam@Example.com' } });
   const { id, adminToken } = data;
@@ -191,9 +191,10 @@ test('signed webhooks, Slack formatting and the test button', async () => {
   assert.match(sent[0].body.text, /^Lee responded to “Design review”.*\/e\//);
 });
 
-test('email is refused when the server has no email service', async () => {
+test('email is refused when the server has no email service', async (t) => {
   const bare = createApp({ env: {} });
   await new Promise((r) => bare.listen(0, r));
+  t.after(() => bare.close());
   const url = `http://localhost:${bare.address().port}`;
   const res = await fetch(`${url}/api/events`, {
     method: 'POST',
@@ -201,6 +202,21 @@ test('email is refused when the server has no email service', async () => {
     body: JSON.stringify({ ...poll, notifyEmail: 'a@b.co' }),
   });
   assert.equal(res.status, 400);
-  assert.deepEqual(await (await fetch(`${url}/api/config`)).json(), { email: false });
-  bare.close();
+  const config = await (await fetch(`${url}/api/config`)).json();
+  assert.equal(config.email, false);
+  assert.deepEqual(config.calendars, { google: null, microsoft: null, microsoftTenant: 'common' });
+});
+
+test('calendar client IDs are published when configured', async (t) => {
+  const app = createApp({
+    env: { GOOGLE_CLIENT_ID: 'g.apps.googleusercontent.com', MICROSOFT_CLIENT_ID: 'ms-id', MICROSOFT_TENANT: 'consumers' },
+  });
+  await new Promise((r) => app.listen(0, r));
+  t.after(() => app.close());
+  const config = await (await fetch(`http://localhost:${app.address().port}/api/config`)).json();
+  assert.deepEqual(config.calendars, {
+    google: 'g.apps.googleusercontent.com',
+    microsoft: 'ms-id',
+    microsoftTenant: 'consumers',
+  });
 });

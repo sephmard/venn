@@ -82,6 +82,7 @@ The app ships with sensible defaults: a strict Content Security Policy, no-refer
 - **Keep the security headers.** If you serve `public/` from somewhere other than the included servers, copy the headers from `public/_headers` (the Content Security Policy in particular).
 - **Back up the database.** On D1, use Time Travel. On Node, copy the SQLite file.
 - **Turn on email notifications (optional).** Follow [NOTIFICATIONS.md](NOTIFICATIONS.md). Keep `RESEND_API_KEY` in Cloudflare secrets, never in `wrangler.toml`.
+- **Turn on calendar connections (optional).** Follow [CALENDARS.md](CALENDARS.md). Google requires app verification and Microsoft recommends publisher verification before public launch, so start early.
 - **Add a privacy page.** Say what's stored (titles, names, answers) and how long you keep polls.
 
 ## Releases
