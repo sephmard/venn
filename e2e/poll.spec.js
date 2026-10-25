@@ -335,17 +335,20 @@ test('landing page: nav bar with GitHub, and the way to both kinds of poll', asy
     await expect(nav.getByRole('link', { name: 'Privacy' })).toBeVisible();
   }
   await expect(page.locator('h1')).toHaveText(/Find the day that works/);
-  // The hero card starts a poll: type the plan, then pick the kind of poll. Enter means "Vote on a few dates".
-  const card = page.locator('.start-card');
-  await card.getByRole('textbox', { name: 'What are you planning?' }).fill('Team lunch');
-  await card.getByRole('button', { name: /Ask when people are free/ }).click();
+  // The hero's two cards are the way in: each opens its kind of poll.
+  await page
+    .locator('.start-cards')
+    .getByRole('link', { name: /Ask when people are free/ })
+    .click();
   await expect(page).toHaveURL(/\/new\/free$/);
-  await expect(page.locator('#title')).toHaveValue('Team lunch');
+  await expect(page.locator('#title')).toBeVisible();
   await page.goto('/');
-  await card.getByRole('textbox', { name: 'What are you planning?' }).fill('Book club');
-  await page.keyboard.press('Enter');
+  await page
+    .locator('.start-cards')
+    .getByRole('link', { name: /Vote on a few dates/ })
+    .click();
   await expect(page).toHaveURL(/\/new\/pick$/);
-  await expect(page.locator('#title')).toHaveValue('Book club');
+  await expect(page.locator('#title')).toHaveAttribute('placeholder', "Dinner at Finn's");
   // The nav's "Create a poll" still offers both kinds of poll.
   await page.goto('/new');
   await expect(page.getByRole('heading', { name: 'What kind of poll?' })).toBeVisible();
