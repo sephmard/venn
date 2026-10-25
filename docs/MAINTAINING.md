@@ -111,7 +111,7 @@ The app ships with sensible defaults: a strict Content Security Policy, no-refer
 - **Rate-limit the API.** Polls can be created without an account, so limit `POST /api/*` per IP at the edge. For example, use a Cloudflare WAF rate-limiting rule of around 30 requests per minute.
 - **Keep the security headers.** If you serve `public/` from somewhere other than the included servers, copy the headers from `public/_headers` (the Content Security Policy in particular).
 - **Back up the database.** On D1, use Time Travel. On Node, copy the SQLite file.
-- **Turn on email notifications (optional).** Follow [NOTIFICATIONS.md](NOTIFICATIONS.md). Keep `RESEND_API_KEY` in Cloudflare secrets, never in `wrangler.toml`.
+- **Turn on email notifications (optional).** Follow [NOTIFICATIONS.md](NOTIFICATIONS.md). Keep keys such as `RESEND_API_KEY` in Cloudflare secrets, never in `wrangler.toml`.
 - **Turn on calendar connections (optional).** Follow [CALENDARS.md](CALENDARS.md). Google requires app verification and Microsoft recommends publisher verification before public launch, so start early.
 - **Turn on AI (optional).** Follow [AI.md](AI.md). Keep `ANTHROPIC_API_KEY` in Cloudflare secrets, set a monthly spend limit on your Anthropic account, and consider the `AI_RATE_LIMITER` binding.
 - **Add a privacy page.** Mention that AI features, when used, send the poll text and answers to Anthropic. Say what's stored (titles, names, answers) and how long you keep polls.
@@ -127,7 +127,7 @@ The landing page, privacy page and app are all served by the one Worker. To set 
 5. **Deploy**: run the **Deploy** workflow, or merge to `main`. Wrangler attaches `venn.day` as a Custom Domain and creates its DNS record and certificate.
 6. **Redirect `www`.** Add a proxied DNS record for `www` (for example `AAAA www 100::`) and a **Rules → Redirect Rules** rule from `www.venn.day/*` to `https://venn.day/${1}` (301, keep the query string).
 7. **Harden it**: work through [hosting a public instance](#hosting-a-public-instance) below: HSTS, the rate-limiting rule and backups. The privacy page is already at `/privacy`; update it if you add another service that handles data.
-8. **Optional extras**: verify `venn.day` in Resend for notification emails (`EMAIL_FROM="Venn <notifications@venn.day>"`), and add `https://venn.day/oauth-callback.html` as a redirect URI for the Google and Microsoft calendar apps.
+8. **Optional extras**: turn on notification emails: onboard `venn.day` in Cloudflare Email Sending and set the `CLOUDFLARE_EMAIL=true` repository variable, or verify it in Resend and add `RESEND_API_KEY`; either way set `EMAIL_FROM="Venn <notifications@venn.day>"`, and add `https://venn.day/oauth-callback.html` as a redirect URI for the Google and Microsoft calendar apps.
 
 After changing the landing page's main screenshot, regenerate the social preview with `npm run og`.
 
