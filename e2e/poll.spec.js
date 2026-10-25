@@ -104,3 +104,27 @@ test('unknown poll shows a friendly error', async ({ page }) => {
   await page.goto('/e/doesnotexist');
   await expect(page.getByRole('heading', { name: 'Poll not found' })).toBeVisible();
 });
+
+test('organizer sets up a webhook from the Notifications panel', async ({ page }) => {
+  await startPoll(page, 'Webhook poll');
+  // This test server has no email service, so the email field stays hidden.
+  await expect(page.locator('#notify-field')).toBeHidden();
+  const day = await page.locator('[data-add]').first().getAttribute('data-add');
+  await page.click(`[data-add="${day}"]`);
+  await page.click('#submit');
+  await page.click('#notify-open');
+  await expect(page.locator('#n-email')).toHaveCount(0);
+
+  await page.fill('#n-hook', 'http://example.com/hook');
+  await page.click('#notify-form button[type=submit]');
+  await expect(page.locator('#notify-err')).toContainText('https://');
+
+  // A public IP address needs no DNS lookup, so this works offline.
+  await page.fill('#n-hook', 'https://203.0.113.10/hook');
+  await page.click('#notify-form button[type=submit]');
+  await expect(page.locator('.secret-row code')).toContainText('whsec_');
+  await expect(page.locator('#hook-status')).toContainText('Nothing sent yet');
+
+  await page.click('#notify-close');
+  await expect(page.locator('.notify-panel')).toHaveCount(0);
+});

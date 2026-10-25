@@ -11,6 +11,17 @@ import {
   normalizeName,
 } from '../public/core.js';
 import { SECURITY_HEADERS } from './security-headers.js';
+import {
+  MAX_CONFIRMATIONS,
+  buildSummary,
+  confirmationEmail,
+  emailEnabled,
+  normalizeEmail,
+  notifyResponse,
+  sendEmail,
+  sendWebhook,
+  validateWebhookUrl,
+} from './notify.js';
 
 const MAX_BODY = 200_000;
 const ID_ALPHABET = 'abcdefghijkmnopqrstuvwxyzABCDEFGHJKLMNPQRSTUVWXYZ23456789';
@@ -69,7 +80,50 @@ function publicEvent(ev, participants, isAdmin) {
   };
 }
 
-export async function handleApi(request, store, { now = Date.now } = {}) {
+/** What the organizer sees about their notification settings. Hashes and tokens stay on the server. */
+function notifyView(settings, env) {
+  const s = settings || {};
+  return {
+    emailAvailable: emailEnabled(env),
+    email: s.email || null,
+    emailConfirmed: Boolean(s.emailConfirmed),
+    webhookUrl: s.webhookUrl || null,
+    webhookSecret: s.webhookUrl ? s.webhookSecret : null,
+    lastDelivery: s.lastDelivery || {},
+  };
+}
+
+/**
+ * Point notifications at a new email address. Returns a function that sends the confirmation
+ * email, so callers can choose whether to wait for it.
+ */
+async function changeEmail(settings, value, { env, origin, ev, fetchImpl }) {
+  const email = normalizeEmail(value);
+  if (email === (settings.email || null)) return null;
+  if (!email) {
+    Object.assign(settings, { email: null, emailConfirmed: false, confirmHash: null });
+    return null;
+  }
+  if (!emailEnabled(env)) throw new ValidationError("Email notifications aren't set up on this server");
+  if ((settings.confirmationsSent || 0) >= MAX_CONFIRMATIONS)
+    throw new ValidationError('Too many confirmation emails for this poll. Try a webhook instead.');
+  const token = randomId(24);
+  Object.assign(settings, {
+    email,
+    emailConfirmed: false,
+    confirmHash: await sha256(token),
+    confirmationsSent: (settings.confirmationsSent || 0) + 1,
+    unsubscribeToken: settings.unsubscribeToken || randomId(24),
+  });
+  const msg = confirmationEmail(ev.title, `${origin}/e/${ev.id}#confirm-email=${token}`);
+  return () => sendEmail(env, { to: email, ...msg }, { fetchImpl });
+}
+
+export async function handleApi(
+  request,
+  store,
+  { now = Date.now, env = {}, waitUntil = (p) => p, fetchImpl = fetch, resolveHost } = {},
+) {
   const url = new URL(request.url);
   const parts = url.pathname
     .replace(/^\/api\/?/, '')
@@ -77,13 +131,32 @@ export async function handleApi(request, store, { now = Date.now } = {}) {
     .filter(Boolean);
   const method = request.method;
 
+  const origin = url.origin;
+  // Tell the organizer (if they asked) once the response is safely stored. Never blocks the reply.
+  const notify = (ev, kind, participantId, name) =>
+    waitUntil(notifyResponse({ store, env, fetchImpl, now, origin, ev, kind, participantId, name }));
+
   try {
+    // GET /api/config — which optional features this server has switched on
+    if (parts.length === 1 && parts[0] === 'config' && method === 'GET') {
+      return json({ email: emailEnabled(env) });
+    }
+
     // POST /api/events
     if (parts.length === 1 && parts[0] === 'events' && method === 'POST') {
-      const event = normalizeEventInput(await readJson(request));
+      const body = await readJson(request);
+      const event = normalizeEventInput(body);
+      const notifyEmail = body.notifyEmail ? normalizeEmail(body.notifyEmail) : null;
+      if (notifyEmail && !emailEnabled(env)) throw new ValidationError("Email notifications aren't set up on this server");
       const id = randomId(10);
       const adminToken = randomId(24);
       await store.createEvent({ id, event, adminHash: await sha256(adminToken), now: now() });
+      if (notifyEmail) {
+        const settings = {};
+        const send = await changeEmail(settings, notifyEmail, { env, origin, ev: { id, ...event }, fetchImpl });
+        await store.setNotify(id, settings);
+        waitUntil(send().catch((e) => console.error('confirmation email failed', e)));
+      }
       return json({ id, adminToken }, 201);
     }
 
@@ -123,6 +196,68 @@ export async function handleApi(request, store, { now = Date.now } = {}) {
       });
     }
 
+    // /api/events/:id/notifications…
+    if (parts[2] === 'notifications') {
+      const settings = (await store.getNotify(ev.id)) || {};
+      const action = parts[3];
+
+      // Links from emails land on the poll page, which posts the token here. Using the page
+      // (not a GET link) means email scanners that pre-open links can't confirm or unsubscribe.
+      if ((action === 'confirm' || action === 'unsubscribe') && parts.length === 4 && method === 'POST') {
+        const { token } = await readJson(request);
+        if (action === 'confirm') {
+          if (!settings.confirmHash || !(await tokenMatches(token, settings.confirmHash)))
+            throw new ValidationError('This confirmation link is invalid or has expired');
+          await store.setNotify(ev.id, { ...settings, emailConfirmed: true, confirmHash: null });
+          return json({ ok: true, email: settings.email });
+        }
+        if (!settings.unsubscribeToken || typeof token !== 'string' || !timingSafeEqual(token, settings.unsubscribeToken))
+          throw new ValidationError('This unsubscribe link is invalid');
+        await store.setNotify(ev.id, { ...settings, email: null, emailConfirmed: false, confirmHash: null });
+        return json({ ok: true });
+      }
+
+      if (!isAdmin) return error(403, 'Only the organizer can change notifications');
+
+      if (parts.length === 3 && method === 'GET') return json(notifyView(settings, env));
+
+      if (parts.length === 3 && method === 'PUT') {
+        const body = await readJson(request);
+        const send = 'email' in body ? await changeEmail(settings, body.email, { env, origin, ev, fetchImpl }) : null;
+        if ('webhookUrl' in body) {
+          const webhookUrl = await validateWebhookUrl(body.webhookUrl, { resolveHost });
+          if (webhookUrl && (webhookUrl !== settings.webhookUrl || !settings.webhookSecret))
+            settings.webhookSecret = `whsec_${randomId(32)}`;
+          settings.webhookUrl = webhookUrl;
+          if (!webhookUrl) settings.webhookSecret = null;
+        }
+        if (send) {
+          try {
+            await send();
+          } catch {
+            throw new ValidationError("Couldn't send the confirmation email. Check the address and try again.");
+          }
+        }
+        await store.setNotify(ev.id, settings);
+        return json(notifyView(settings, env));
+      }
+
+      if (action === 'test' && parts.length === 4 && method === 'POST') {
+        if (!settings.webhookUrl) throw new ValidationError('Add a webhook URL first');
+        const s = buildSummary(ev, await store.listParticipants(ev.id), { kind: 'test', name: null, origin, now: now() });
+        let result;
+        try {
+          result = await sendWebhook(settings.webhookUrl, settings.webhookSecret, s, { fetchImpl, now: now() });
+        } catch (e) {
+          result = { ok: false, error: e.name === 'TimeoutError' ? 'Timed out' : 'Could not connect' };
+        }
+        const latest = (await store.getNotify(ev.id)) || settings;
+        await store.setNotify(ev.id, { ...latest, lastDelivery: { ...latest.lastDelivery, webhook: { at: now(), ...result } } });
+        return json(result);
+      }
+      return error(404, 'Not found');
+    }
+
     // POST /api/events/:id/finalize  { start: number | null }
     if (parts.length === 3 && parts[2] === 'finalize' && method === 'POST') {
       if (!isAdmin) return error(403, 'Only the organizer can pick the final time');
@@ -152,6 +287,7 @@ export async function handleApi(request, store, { now = Date.now } = {}) {
         editHash: await sha256(editToken),
         now: now(),
       });
+      notify(ev, 'response.created', id, name);
       return json({ id, editToken }, 201);
     }
 
@@ -163,18 +299,21 @@ export async function handleApi(request, store, { now = Date.now } = {}) {
       if (method === 'PUT') {
         if (!isOwner) return error(403, 'You can only edit your own response');
         const body = await readJson(request);
+        const name = normalizeName(body.name);
         await store.updateParticipant({
           id: p.id,
           eventId: ev.id,
-          name: normalizeName(body.name),
+          name,
           availability: normalizeAvailability(body.availability, slots),
           now: now(),
         });
+        notify(ev, 'response.updated', p.id, name);
         return json({ ok: true });
       }
       if (method === 'DELETE') {
         if (!isOwner && !isAdmin) return error(403, 'You can only remove your own response');
         await store.deleteParticipant(ev.id, p.id);
+        notify(ev, 'response.deleted', p.id, p.name);
         return json({ ok: true });
       }
       return error(405, 'Method not allowed');

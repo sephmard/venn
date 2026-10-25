@@ -18,6 +18,11 @@ const SCHEMA = [
      updated_at INTEGER NOT NULL
    )`,
   `CREATE INDEX IF NOT EXISTS participants_event ON participants(event_id)`,
+  // Organizer-only settings (email, webhook). Kept apart from the event so they're never in public responses.
+  `CREATE TABLE IF NOT EXISTS notifications (
+     event_id TEXT PRIMARY KEY,
+     data TEXT NOT NULL
+   )`,
 ];
 
 export function createStore(db) {
@@ -54,6 +59,7 @@ export function createStore(db) {
     async deleteEvent(id) {
       await init();
       await db.run('DELETE FROM participants WHERE event_id = ?', [id]);
+      await db.run('DELETE FROM notifications WHERE event_id = ?', [id]);
       await db.run('DELETE FROM events WHERE id = ?', [id]);
     },
 
@@ -103,6 +109,20 @@ export function createStore(db) {
         id,
         eventId,
       ]);
+    },
+
+    async getNotify(eventId) {
+      await init();
+      const row = await db.first('SELECT data FROM notifications WHERE event_id = ?', [eventId]);
+      return row ? JSON.parse(row.data) : null;
+    },
+
+    async setNotify(eventId, data) {
+      await init();
+      await db.run(
+        'INSERT INTO notifications (event_id, data) VALUES (?, ?) ON CONFLICT(event_id) DO UPDATE SET data = excluded.data',
+        [eventId, JSON.stringify(data)],
+      );
     },
 
     async deleteParticipant(eventId, id) {

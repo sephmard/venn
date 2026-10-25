@@ -81,6 +81,7 @@ The app ships with sensible defaults: a strict Content Security Policy, no-refer
 - **Rate-limit the API.** Polls can be created without an account, so limit `POST /api/*` per IP at the edge. For example, use a Cloudflare WAF rate-limiting rule of around 30 requests per minute.
 - **Keep the security headers.** If you serve `public/` from somewhere other than the included servers, copy the headers from `public/_headers` (the Content Security Policy in particular).
 - **Back up the database.** On D1, use Time Travel. On Node, copy the SQLite file.
+- **Turn on email notifications (optional).** Follow [NOTIFICATIONS.md](NOTIFICATIONS.md). Keep `RESEND_API_KEY` in Cloudflare secrets, never in `wrangler.toml`.
 - **Add a privacy page.** Say what's stored (titles, names, answers) and how long you keep polls.
 
 ## Releases

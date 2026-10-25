@@ -26,4 +26,5 @@ Venn stores poll titles, participant names and availability. Things we especiall
 
 - Reading or changing someone else's response, or acting as an organizer without the organizer link
 - Cross-site scripting through poll titles, descriptions, names or imported calendar files
+- Making the server send email to people who didn't ask for it, or webhook requests to internal addresses
 - Ways to exhaust storage or crash the server with a single request

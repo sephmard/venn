@@ -82,6 +82,18 @@ async function api(path, { method = 'GET', body, headers = {} } = {}) {
   return data;
 }
 
+// Optional features the server has switched on (email, calendars, AI). Fetched once.
+let configPromise;
+const getConfig = () => (configPromise ??= api('config').catch(() => ({})));
+
+function ago(ms) {
+  const rtf = new Intl.RelativeTimeFormat(undefined, { numeric: 'auto' });
+  const mins = Math.round((ms - Date.now()) / 60_000);
+  if (Math.abs(mins) < 60) return rtf.format(mins, 'minute');
+  const hours = Math.round(mins / 60);
+  return Math.abs(hours) < 24 ? rtf.format(hours, 'hour') : rtf.format(Math.round(hours / 24), 'day');
+}
+
 async function copy(text) {
   try {
     await navigator.clipboard.writeText(text);
@@ -202,6 +214,10 @@ function renderCreate() {
         <div>
           <label for="organizer">Your name <span class="muted">(optional)</span></label>
           <input id="organizer" type="text" maxlength="80" value="${esc(lastName())}">
+        </div>
+        <div id="notify-field" hidden>
+          <label for="notify">Email me when people respond <span class="muted">(optional)</span></label>
+          <input id="notify" type="email" inputmode="email" autocomplete="email" maxlength="254" placeholder="you@example.com">
         </div>
         <div data-for="options">
           <label for="length">Meeting length</label>
@@ -486,17 +502,20 @@ function renderCreate() {
         durationMinutes: +$('#duration').value,
       };
     }
+    const notifyEmail = $('#notify-field').hidden ? '' : $('#notify').value.trim();
+    if (notifyEmail) body.notifyEmail = notifyEmail;
     if (common.organizer) rememberName(common.organizer);
     $('#submit').disabled = true;
     try {
       const { id, adminToken } = await api('events', { method: 'POST', body });
-      save(id, { adminToken, justCreated: true });
+      save(id, { adminToken, justCreated: true, notifyPending: !!notifyEmail });
       navigate(`/e/${id}`);
     } catch (ex) {
       err.textContent = ex.message;
       $('#submit').disabled = false;
     }
   };
+  getConfig().then((c) => $('#notify-field') && ($('#notify-field').hidden = !c.email));
   $('#title').focus();
 }
 
@@ -511,6 +530,9 @@ async function renderEvent(id) {
     const [participantId, editToken] = hash.get('edit').split('.');
     if (participantId && editToken) save(id, { participantId, editToken });
   }
+  // Links in notification emails: confirm the address, or stop the emails.
+  const confirmToken = hash.get('confirm-email');
+  const unsubscribeToken = hash.get('unsubscribe');
   if (location.hash) history.replaceState(null, '', location.pathname);
 
   app.innerHTML = '<div class="empty muted">Loading…</div>';
@@ -563,6 +585,7 @@ async function renderEvent(id) {
       </div>
     </div>
     <div id="banners"></div>
+    <div id="notify-box"></div>
     <div class="toolbar">
       <div class="tz-picker small">
         <label for="tz" style="margin:0;font-weight:500" class="muted">Times in</label>
@@ -1204,6 +1227,104 @@ ${
     }
   });
 
+  // ----- notifications (organizer) -----
+  let notifyOpen = false;
+  async function toggleNotify(open) {
+    notifyOpen = open;
+    $('#notify-open')?.setAttribute('aria-expanded', open);
+    const box = $('#notify-box');
+    if (!open) return (box.innerHTML = '');
+    box.innerHTML = '<div class="card muted">Loading…</div>';
+    try {
+      renderNotify(await api(`events/${id}/notifications`, { headers: authHeaders() }));
+      $('#notify-box').scrollIntoView({ block: 'nearest' });
+    } catch (ex) {
+      box.innerHTML = `<div class="card error">${esc(ex.message)}</div>`;
+    }
+  }
+
+  function renderNotify(s) {
+    const box = $('#notify-box');
+    const delivery = (d) =>
+      d
+        ? `${d.ok ? '✓ Delivered' : '✗ Failed'}${d.status ? ` (HTTP ${d.status})` : d.error ? ` (${esc(d.error)})` : ''} ${ago(d.at)}`
+        : 'Nothing sent yet';
+    const emailStatus = !s.email
+      ? ''
+      : s.emailConfirmed
+        ? `<span class="ok">✓ Confirmed.</span> Last email: ${delivery(s.lastDelivery.email)}`
+        : `<span class="dirty">Waiting for confirmation.</span> Open the link we sent to ${esc(s.email)}.`;
+    box.innerHTML = `
+      <section class="card notify-panel" aria-labelledby="notify-h">
+        <div class="btn-row" style="justify-content:space-between">
+          <h2 id="notify-h" style="margin:0">Notifications</h2>
+          <button type="button" class="btn btn-sm btn-ghost" id="notify-close">Close</button>
+        </div>
+        <p class="small muted">Find out when someone responds, changes their answers or removes them.</p>
+        <form id="notify-form" class="stack" novalidate>
+          ${
+            s.emailAvailable
+              ? `<div>
+                  <label for="n-email">Email</label>
+                  <input id="n-email" type="email" inputmode="email" autocomplete="email" maxlength="254" placeholder="you@example.com" value="${esc(s.email || '')}">
+                  ${emailStatus ? `<p class="small" style="margin:6px 0 0">${emailStatus}</p>` : ''}
+                </div>`
+              : ''
+          }
+          <div>
+            <label for="n-hook">Webhook URL <span class="muted">(optional)</span></label>
+            <input id="n-hook" type="url" inputmode="url" autocomplete="off" spellcheck="false" placeholder="https://hooks.slack.com/services/…" value="${esc(s.webhookUrl || '')}">
+            <p class="small muted" style="margin:6px 0 0">Works with Slack, Discord, Zapier, Make or your own endpoint.</p>
+            ${
+              s.webhookSecret
+                ? `<div class="secret-row small">
+                    <span>Signing secret</span><code>${esc(s.webhookSecret)}</code>
+                    <button type="button" class="btn btn-sm" id="copy-secret">Copy</button>
+                    <button type="button" class="btn btn-sm" id="test-hook">Send test</button>
+                  </div>
+                  <p class="small muted" style="margin:6px 0 0" id="hook-status">Last delivery: ${delivery(s.lastDelivery.webhook)}</p>`
+                : ''
+            }
+          </div>
+          <div class="btn-row">
+            <button class="btn btn-primary" type="submit">Save notifications</button>
+          </div>
+          <div class="error" id="notify-err" role="alert"></div>
+        </form>
+      </section>`;
+    $('#notify-close').onclick = () => toggleNotify(false);
+    $('#copy-secret') && ($('#copy-secret').onclick = () => copy(s.webhookSecret));
+    $('#test-hook') &&
+      ($('#test-hook').onclick = async (e) => {
+        e.target.disabled = true;
+        try {
+          const r = await api(`events/${id}/notifications/test`, { method: 'POST', body: {}, headers: authHeaders() });
+          toast(r.ok ? 'Test sent' : `Test failed${r.status ? ` (HTTP ${r.status})` : r.error ? ` (${r.error})` : ''}`);
+          renderNotify(await api(`events/${id}/notifications`, { headers: authHeaders() }));
+        } catch (ex) {
+          toast(ex.message);
+          e.target.disabled = false;
+        }
+      });
+    $('#notify-form').onsubmit = async (e) => {
+      e.preventDefault();
+      const body = { webhookUrl: $('#n-hook').value.trim() || null };
+      if ($('#n-email')) body.email = $('#n-email').value.trim() || null;
+      const btn = e.submitter;
+      if (btn) btn.disabled = true;
+      $('#notify-err').textContent = '';
+      try {
+        const next = await api(`events/${id}/notifications`, { method: 'PUT', body, headers: authHeaders() });
+        const newEmail = next.email && !next.emailConfirmed && next.email !== s.email;
+        renderNotify(next);
+        toast(newEmail ? `Saved. Check ${next.email} for a confirmation link.` : 'Notifications saved');
+      } catch (ex) {
+        $('#notify-err').textContent = ex.message;
+        if (btn) btn.disabled = false;
+      }
+    };
+  }
+
   function renderBanners() {
     const ev = st.ev;
     let h = '';
@@ -1230,7 +1351,9 @@ ${
       h += `<div class="banner banner-admin">
         <strong>${fresh ? 'Your poll is ready. Share the link above.' : "You're the organizer"}</strong>
         <p class="small" style="margin:0 0 8px">${optionsMode ? 'Pick the final time from "Best times" or from the responses table.' : 'Pick the final time from "Best times" or by tapping any time in the group grid.'} To manage this poll from another device, bookmark your private organizer link, and don't share it.</p>
+        ${fresh && saved(id).notifyPending ? '<p class="small" style="margin:0 0 8px"><strong style="display:inline">Check your inbox</strong> to confirm email notifications.</p>' : ''}
         <div class="btn-row">
+          <button class="btn btn-sm" id="notify-open" aria-expanded="${notifyOpen}" aria-controls="notify-box">Notifications</button>
           <button class="btn btn-sm" id="copy-admin">Copy organizer link</button>
           <button class="btn btn-sm btn-ghost btn-danger" id="delete-poll">Delete poll</button>
         </div>
@@ -1238,6 +1361,7 @@ ${
     }
     $('#banners').innerHTML = h;
     $('#copy-admin') && ($('#copy-admin').onclick = () => copy(`${shareUrl}#admin=${saved(id).adminToken}`));
+    $('#notify-open') && ($('#notify-open').onclick = () => toggleNotify(!notifyOpen));
     $('#delete-poll') &&
       ($('#delete-poll').onclick = async () => {
         if (!confirm('Delete this poll and all responses? This cannot be undone.')) return;
@@ -1324,6 +1448,15 @@ ${
 
   renderAll();
   if (saved(id).justCreated) forget(id, 'justCreated');
+
+  if (confirmToken)
+    api(`events/${id}/notifications/confirm`, { method: 'POST', body: { token: confirmToken } })
+      .then((r) => toast(`Confirmed. We'll email ${r.email} when people respond.`))
+      .catch((ex) => toast(ex.message));
+  if (unsubscribeToken)
+    api(`events/${id}/notifications/unsubscribe`, { method: 'POST', body: { token: unsubscribeToken } })
+      .then(() => toast("Done. You won't get more emails about this poll."))
+      .catch((ex) => toast(ex.message));
 }
 
 route();

@@ -37,6 +37,7 @@ Everyone's availability is a circle. Venn finds where they overlap.
 - **Time zones handled.** Everyone sees times in their own time zone automatically.
 - **Picks the best time for you.** Options are ranked by how many people can make it, then by how many gave a firm yes.
 - **Private calendar check.** Load a calendar export (`.ics`) to mark yourself free or busy. The file never leaves your browser.
+- **Know when people answer.** Get an email, or a message in Slack, Discord or any webhook, whenever someone responds.
 - **Straight into calendars.** Once the time is picked, everyone gets Google, Outlook and Apple calendar links.
 - **Yours to run.** Host it free on Cloudflare, or on any server that runs Node.
 
@@ -111,6 +112,13 @@ Tables are created automatically on the first request.
 
 To deploy on every push to `main` with GitHub Actions, set the repository variables `CLOUDFLARE_DEPLOY=true` and `D1_DATABASE_ID`, and the secrets `CLOUDFLARE_API_TOKEN` and `CLOUDFLARE_ACCOUNT_ID`. The [deploy workflow](.github/workflows/deploy.yml) is off by default, so forks never try to deploy.
 
+### Optional features
+
+| Feature                      | How to turn it on                                                                          |
+| ---------------------------- | ------------------------------------------------------------------------------------------ |
+| Email notifications (Resend) | Set `RESEND_API_KEY` and `EMAIL_FROM`. See [docs/NOTIFICATIONS.md](docs/NOTIFICATIONS.md). |
+| Webhook notifications        | Always on. Organizers add a URL from their poll.                                           |
+
 ### Any server with Node
 
 ```sh
@@ -146,6 +154,7 @@ public/            the whole front end, served as-is
 src/
   api.js           JSON API on web-standard Request/Response
   store.js         SQL storage for Cloudflare D1 and node:sqlite
+  notify.js        email and webhook notifications
   worker.js        Cloudflare Worker entry point
 server.js          Node server entry point
 test/              unit and API tests (node:test)

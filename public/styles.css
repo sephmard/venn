@@ -137,6 +137,8 @@ label {
   margin-bottom: 6px;
 }
 input[type='text'],
+input[type='email'],
+input[type='url'],
 textarea,
 select {
   width: 100%;
@@ -937,4 +939,28 @@ button:focus-visible,
 .m-pick {
   display: block;
   margin: 6px auto 0;
+}
+
+/* ---------- notifications panel ---------- */
+#notify-box:not(:empty) {
+  margin-bottom: 16px;
+}
+.notify-panel .ok {
+  color: var(--accent);
+  font-weight: 600;
+}
+.secret-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin-top: 10px;
+}
+.secret-row code {
+  font-size: 0.8rem;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 4px 8px;
+  overflow-wrap: anywhere;
 }
