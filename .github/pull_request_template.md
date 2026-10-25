@@ -13,3 +13,4 @@
 - [ ] Added or updated tests for new behavior
 - [ ] Works on a phone-sized screen (for UI changes)
 - [ ] Updated the README if behavior or setup changed
+- [ ] No new runtime dependencies, and anything users type is escaped before it's shown

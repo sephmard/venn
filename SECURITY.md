@@ -10,6 +10,12 @@ Report them privately through GitHub: go to the repository's **Security** tab an
 Include what you found, how to reproduce it, and what impact you think it has. You should hear back
 within a week. Once a fix is released, we're happy to credit you in the advisory.
 
+## How the project protects itself
+
+- Every pull request runs CodeQL static analysis and a dependency review.
+- GitHub Actions are pinned to exact commits and run with read-only permissions.
+- The app sets a strict Content Security Policy and other security headers. It accepts only JSON writes and stores only hashes of edit secrets.
+
 ## Supported versions
 
 Only the latest version on `main` gets security fixes.

@@ -33,6 +33,12 @@ If you change how the app looks, regenerate the README images with `npm run scre
 
 CI runs all of these on every pull request, plus a check that the Cloudflare Worker still builds.
 
+## What happens to your pull request
+
+1. CI runs: lint, formatting, tests on Node 22 and 24, browser tests, a Worker build, CodeQL and a dependency review. If you're a first-time contributor, a maintainer approves the run first.
+2. A maintainer reviews it. Please resolve each conversation once you've addressed it.
+3. When the **CI passed** check is green, it's squash-merged into `main`. Your pull request title becomes the commit message, so make it a clear summary.
+
 ## How the code is organised
 
 | Path                         | What's there                                                                                                                                                                       |
@@ -40,6 +46,7 @@ CI runs all of these on every pull request, plus a check that the Cloudflare Wor
 | `public/core.js`             | Shared logic with **no dependencies**: time zones, slots, ranking, calendar import/export. It runs in the browser, the Worker and Node, so keep it free of Node- or DOM-only APIs. |
 | `public/app.js`              | The whole UI, vanilla JS, no build step                                                                                                                                            |
 | `public/styles.css`          | Styles, light and dark themes                                                                                                                                                      |
+| `src/security-headers.js`    | Security headers for every response. `public/_headers` mirrors them for Cloudflare, and a test keeps them in sync.                                                                 |
 | `src/api.js`                 | The JSON API, written against web-standard `Request`/`Response`                                                                                                                    |
 | `src/store.js`               | SQL storage with adapters for Cloudflare D1 and `node:sqlite`                                                                                                                      |
 | `src/worker.js`, `server.js` | Entry points for Cloudflare and Node                                                                                                                                               |

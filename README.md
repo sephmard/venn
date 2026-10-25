@@ -119,6 +119,8 @@ PORT=3000 DB_PATH=/var/lib/venn/venn.db node server.js
 
 Put it behind a reverse proxy (Caddy, nginx) for HTTPS. The SQLite file is the only state to back up.
 
+> **Running a public instance?** Read the [hosting checklist](docs/MAINTAINING.md#hosting-a-public-instance): HTTPS, rate limiting, security headers and backups.
+
 ## Privacy
 
 - **No accounts, cookies or analytics.** Venn stores only what people type into a poll: its title and details, names, and answers.
@@ -184,7 +186,7 @@ Have another idea? [Open an issue](https://github.com/sephmard/venn/issues/new/c
 
 ## Contributing
 
-Contributions are welcome, from typo fixes to new features. [CONTRIBUTING.md](CONTRIBUTING.md) covers setup, tests and guidelines. Please follow the [Code of Conduct](CODE_OF_CONDUCT.md).
+Contributions are welcome, from typo fixes to new features. [CONTRIBUTING.md](CONTRIBUTING.md) covers setup, tests and how pull requests are reviewed. Please follow the [Code of Conduct](CODE_OF_CONDUCT.md). Maintainers: see [docs/MAINTAINING.md](docs/MAINTAINING.md).
 
 ```sh
 npm run check      # lint, formatting, unit and API tests
