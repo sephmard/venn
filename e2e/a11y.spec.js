@@ -18,7 +18,6 @@ for (const scheme of ['light', 'dark']) {
 
     test('landing and privacy pages', async ({ page }) => {
       await page.goto('/');
-      await page.locator('.faq details').first().click();
       await audit(page, 'landing page');
       await page.goto('/privacy');
       await audit(page, 'privacy page');

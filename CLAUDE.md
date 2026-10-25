@@ -20,5 +20,5 @@ Venn is a free polling app for finding a date for dinners, book clubs, trips and
 npm run check        # lint, formatting, docs links, unit tests
 npm run test:e2e     # browser + accessibility tests (desktop and phone)
 npm run test:coverage
-npm run site         # build the GitHub Pages site into site/
+npm run site         # build the developer docs (docs.venn.day) into site/
 ```

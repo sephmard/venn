@@ -1,58 +1,66 @@
-/* Venn: warm and social. Aubergine ink on lilac-tinted paper, violet for actions,
-   evergreen for "yes", marigold for "if needed". Headings use the system's rounded face. */
+/* The app. Colors and type follow DESIGN.md (shared with the landing page): warm paper, green for
+   actions and "yes", amber for "if needed", blue for the picked date, Instrument Serif for big headlines. */
+@font-face {
+  font-family: 'Instrument Serif';
+  src: url('/fonts/instrument-serif-latin-400-normal.woff2') format('woff2');
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
 :root {
-  --bg: #fcfaff;
+  --bg: #faf8f4;
   --surface: #ffffff;
-  --surface-2: #f4f0fa;
-  --border: #e7e0f0;
-  --text: #241935;
-  --muted: #655a74;
-  --accent: #5a3ec8;
+  --surface-2: #f2eee6;
+  --border: #e4dfd4;
+  --text: #16181a;
+  --muted: #55585c;
+  --accent: #0b7a5c;
   --accent-ink: #ffffff;
-  --accent-soft: #ece6fb;
-  --yes: #12805c;
+  --accent-soft: #dcefe6;
+  --yes: #0b7a5c;
   --yes-ink: #ffffff;
-  --yes-soft: #dcf2e9;
-  --maybe: #f2b233;
-  --maybe-ink: #2a1d05;
-  --maybe-soft: #fdf1d6;
-  --no-bg: #5f5670;
+  --yes-soft: #dcefe6;
+  --maybe: #e0a12e;
+  --maybe-ink: #241a04;
+  --maybe-soft: #faefd8;
+  --no-bg: #55585c;
   --no-ink: #ffffff;
   --danger: #b42318;
-  --cell-empty: #eee9f5;
-  --heat: 18, 128, 92;
-  --final: #5a3ec8;
+  --cell-empty: #ece8df;
+  --heat: 11, 122, 92;
+  --final: #4a63d9;
   --final-ink: #ffffff;
   --radius: 14px;
-  --radius-lg: 22px;
-  --lift: 0 1px 2px rgba(36, 25, 53, 0.06), 0 8px 24px -12px rgba(36, 25, 53, 0.18);
-  --display: ui-rounded, 'SF Pro Rounded', 'Hiragino Maru Gothic ProN', 'Nunito', system-ui, sans-serif;
+  --radius-lg: 20px;
+  --lift: 0 1px 2px rgb(22 24 26 / 0.06), 0 8px 24px -12px rgb(22 24 26 / 0.18);
+  --serif: 'Instrument Serif', 'Iowan Old Style', 'Palatino Linotype', Georgia, serif;
+  --display: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
   color-scheme: light;
 }
 @media (prefers-color-scheme: dark) {
   :root {
-    --bg: #15111c;
-    --surface: #1e1828;
-    --surface-2: #281f35;
-    --border: #372c47;
-    --text: #f3eefb;
-    --muted: #b4a9c4;
-    --accent: #b6a3ff;
-    --accent-ink: #1b1230;
-    --accent-soft: #2e2450;
-    --yes: #46c695;
-    --yes-ink: #0b2219;
-    --yes-soft: #173a2e;
-    --maybe: #f5c45e;
-    --maybe-ink: #2a1d05;
+    --bg: #0f1112;
+    --surface: #171a1c;
+    --surface-2: #1f2326;
+    --border: #2a2e31;
+    --text: #f1eee8;
+    --muted: #a6a9ad;
+    --accent: #2fc497;
+    --accent-ink: #06140f;
+    --accent-soft: #163a2f;
+    --yes: #2fc497;
+    --yes-ink: #06140f;
+    --yes-soft: #163a2f;
+    --maybe: #e9b14a;
+    --maybe-ink: #241a04;
     --maybe-soft: #3a2f16;
-    --no-bg: #c7bfd4;
-    --no-ink: #15111c;
-    --danger: #ff8a7a;
-    --cell-empty: #2c2338;
-    --heat: 70, 198, 149;
-    --final: #b6a3ff;
-    --final-ink: #1b1230;
+    --no-bg: #c9c6bf;
+    --no-ink: #0f1112;
+    --danger: #ff8577;
+    --cell-empty: #23272a;
+    --heat: 47, 196, 151;
+    --final: #7c95ff;
+    --final-ink: #0f1112;
     --lift: none;
     color-scheme: dark;
   }
@@ -104,9 +112,11 @@ h3 {
   text-wrap: balance;
 }
 h1 {
-  font-size: clamp(1.9rem, 6vw, 2.6rem);
-  font-weight: 800;
-  letter-spacing: -0.02em;
+  font-family: var(--serif);
+  font-size: clamp(2.3rem, 7vw, 3.2rem);
+  font-weight: 400;
+  line-height: 1;
+  letter-spacing: -0.01em;
 }
 h2 {
   font-size: 1.25rem;
@@ -568,9 +578,9 @@ details.tz-line[open] summary::before {
   transform: translateY(-2px);
 }
 .choice-title {
-  font-family: var(--display);
-  font-size: 1.45rem;
-  font-weight: 800;
+  font-family: var(--serif);
+  font-size: 1.9rem;
+  font-weight: 400;
   line-height: 1.15;
 }
 .choice-text {
@@ -623,7 +633,7 @@ details.tz-line[open] summary::before {
 .art-free i + i {
   margin-left: -30px;
   background: var(--maybe);
-  opacity: 0.85;
+  opacity: 0.75;
   mix-blend-mode: multiply;
 }
 @media (prefers-color-scheme: dark) {
@@ -932,10 +942,11 @@ details.tz-line[open] summary::before {
   margin: 14px 0;
 }
 .quick-actions .pill {
-  padding: 8px 14px;
+  padding: 8px 12px;
+  font-size: 0.95rem;
 }
 .quick-actions .pill-quiet {
-  padding: 8px 10px;
+  padding: 8px 6px;
 }
 
 /* Rows to answer: date block, what, tally, vote */
@@ -1098,9 +1109,9 @@ details.tz-line[open] summary::before {
   outline: 2.5px solid var(--final);
 }
 .best-when {
-  font-family: var(--display);
-  font-weight: 800;
-  font-size: clamp(1.3rem, 4vw, 1.6rem);
+  font-family: var(--serif);
+  font-weight: 400;
+  font-size: clamp(1.7rem, 5vw, 2.1rem);
   line-height: 1.2;
   margin-bottom: 10px;
 }
@@ -1411,8 +1422,9 @@ ol.best .when {
   color: var(--yes-ink);
 }
 .banner-final h2 {
-  font-size: clamp(1.4rem, 5vw, 2rem);
-  font-weight: 800;
+  font-family: var(--serif);
+  font-size: clamp(2rem, 6vw, 2.8rem);
+  font-weight: 400;
   margin: 0;
   position: relative;
 }
@@ -1505,7 +1517,7 @@ details.organizer summary b {
   border-radius: var(--radius);
   background: var(--surface);
   border: 1.5px solid var(--border);
-  box-shadow: 0 12px 40px -12px rgba(36, 25, 53, 0.35);
+  box-shadow: 0 12px 40px -12px rgb(22 24 26 / 0.35);
 }
 .menu-item {
   display: flex;

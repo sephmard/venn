@@ -274,10 +274,20 @@ test('phone: no zoom on focus, tap targets, tap-to-pick dates, Save always in re
   expect(save.y + save.height).toBeLessThanOrEqual(page.viewportSize().height);
 });
 
-test('landing page leads to the two kinds of poll', async ({ page }) => {
+test('landing page: nav bar with GitHub, and the way to both kinds of poll', async ({ page, isMobile }) => {
   await page.goto('/');
-  await expect(page.locator('h1')).toBeVisible();
-  await page.locator('.site-hero').getByRole('link', { name: 'Create a poll' }).click();
+  const nav = page.getByRole('navigation', { name: 'Main' });
+  await expect(nav.getByRole('link', { name: 'GitHub' }).first()).toBeVisible();
+  await expect(page.getByRole('link', { name: 'View on GitHub' })).toHaveAttribute('href', 'https://github.com/sephmard/venn');
+  if (isMobile) {
+    await page.locator('.menu summary').click();
+    await expect(page.locator('.menu-panel').getByRole('link', { name: 'Privacy' })).toBeVisible();
+    await page.locator('.menu summary').click();
+  } else {
+    await expect(nav.getByRole('link', { name: 'Privacy' })).toBeVisible();
+  }
+  await expect(page.locator('h1')).toHaveText(/Find the time that works/);
+  await page.locator('.hero').getByRole('link', { name: 'Create a poll' }).click();
   await expect(page).toHaveURL(/\/new$/);
   await expect(page.getByRole('heading', { name: 'What kind of poll?' })).toBeVisible();
   await page.getByRole('link', { name: /Ask when people are free/ }).click();

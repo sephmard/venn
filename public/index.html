@@ -4,18 +4,18 @@
     <meta charset="utf-8" />
     <meta name="referrer" content="no-referrer" />
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-    <meta name="theme-color" content="#f7f7f5" media="(prefers-color-scheme: light)" />
-    <meta name="theme-color" content="#131416" media="(prefers-color-scheme: dark)" />
-    <title>Venn: free polls to find a date for dinners, trips and get-togethers</title>
+    <meta name="theme-color" content="#faf8f4" media="(prefers-color-scheme: light)" />
+    <meta name="theme-color" content="#0f1112" media="(prefers-color-scheme: dark)" />
+    <title>Venn: free scheduling polls, no sign-up</title>
     <meta
       name="description"
-      content="Get the group together. Suggest a few dates or ask when people are free, share one link, and Venn finds the day that works for the most people. Free, no ads."
+      content="Find the time that works for everyone, for dinners, book clubs and trips. Suggest a few dates or ask when people are free, share one link, and see where everyone overlaps. Free, no accounts, no ads."
     />
     <link rel="canonical" href="https://venn.day/" />
     <meta property="og:type" content="website" />
     <meta property="og:site_name" content="Venn" />
     <meta property="og:url" content="https://venn.day/" />
-    <meta property="og:title" content="Venn: get the group together" />
+    <meta property="og:title" content="Venn: find the time that works for everyone" />
     <meta
       property="og:description"
       content="Free polls for dinners, book clubs and trips. Share one link and see which day works for everyone."
@@ -27,223 +27,216 @@
     <link rel="manifest" href="/manifest.webmanifest" />
     <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png" />
     <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
-    <link rel="stylesheet" href="/styles.css" />
+    <link rel="preload" href="/fonts/instrument-serif-latin-400-normal.woff2" as="font" type="font/woff2" crossorigin />
     <link rel="stylesheet" href="/site.css" />
   </head>
-  <body class="site">
+  <body>
+    <a class="skip" href="#main">Skip to content</a>
     <header class="topbar">
-      <a href="/" class="brand">
-        <svg viewBox="0 0 120 80" width="36" height="24" aria-hidden="true">
-          <defs>
-            <clipPath id="brand-left"><circle cx="45" cy="40" r="30" /></clipPath>
-          </defs>
-          <circle cx="45" cy="40" r="30" fill="var(--accent)" fill-opacity=".28" />
-          <circle cx="75" cy="40" r="30" fill="var(--accent)" fill-opacity=".28" />
-          <circle cx="75" cy="40" r="30" fill="var(--accent)" clip-path="url(#brand-left)" />
-        </svg>
-        Venn
-      </a>
-      <nav class="site-nav" aria-label="Main">
-        <a href="#how" class="hide-sm">How it works</a>
-        <a href="#faq" class="hide-sm">FAQ</a>
-        <a href="https://github.com/sephmard/venn" class="hide-sm">GitHub</a>
-        <a href="/new" class="btn btn-primary btn-sm">Create a poll</a>
-      </nav>
+      <div class="wrap nav">
+        <a href="/" class="brand">
+          <svg viewBox="0 0 120 80" width="36" height="24" aria-hidden="true">
+            <defs>
+              <clipPath id="brand-left"><circle cx="45" cy="40" r="30" /></clipPath>
+            </defs>
+            <circle cx="45" cy="40" r="30" fill="var(--green)" fill-opacity=".28" />
+            <circle cx="75" cy="40" r="30" fill="var(--green)" fill-opacity=".28" />
+            <circle cx="75" cy="40" r="30" fill="var(--green)" clip-path="url(#brand-left)" />
+          </svg>
+          Venn
+        </a>
+        <nav class="nav-links" aria-label="Main">
+          <a href="/#how" class="hide-md">How it works</a>
+          <a href="https://docs.venn.day" class="hide-md">Docs</a>
+          <a href="/privacy" class="hide-md">Privacy</a>
+          <a href="https://github.com/sephmard/venn" class="gh-link"
+            ><svg class="gh-mark" viewBox="0 0 16 16" width="18" height="18" aria-hidden="true">
+              <path
+                fill="currentColor"
+                d="M8 0c4.42 0 8 3.58 8 8a8.013 8.013 0 0 1-5.45 7.59c-.4.08-.55-.17-.55-.38 0-.27.01-1.13.01-2.2 0-.75-.25-1.23-.54-1.48 1.78-.2 3.65-.88 3.65-3.95 0-.88-.31-1.59-.82-2.15.08-.2.36-1.02-.08-2.12 0 0-.67-.22-2.2.82-.64-.18-1.32-.27-2-.27-.68 0-1.36.09-2 .27-1.53-1.03-2.2-.82-2.2-.82-.44 1.1-.16 1.92-.08 2.12-.51.56-.82 1.28-.82 2.15 0 3.06 1.86 3.75 3.64 3.95-.23.2-.44.55-.51 1.07-.46.21-1.61.55-2.33-.66-.15-.24-.6-.83-1.23-.82-.67.01-.27.38.01.53.34.19.73.9.82 1.13.16.45.68 1.31 2.69.94 0 .67.01 1.3.01 1.49 0 .21-.15.45-.55.38A7.995 7.995 0 0 1 0 8c0-4.42 3.58-8 8-8Z"
+              /></svg
+            ><span class="gh-label">GitHub</span></a
+          >
+          <a href="/new" class="btn btn-sm">Create a poll</a>
+          <details class="menu">
+            <summary aria-label="Menu">
+              <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true">
+                <path d="M4 7h16M4 12h16M4 17h16" stroke="currentColor" stroke-width="2" stroke-linecap="round" />
+              </svg>
+            </summary>
+            <div class="menu-panel">
+              <a href="/#how">How it works</a>
+              <a href="https://docs.venn.day">Docs</a>
+              <a href="/privacy">Privacy</a>
+              <a href="https://github.com/sephmard/venn">GitHub</a>
+            </div>
+          </details>
+        </nav>
+      </div>
     </header>
 
-    <main>
-      <section class="site-hero">
-        <h1>Get the group together</h1>
-        <p class="lede">
-          Dinners, book clubs, game nights and weekend trips. Suggest a few dates or ask when people are free, share one link, and
-          Venn finds the day that works for the most people. Free, with no ads.
-        </p>
-        <div class="btn-row site-cta">
-          <a href="/new" class="btn btn-primary btn-lg">Create a poll</a>
-          <a href="#how" class="btn btn-lg">See how it works</a>
-        </div>
-        <p class="small muted">Takes about a minute. Nobody signs up, not even you.</p>
-      </section>
-
-      <figure class="shot shot-hero">
-        <picture>
-          <source media="(prefers-color-scheme: dark)" srcset="/img/results-dark.webp" />
-          <img
-            src="/img/results-light.webp"
-            width="800"
-            height="1069"
-            alt="A dinner poll: each suggested evening with Yes, If needed and No answers, the best options ranked, and everyone's answers side by side"
-          />
-        </picture>
-      </figure>
-
-      <section id="how" class="site-section">
-        <h2 class="section-title">How it works</h2>
-        <div class="step">
-          <div class="step-text">
-            <span class="step-num">1</span>
-            <h3>Suggest some dates, or ask when people are free</h3>
-            <p class="muted">
-              Have a few evenings in mind? Tap them on the calendar and pick the times. Planning a trip? Choose a range of days
-              and let everyone mark when they're free. Venn even finds a few days in a row that work.
-            </p>
-          </div>
-          <figure class="shot">
-            <picture>
-              <source media="(prefers-color-scheme: dark)" srcset="/img/create-dark.webp" />
-              <img
-                src="/img/create-light.webp"
-                width="768"
-                height="967"
-                loading="lazy"
-                alt="Creating a dinner poll: picking dates on a calendar and choosing 7:00 and 7:30 PM"
-              />
-            </picture>
-          </figure>
-        </div>
-        <div class="step step-flip">
-          <div class="step-text">
-            <span class="step-num">2</span>
-            <h3>Share one link</h3>
-            <p class="muted">
-              Drop it in the group chat. People type their name and tap <b>Yes</b>, <b>If needed</b> or <b>No</b> for each option.
-              No app to install, and it's made for phones.
-            </p>
-          </div>
-          <figure class="shot shot-phone">
-            <picture>
-              <source media="(prefers-color-scheme: dark)" srcset="/img/mobile-dark.webp" />
-              <img
-                src="/img/mobile-light.webp"
-                width="390"
-                height="844"
-                loading="lazy"
-                alt="Answering a poll on a phone with Yes, If needed and No buttons"
-              />
-            </picture>
-          </figure>
-        </div>
-        <div class="step">
-          <div class="step-text">
-            <span class="step-num">3</span>
-            <h3>See the overlap and pick</h3>
-            <p class="muted">
-              Venn ranks every option by how many people can make it, then by how many gave a firm yes. Pick one, and everyone
-              gets links to add it to Google, Outlook or Apple Calendar.
-            </p>
-          </div>
-          <figure class="shot">
-            <picture>
-              <source media="(prefers-color-scheme: dark)" srcset="/img/best-dark.webp" />
-              <img
-                src="/img/best-light.webp"
-                width="586"
-                height="623"
-                loading="lazy"
-                alt="The best options for a dinner, ranked by how many people can make each one"
-              />
-            </picture>
-          </figure>
-        </div>
-      </section>
-
-      <section class="site-section">
-        <h2 class="section-title">Everything you need, nothing you don't</h2>
-        <ul class="features">
-          <li>
-            <h3>No accounts</h3>
-            <p class="muted">Nobody signs up, not even the organizer. Your link is your key.</p>
-          </li>
-          <li>
-            <h3>Time zones handled</h3>
-            <p class="muted">Everyone sees the times in their own time zone, automatically.</p>
-          </li>
-          <li>
-            <h3>Check your calendar</h3>
-            <p class="muted">
-              Fill in your answers from Google Calendar, Outlook or a calendar file. Only busy/free times are read, in your
-              browser.
-            </p>
-          </li>
-          <li>
-            <h3>Know when people answer</h3>
-            <p class="muted">Get an email, or a message in Slack, Discord or any webhook, when someone responds.</p>
-          </li>
-          <li>
-            <h3>Days, evenings or whole trips</h3>
-            <p class="muted">
-              Vote on specific evenings, find a free day, or find three days in a row for a weekend away. All-day plans go into
-              calendars as all-day events.
-            </p>
-          </li>
-          <li>
-            <h3>Open source</h3>
-            <p class="muted">
-              MIT licensed. Read the code, suggest a feature, or run your own copy on Cloudflare or any Node server.
-            </p>
-          </li>
-        </ul>
-      </section>
-
-      <section class="site-section privacy-band card">
+    <main id="main">
+      <section class="wrap hero">
         <div>
-          <h2 class="section-title">Private by design</h2>
-          <p class="muted">
-            No cookies, no analytics, no ads. Venn stores only what people type into a poll. Edit links carry a secret the server
-            never sees, and the organizer can delete the poll at any time.
+          <h1>Find the time that works for <em>everyone.</em></h1>
+          <p class="lede">
+            Dinners, book clubs, game nights and trips. Suggest a few dates or ask when people are free, share one link, and see
+            where everyone overlaps. Free, with no sign-up for you or anyone you invite.
           </p>
+          <div class="cta-row">
+            <a href="/new" class="btn">Create a poll</a>
+            <a href="#how" class="link-arrow">How it works <span aria-hidden="true">→</span></a>
+          </div>
+          <p class="fine">Takes about a minute. Works on any phone.</p>
         </div>
-        <a href="/privacy" class="btn">Read the privacy policy</a>
+
+        <svg
+          class="venn"
+          viewBox="0 0 540 500"
+          role="img"
+          aria-label="Three overlapping circles for Ana, Marcus and Priya. Where all three overlap: Tuesday at 3:00 PM."
+        >
+          <defs>
+            <clipPath id="clip-green"><circle cx="210" cy="200" r="150" /></clipPath>
+            <clipPath id="clip-amber"><circle cx="330" cy="200" r="150" /></clipPath>
+          </defs>
+          <circle class="c c-green" cx="210" cy="200" r="150" />
+          <circle class="c c-amber" cx="330" cy="200" r="150" />
+          <circle class="c c-blue" cx="270" cy="304" r="150" />
+          <g clip-path="url(#clip-green)">
+            <g clip-path="url(#clip-amber)">
+              <circle class="overlap" cx="270" cy="304" r="150" />
+            </g>
+          </g>
+          <g class="label">
+            <text class="who" x="40" y="34">Ana</text>
+            <text class="when" x="40" y="54">Mon, Tue afternoons</text>
+            <text class="who" x="500" y="34" text-anchor="end">Marcus</text>
+            <text class="when" x="500" y="54" text-anchor="end">Tue, Thu</text>
+            <text class="who" x="270" y="478" text-anchor="middle">Priya</text>
+            <text class="when" x="270" y="498" text-anchor="middle">Tue after lunch</text>
+          </g>
+          <g class="pick-group">
+            <rect class="pick-bg" x="186" y="228" width="168" height="44" rx="22" />
+            <circle class="pulse pick-dot" cx="214" cy="250" r="6" />
+            <circle class="pick-dot" cx="214" cy="250" r="6" />
+            <text class="pick" x="230" y="255">Tue · 3:00 PM</text>
+          </g>
+        </svg>
       </section>
 
-      <section id="faq" class="site-section faq">
-        <h2 class="section-title">Questions</h2>
-        <details>
-          <summary>Is it really free?</summary>
-          <p class="muted">Yes. Venn is open source and cheap to run, so there's no paid plan, no trial and no ads.</p>
-        </details>
-        <details>
-          <summary>Do the people I invite need an account?</summary>
-          <p class="muted">No. They open the link, type a name and answer. That's it.</p>
-        </details>
-        <details>
-          <summary>How do I edit my poll later, or from another device?</summary>
-          <p class="muted">
-            When you create a poll, your browser remembers that you're the organizer. To manage it from somewhere else, copy your
-            private organizer link from the poll page and keep it safe.
-          </p>
-        </details>
-        <details>
-          <summary>Can Venn see my calendar?</summary>
-          <p class="muted">
-            No. <i>Check my calendar</i> runs in your browser and only asks Google or Microsoft for busy/free times. The sign-in
-            never reaches our server, and calendar files are never uploaded.
-          </p>
-        </details>
-        <details>
-          <summary>How long are polls kept?</summary>
-          <p class="muted">Until the organizer deletes them. People can also remove their own answers at any time.</p>
-        </details>
-        <details>
-          <summary>Can I run it myself?</summary>
-          <p class="muted">
-            Yes. Deploy it free on Cloudflare in a few minutes, or run it on any server with Node. See the
-            <a href="https://github.com/sephmard/venn#self-hosting">self-hosting guide</a>.
-          </p>
-        </details>
+      <section id="how" class="section">
+        <div class="wrap">
+          <p class="eyebrow">How it works</p>
+          <h2>Three steps. <em>One link.</em></h2>
+          <ol class="steps">
+            <li>
+              <span class="num" aria-hidden="true">1</span>
+              <h3>Suggest dates, or ask who's free</h3>
+              <p>
+                Tap a few dates and times for people to vote on, or pick a range of days and let everyone mark when they're free.
+              </p>
+            </li>
+            <li>
+              <span class="num" aria-hidden="true">2</span>
+              <h3>Share one link</h3>
+              <p>People type a name and tap Yes, If needed or No. No app, no account, great on a phone.</p>
+            </li>
+            <li>
+              <span class="num" aria-hidden="true">3</span>
+              <h3>Pick the overlap</h3>
+              <p>Venn ranks every option by who can make it. Choose one and everyone can add it to their calendar.</p>
+            </li>
+          </ol>
+          <figure class="shot">
+            <picture>
+              <source media="(max-width: 640px) and (prefers-color-scheme: dark)" srcset="/img/mobile-dark.webp" />
+              <source media="(max-width: 640px)" srcset="/img/mobile-light.webp" />
+              <source media="(prefers-color-scheme: dark)" srcset="/img/results-dark.webp" />
+              <img
+                src="/img/results-light.webp"
+                width="1600"
+                height="2138"
+                loading="lazy"
+                alt="A dinner poll in Venn: each suggested evening with Yes, If needed and No answers, the best options ranked, and everyone's answers side by side"
+              />
+            </picture>
+          </figure>
+        </div>
       </section>
 
-      <section class="site-final">
-        <h2>Stop the back-and-forth.</h2>
-        <a href="/new" class="btn btn-primary btn-lg">Create a poll</a>
+      <section class="band">
+        <div class="wrap">
+          <p class="eyebrow">Our promise</p>
+          <h2>No accounts. No ads. <em>No tracking.</em></h2>
+          <ul class="facts">
+            <li>
+              <h3>Time zones, handled</h3>
+              <p>Everyone sees the times in their own time zone, automatically.</p>
+            </li>
+            <li>
+              <h3>Check your calendar</h3>
+              <p>Fill in answers from Google, Outlook or a calendar file. It stays in your browser.</p>
+            </li>
+            <li>
+              <h3>Know when people answer</h3>
+              <p>Get an email, or a message in Slack, Discord or any webhook.</p>
+            </li>
+            <li>
+              <h3>Two kinds of poll</h3>
+              <p>Vote on a few dates, or find when people are free, even several days in a row for a trip.</p>
+            </li>
+          </ul>
+        </div>
+      </section>
+
+      <section id="open-source" class="section">
+        <div class="wrap oss">
+          <div>
+            <p class="eyebrow">Open source</p>
+            <h2>Free, open, and <em>yours&nbsp;to&nbsp;run.</em></h2>
+            <p class="lede">
+              Venn is MIT licensed and built in the open on GitHub. Read every line, suggest a feature, or run your own copy on
+              Cloudflare or any server with Node.
+            </p>
+            <div class="cta-row">
+              <a href="https://github.com/sephmard/venn" class="btn btn-ink"
+                ><svg class="gh-mark" viewBox="0 0 16 16" width="20" height="20" aria-hidden="true">
+                  <path
+                    fill="currentColor"
+                    d="M8 0c4.42 0 8 3.58 8 8a8.013 8.013 0 0 1-5.45 7.59c-.4.08-.55-.17-.55-.38 0-.27.01-1.13.01-2.2 0-.75-.25-1.23-.54-1.48 1.78-.2 3.65-.88 3.65-3.95 0-.88-.31-1.59-.82-2.15.08-.2.36-1.02-.08-2.12 0 0-.67-.22-2.2.82-.64-.18-1.32-.27-2-.27-.68 0-1.36.09-2 .27-1.53-1.03-2.2-.82-2.2-.82-.44 1.1-.16 1.92-.08 2.12-.51.56-.82 1.28-.82 2.15 0 3.06 1.86 3.75 3.64 3.95-.23.2-.44.55-.51 1.07-.46.21-1.61.55-2.33-.66-.15-.24-.6-.83-1.23-.82-.67.01-.27.38.01.53.34.19.73.9.82 1.13.16.45.68 1.31 2.69.94 0 .67.01 1.3.01 1.49 0 .21-.15.45-.55.38A7.995 7.995 0 0 1 0 8c0-4.42 3.58-8 8-8Z"
+                  /></svg
+                >View on GitHub</a
+              >
+              <a href="https://docs.venn.day/self-hosting.html" class="link-arrow"
+                >Self-hosting guide <span aria-hidden="true">→</span></a
+              >
+            </div>
+          </div>
+          <figure class="code-card">
+            <figcaption>Run it yourself</figcaption>
+            <pre><code><span class="prompt">$</span> git clone https://github.com/sephmard/venn
+<span class="prompt">$</span> cd venn &amp;&amp; npm install
+<span class="prompt">$</span> npm start
+<span class="comment"># Venn running at http://localhost:8787</span></code></pre>
+          </figure>
+        </div>
+      </section>
+
+      <section class="wrap closing">
+        <h2>Stop the <em>back-and-forth.</em></h2>
+        <a href="/new" class="btn">Create a poll</a>
       </section>
     </main>
 
-    <footer class="footer site-footer">
-      <span>© Venn · MIT licensed</span>
-      <a href="/privacy">Privacy</a>
-      <a href="https://github.com/sephmard/venn">GitHub</a>
-      <a href="https://github.com/sephmard/venn/issues/new/choose">Feedback</a>
+    <footer class="wrap footer">
+      <span>© Venn · Free and open source</span>
+      <nav aria-label="Footer">
+        <a href="/privacy">Privacy</a>
+        <a href="https://docs.venn.day">Docs</a>
+        <a href="https://github.com/sephmard/venn">GitHub</a>
+        <a href="https://github.com/sephmard/venn/issues/new/choose">Feedback</a>
+      </nav>
     </footer>
   </body>
 </html>

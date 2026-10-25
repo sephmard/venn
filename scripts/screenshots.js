@@ -1,5 +1,5 @@
 // Regenerates the README images (docs/screenshots/*.png, docs/demo.gif) and the landing page's
-// images (public/img/*.webp): `npm run screenshots`.
+// product shots (public/img/results-*.webp and mobile-*.webp): `npm run screenshots`.
 // Needs Playwright's Chromium (`npx playwright install chromium`) and ffmpeg (for the GIF and WebP).
 
 import { execFileSync } from 'node:child_process';
@@ -141,12 +141,6 @@ async function stills(dark) {
   await desktop.addStyleTag({ content: HIDE_TOAST });
   await shoot(desktop, '#panel-group', join(out, `results-${suffix}.png`), { crop: '#event-root' });
   toWebp(join(out, `results-${suffix}.png`), `results-${suffix}`);
-  await shoot(desktop, '#panel-group > .sheet:first-child', join(out, `best-${suffix}.png`), {
-    from: '#panel-group > .sheet:first-child',
-    crop: '#panel-group > .sheet:first-child',
-  });
-  toWebp(join(out, `best-${suffix}.png`), `best-${suffix}`);
-  rmSync(join(out, `best-${suffix}.png`));
 
   await desktop.goto(`${base}/new/pick`);
   await desktop.addStyleTag({ content: HIDE_TOAST });
@@ -161,7 +155,6 @@ async function stills(dark) {
   for (const m of [1140, 1170]) await desktop.click(`#times [data-time="${m}"]`);
   await desktop.locator('#title').blur();
   await shoot(desktop, '#times-sheet', join(out, `create-${suffix}.png`), { from: '.sheet:has(#dates-h)', crop: '#create' });
-  toWebp(join(out, `create-${suffix}.png`), `create-${suffix}`);
   await desktop.context().close();
 
   const phone = await newPage({ dark, mobile: true });

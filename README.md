@@ -98,46 +98,15 @@ npm start     # http://localhost:8787
 
 Polls are saved to `data/venn.db` (SQLite).
 
-Try it at [venn.day](https://venn.day). All the docs are on [docs.venn.day](https://docs.venn.day).
+Try it at [venn.day](https://venn.day). The developer docs are on [docs.venn.day](https://docs.venn.day).
 
 ## Self-hosting
 
-### Cloudflare (free)
-
-Venn runs on [Cloudflare Workers](https://workers.cloudflare.com) with a [D1](https://developers.cloudflare.com/d1/) database. The free plan is plenty for personal and team use.
+Host it free on Cloudflare Workers with a D1 database, or on any server that runs Node:
 
 [![Deploy to Cloudflare](https://deploy.workers.cloudflare.com/button)](https://deploy.workers.cloudflare.com/?url=https://github.com/sephmard/venn)
 
-Or deploy from your machine:
-
-```sh
-npx wrangler login
-npx wrangler d1 create venn   # paste the database_id it prints into wrangler.toml
-npx wrangler deploy
-```
-
-Tables are created automatically on the first request.
-
-To deploy on every push to `main` with GitHub Actions, set the repository variables `CLOUDFLARE_DEPLOY=true` and `D1_DATABASE_ID`, and the secrets `CLOUDFLARE_API_TOKEN` and `CLOUDFLARE_ACCOUNT_ID`. The [deploy workflow](.github/workflows/deploy.yml) is off by default, so forks never try to deploy.
-
-### Optional features
-
-| Feature                      | How to turn it on                                                                                |
-| ---------------------------- | ------------------------------------------------------------------------------------------------ |
-| Email notifications (Resend) | Set `RESEND_API_KEY` and `EMAIL_FROM`. See [docs/NOTIFICATIONS.md](docs/NOTIFICATIONS.md).       |
-| Webhook notifications        | Always on. Organizers add a URL from their poll.                                                 |
-| Google Calendar / Outlook    | Set `GOOGLE_CLIENT_ID` and/or `MICROSOFT_CLIENT_ID`. See [docs/CALENDARS.md](docs/CALENDARS.md). |
-| AI features (Claude)         | Set `ANTHROPIC_API_KEY`. See [docs/AI.md](docs/AI.md).                                           |
-
-### Any server with Node
-
-```sh
-PORT=3000 DB_PATH=/var/lib/venn/venn.db node server.js
-```
-
-Put it behind a reverse proxy (Caddy, nginx) for HTTPS. The SQLite file is the only state to back up.
-
-> **Running a public instance?** Read the [hosting checklist](docs/MAINTAINING.md#hosting-a-public-instance): HTTPS, rate limiting, security headers and backups.
+The [self-hosting guide](docs/SELF-HOSTING.md) covers Cloudflare, Node, deploying from GitHub Actions, and turning on email, calendars and AI.
 
 ## Privacy
 
@@ -150,62 +119,7 @@ Found a security issue? Please report it privately. See [SECURITY.md](SECURITY.m
 
 ## How it's built
 
-No framework and no build step: plain HTML, CSS and JavaScript, a small JSON API, and SQLite. The only runtime dependency is the Anthropic SDK, used on the server for the optional AI features.
-
-<details>
-<summary><strong>Project layout</strong></summary>
-
-```
-public/            the whole front end, served as-is
-  index.html       landing page (/); privacy.html and 404.html sit beside it
-  app.html         app shell, served for /new and /e/:id
-  app.js           router
-  create.js        the create pages: "vote on a few dates" and "ask when people are free"
-  event.js         the poll page: answering, the group's results, organizer tools
-  ui.js            shared UI helpers: formatting, avatars, storage, API calls
-  core.js          shared logic: time zones, ranking, calendar import/export
-  calendars.js     Google / Outlook free-busy, in the browser
-  oauth-callback.* where calendar sign-in popups land
-  styles.css       light and dark themes
-site-src/          styles for the GitHub Pages site
-src/
-  api.js           JSON API on web-standard Request/Response
-  store.js         SQL storage for Cloudflare D1 and node:sqlite
-  notify.js        email and webhook notifications
-  ai.js            AI features (Claude)
-  routes.js        which paths the app handles
-  worker.js        Cloudflare Worker entry point
-server.js          Node server entry point
-test/              unit and API tests (node:test)
-e2e/               browser tests (Playwright, desktop and mobile)
-docs/              guides (notifications, calendars, AI, CI, maintaining), images
-scripts/           README screenshots, social image, the docs site build, link checks
-CLAUDE.md          project rules for code review
-```
-
-</details>
-
-<details>
-<summary><strong>API</strong></summary>
-
-| Method           | Path                                 | Notes                                                                                                                                                                          |
-| ---------------- | ------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `POST`           | `/api/events`                        | Create a poll → `{ id, adminToken }`. Specific times: `{ mode: "options", options: [{ start, end }] }` (UTC ms). Whole days: `slotMinutes: 1440`. Optional `location`, `emoji` |
-| `GET`            | `/api/events/:id`                    | Poll and responses. Sending the `x-admin-token` header sets `isAdmin`.                                                                                                         |
-| `DELETE`         | `/api/events/:id`                    | Organizer only                                                                                                                                                                 |
-| `POST`           | `/api/events/:id/participants`       | `{ name, availability }` → `{ id, editToken }`                                                                                                                                 |
-| `PUT` / `DELETE` | `/api/events/:id/participants/:pid`  | Needs `x-edit-token`. The organizer can also delete.                                                                                                                           |
-| `POST`           | `/api/events/:id/finalize`           | `{ start }`, or `{ start: null }` to clear. Organizer only.                                                                                                                    |
-| `GET`            | `/api/events/:id/event.ics`          | Calendar file for the picked time                                                                                                                                              |
-| `GET` / `PUT`    | `/api/events/:id/notifications`      | Email and webhook settings. Organizer only. See [docs/NOTIFICATIONS.md](docs/NOTIFICATIONS.md).                                                                                |
-| `POST`           | `/api/events/:id/notifications/test` | Send a test webhook. Organizer only.                                                                                                                                           |
-| `GET`            | `/api/config`                        | Which optional features (email, calendars, AI) this server has turned on                                                                                                       |
-| `POST`           | `/api/ai/draft-poll`                 | `{ prompt, timezone }` → a draft poll. See [docs/AI.md](docs/AI.md).                                                                                                           |
-| `POST`           | `/api/events/:id/ai/:kind`           | `summary` and `message` (organizer only), `answer` (anyone)                                                                                                                    |
-
-`availability` maps each option's start time (UTC ms) to `2` (yes) or `1` (if needed). Anything missing means no.
-
-</details>
+No framework and no build step: plain HTML, CSS and JavaScript, a small JSON API, and SQLite. The same code runs as a Cloudflare Worker or a Node server. The [developer docs](https://docs.venn.day) explain the [project layout](docs/INTRODUCTION.md#how-its-built) and the [API](docs/API.md).
 
 ## Roadmap
 
@@ -230,9 +144,9 @@ Every pull request gets quick automatic checks: lint, unit and browser tests on 
 npm run check          # lint, formatting, docs links, unit and API tests
 npm run test:coverage  # unit tests with the coverage floor
 npm run test:e2e       # browser and accessibility tests on desktop and mobile
-npm run site           # build the website and docs into site/
+npm run site           # build the developer docs into site/
 ```
 
 ## License
 
-[MIT](LICENSE) © Seph Mard
+[MIT](LICENSE)
