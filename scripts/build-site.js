@@ -31,8 +31,7 @@ const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&l
 const slug = (text) =>
   text
     .toLowerCase()
-    .replace(/<[^>]+>/g, '')
-    .replace(/[^\p{L}\p{N}\s-]/gu, '')
+    .replace(/[^\p{L}\p{N}\s-]/gu, '') // drops punctuation, like GitHub's anchors
     .trim()
     .replace(/\s+/g, '-');
 
