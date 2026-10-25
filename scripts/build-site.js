@@ -90,7 +90,8 @@ function docPage([src, page, title]) {
   <title>${esc(fullTitle)}</title>
   <meta name="description" content="${esc(`Developer documentation for Venn, the open-source scheduling poll: ${title}.`)}">
   <meta property="og:title" content="${esc(fullTitle)}">
-  <link rel="icon" href="favicon.svg" type="image/svg+xml">
+  <link rel="icon" href="favicon.ico?v=3" sizes="32x32">
+  <link rel="icon" href="favicon.svg?v=3" type="image/svg+xml">
   <link rel="stylesheet" href="site.css">
 </head>
 <body>
@@ -132,6 +133,7 @@ rmSync(out, { recursive: true, force: true });
 mkdirSync(out, { recursive: true });
 cpSync(join(root, 'docs'), join(out, 'assets'), { recursive: true, filter: (p) => !p.endsWith('.md') });
 cpSync(join(root, 'public', 'favicon.svg'), join(out, 'favicon.svg'));
+cpSync(join(root, 'public', 'favicon.ico'), join(out, 'favicon.ico'));
 cpSync(join(root, 'public', 'fonts'), join(out, 'fonts'), { recursive: true });
 cpSync(join(root, 'site-src', 'site.css'), join(out, 'site.css'));
 writeFileSync(join(out, '.nojekyll'), ''); // serve files as-is
@@ -143,7 +145,7 @@ for (const file of DOCS.map((d) => d[1])) {
   const html = readFileSync(join(out, file), 'utf8');
   for (const [, url] of html.matchAll(/(?:href|src|srcset)="([^"]+)"/g)) {
     if (/^([a-z][a-z0-9+.-]*:|#|\/\/)/i.test(url)) continue;
-    const target = join(out, posix.dirname(file), url.split('#')[0]);
+    const target = join(out, posix.dirname(file), url.split(/[?#]/)[0]);
     if (!existsSync(target)) broken.push(`${file}: ${url}`);
   }
 }

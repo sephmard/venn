@@ -307,6 +307,12 @@ test('installable: manifest and icons are served', async ({ request }) => {
   const manifest = await (await request.get('/manifest.webmanifest')).json();
   expect(manifest.name).toBe('Venn');
   for (const icon of manifest.icons) expect((await request.get(icon.src)).status()).toBe(200);
+  // Browser tabs: the SVG favicon, and the .ico that some browsers ask for by name.
+  for (const path of ['/favicon.svg', '/favicon.ico']) {
+    const res = await request.get(path);
+    expect(res.status()).toBe(200);
+    expect(res.headers()['content-type']).toMatch(/image/);
+  }
 });
 
 test('AI: describe a poll in words, then summarize and write messages as the organizer', async ({ page }) => {
