@@ -8,28 +8,33 @@
     <meta name="description" content="What Venn stores, what it doesn't, and how to delete it." />
     <link rel="canonical" href="https://venn.day/privacy" />
     <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
-    <link rel="stylesheet" href="/styles.css" />
     <link rel="stylesheet" href="/site.css" />
   </head>
-  <body class="site">
-    <header class="topbar">
+  <body>
+    <a class="skip" href="#main">Skip to content</a>
+    <header class="wrap nav">
       <a href="/" class="brand">
         <svg viewBox="0 0 120 80" width="36" height="24" aria-hidden="true">
           <defs>
             <clipPath id="brand-left"><circle cx="45" cy="40" r="30" /></clipPath>
           </defs>
-          <circle cx="45" cy="40" r="30" fill="var(--accent)" fill-opacity=".28" />
-          <circle cx="75" cy="40" r="30" fill="var(--accent)" fill-opacity=".28" />
-          <circle cx="75" cy="40" r="30" fill="var(--accent)" clip-path="url(#brand-left)" />
+          <circle cx="45" cy="40" r="30" fill="var(--green)" fill-opacity=".28" />
+          <circle cx="75" cy="40" r="30" fill="var(--green)" fill-opacity=".28" />
+          <circle cx="75" cy="40" r="30" fill="var(--green)" clip-path="url(#brand-left)" />
         </svg>
         Venn
       </a>
-      <nav class="site-nav" aria-label="Main"><a href="/new" class="btn btn-primary btn-sm">Create a poll</a></nav>
+      <nav class="nav-links" aria-label="Main">
+        <a href="https://docs.venn.day" class="hide-sm">Docs</a>
+        <a href="https://github.com/sephmard/venn" class="hide-sm">GitHub</a>
+        <a href="/new" class="btn btn-sm">Create a poll</a>
+      </nav>
     </header>
-    <main>
+
+    <main id="main" class="wrap page">
       <article class="prose">
         <h1>Privacy</h1>
-        <p class="muted">Last updated October 25, 2026</p>
+        <p class="meta">Last updated October 25, 2026</p>
         <p>
           Venn is built to know as little about you as possible. There are no accounts, no cookies, no analytics and no ads. This
           page explains exactly what is stored.
@@ -83,10 +88,15 @@
         </p>
       </article>
     </main>
-    <footer class="footer site-footer">
-      <span>© Venn · MIT licensed</span>
-      <a href="/">Home</a>
-      <a href="https://github.com/sephmard/venn">GitHub</a>
+
+    <footer class="wrap footer">
+      <span>© Venn · Free and open source</span>
+      <nav aria-label="Footer">
+        <a href="/privacy">Privacy</a>
+        <a href="https://docs.venn.day">Docs</a>
+        <a href="https://github.com/sephmard/venn">GitHub</a>
+        <a href="https://github.com/sephmard/venn/issues/new/choose">Feedback</a>
+      </nav>
     </footer>
   </body>
 </html>

@@ -236,8 +236,8 @@ test('phone: no zoom on focus, tap targets, tap-to-pick dates, Save always in re
 
 test('landing page leads to the poll creator', async ({ page }) => {
   await page.goto('/');
-  await expect(page.locator('h1')).toHaveText(/Find a time that works/);
-  await page.locator('.site-hero').getByRole('link', { name: 'Create a poll' }).click();
+  await expect(page.locator('h1')).toHaveText(/Find the time that works/);
+  await page.locator('.hero').getByRole('link', { name: 'Create a poll' }).click();
   await expect(page).toHaveURL(/\/new$/);
   await expect(page.locator('#title')).toBeVisible();
   await page.getByRole('link', { name: 'Venn' }).click();

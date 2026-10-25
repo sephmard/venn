@@ -177,6 +177,7 @@ e2e/               browser tests (Playwright, desktop and mobile)
 docs/              guides (notifications, calendars, AI, CI, maintaining), images
 scripts/           README screenshots, social image, the docs site build, link checks
 CLAUDE.md          project rules for code review
+DESIGN.md          design system for the landing pages
 ```
 
 </details>
