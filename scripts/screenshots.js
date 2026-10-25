@@ -1,5 +1,6 @@
-// Regenerates the README images: `npm run screenshots`.
-// Needs Playwright's Chromium (`npx playwright install chromium`). The demo GIF also needs ffmpeg.
+// Regenerates the README images (docs/screenshots/*.png, docs/demo.gif) and the landing page's
+// product shots (public/img/results-*.webp and mobile-*.webp): `npm run screenshots`.
+// Needs Playwright's Chromium (`npx playwright install chromium`) and ffmpeg (for the GIF and WebP).
 
 import { execFileSync } from 'node:child_process';
 import { mkdirSync, rmSync, readdirSync } from 'node:fs';
@@ -11,6 +12,7 @@ import { zonedToUtc, addDays, weekdayOf } from '../public/core.js';
 
 const root = join(dirname(fileURLToPath(import.meta.url)), '..');
 const out = join(root, 'docs', 'screenshots');
+const web = join(root, 'public', 'img');
 const TZ = 'America/New_York';
 mkdirSync(out, { recursive: true });
 
@@ -27,26 +29,29 @@ const api = async (path, body, headers = {}) => {
   return res.json();
 };
 
-// The Tuesday at least a week from today, so the demo always looks upcoming.
-function nextTuesday() {
-  let d = new Date().toISOString().slice(0, 10);
-  d = addDays(d, 7);
-  while (weekdayOf(d) !== 2) d = addDays(d, 1);
+// The Friday at least a week from today, so the demo always looks upcoming.
+function nextFriday() {
+  let d = addDays(new Date().toISOString().slice(0, 10), 7);
+  while (weekdayOf(d) !== 5) d = addDays(d, 1);
   return d;
 }
 
 const HOUR = 3_600_000;
-const tue = nextTuesday();
-const at = (dayOffset, h, m = 0) => zonedToUtc(addDays(tue, dayOffset), h * 60 + m, TZ);
-const OPTIONS = [at(0, 10), at(0, 14), at(1, 9, 30), at(1, 15), at(2, 11)].map((start) => ({ start, end: start + HOUR }));
+const fri = nextFriday();
+const at = (dayOffset, h, m = 0) => zonedToUtc(addDays(fri, dayOffset), h * 60 + m, TZ);
+// Dinner: Friday and Saturday evenings this week and next.
+const OPTIONS = [at(0, 19), at(1, 19), at(1, 19, 30), at(7, 19), at(8, 19, 30)].map((start) => ({
+  start,
+  end: start + 2.5 * HOUR,
+}));
 
 // Votes per option: 2 = yes, 1 = if needed, 0 = no.
 const PEOPLE = {
-  Priya: [2, 0, 2, 2, 1],
-  Marcus: [0, 2, 1, 2, 2],
-  Ana: [2, 2, 0, 2, 0],
-  Jordan: [1, 0, 2, 1, 2],
-  Lee: [2, 1, 0, 2, 2],
+  'Priya Shah': [2, 0, 2, 2, 1],
+  'Marcus Lee': [0, 2, 1, 2, 2],
+  'Ana Silva': [2, 2, 0, 2, 0],
+  'Jordan Kim': [1, 0, 2, 1, 2],
+  'Lee Wong': [2, 1, 0, 2, 2],
 };
 const SAM = [2, 0, 1, 2, 0];
 
@@ -54,9 +59,11 @@ const toAvailability = (votes) => Object.fromEntries(OPTIONS.map((o, i) => [o.st
 
 async function seedPoll() {
   const { id, adminToken } = await api('/api/events', {
-    title: 'Design review',
-    description: 'Walk through the new onboarding flow. Video link to follow.',
-    organizer: 'Priya',
+    title: 'Dinner at Luca’s',
+    emoji: '🍝',
+    location: 'Luca’s Trattoria, 14 Elm St',
+    description: 'Long table in the back. Bring an appetite.',
+    organizer: 'Priya Shah',
     timezone: TZ,
     mode: 'options',
     options: OPTIONS,
@@ -68,21 +75,35 @@ async function seedPoll() {
 
 const HIDE_TOAST = '#toast { display: none !important; }';
 
-// Screenshot from the top of `from` (default: the page, so the header shows) to the bottom of `selector`.
-async function shoot(page, selector, path, { from, pad = 24 } = {}) {
-  const pageY = (sel, edge) => page.locator(sel).evaluate((el, e) => el.getBoundingClientRect()[e] + window.scrollY, edge);
-  const top = from ? Math.max(0, (await pageY(from, 'top')) - pad) : 0;
-  const bottom = (await pageY(selector, 'bottom')) + pad;
-  await page.screenshot({ path, fullPage: true, clip: { x: 0, y: top, width: page.viewportSize().width, height: bottom - top } });
+// Screenshot `selector` from the top of `from` (default: the page, so the header shows) to its bottom,
+// cropped to the width of `crop` (default: the whole page).
+async function shoot(page, selector, path, { from, crop, pad = 24 } = {}) {
+  const box = (sel) =>
+    page.locator(sel).evaluate((el) => {
+      const r = el.getBoundingClientRect();
+      return { top: r.top + scrollY, bottom: r.bottom + scrollY, left: r.left, right: r.right };
+    });
+  const top = from ? Math.max(0, (await box(from)).top - pad) : 0;
+  const bottom = (await box(selector)).bottom + pad;
+  const width = page.viewportSize().width;
+  const c = crop ? await box(crop) : { left: pad, right: width - pad };
+  const x = Math.max(0, c.left - pad);
+  await page.screenshot({
+    path,
+    fullPage: true,
+    clip: { x, y: top, width: Math.min(width, c.right + pad) - x, height: bottom - top },
+  });
 }
 
-// Show a neutral address instead of the random local port.
-const tidyShareLink = (page) =>
-  page.evaluate(() => {
-    const input = document.querySelector('.share input');
-    if (input) input.value = input.value.replace(/^http:\/\/localhost:\d+/, 'https://venn.example.com');
-  });
-const browser = await chromium.launch();
+/** The landing page uses WebP copies of some screenshots. */
+function toWebp(png, name) {
+  execFileSync('ffmpeg', [
+    ...['-y', '-loglevel', 'error', '-i', png, '-vf', "scale='min(1600,iw)':-2"],
+    ...['-c:v', 'libwebp', '-quality', '80', join(web, `${name}.webp`)],
+  ]);
+}
+
+const browser = await chromium.launch(process.env.CHROMIUM_PATH ? { executablePath: process.env.CHROMIUM_PATH } : {});
 
 async function newPage({ dark = false, mobile = false, video } = {}) {
   const context = await browser.newContext({
@@ -103,11 +124,12 @@ async function newPage({ dark = false, mobile = false, video } = {}) {
 // Answer the seeded poll as "Sam" through the UI so the page shows Sam as "you".
 async function answerAsSam(page, id) {
   await page.goto(`${base}/e/${id}`);
-  await page.waitForSelector('.opt');
-  for (const [i, v] of SAM.entries()) await page.locator('.opt').nth(i).locator(`[data-vote="${v}"]`).click();
+  await page.waitForSelector('#mine .row');
+  for (const [i, v] of SAM.entries()) await page.locator('#mine .row').nth(i).locator(`[data-vote="${v}"]`).click();
   await page.fill('#name', 'Sam');
   await page.click('#save');
   await page.waitForSelector('.matrix');
+  await page.evaluate(() => scrollTo(0, 0));
 }
 
 async function stills(dark) {
@@ -117,36 +139,35 @@ async function stills(dark) {
   const desktop = await newPage({ dark });
   await answerAsSam(desktop, id);
   await desktop.addStyleTag({ content: HIDE_TOAST });
-  await tidyShareLink(desktop);
-  await shoot(desktop, '#event-root', join(out, `results-${suffix}.png`));
+  await shoot(desktop, '#panel-group', join(out, `results-${suffix}.png`), { crop: '#event-root' });
+  toWebp(join(out, `results-${suffix}.png`), `results-${suffix}`);
 
-  await desktop.goto(`${base}/new`);
+  await desktop.goto(`${base}/new/pick`);
   await desktop.addStyleTag({ content: HIDE_TOAST });
-  await desktop.fill('#title', 'Design review');
-  await desktop.fill('#organizer', 'Priya');
-  await desktop.click('#weekdays');
-  const extra = (await desktop.locator('.cal-day.selected').evaluateAll((els) => els.map((e) => e.dataset.date))).slice(3);
-  for (const d of extra) await desktop.click(`[data-date="${d}"]`); // keep 3 days
-  const day = await desktop.locator('[data-add]').first().getAttribute('data-add');
-  await desktop.click(`[data-add="${day}"]`);
-  await desktop.selectOption(`[data-time="${day}"]`, String(14 * 60));
-  await desktop.click(`[data-add="${day}"]`);
-  await desktop.click(`[data-copy="${day}"]`);
-  await desktop.locator('.day-times').nth(2).locator('[data-del]').first().click();
+  await desktop.click('[data-occasion="0"]');
+  await desktop.fill('#title', 'Dinner at Luca’s');
+  await desktop.fill('#location', 'Luca’s Trattoria, 14 Elm St');
+  for (const d of [0, 1, 7, 8]) {
+    const date = addDays(fri, d);
+    if (!(await desktop.locator(`[data-date="${date}"]`).count())) await desktop.click('[data-nav="1"]');
+    await desktop.click(`[data-date="${date}"]`);
+  }
+  for (const m of [1140, 1170]) await desktop.click(`#times [data-time="${m}"]`);
   await desktop.locator('#title').blur();
-  await shoot(desktop, '#create', join(out, `create-${suffix}.png`), { from: '#create' });
+  await shoot(desktop, '#times-sheet', join(out, `create-${suffix}.png`), { from: '.sheet:has(#dates-h)', crop: '#create' });
   await desktop.context().close();
 
   const phone = await newPage({ dark, mobile: true });
   await phone.goto(`${base}/e/${id}`);
-  await phone.waitForSelector('.opt');
-  for (const [i, v] of [2, 1, 0].entries()) await phone.locator('.opt').nth(i).locator(`[data-vote="${v}"]`).tap();
+  await phone.waitForSelector('#mine .row');
+  for (const [i, v] of [2, 1, 0].entries()) await phone.locator('#mine .row').nth(i).locator(`[data-vote="${v}"]`).tap();
   await phone.fill('#name', 'Jamie');
   await phone.locator('#name').blur();
   await phone.evaluate(() =>
-    window.scrollTo(0, document.querySelector('#mine-h').getBoundingClientRect().top + window.scrollY - 16),
+    window.scrollTo(0, document.querySelector('.tabs').getBoundingClientRect().top + window.scrollY - 12),
   );
   await phone.screenshot({ path: join(out, `mobile-${suffix}.png`) });
+  toWebp(join(out, `mobile-${suffix}.png`), `mobile-${suffix}`);
   await phone.context().close();
 }
 
@@ -192,46 +213,46 @@ async function recordDemo() {
 
   // 1. Create a poll.
   await page.goto(`${base}/new`);
-  await page.waitForTimeout(600);
-  await type('#title', 'Design review');
+  await page.waitForTimeout(700);
+  await click('a[href="/new/pick"]', 600);
+  await click('[data-occasion="0"]', 300);
+  await type('#title', 'Dinner at Luca’s');
+  for (const d of [0, 1, 7, 8]) {
+    const date = addDays(fri, d);
+    if (!(await page.locator(`[data-date="${date}"]`).count())) await click('[data-nav="1"]', 300);
+    await click(`[data-date="${date}"]`, 150);
+  }
+  await click('#times [data-time="1140"]', 200);
+  await click('#times [data-time="1170"]', 400);
   await type('#organizer', 'Priya');
-  await click('#weekdays', 500);
-  const day = await page.locator('[data-add]').first().getAttribute('data-add');
-  await click(`[data-add="${day}"]`);
-  await page.selectOption(`[data-time="${day}"]`, String(14 * 60));
-  await click(`[data-add="${day}"]`);
-  await click(`[data-copy="${day}"]`, 700);
   await click('#submit', 1200);
 
   // 2. Answer.
   await page.evaluate(() => window.scrollTo({ top: 0 }));
-  const votes = [2, 0, 1, 2, 2, 0, 2, 1, 0, 2];
-  for (const [i, v] of votes.entries()) await click(page.locator('.opt').nth(i).locator(`[data-vote="${v}"]`), 120);
+  const votes = [2, 0, 1, 2, 2, 0, 2, 1];
+  for (const [i, v] of votes.entries()) await click(page.locator('#mine .row').nth(i).locator(`[data-vote="${v}"]`), 120);
   await type('#name', 'Priya');
   await click('#save', 900);
 
-  // 3. Others respond (behind the scenes), then pick the winner.
+  // 3. Others answer (behind the scenes), then pick the winner.
   const id = page.url().split('/e/')[1];
   const ev = await api(`/api/events/${id}`);
-  const others = { Marcus: [0, 2, 2, 2, 1], Ana: [2, 1, 0, 2, 2], Jordan: [1, 0, 2, 2, 0], Lee: [2, 2, 0, 2, 1] };
+  const others = {
+    Marcus: [0, 2, 2, 2, 1, 0, 2, 2],
+    Ana: [2, 1, 0, 2, 2, 0, 1, 0],
+    Jordan: [1, 0, 2, 2, 0, 2, 0, 1],
+    Lee: [2, 2, 0, 2, 1, 0, 2, 0],
+  };
   for (const [name, v] of Object.entries(others)) {
-    const availability = Object.fromEntries(
-      ev.slots
-        .slice(0, 5)
-        .map((s, i) => [s, v[i]])
-        .filter(([, x]) => x),
-    );
+    const availability = Object.fromEntries(ev.slots.map((s, i) => [s, v[i]]).filter(([, x]) => x));
     await api(`/api/events/${id}/participants`, { name, availability });
   }
   await page.reload();
   await page.waitForSelector('.matrix');
-  await page.evaluate(() =>
-    window.scrollTo({ top: document.querySelector('#best-h').getBoundingClientRect().top + scrollY - 80, behavior: 'smooth' }),
-  );
   await page.waitForTimeout(1500);
-  await click(page.locator('.best [data-pick]').first(), 400);
+  await click(page.locator('.best-hero [data-pick]'), 400);
   await page.evaluate(() => window.scrollTo({ top: 0, behavior: 'smooth' }));
-  await page.waitForTimeout(2200);
+  await page.waitForTimeout(2500);
   await page.context().close();
 
   const video = join(

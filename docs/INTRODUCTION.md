@@ -1,6 +1,6 @@
 # Venn developer docs
 
-[Venn](https://venn.day) is a free, open-source scheduling poll: someone proposes a few times, shares one link, and everyone marks what works. These docs are for people who run, change or build on it. To use Venn, go to [venn.day](https://venn.day).
+[Venn](https://venn.day) is a free, open-source poll for finding a date for dinners, book clubs, trips and other get-togethers. Someone suggests a few dates or asks when people are free, shares one link, and Venn finds where everyone overlaps. These docs are for people who run, change or build on it. To use Venn, go to [venn.day](https://venn.day).
 
 ## Run it locally
 
@@ -32,7 +32,10 @@ No framework and no build step: plain HTML, CSS and JavaScript in the browser, a
 public/            the whole front end, served as-is
   index.html       landing page (/); privacy.html and 404.html sit beside it
   app.html         app shell, served for /new and /e/:id
-  app.js           UI: create page, voting, grid painting, results
+  app.js           router
+  create.js        the create pages: "vote on a few dates" and "ask when people are free"
+  event.js         the poll page: answering, the group's results, organizer tools
+  ui.js            shared UI helpers: formatting, avatars, storage, API calls
   core.js          shared logic: time zones, ranking, calendar import/export
   calendars.js     Google / Outlook free-busy, in the browser
   styles.css       the app's light and dark themes

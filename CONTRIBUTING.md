@@ -42,18 +42,18 @@ CI runs all of these on every pull request, plus a check that the Cloudflare Wor
 
 ## How the code is organised
 
-| Path                         | What's there                                                                                                                                                                       |
-| ---------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `public/core.js`             | Shared logic with **no dependencies**: time zones, slots, ranking, calendar import/export. It runs in the browser, the Worker and Node, so keep it free of Node- or DOM-only APIs. |
-| `public/app.js`              | The whole UI, vanilla JS, no build step                                                                                                                                            |
-| `public/styles.css`          | Styles, light and dark themes                                                                                                                                                      |
-| `src/security-headers.js`    | Security headers for every response. `public/_headers` mirrors them for Cloudflare, and a test keeps them in sync.                                                                 |
-| `src/ai.js`                  | AI features. Calls Claude with structured JSON output; tests use a fake client, and the browser tests use `e2e/fake-anthropic.js`.                                                 |
-| `src/api.js`                 | The JSON API, written against web-standard `Request`/`Response`                                                                                                                    |
-| `src/store.js`               | SQL storage with adapters for Cloudflare D1 and `node:sqlite`                                                                                                                      |
-| `src/worker.js`, `server.js` | Entry points for Cloudflare and Node                                                                                                                                               |
-| `test/`                      | Unit and API tests (`node:test`)                                                                                                                                                   |
-| `e2e/`                       | Playwright browser tests                                                                                                                                                           |
+| Path                                              | What's there                                                                                                                                                                       |
+| ------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `public/core.js`                                  | Shared logic with **no dependencies**: time zones, slots, ranking, calendar import/export. It runs in the browser, the Worker and Node, so keep it free of Node- or DOM-only APIs. |
+| `public/app.js`, `create.js`, `event.js`, `ui.js` | The UI, vanilla JS modules with no build step: a router, the create pages, the poll page, and shared helpers                                                                       |
+| `public/styles.css`                               | Styles, light and dark themes                                                                                                                                                      |
+| `src/security-headers.js`                         | Security headers for every response. `public/_headers` mirrors them for Cloudflare, and a test keeps them in sync.                                                                 |
+| `src/ai.js`                                       | AI features. Calls Claude with structured JSON output; tests use a fake client, and the browser tests use `e2e/fake-anthropic.js`.                                                 |
+| `src/api.js`                                      | The JSON API, written against web-standard `Request`/`Response`                                                                                                                    |
+| `src/store.js`                                    | SQL storage with adapters for Cloudflare D1 and `node:sqlite`                                                                                                                      |
+| `src/worker.js`, `server.js`                      | Entry points for Cloudflare and Node                                                                                                                                               |
+| `test/`                                           | Unit and API tests (`node:test`)                                                                                                                                                   |
+| `e2e/`                                            | Playwright browser tests                                                                                                                                                           |
 
 ## Guidelines
 
