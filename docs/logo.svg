@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 80" width="120" height="80" role="img" aria-label="Venn logo">
+  <defs>
+    <clipPath id="left"><circle cx="45" cy="40" r="30"/></clipPath>
+  </defs>
+  <circle cx="45" cy="40" r="30" fill="#0f9d76" fill-opacity=".28"/>
+  <circle cx="75" cy="40" r="30" fill="#0f9d76" fill-opacity=".28"/>
+  <circle cx="75" cy="40" r="30" fill="#0f9d76" clip-path="url(#left)"/>
+</svg>

@@ -29,6 +29,8 @@ npm run test:e2e     # browser tests on desktop and mobile (first run: npx playw
 npm run format       # auto-fix formatting
 ```
 
+If you change how the app looks, regenerate the README images with `npm run screenshots` (needs ffmpeg for the demo GIF) and include them in your pull request.
+
 CI runs all of these on every pull request, plus a check that the Cloudflare Worker still builds.
 
 ## How the code is organised

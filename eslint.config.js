@@ -20,5 +20,5 @@ export default [
   { files: ['src/**/*.js'], languageOptions: { globals: { ...globals.serviceworker, console: 'readonly' } } },
   { files: ['server.js', 'test/**/*.js', '*.config.js'], languageOptions: { globals: globals.node } },
   // Playwright tests run in Node but pass callbacks into the browser.
-  { files: ['e2e/**/*.js'], languageOptions: { globals: { ...globals.node, ...globals.browser } } },
+  { files: ['e2e/**/*.js', 'scripts/**/*.js'], languageOptions: { globals: { ...globals.node, ...globals.browser } } },
 ];

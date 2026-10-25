@@ -1,106 +1,196 @@
-# Venn
+<p align="center">
+  <img src="docs/logo.svg" width="120" alt="">
+</p>
 
-[![CI](https://github.com/sephmard/venn/actions/workflows/ci.yml/badge.svg)](https://github.com/sephmard/venn/actions/workflows/ci.yml)
-[![License: MIT](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
+<h1 align="center">Venn</h1>
 
-Free scheduling polls for finding a time to meet. Everyone's availability is a circle; Venn finds where they overlap. Propose some times, share one link, and everyone marks what works. Venn shows the best time straight away.
+<p align="center">
+  <strong>Find a time that works for everyone.</strong><br>
+  Free scheduling polls. Propose a few times, share one link, and see where everyone's availability overlaps.<br>
+  No accounts. No ads. No tracking.
+</p>
 
-Two kinds of poll:
+<p align="center">
+  <a href="https://github.com/sephmard/venn/actions/workflows/ci.yml"><img src="https://github.com/sephmard/venn/actions/workflows/ci.yml/badge.svg" alt="CI status"></a>
+  <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-0f9d76.svg" alt="MIT license"></a>
+  <a href="CONTRIBUTING.md"><img src="https://img.shields.io/badge/PRs-welcome-0f9d76.svg" alt="PRs welcome"></a>
+</p>
 
-- **Propose specific times** (default): you suggest exact times, like "Tue 2pm, Wed 10am". Invitees answer each one with _Yes_, _If needed_ or _No_, like a survey.
-- **Open time range**: you pick days and an hours window, and people paint when they're free on a grid.
+<p align="center">
+  <a href="#quick-start">Quick start</a> ·
+  <a href="#self-hosting">Self-hosting</a> ·
+  <a href="#privacy">Privacy</a> ·
+  <a href="CONTRIBUTING.md">Contributing</a>
+</p>
+
+<p align="center">
+  <img src="docs/demo.gif" width="880" alt="Creating a poll, answering it, and picking the time everyone can make">
+</p>
 
 ## Why Venn
 
-- **Free, with no accounts and no ads.** Nobody signs up, not even the organizer.
-- **Fast to set up.** Pick dates on a calendar, add times with one click, and copy a day's times to every day.
-- **Easy to answer.** Big _Yes_ / _If needed_ / _No_ buttons for each time with live tallies, or click-and-drag painting for range polls. Works well on phones.
-- **Time zones handled.** Everyone sees times in their own zone, and can switch zones.
-- **Picks the best time for you.** Ranks options by how many people can make the _whole_ meeting.
-- **Private calendar check.** Check a calendar export (`.ics`) against the proposed times. The file never leaves your browser.
-- **Ready for calendars.** Once a time is picked, everyone gets Google, Outlook and Apple calendar links.
-- **Yours to host.** Run it free on Cloudflare or on any Node server.
+Everyone's availability is a circle. Venn finds where they overlap.
 
-## How it works
+- **Free, with no accounts.** Nobody signs up, not even the organizer. There are no ads and no trackers.
+- **Fast to set up.** Pick dates on a calendar, add a few times, and copy them to every day with one click.
+- **Easy to answer, especially on a phone.** Big _Yes_ / _If needed_ / _No_ buttons for each time, with live tallies.
+- **Time zones handled.** Everyone sees times in their own time zone automatically.
+- **Picks the best time for you.** Options are ranked by how many people can make it, then by how many gave a firm yes.
+- **Private calendar check.** Load a calendar export (`.ics`) to mark yourself free or busy. The file never leaves your browser.
+- **Straight into calendars.** Once the time is picked, everyone gets Google, Outlook and Apple calendar links.
+- **Yours to run.** Host it free on Cloudflare, or on any server that runs Node.
 
-1. **Create**: name the poll and pick dates on the calendar.
-   - _Specific times_: add the times you want to propose for each date. "Use these times on every day" copies them across.
-   - _Open range_: set the daily window, slot size (15/30/60 min) and meeting length.
-2. **Share**: send the link. People enter their name and answer each time (or paint the grid). They can also check against a calendar file. They don't need an account.
-3. **Decide**: **Best times** ranks options by how many people can make it, then by firm yeses. The **Everyone** table shows who answered what, with the most popular times highlighted.
-4. **Finalize**: the organizer picks a time. The poll then shows add-to-calendar buttons for everyone.
+## A quick tour
 
-Secrets for the organizer and for each participant's edits live in the URL _fragment_, which is never sent to the server, and in the browser's local storage. Only their SHA-256 hashes are stored on the server. Personal "edit links" let people edit their response from another device.
+### 1. Propose some times
 
-## Run locally
+Pick the days, add the times you'd like to suggest, and share the link.
 
-Requires Node 22.13+. No dependencies to install.
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/screenshots/create-dark.png">
+  <img src="docs/screenshots/create-light.png" alt="Creating a poll: picking dates on a calendar and adding times to propose">
+</picture>
+
+### 2. Everyone answers, on any device
+
+People enter their name and tap what works. No app, no account.
+
+<p align="center">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="docs/screenshots/mobile-dark.png">
+    <img src="docs/screenshots/mobile-light.png" width="320" alt="Answering a poll on a phone with Yes, If needed and No buttons">
+  </picture>
+</p>
+
+### 3. See the overlap and pick a time
+
+**Best times** ranks every option. The **Everyone** table shows who said what, with the most popular time highlighted. The organizer picks one, and everyone can add it to their calendar.
+
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/screenshots/results-dark.png">
+  <img src="docs/screenshots/results-light.png" alt="Poll results: best times ranked, and a table of everyone's answers">
+</picture>
+
+### Two kinds of poll
+
+|                            | How it works                                                                                             | Best for                                            |
+| -------------------------- | -------------------------------------------------------------------------------------------------------- | --------------------------------------------------- |
+| **Propose specific times** | You suggest exact times. People answer each one with _Yes_, _If needed_ or _No_.                         | Meetings where you already have a few slots in mind |
+| **Open time range**        | You pick the days and an hours window. People click and drag to paint when they're free, like a heatmap. | Wide-open planning, when you're not sure what works |
+
+## Quick start
+
+You need [Node.js](https://nodejs.org) 22.13 or newer.
 
 ```sh
-npm install        # dev tools only, the app has no runtime dependencies
-npm start          # http://localhost:8787, data saved in ./data/venn.db
-npm test           # unit + API tests
-npm run test:e2e   # browser tests (desktop + mobile)
+git clone https://github.com/sephmard/venn.git
+cd venn
+npm install   # dev tools only: the app itself has no runtime dependencies
+npm start     # http://localhost:8787
 ```
 
-`server.js` also works for self-hosting on any VPS (`PORT` and `DB_PATH` env vars).
+Polls are saved to `data/venn.db` (SQLite).
 
-## Deploy free on Cloudflare (Workers + D1)
+## Self-hosting
 
-The free tier is plenty for personal and small-team use.
+### Cloudflare (free)
+
+Venn runs on [Cloudflare Workers](https://workers.cloudflare.com) with a [D1](https://developers.cloudflare.com/d1/) database. The free plan is plenty for personal and team use.
+
+[![Deploy to Cloudflare](https://deploy.workers.cloudflare.com/button)](https://deploy.workers.cloudflare.com/?url=https://github.com/sephmard/venn)
+
+Or deploy from your machine:
 
 ```sh
 npx wrangler login
-npx wrangler d1 create venn     # copy the database_id into wrangler.toml
+npx wrangler d1 create venn   # paste the database_id it prints into wrangler.toml
 npx wrangler deploy
 ```
 
-Tables are created automatically on the first request. To try the Worker locally, run `npx wrangler dev`.
+Tables are created automatically on the first request.
 
-**Automatic deploys:** `.github/workflows/deploy.yml` deploys `main` to Cloudflare once you enable it. Set the repo variables `CLOUDFLARE_DEPLOY=true` and `D1_DATABASE_ID`, and the secrets `CLOUDFLARE_API_TOKEN` and `CLOUDFLARE_ACCOUNT_ID`. It's off by default so forks never try to deploy.
+To deploy on every push to `main` with GitHub Actions, set the repository variables `CLOUDFLARE_DEPLOY=true` and `D1_DATABASE_ID`, and the secrets `CLOUDFLARE_API_TOKEN` and `CLOUDFLARE_ACCOUNT_ID`. The [deploy workflow](.github/workflows/deploy.yml) is off by default, so forks never try to deploy.
 
-## Project layout
+### Any server with Node
+
+```sh
+PORT=3000 DB_PATH=/var/lib/venn/venn.db node server.js
+```
+
+Put it behind a reverse proxy (Caddy, nginx) for HTTPS. The SQLite file is the only state to back up.
+
+## Privacy
+
+- **No accounts, cookies or analytics.** Venn stores only what people type into a poll: its title and details, names, and answers.
+- **Links are the keys.** The organizer link and each person's personal edit link contain a secret after the `#`. Browsers never send that part to the server. The server stores only a SHA-256 hash of each secret, so a database leak doesn't let anyone edit polls.
+- **Your calendar stays with you.** Calendar files used with _Check my calendar_ are read in the browser and never uploaded.
+- **Delete anytime.** People can remove their own response. The organizer can remove anyone's response, or delete the whole poll.
+
+Found a security issue? Please report it privately. See [SECURITY.md](SECURITY.md).
+
+## How it's built
+
+No framework and no build step: plain HTML, CSS and JavaScript, a small JSON API, and SQLite.
+
+<details>
+<summary><strong>Project layout</strong></summary>
 
 ```
-public/          static front end, no build step
+public/            the whole front end, served as-is
   index.html
-  app.js         UI: create page, availability grid, group heatmap, best times
-  core.js        shared logic: time zones, slots, ranking, .ics import/export
-  styles.css     light + dark themes
+  app.js           UI: create page, voting, grid painting, results
+  core.js          shared logic: time zones, ranking, calendar import/export
+  styles.css       light and dark themes
 src/
-  api.js         JSON API (web-standard Request/Response)
-  store.js       SQL storage, adapters for D1 and node:sqlite
-  worker.js      Cloudflare Worker entry
-server.js        Node server (local / self-hosting)
-test/            unit + API tests (node:test)
-e2e/             browser tests (Playwright, desktop + mobile)
+  api.js           JSON API on web-standard Request/Response
+  store.js         SQL storage for Cloudflare D1 and node:sqlite
+  worker.js        Cloudflare Worker entry point
+server.js          Node server entry point
+test/              unit and API tests (node:test)
+e2e/               browser tests (Playwright, desktop and mobile)
+scripts/           screenshot and demo generator for this README
 ```
 
-### API
+</details>
+
+<details>
+<summary><strong>API</strong></summary>
 
 | Method           | Path                                | Notes                                                                                                           |
 | ---------------- | ----------------------------------- | --------------------------------------------------------------------------------------------------------------- |
 | `POST`           | `/api/events`                       | Create a poll → `{ id, adminToken }`. Specific times: `{ mode: "options", options: [{ start, end }] }` (UTC ms) |
-| `GET`            | `/api/events/:id`                   | Poll + responses (`x-admin-token` header sets `isAdmin`)                                                        |
+| `GET`            | `/api/events/:id`                   | Poll and responses. Sending the `x-admin-token` header sets `isAdmin`.                                          |
 | `DELETE`         | `/api/events/:id`                   | Organizer only                                                                                                  |
 | `POST`           | `/api/events/:id/participants`      | `{ name, availability }` → `{ id, editToken }`                                                                  |
-| `PUT` / `DELETE` | `/api/events/:id/participants/:pid` | `x-edit-token` (delete also allows organizer)                                                                   |
-| `POST`           | `/api/events/:id/finalize`          | `{ start }` or `{ start: null }`, organizer only                                                                |
-| `GET`            | `/api/events/:id/event.ics`         | Calendar file for the final time                                                                                |
+| `PUT` / `DELETE` | `/api/events/:id/participants/:pid` | Needs `x-edit-token`. The organizer can also delete.                                                            |
+| `POST`           | `/api/events/:id/finalize`          | `{ start }`, or `{ start: null }` to clear. Organizer only.                                                     |
+| `GET`            | `/api/events/:id/event.ics`         | Calendar file for the picked time                                                                               |
 
-`availability` maps an option or slot start (UTC ms) → `2` (yes) or `1` (if needed). Anything missing means no.
+`availability` maps each option's start time (UTC ms) to `2` (yes) or `1` (if needed). Anything missing means no.
 
-## Ideas for next steps
+</details>
 
-- Email/webhook notifications when someone responds
-- Recurring "general week" polls (days of week, not dates)
-- Live Google/Microsoft calendar overlay via OAuth (currently `.ics` file import)
-- Rate limiting (e.g. Cloudflare's rate-limit binding) before wide public use
+## Roadmap
+
+Ideas we'd love help with:
+
+- [ ] Email or webhook notifications when someone responds
+- [ ] Recurring "any week" polls (days of the week rather than dates)
+- [ ] Live Google and Microsoft calendar overlay (today it's `.ics` import)
+- [ ] Translations
+- [ ] Rate limiting for public instances
+
+Have another idea? [Open an issue](https://github.com/sephmard/venn/issues/new/choose).
 
 ## Contributing
 
-Contributions are welcome. See [CONTRIBUTING.md](CONTRIBUTING.md) for setup and guidelines, and please follow the [Code of Conduct](CODE_OF_CONDUCT.md). Report security issues privately as described in [SECURITY.md](SECURITY.md).
+Contributions are welcome, from typo fixes to new features. [CONTRIBUTING.md](CONTRIBUTING.md) covers setup, tests and guidelines. Please follow the [Code of Conduct](CODE_OF_CONDUCT.md).
+
+```sh
+npm run check      # lint, formatting, unit and API tests
+npm run test:e2e   # browser tests on desktop and mobile
+```
 
 ## License
 
-[MIT](LICENSE)
+[MIT](LICENSE) © Seph Mard
