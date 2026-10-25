@@ -106,7 +106,7 @@ jobs:
           fail-on-severity: moderate
           comment-summary-in-pr: on-failure
           # Runtime code has no dependencies; keep dev tooling to permissive licenses.
-          allow-licenses: MIT, ISC, Apache-2.0, BSD-2-Clause, BSD-3-Clause, 0BSD, BlueOak-1.0.0, CC0-1.0, Python-2.0, MIT-0
+          allow-licenses: MIT, ISC, Apache-2.0, BSD-2-Clause, BSD-3-Clause, 0BSD, BlueOak-1.0.0, CC0-1.0, Python-2.0, MIT-0, Unlicense
 
   # The one check branch protection requires. It passes only if every job above
   # passed (or was skipped on purpose), so adding a job never needs a settings change.
