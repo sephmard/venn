@@ -60,13 +60,16 @@ Lines stay under 65 characters. Italic serif is the only emphasis inside headlin
 - **Primary button:** green pill, `--green-ink` text, 48px tall (44px minimum tap target). Hover darkens slightly; focus shows a 3px `--green` ring with 3px offset; no disabled state on these pages.
 - **Secondary button:** text link style with an arrow, `--ink`, underline on hover.
 - **Links:** `--green`, underlined in prose, plain in navigation.
-- **Nav:** logo left; Docs, GitHub and the primary button right. Docs and GitHub hide under 640px.
+- **Nav bar:** sticky, `--paper` at 96% with a light blur and a `--line` bottom border. Logo left; How it works, Docs, Privacy, a bordered **GitHub** pill (mark + label) and the primary button right. Under 900px the text links move into a menu (a `<details>` panel, no script); under 640px the GitHub pill becomes a 44px icon button, but it is always visible.
+- **Ink button:** like the primary button, in `--ink` with `--paper` text. Used once, for **View on GitHub** in the open-source section.
+- **Code card:** `--band` background, 20px radius, monospace at 15px (13px on phones, wrapping), `$` prompts in `--band-accent`.
 - **Footer:** one row of small links on `--line` top border.
 - **Focus:** every interactive element shows the green ring with `:focus-visible`.
 
 ## Imagery and motion
 
 - The hero is the Venn diagram itself, drawn in SVG: three translucent circles (green, amber, blue) whose shared center fills solid green and carries the agreed time.
+- The GitHub mark (Octicons, official) appears only on links to the repository.
 - One real product screenshot (light and dark versions), framed on `--paper-2` and faded at the bottom.
 - No icons, emoji, stock photos or gradients on text.
 - Motion: the circles drift a few pixels on a slow loop. Everything stays still under `prefers-reduced-motion`.

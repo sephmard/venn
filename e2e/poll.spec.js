@@ -234,8 +234,18 @@ test('phone: no zoom on focus, tap targets, tap-to-pick dates, Save always in re
   expect(save.y + save.height).toBeLessThanOrEqual(page.viewportSize().height);
 });
 
-test('landing page leads to the poll creator', async ({ page }) => {
+test('landing page: nav bar with GitHub, and the way to the poll creator', async ({ page, isMobile }) => {
   await page.goto('/');
+  const nav = page.getByRole('navigation', { name: 'Main' });
+  await expect(nav.getByRole('link', { name: 'GitHub' }).first()).toBeVisible();
+  await expect(page.getByRole('link', { name: 'View on GitHub' })).toHaveAttribute('href', 'https://github.com/sephmard/venn');
+  if (isMobile) {
+    await page.locator('.menu summary').click();
+    await expect(page.locator('.menu-panel').getByRole('link', { name: 'Privacy' })).toBeVisible();
+    await page.locator('.menu summary').click();
+  } else {
+    await expect(nav.getByRole('link', { name: 'Privacy' })).toBeVisible();
+  }
   await expect(page.locator('h1')).toHaveText(/Find the time that works/);
   await page.locator('.hero').getByRole('link', { name: 'Create a poll' }).click();
   await expect(page).toHaveURL(/\/new$/);
