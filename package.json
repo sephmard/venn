@@ -1,15 +1,39 @@
 {
   "name": "overlap",
   "version": "0.1.0",
-  "description": "Free, no-signup scheduling polls: share a link, everyone paints their availability, see the best time.",
+  "description": "Free, open-source Doodle alternative: propose times, share one link, everyone marks what works. No accounts, no ads.",
   "private": true,
   "type": "module",
   "license": "MIT",
-  "engines": { "node": ">=22.13" },
+  "engines": {
+    "node": ">=22.13"
+  },
   "scripts": {
     "start": "node server.js",
-    "test": "node --test",
+    "test": "node --test test/*.test.js",
+    "test:e2e": "playwright test",
+    "lint": "eslint .",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "check": "npm run lint && npm run format:check && npm test",
     "dev:worker": "wrangler dev",
+    "build:worker": "wrangler deploy --dry-run --outdir dist",
     "deploy": "wrangler deploy"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/sephmard/overlap.git"
+  },
+  "bugs": {
+    "url": "https://github.com/sephmard/overlap/issues"
+  },
+  "homepage": "https://github.com/sephmard/overlap#readme",
+  "devDependencies": {
+    "@eslint/js": "10.0.1",
+    "@playwright/test": "1.63.0",
+    "eslint": "10.13.0",
+    "globals": "17.13.0",
+    "prettier": "3.9.10",
+    "wrangler": "4.152.0"
   }
 }

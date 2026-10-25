@@ -107,7 +107,9 @@ const minutesLabel = (m) => fmtMinutes.format(new Date(Date.UTC(2000, 0, 1, 0, m
 const lengthLabel = (min) => (min < 60 ? `${min} min` : `${String(min / 60).replace('.5', '½')} hour${min > 60 ? 's' : ''}`);
 
 function fmtRange(start, end, tz) {
-  const day = new Intl.DateTimeFormat(undefined, { weekday: 'short', month: 'short', day: 'numeric', timeZone: tz }).format(start);
+  const day = new Intl.DateTimeFormat(undefined, { weekday: 'short', month: 'short', day: 'numeric', timeZone: tz }).format(
+    start,
+  );
   const t = new Intl.DateTimeFormat(undefined, { hour: 'numeric', minute: '2-digit', timeZone: tz });
   return `${day} · ${t.format(start)} – ${t.format(end)}`;
 }
@@ -118,7 +120,9 @@ function tzOptions(selected) {
     zones = Intl.supportedValuesOf('timeZone');
   } catch {}
   for (const z of [selected, localTz, 'UTC']) if (z && !zones.includes(z)) zones.unshift(z);
-  return zones.map((z) => `<option value="${esc(z)}"${z === selected ? ' selected' : ''}>${esc(z.replace(/_/g, ' '))}</option>`).join('');
+  return zones
+    .map((z) => `<option value="${esc(z)}"${z === selected ? ' selected' : ''}>${esc(z.replace(/_/g, ' '))}</option>`)
+    .join('');
 }
 
 // ---------- routing ----------
@@ -159,9 +163,15 @@ function renderCreate() {
   cursor = new Date(cursor.getFullYear(), cursor.getMonth(), 1);
 
   const hourOptions = (sel) =>
-    Array.from({ length: 25 }, (_, h) => `<option value="${h * 60}"${h * 60 === sel ? ' selected' : ''}>${minutesLabel(h * 60 % 1440)}${h === 24 ? ' (midnight)' : ''}</option>`).join('');
+    Array.from(
+      { length: 25 },
+      (_, h) =>
+        `<option value="${h * 60}"${h * 60 === sel ? ' selected' : ''}>${minutesLabel((h * 60) % 1440)}${h === 24 ? ' (midnight)' : ''}</option>`,
+    ).join('');
   const lengthOptions = (sel) =>
-    [15, 30, 45, 60, 90, 120, 180, 240].map((d) => `<option value="${d}"${d === sel ? ' selected' : ''}>${lengthLabel(d)}</option>`).join('');
+    [15, 30, 45, 60, 90, 120, 180, 240]
+      .map((d) => `<option value="${d}"${d === sel ? ' selected' : ''}>${lengthLabel(d)}</option>`)
+      .join('');
 
   app.innerHTML = `
     <section class="hero">
@@ -249,14 +259,22 @@ function renderCreate() {
     for (const el of app.querySelectorAll('[data-for]')) el.hidden = el.dataset.for !== mode;
     renderSummary();
   }
-  for (const b of app.querySelectorAll('[data-mode]')) b.onclick = () => { mode = b.dataset.mode; renderMode(); };
+  for (const b of app.querySelectorAll('[data-mode]'))
+    b.onclick = () => {
+      mode = b.dataset.mode;
+      renderMode();
+    };
 
   function renderCal() {
     $('#month').textContent = cursor.toLocaleDateString(undefined, { month: 'long', year: 'numeric' });
-    const y = cursor.getFullYear(), m = cursor.getMonth();
+    const y = cursor.getFullYear(),
+      m = cursor.getMonth();
     const first = new Date(y, m, 1).getDay();
     const days = new Date(y, m + 1, 0).getDate();
-    let html = Array.from({ length: 7 }, (_, i) => `<div class="cal-dow">${fmtDow.format(new Date(Date.UTC(2023, 0, 1 + i)))}</div>`).join('');
+    let html = Array.from(
+      { length: 7 },
+      (_, i) => `<div class="cal-dow">${fmtDow.format(new Date(Date.UTC(2023, 0, 1 + i)))}</div>`,
+    ).join('');
     html += '<div class="cal-day blank"></div>'.repeat(first);
     for (let d = 1; d <= days; d++) {
       const ds = `${y}-${pad(m + 1)}-${pad(d)}`;
@@ -277,7 +295,7 @@ function renderCreate() {
     const set = times.get(date);
     if (!set?.size) return 540;
     const next = Math.max(...set) + +$('#length').value;
-    return next < 1440 ? Math.ceil(next / 15) * 15 % 1440 : 540;
+    return next < 1440 ? (Math.ceil(next / 15) * 15) % 1440 : 540;
   };
 
   function renderTimes() {
@@ -293,7 +311,10 @@ function renderCreate() {
       .map((d) => {
         const list = [...(times.get(d) || [])].sort((a, b) => a - b);
         const chips = list
-          .map((m) => `<span class="chip time-chip">${esc(minutesLabel(m))}${len ? ` – ${esc(minutesLabel((m + len) % 1440))}` : ''}<button type="button" data-del="${d}|${m}" aria-label="Remove ${esc(minutesLabel(m))}">×</button></span>`)
+          .map(
+            (m) =>
+              `<span class="chip time-chip">${esc(minutesLabel(m))}${len ? ` – ${esc(minutesLabel((m + len) % 1440))}` : ''}<button type="button" data-del="${d}|${m}" aria-label="Remove ${esc(minutesLabel(m))}">×</button></span>`,
+          )
           .join('');
         const sugg = suggestNext(d);
         return `<div class="day-times">
@@ -393,9 +414,18 @@ function renderCreate() {
     }
   });
 
-  $('#prev').onclick = () => { cursor = new Date(cursor.getFullYear(), cursor.getMonth() - 1, 1); renderCal(); };
-  $('#next').onclick = () => { cursor = new Date(cursor.getFullYear(), cursor.getMonth() + 1, 1); renderCal(); };
-  $('#clear').onclick = () => { selected.clear(); renderCal(); };
+  $('#prev').onclick = () => {
+    cursor = new Date(cursor.getFullYear(), cursor.getMonth() - 1, 1);
+    renderCal();
+  };
+  $('#next').onclick = () => {
+    cursor = new Date(cursor.getFullYear(), cursor.getMonth() + 1, 1);
+    renderCal();
+  };
+  $('#clear').onclick = () => {
+    selected.clear();
+    renderCal();
+  };
   const quick = (n, weekdaysOnly) => {
     selected.clear();
     for (let d = today; selected.size < n; d = addDays(d, 1)) {
@@ -412,7 +442,7 @@ function renderCreate() {
     const slot = +$('#slot').value;
     const prev = +$('#duration').value || 60;
     const opts = [15, 30, 45, 60, 90, 120, 180, 240].filter((d) => d >= slot && d % slot === 0);
-    const pick = opts.includes(prev) ? prev : opts.find((d) => d >= prev) ?? opts[0];
+    const pick = opts.includes(prev) ? prev : (opts.find((d) => d >= prev) ?? opts[0]);
     $('#duration').innerHTML = opts
       .map((d) => `<option value="${d}"${d === pick ? ' selected' : ''}>${lengthLabel(d)}</option>`)
       .join('');
@@ -548,7 +578,9 @@ async function renderEvent(id) {
             <label for="name">Your name</label>
             <input id="name" type="text" maxlength="80" autocomplete="name">
           </div>
-${optionsMode ? `
+${
+  optionsMode
+    ? `
           <div class="btn-row" style="justify-content:space-between">
             <p class="small muted" style="margin:0">Answer each proposed time, then save.</p>
             <div class="btn-row">
@@ -557,7 +589,8 @@ ${optionsMode ? `
               <button type="button" class="btn btn-sm btn-ghost" id="none">Clear</button>
             </div>
           </div>
-          <div id="mine" class="opt-list"></div>` : `<div class="btn-row" style="justify-content:space-between">
+          <div id="mine" class="opt-list"></div>`
+    : `<div class="btn-row" style="justify-content:space-between">
             <div class="segmented" role="group" aria-label="Brush">
               <button type="button" data-brush="${YES}"><span class="swatch swatch-yes"></span>Available</button>
               <button type="button" data-brush="${IF_NEEDED}"><span class="swatch swatch-maybe"></span>If needed</button>
@@ -570,7 +603,8 @@ ${optionsMode ? `
             </div>
           </div>
           <p class="small muted" style="margin:0">Click and drag to paint the times you can make it. On a phone, tap or drag.</p>
-          <div class="grid-scroll"><div class="grid" id="mine" role="grid" aria-label="Your availability"></div></div>`}
+          <div class="grid-scroll"><div class="grid" id="mine" role="grid" aria-label="Your availability"></div></div>`
+}
         </div>
         <div class="save-bar">
           <span id="save-state" class="small"></span>
@@ -590,9 +624,13 @@ ${optionsMode ? `
         <section class="card" aria-labelledby="group-h">
           <h2 id="group-h">Everyone</h2>
           <ul class="people" id="people"></ul>
-          ${optionsMode ? '<div id="group" style="margin-top:12px"></div>' : `<div class="grid-scroll" style="margin-top:12px"><div class="grid readonly" id="group" aria-label="Group availability"></div></div>
+          ${
+            optionsMode
+              ? '<div id="group" style="margin-top:12px"></div>'
+              : `<div class="grid-scroll" style="margin-top:12px"><div class="grid readonly" id="group" aria-label="Group availability"></div></div>
           <div class="legend" id="legend"></div>
-          <div class="hover-info" id="inspect"></div>`}
+          <div class="hover-info" id="inspect"></div>`
+          }
         </section>
       </div>
     </div>
@@ -610,7 +648,9 @@ ${optionsMode ? `
   // ----- layout of slots in the viewer's time zone -----
   let L;
   function computeLayout() {
-    const dates = new Set(), mins = new Set(), at = new Map();
+    const dates = new Set(),
+      mins = new Set(),
+      at = new Map();
     for (const s of st.ev.slots) {
       const z = utcToZoned(s, st.tz);
       dates.add(z.date);
@@ -750,7 +790,10 @@ ${optionsMode ? `
       .map((o) => {
         const y = people.filter((p) => p.availability[o.start] === YES).length;
         const m = people.filter((p) => p.availability[o.start] === IF_NEEDED).length;
-        const pick = st.ev.isAdmin && o.start !== st.ev.finalStart ? `<button class="btn btn-sm m-pick" data-pick="${o.start}">Pick</button>` : '';
+        const pick =
+          st.ev.isAdmin && o.start !== st.ev.finalStart
+            ? `<button class="btn btn-sm m-pick" data-pick="${o.start}">Pick</button>`
+            : '';
         return `<td class="${cls(o)}"><b>${y + m}</b>${m ? `<span class="muted small"> (${m}~)</span>` : ''}${pick}</td>`;
       })
       .join('');
@@ -895,13 +938,16 @@ ${optionsMode ? `
     try {
       const windows = eventWindows(st.ev);
       const busy = parseIcsBusy(await file.text(), windows[0].start, Math.max(...windows.map((w) => w.end)), st.tz);
-      if (Object.keys(st.mine).length && !confirm('Replace what you have painted with the free times from your calendar?')) return;
+      if (Object.keys(st.mine).length && !confirm('Replace what you have painted with the free times from your calendar?'))
+        return;
       st.mine = availabilityFromBusy(windows, busy);
       for (const w of windows) st.touched.add(String(w.start));
       refreshMine();
       setDirty(true);
       const free = Object.keys(st.mine).length;
-      toast(`Found ${busy.length} busy event${busy.length === 1 ? '' : 's'}; marked ${free} free slot${free === 1 ? '' : 's'}. Review and save.`);
+      toast(
+        `Found ${busy.length} busy event${busy.length === 1 ? '' : 's'}; marked ${free} free slot${free === 1 ? '' : 's'}. Review and save.`,
+      );
     } catch (ex) {
       console.error(ex);
       toast("Couldn't read that calendar file.");
@@ -938,7 +984,11 @@ ${optionsMode ? `
       let created = false;
       if (s.participantId) {
         try {
-          await api(`events/${id}/participants/${s.participantId}`, { method: 'PUT', body, headers: { 'x-edit-token': s.editToken } });
+          await api(`events/${id}/participants/${s.participantId}`, {
+            method: 'PUT',
+            body,
+            headers: { 'x-edit-token': s.editToken },
+          });
         } catch (ex) {
           if (ex.status !== 404 && ex.status !== 403) throw ex;
           forget(id, 'participantId', 'editToken');
@@ -1009,13 +1059,20 @@ ${optionsMode ? `
         if (score > 0) el.style.background = `rgba(var(--heat), ${0.15 + 0.85 * (score / n)})`;
       }
     }
-    const scale = [0.2, 0.4, 0.6, 0.8, 1].map((a) => `<span style="background:rgba(var(--heat),${0.15 + 0.85 * a})"></span>`).join('');
+    const scale = [0.2, 0.4, 0.6, 0.8, 1]
+      .map((a) => `<span style="background:rgba(var(--heat),${0.15 + 0.85 * a})"></span>`)
+      .join('');
     $('#legend').innerHTML = focus
       ? `<span>Showing <b>${esc(focus.name)}</b></span><span><span class="swatch swatch-yes"></span> available</span><span><span class="swatch swatch-maybe"></span> if needed</span><button class="btn btn-sm btn-ghost" id="unfocus">Show everyone</button>`
       : n
         ? `<span>0/${n}</span><span class="heat-scale">${scale}</span><span>${n}/${n} available</span>${st.ev.finalStart != null ? '<span><span class="swatch" style="outline:2px solid var(--final)"></span> picked time</span>' : ''}`
         : '';
-    $('#unfocus') && ($('#unfocus').onclick = () => { st.focus = null; renderGroup(); renderPeople(); });
+    $('#unfocus') &&
+      ($('#unfocus').onclick = () => {
+        st.focus = null;
+        renderGroup();
+        renderPeople();
+      });
     renderInspect();
   }
 
@@ -1028,7 +1085,8 @@ ${optionsMode ? `
       return;
     }
     if (st.inspect == null) {
-      box.innerHTML = '<p class="muted" style="margin:0">Hover or tap a time to see who can make it. Tap a name to see just their availability.</p>';
+      box.innerHTML =
+        '<p class="muted" style="margin:0">Hover or tap a time to see who can make it. Tap a name to see just their availability.</p>';
       return;
     }
     const s = +st.inspect;
@@ -1104,7 +1162,8 @@ ${optionsMode ? `
     const n = people.length;
     const lenText = lengthLabel(st.ev.durationMinutes);
     if (!n || !best.length) {
-      $('#best').innerHTML = `<p class="muted" style="margin:0">${n ? 'No time works for anyone yet.' : optionsMode ? 'The most popular times will show up here as people respond.' : `Best times for a ${lenText} meeting will show up here as people respond.`}</p>`;
+      $('#best').innerHTML =
+        `<p class="muted" style="margin:0">${n ? 'No time works for anyone yet.' : optionsMode ? 'The most popular times will show up here as people respond.' : `Best times for a ${lenText} meeting will show up here as people respond.`}</p>`;
       return;
     }
     $('#best').innerHTML = `
@@ -1149,7 +1208,12 @@ ${optionsMode ? `
     let h = '';
     if (ev.finalStart != null) {
       const end = meetingEnd(ev, ev.finalStart);
-      const info = { title: ev.title, description: [ev.description, shareUrl].filter(Boolean).join('\n\n'), start: ev.finalStart, end };
+      const info = {
+        title: ev.title,
+        description: [ev.description, shareUrl].filter(Boolean).join('\n\n'),
+        start: ev.finalStart,
+        end,
+      };
       h += `<div class="banner banner-final">
         <strong>📅 ${esc(fmtRange(ev.finalStart, end, st.tz))}</strong>
         <div class="btn-row">
@@ -1161,7 +1225,6 @@ ${optionsMode ? `
       </div>`;
     }
     if (ev.isAdmin) {
-      const adminUrl = `${shareUrl}#admin=${saved(id).adminToken}`;
       const fresh = saved(id).justCreated;
       h += `<div class="banner banner-admin">
         <strong>${fresh ? 'Your poll is ready. Share the link above.' : "You're the organizer"}</strong>
@@ -1194,9 +1257,14 @@ ${optionsMode ? `
     $('#ev-title').textContent = ev.title;
     const meta = [];
     if (ev.organizer) meta.push(`by ${ev.organizer}`);
-    meta.push(optionsMode ? `${ev.options.length} proposed time${ev.options.length === 1 ? '' : 's'}` : `${lengthLabel(ev.durationMinutes)} meeting`);
+    meta.push(
+      optionsMode
+        ? `${ev.options.length} proposed time${ev.options.length === 1 ? '' : 's'}`
+        : `${lengthLabel(ev.durationMinutes)} meeting`,
+    );
     meta.push(`${ev.participants.length} response${ev.participants.length === 1 ? '' : 's'}`);
-    $('#ev-meta').innerHTML = esc(meta.join(' · ')) + (ev.description ? `<br><span style="white-space:pre-wrap">${esc(ev.description)}</span>` : '');
+    $('#ev-meta').innerHTML =
+      esc(meta.join(' · ')) + (ev.description ? `<br><span style="white-space:pre-wrap">${esc(ev.description)}</span>` : '');
     $('#tz-note').textContent = st.tz === ev.timezone ? '' : `Organizer's time zone: ${ev.timezone.replace(/_/g, ' ')}`;
   }
 

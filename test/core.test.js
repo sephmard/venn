@@ -30,13 +30,20 @@ test('zonedToUtc / utcToZoned round-trip, including DST', () => {
   assert.equal(zonedToUtc('2026-07-01', 540, 'America/New_York'), Date.UTC(2026, 6, 1, 13));
   assert.equal(zonedToUtc('2026-12-01', 540, 'America/New_York'), Date.UTC(2026, 11, 1, 14));
   assert.equal(zonedToUtc('2026-12-01', 540, 'Asia/Kolkata'), Date.UTC(2026, 11, 1, 3, 30));
-  assert.deepEqual(utcToZoned(Date.UTC(2026, 11, 1, 3, 30), 'Asia/Kolkata'), { date: '2026-12-01', minutes: 540, weekday: 'Tue' });
+  assert.deepEqual(utcToZoned(Date.UTC(2026, 11, 1, 3, 30), 'Asia/Kolkata'), {
+    date: '2026-12-01',
+    minutes: 540,
+    weekday: 'Tue',
+  });
 });
 
 test('buildSlots skips non-existent spring-forward times', () => {
   const slots = buildSlots({ ...base, dates: ['2026-03-08'], startMinute: 60, endMinute: 240, slotMinutes: 60 });
   // 2:00 doesn't exist in New York on 2026-03-08, so 1:00, 3:00 only.
-  assert.deepEqual(slots.map((s) => utcToZoned(s, 'America/New_York').minutes), [60, 180]);
+  assert.deepEqual(
+    slots.map((s) => utcToZoned(s, 'America/New_York').minutes),
+    [60, 180],
+  );
 });
 
 test('normalizeEventInput validates', () => {
@@ -106,8 +113,14 @@ test('parseIcsBusy handles UTC, TZID, weekly recurrence, EXDATE and free/cancell
   const slots = buildSlots(base);
   const busy = parseIcsBusy(ics, slots[0], slots.at(-1) + 30 * 60_000, 'UTC');
   // Nov 2 9:00 ET (weekly), Nov 2 9:30 ET (one-off). Nov 3 is excluded via EXDATE.
-  assert.deepEqual(busy.map((b) => b.start), [zonedToUtc('2026-11-02', 540, 'America/New_York'), Date.UTC(2026, 10, 2, 14, 30)]);
-  const av = availabilityFromBusy(slots.map((s) => ({ start: s, end: s + 30 * 60_000 })), busy);
+  assert.deepEqual(
+    busy.map((b) => b.start),
+    [zonedToUtc('2026-11-02', 540, 'America/New_York'), Date.UTC(2026, 10, 2, 14, 30)],
+  );
+  const av = availabilityFromBusy(
+    slots.map((s) => ({ start: s, end: s + 30 * 60_000 })),
+    busy,
+  );
   assert.deepEqual(Object.keys(av).map(Number), slots.slice(2));
 });
 
@@ -127,10 +140,10 @@ test('parseIcsBusy honours RECURRENCE-ID overrides and UNTIL', () => {
     'END:VEVENT',
   ].join('\n');
   const busy = parseIcsBusy(ics, Date.UTC(2026, 10, 1), Date.UTC(2026, 10, 10));
-  assert.deepEqual(busy.map((b) => new Date(b.start).toISOString()), [
-    '2026-11-02T14:00:00.000Z',
-    '2026-11-03T18:00:00.000Z',
-  ]);
+  assert.deepEqual(
+    busy.map((b) => new Date(b.start).toISOString()),
+    ['2026-11-02T14:00:00.000Z', '2026-11-03T18:00:00.000Z'],
+  );
 });
 
 test('buildIcs escapes text', () => {
@@ -156,12 +169,25 @@ const optionsPoll = {
 test('specific-times polls are validated and sorted', () => {
   const ev = normalizeEventInput(optionsPoll);
   assert.equal(ev.mode, 'options');
-  assert.deepEqual(ev.options.map((o) => o.start), [t0, t0 + 3 * H, t0 + 24 * H]);
+  assert.deepEqual(
+    ev.options.map((o) => o.start),
+    [t0, t0 + 3 * H, t0 + 24 * H],
+  );
   assert.deepEqual(buildSlots(ev), [t0, t0 + 3 * H, t0 + 24 * H]);
   assert.equal(meetingEnd(ev, t0 + 3 * H), t0 + 3.5 * H);
   assert.throws(() => normalizeEventInput({ ...optionsPoll, options: [] }), /at least one/);
   assert.throws(() => normalizeEventInput({ ...optionsPoll, options: [{ start: t0, end: t0 }] }), /last between/);
-  assert.throws(() => normalizeEventInput({ ...optionsPoll, options: [{ start: t0, end: t0 + H }, { start: t0, end: t0 + 2 * H }] }), /same moment/);
+  assert.throws(
+    () =>
+      normalizeEventInput({
+        ...optionsPoll,
+        options: [
+          { start: t0, end: t0 + H },
+          { start: t0, end: t0 + 2 * H },
+        ],
+      }),
+    /same moment/,
+  );
   assert.throws(() => normalizeEventInput({ ...optionsPoll, options: [{ start: 'x', end: 1 }] }), /Invalid/);
 });
 
@@ -174,7 +200,10 @@ test('specific-times polls rank each option on its own', () => {
     { name: 'Cy', availability: { [b]: YES } },
   ];
   const best = rankTimes(ev, buildSlots(ev), people);
-  assert.deepEqual(best.map((r) => r.start), [c, a, b]);
+  assert.deepEqual(
+    best.map((r) => r.start),
+    [c, a, b],
+  );
   assert.equal(best[0].end, c + H);
   assert.deepEqual(best[1].ifNeeded, ['Bob']);
 });

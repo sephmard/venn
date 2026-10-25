@@ -22,9 +22,10 @@ const SCHEMA = [
 
 export function createStore(db) {
   let ready = null;
-  const init = () => (ready ??= (async () => {
-    for (const sql of SCHEMA) await db.run(sql, []);
-  })());
+  const init = () =>
+    (ready ??= (async () => {
+      for (const sql of SCHEMA) await db.run(sql, []);
+    })());
 
   return {
     async createEvent({ id, event, adminHash, now }) {
@@ -113,9 +114,23 @@ export function createStore(db) {
 
 export function d1Adapter(d1) {
   return {
-    run: (sql, params) => d1.prepare(sql).bind(...params).run(),
-    all: async (sql, params) => (await d1.prepare(sql).bind(...params).all()).results,
-    first: (sql, params) => d1.prepare(sql).bind(...params).first(),
+    run: (sql, params) =>
+      d1
+        .prepare(sql)
+        .bind(...params)
+        .run(),
+    all: async (sql, params) =>
+      (
+        await d1
+          .prepare(sql)
+          .bind(...params)
+          .all()
+      ).results,
+    first: (sql, params) =>
+      d1
+        .prepare(sql)
+        .bind(...params)
+        .first(),
   };
 }
 

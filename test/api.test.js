@@ -51,17 +51,41 @@ test('full poll lifecycle', async () => {
   assert.equal((await call(`/api/events/${id}`, { headers: { 'x-admin-token': adminToken } })).data.isAdmin, true);
 
   const [s0, s1] = ev.slots;
-  const ann = await call(`/api/events/${id}/participants`, { method: 'POST', body: { name: 'Ann', availability: { [s0]: 2, [s1]: 1 } } });
+  const ann = await call(`/api/events/${id}/participants`, {
+    method: 'POST',
+    body: { name: 'Ann', availability: { [s0]: 2, [s1]: 1 } },
+  });
   assert.equal(ann.status, 201);
   const bob = await call(`/api/events/${id}/participants`, { method: 'POST', body: { name: 'Bob', availability: {} } });
 
   // Bob can't edit Ann's response, Ann can.
   const annPath = `/api/events/${id}/participants/${ann.data.id}`;
-  assert.equal((await call(annPath, { method: 'PUT', body: { name: 'Ann', availability: {} }, headers: { 'x-edit-token': bob.data.editToken } })).status, 403);
-  assert.equal((await call(annPath, { method: 'PUT', body: { name: 'Ann B', availability: { [s0]: 2 } }, headers: { 'x-edit-token': ann.data.editToken } })).status, 200);
+  assert.equal(
+    (
+      await call(annPath, {
+        method: 'PUT',
+        body: { name: 'Ann', availability: {} },
+        headers: { 'x-edit-token': bob.data.editToken },
+      })
+    ).status,
+    403,
+  );
+  assert.equal(
+    (
+      await call(annPath, {
+        method: 'PUT',
+        body: { name: 'Ann B', availability: { [s0]: 2 } },
+        headers: { 'x-edit-token': ann.data.editToken },
+      })
+    ).status,
+    200,
+  );
 
   ev = (await call(`/api/events/${id}`)).data;
-  assert.deepEqual(ev.participants.map((p) => p.name), ['Bob', 'Ann B']);
+  assert.deepEqual(
+    ev.participants.map((p) => p.name),
+    ['Bob', 'Ann B'],
+  );
   assert.equal(ev.participants[0].editHash, undefined);
   assert.deepEqual(ev.participants[1].availability, { [s0]: 2 });
 
@@ -75,7 +99,11 @@ test('full poll lifecycle', async () => {
   assert.match(ics.data, /DTSTART:20261102T100000Z/);
 
   // Organizer can remove someone; then delete the poll.
-  assert.equal((await call(`/api/events/${id}/participants/${bob.data.id}`, { method: 'DELETE', headers: { 'x-admin-token': adminToken } })).status, 200);
+  assert.equal(
+    (await call(`/api/events/${id}/participants/${bob.data.id}`, { method: 'DELETE', headers: { 'x-admin-token': adminToken } }))
+      .status,
+    200,
+  );
   assert.equal((await call(`/api/events/${id}`, { method: 'DELETE' })).status, 403);
   assert.equal((await call(`/api/events/${id}`, { method: 'DELETE', headers: { 'x-admin-token': adminToken } })).status, 200);
   assert.equal((await call(`/api/events/${id}`)).status, 404);
@@ -85,13 +113,28 @@ test('specific-times poll: votes and finalize use the option end', async () => {
   const start = Date.UTC(2026, 10, 4, 15);
   const { data } = await call('/api/events', {
     method: 'POST',
-    body: { title: 'Lunch', timezone: 'UTC', mode: 'options', options: [{ start, end: start + 45 * 60_000 }, { start: start + 86_400_000, end: start + 86_400_000 + 3_600_000 }] },
+    body: {
+      title: 'Lunch',
+      timezone: 'UTC',
+      mode: 'options',
+      options: [
+        { start, end: start + 45 * 60_000 },
+        { start: start + 86_400_000, end: start + 86_400_000 + 3_600_000 },
+      ],
+    },
   });
   const ev = (await call(`/api/events/${data.id}`)).data;
   assert.deepEqual(ev.slots, [start, start + 86_400_000]);
-  const vote = await call(`/api/events/${data.id}/participants`, { method: 'POST', body: { name: 'Ann', availability: { [start]: 2, [start + 86_400_000]: 1 } } });
+  const vote = await call(`/api/events/${data.id}/participants`, {
+    method: 'POST',
+    body: { name: 'Ann', availability: { [start]: 2, [start + 86_400_000]: 1 } },
+  });
   assert.equal(vote.status, 201);
-  await call(`/api/events/${data.id}/finalize`, { method: 'POST', body: { start }, headers: { 'x-admin-token': data.adminToken } });
+  await call(`/api/events/${data.id}/finalize`, {
+    method: 'POST',
+    body: { start },
+    headers: { 'x-admin-token': data.adminToken },
+  });
   const ics = await call(`/api/events/${data.id}/event.ics`);
   assert.match(ics.data, /DTEND:20261104T154500Z/);
 });

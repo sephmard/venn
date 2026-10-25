@@ -67,7 +67,10 @@ function publicEvent(ev, participants, isAdmin) {
 
 export async function handleApi(request, store, { now = Date.now } = {}) {
   const url = new URL(request.url);
-  const parts = url.pathname.replace(/^\/api\/?/, '').split('/').filter(Boolean);
+  const parts = url.pathname
+    .replace(/^\/api\/?/, '')
+    .split('/')
+    .filter(Boolean);
   const method = request.method;
 
   try {

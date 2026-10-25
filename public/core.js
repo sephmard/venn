@@ -140,19 +140,23 @@ export function normalizeEventInput(input) {
 
   if (input.mode === 'options') return normalizeOptionsEvent(input, { title, description, organizer, timezone });
 
-  if (!Array.isArray(input.dates) || input.dates.length === 0)
-    throw new ValidationError('Pick at least one date');
+  if (!Array.isArray(input.dates) || input.dates.length === 0) throw new ValidationError('Pick at least one date');
   const dates = [...new Set(input.dates)].sort();
   if (dates.length > LIMITS.dates) throw new ValidationError(`Pick at most ${LIMITS.dates} dates`);
-  if (!dates.every((d) => typeof d === 'string' && isRealDate(d)))
-    throw new ValidationError('Invalid date');
+  if (!dates.every((d) => typeof d === 'string' && isRealDate(d))) throw new ValidationError('Invalid date');
 
   const slotMinutes = Number(input.slotMinutes);
   if (![15, 30, 60].includes(slotMinutes)) throw new ValidationError('Slot size must be 15, 30 or 60 minutes');
 
   const startMinute = Number(input.startMinute);
   const endMinute = Number(input.endMinute);
-  if (!Number.isInteger(startMinute) || !Number.isInteger(endMinute) || startMinute < 0 || endMinute > 1440 || startMinute >= endMinute)
+  if (
+    !Number.isInteger(startMinute) ||
+    !Number.isInteger(endMinute) ||
+    startMinute < 0 ||
+    endMinute > 1440 ||
+    startMinute >= endMinute
+  )
     throw new ValidationError('The end time must be after the start time');
   if (startMinute % slotMinutes || endMinute % slotMinutes)
     throw new ValidationError('Start and end times must line up with the slot size');
@@ -160,8 +164,7 @@ export function normalizeEventInput(input) {
   const durationMinutes = Number(input.durationMinutes ?? slotMinutes);
   if (!Number.isInteger(durationMinutes) || durationMinutes < slotMinutes || durationMinutes % slotMinutes)
     throw new ValidationError('Meeting length must be a multiple of the slot size');
-  if (durationMinutes > endMinute - startMinute)
-    throw new ValidationError('Meeting length is longer than the daily time window');
+  if (durationMinutes > endMinute - startMinute) throw new ValidationError('Meeting length is longer than the daily time window');
 
   const ev = { title, description, organizer, timezone, dates, startMinute, endMinute, slotMinutes, durationMinutes };
   if (buildSlots(ev).length > LIMITS.slots)
@@ -174,16 +177,24 @@ const MIN_TIME = Date.UTC(2000, 0, 1);
 const MAX_TIME = Date.UTC(2100, 0, 1);
 
 function normalizeOptionsEvent(input, base) {
-  if (!Array.isArray(input.options) || input.options.length === 0)
-    throw new ValidationError('Propose at least one time');
+  if (!Array.isArray(input.options) || input.options.length === 0) throw new ValidationError('Propose at least one time');
   if (input.options.length > LIMITS.options) throw new ValidationError(`Propose at most ${LIMITS.options} times`);
   const seen = new Set();
   const options = [];
   for (const o of input.options) {
-    const start = Number(o?.start), end = Number(o?.end);
-    if (!Number.isInteger(start) || !Number.isInteger(end) || start < MIN_TIME || end > MAX_TIME || start % MINUTE || end % MINUTE)
+    const start = Number(o?.start),
+      end = Number(o?.end);
+    if (
+      !Number.isInteger(start) ||
+      !Number.isInteger(end) ||
+      start < MIN_TIME ||
+      end > MAX_TIME ||
+      start % MINUTE ||
+      end % MINUTE
+    )
       throw new ValidationError('Invalid proposed time');
-    if (end <= start || end - start > DAY) throw new ValidationError('Each proposed time must last between 1 minute and 24 hours');
+    if (end <= start || end - start > DAY)
+      throw new ValidationError('Each proposed time must last between 1 minute and 24 hours');
     if (seen.has(start)) throw new ValidationError('Two proposed times start at the same moment');
     seen.add(start);
     options.push({ start, end });
@@ -245,7 +256,9 @@ export function rankTimes(ev, slots, participants, limit = 5) {
   for (let i = 0; i + k <= slots.length; i++) {
     const start = slots[i];
     if (slots[i + k - 1] !== start + (k - 1) * slotMs) continue; // window must be contiguous
-    const yes = [], ifNeeded = [], no = [];
+    const yes = [],
+      ifNeeded = [],
+      no = [];
     for (const p of participants) {
       let worst = YES;
       for (let j = 0; j < k && worst > 0; j++) worst = Math.min(worst, p.availability[slots[i + j]] || 0);
@@ -260,7 +273,9 @@ export function rankTimes(ev, slots, participants, limit = 5) {
 function rankOptions(ev, participants, limit) {
   const results = [];
   for (const { start, end } of ev.options) {
-    const yes = [], ifNeeded = [], no = [];
+    const yes = [],
+      ifNeeded = [],
+      no = [];
     for (const p of participants) {
       const v = p.availability[start];
       (v === YES ? yes : v === IF_NEEDED ? ifNeeded : no).push(p.name);
@@ -274,20 +289,24 @@ function rankOptions(ev, participants, limit) {
 function sortRanked(results) {
   return results.sort(
     (a, b) =>
-      b.yes.length + b.ifNeeded.length - (a.yes.length + a.ifNeeded.length) ||
-      b.yes.length - a.yes.length ||
-      a.start - b.start,
+      b.yes.length + b.ifNeeded.length - (a.yes.length + a.ifNeeded.length) || b.yes.length - a.yes.length || a.start - b.start,
   );
 }
 
 // ---------- calendar export ----------
 
 function icsStamp(ms) {
-  return new Date(ms).toISOString().replace(/[-:]/g, '').replace(/\.\d{3}/, '');
+  return new Date(ms)
+    .toISOString()
+    .replace(/[-:]/g, '')
+    .replace(/\.\d{3}/, '');
 }
 
 function icsEscape(s) {
-  return String(s).replace(/\\/g, '\\\\').replace(/\n/g, '\\n').replace(/[,;]/g, (c) => '\\' + c);
+  return String(s)
+    .replace(/\\/g, '\\\\')
+    .replace(/\n/g, '\\n')
+    .replace(/[,;]/g, (c) => '\\' + c);
 }
 
 export function buildIcs({ id, title, description, start, end, url }) {
@@ -338,7 +357,10 @@ export function outlookCalendarUrl({ title, description, start, end }) {
 const BYDAY = { SU: 0, MO: 1, TU: 2, WE: 3, TH: 4, FR: 5, SA: 6 };
 
 function unfold(text) {
-  return text.replace(/\r\n/g, '\n').replace(/\n[ \t]/g, '').split('\n');
+  return text
+    .replace(/\r\n/g, '\n')
+    .replace(/\n[ \t]/g, '')
+    .split('\n');
 }
 
 function parseProp(line) {
@@ -432,7 +454,7 @@ export function parseIcsBusy(text, rangeStart, rangeEnd, fallbackTz = 'UTC') {
   for (const e of events) {
     if (!e.start || e.start.allDay) continue;
     const startMs = wallToMs(e.start);
-    let dur = e.end && !e.end.allDay ? wallToMs(e.end) - startMs : e.duration ?? 0;
+    let dur = e.end && !e.end.allDay ? wallToMs(e.end) - startMs : (e.duration ?? 0);
     if (!(dur > 0)) continue;
     const free = e.status === 'CANCELLED' || e.transp === 'TRANSPARENT';
     const skip = overridden.get(e.uid);
@@ -458,7 +480,10 @@ function expandRrule(start, r, rangeEnd) {
   }
   const days =
     freq === 'WEEKLY' && r.BYDAY
-      ? r.BYDAY.split(',').map((d) => BYDAY[d.slice(-2)]).filter((d) => d != null).sort()
+      ? r.BYDAY.split(',')
+          .map((d) => BYDAY[d.slice(-2)])
+          .filter((d) => d != null)
+          .sort()
       : [weekdayOf(start.date)];
 
   const out = [];
