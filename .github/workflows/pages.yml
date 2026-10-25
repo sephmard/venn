@@ -1,6 +1,6 @@
 name: Pages
 
-# Publishes the product page and docs (built from the repo's Markdown) to GitHub Pages
+# Publishes the developer docs (built from the repo's Markdown) to GitHub Pages
 # (docs.venn.day) whenever main changes. "Open Venn" links to venn.day; set the repository
 # variable APP_URL to point it at another instance.
 

@@ -20,5 +20,5 @@ Venn is a free scheduling-poll app: plain HTML/CSS/JS in `public/` (no build ste
 npm run check        # lint, formatting, docs links, unit tests
 npm run test:e2e     # browser + accessibility tests (desktop and phone)
 npm run test:coverage
-npm run site         # build the GitHub Pages site into site/
+npm run site         # build the developer docs (docs.venn.day) into site/
 ```
