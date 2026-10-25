@@ -1,11 +1,16 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
+import { readFileSync, readdirSync } from 'node:fs';
 import { gzipSync } from 'node:zlib';
 
 // Venn has to load fast on phones over slow connections. These budgets fail the build if the
 // code the browser downloads grows a lot; raise them deliberately, in review, if a feature needs it.
-const FILES = ['index.html', 'app.js', 'core.js', 'calendars.js', 'styles.css'];
+// The app shell, its stylesheet and every script module it can load.
+const FILES = [
+  'app.html',
+  'styles.css',
+  ...readdirSync(new URL('../public/', import.meta.url)).filter((f) => f.endsWith('.js') && !f.startsWith('oauth-')),
+];
 const PER_FILE_KB = 25;
 const TOTAL_KB = 45;
 

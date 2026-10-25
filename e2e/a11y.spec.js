@@ -23,42 +23,54 @@ for (const scheme of ['light', 'dark']) {
       await audit(page, 'privacy page');
     });
 
-    test('create page', async ({ page }) => {
+    test('create pages', async ({ page }) => {
       await page.goto('/new');
-      await page.click('#weekdays');
-      const day = await page.locator('[data-add]').first().getAttribute('data-add');
-      await page.click(`[data-add="${day}"]`);
-      await audit(page, 'create page');
+      await audit(page, 'chooser');
+      await page.goto('/new/pick');
+      await page.click('[data-occasion="0"]');
+      await page.click('#q-week');
+      await page.click('#times [data-time="1140"]');
+      await audit(page, 'vote on a few dates');
+      await page.goto('/new/free');
+      await page.click('#q-2w');
+      await page.click('[data-mark="hours"]');
+      await audit(page, 'ask when people are free');
     });
 
     test('answering and results, as organizer', async ({ page }) => {
       page.on('dialog', (d) => d.accept());
-      await page.goto('/new');
+      await page.goto('/new/pick');
       await page.fill('#title', 'Accessibility check');
-      await page.click('#weekdays');
-      const day = await page.locator('[data-add]').first().getAttribute('data-add');
-      await page.click(`[data-add="${day}"]`);
-      await page.click(`[data-add="${day}"]`);
+      await page.click('#q-week');
+      await page.click('#times [data-time="600"]');
       await page.click('#submit');
-      await page.locator('.opt').first().locator('[data-vote="2"]').click();
+      await page.locator('#mine .row').first().locator('[data-vote="2"]').click();
+      await page.locator('#mine .row').nth(1).locator('[data-vote="1"]').click();
+      await audit(page, 'event page (answering)');
       await page.fill('#name', 'Sam');
       await page.click('#save');
       await expect(page.locator('.matrix')).toBeVisible();
-      await page.locator('.best [data-pick]').first().click();
+      await page.locator('.best-hero [data-pick]').click();
       await expect(page.locator('.banner-final')).toBeVisible();
       await page.click('#notify-open');
       await expect(page.locator('#notify-form')).toBeVisible();
       await audit(page, 'event page (organizer)');
     });
 
-    test('open time range grid', async ({ page }) => {
-      await page.goto('/new');
+    test('days and hours polls', async ({ page }) => {
+      await page.goto('/new/free');
+      await page.fill('#title', 'Days check');
+      await page.click('#q-2w');
+      await page.click('#submit');
+      await expect(page.locator('#mine .row').first()).toBeVisible();
+      await audit(page, 'days poll');
+      await page.goto('/new/free');
       await page.fill('#title', 'Grid check');
-      await page.click('[data-mode="grid"]');
-      await page.click('#weekdays');
+      await page.click('#q-2w');
+      await page.click('[data-mark="hours"]');
       await page.click('#submit');
       await expect(page.locator('#mine .cell[data-slot]').first()).toBeVisible();
-      await audit(page, 'grid poll');
+      await audit(page, 'hours poll');
     });
   });
 }

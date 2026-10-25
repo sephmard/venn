@@ -3,6 +3,7 @@
 import {
   LIMITS,
   ValidationError,
+  allDaySpan,
   buildIcs,
   isValidTimeZone,
   buildSlots,
@@ -206,12 +207,15 @@ export async function handleApi(
     // GET /api/events/:id/event.ics
     if (parts.length === 3 && parts[2] === 'event.ics' && method === 'GET') {
       if (ev.finalStart == null) return error(404, 'No time has been picked yet');
+      const end = meetingEnd(ev, ev.finalStart);
       const body = buildIcs({
         id: ev.id,
         title: ev.title,
         description: ev.description,
+        location: ev.location,
         start: ev.finalStart,
-        end: meetingEnd(ev, ev.finalStart),
+        end,
+        allDay: allDaySpan(ev.finalStart, end, ev.timezone),
         url: `${url.origin}/e/${ev.id}`,
       });
       return new Response(body, {

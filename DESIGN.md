@@ -74,3 +74,15 @@ Lines stay under 65 characters. Italic serif is the only emphasis inside headlin
 - One real product screenshot (light and dark versions), framed on `--paper-2` and faded at the bottom.
 - No icons, emoji, stock photos or gradients on text.
 - Motion: the circles drift a few pixels on a slow loop. Everything stays still under `prefers-reduced-motion`.
+
+## The app
+
+The app (`public/styles.css`, for `/new` and `/e/:id`) uses the same colors and fonts, plus a few things of its own:
+
+- **Roles:** green for actions and "Yes", amber for "If needed", blue (`--final`) for the picked date.
+- **Type:** Instrument Serif only for the page title, the best option and the picked date. Everything else is the system sans.
+- **People** appear as round avatars with initials, in a color from their name. Overlapping avatar stacks echo the Venn.
+- **Quick picks** are pills that fill with green when pressed: kinds of plan, lengths, times. No dropdowns where a few choices will do.
+- **Emoji** mark the kind of plan (🍝 dinner, ✈️ trip…) in the app only; the landing page stays without.
+- **Phones first:** 44px tap targets, 16px inputs, sticky Save and Create bars, and two tabs ("Your answer", "The group") that become two columns on wide screens.
+- **Motion:** one small celebration when the date is picked. Nothing moves under `prefers-reduced-motion`.

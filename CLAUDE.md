@@ -1,6 +1,6 @@
 # Venn: notes for Claude
 
-Venn is a free scheduling-poll app: plain HTML/CSS/JS in `public/` (no build step), a JSON API in `src/api.js` shared by a Cloudflare Worker (`src/worker.js`) and a Node server (`server.js`), and SQLite storage. Read `CONTRIBUTING.md` for the layout.
+Venn is a free polling app for finding a date for dinners, book clubs, trips and other get-togethers: plain HTML/CSS/JS in `public/` (no build step), a JSON API in `src/api.js` shared by a Cloudflare Worker (`src/worker.js`) and a Node server (`server.js`), and SQLite storage. Read `CONTRIBUTING.md` for the layout.
 
 ## Rules that matter in review
 
