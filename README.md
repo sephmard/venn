@@ -1,9 +1,9 @@
-# Overlap
+# Venn
 
-[![CI](https://github.com/sephmard/overlap/actions/workflows/ci.yml/badge.svg)](https://github.com/sephmard/overlap/actions/workflows/ci.yml)
+[![CI](https://github.com/sephmard/venn/actions/workflows/ci.yml/badge.svg)](https://github.com/sephmard/venn/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 
-A free, open-source alternative to Doodle for finding a time to meet. Propose some times, share one link, and everyone marks what works. Overlap shows the best time straight away.
+A free, open-source alternative to Doodle for finding a time to meet. Everyone's availability is a circle; Venn finds where they overlap. Propose some times, share one link, and everyone marks what works. Venn shows the best time straight away.
 
 Two kinds of poll:
 
@@ -12,7 +12,7 @@ Two kinds of poll:
 
 ## Why it's better than Doodle
 
-|                     | Doodle (free)              | Overlap                                                                                                 |
+|                     | Doodle (free)              | Venn                                                                                                    |
 | ------------------- | -------------------------- | ------------------------------------------------------------------------------------------------------- |
 | Accounts            | Organizer must sign up     | None, for anyone                                                                                        |
 | Ads / tracking      | Yes                        | None                                                                                                    |
@@ -42,7 +42,7 @@ Requires Node 22.13+. No dependencies to install.
 
 ```sh
 npm install        # dev tools only, the app has no runtime dependencies
-npm start          # http://localhost:8787, data saved in ./data/overlap.db
+npm start          # http://localhost:8787, data saved in ./data/venn.db
 npm test           # unit + API tests
 npm run test:e2e   # browser tests (desktop + mobile)
 ```
@@ -55,7 +55,7 @@ The free tier is plenty for personal and small-team use.
 
 ```sh
 npx wrangler login
-npx wrangler d1 create overlap     # copy the database_id into wrangler.toml
+npx wrangler d1 create venn     # copy the database_id into wrangler.toml
 npx wrangler deploy
 ```
 

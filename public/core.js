@@ -313,11 +313,11 @@ export function buildIcs({ id, title, description, start, end, url }) {
   const lines = [
     'BEGIN:VCALENDAR',
     'VERSION:2.0',
-    'PRODID:-//Overlap//EN',
+    'PRODID:-//Venn//EN',
     'CALSCALE:GREGORIAN',
     'METHOD:PUBLISH',
     'BEGIN:VEVENT',
-    `UID:${id}-${start}@overlap`,
+    `UID:${id}-${start}@venn`,
     `DTSTAMP:${icsStamp(Date.now())}`,
     `DTSTART:${icsStamp(start)}`,
     `DTEND:${icsStamp(end)}`,

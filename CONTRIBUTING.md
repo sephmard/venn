@@ -1,4 +1,4 @@
-# Contributing to Overlap
+# Contributing to Venn
 
 Thanks for helping! Bug reports, ideas, docs fixes and code are all welcome.
 
@@ -13,13 +13,13 @@ Thanks for helping! Bug reports, ideas, docs fixes and code are all welcome.
 You need **Node 22.13 or newer**.
 
 ```sh
-git clone https://github.com/<you>/overlap.git
-cd overlap
+git clone https://github.com/<you>/venn.git
+cd venn
 npm install
 npm start            # http://localhost:8787
 ```
 
-Data is stored in `data/overlap.db` (SQLite). Delete it to start fresh.
+Data is stored in `data/venn.db` (SQLite). Delete it to start fresh.
 
 ## Before you open a pull request
 

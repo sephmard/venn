@@ -1,5 +1,5 @@
 // Zero-dependency Node server for local use or self-hosting (Node 22.13+).
-//   node server.js            -> http://localhost:8787, data in ./data/overlap.db
+//   node server.js            -> http://localhost:8787, data in ./data/venn.db
 //   PORT=3000 DB_PATH=:memory: node server.js
 
 import { createServer } from 'node:http';
@@ -67,6 +67,6 @@ async function serveStatic(pathname, res) {
 
 if (import.meta.url === `file://${process.argv[1]}`) {
   const port = Number(process.env.PORT || 8787);
-  const dbPath = process.env.DB_PATH || join(root, 'data', 'overlap.db');
-  createApp({ dbPath }).listen(port, () => console.log(`Overlap running at http://localhost:${port}`));
+  const dbPath = process.env.DB_PATH || join(root, 'data', 'venn.db');
+  createApp({ dbPath }).listen(port, () => console.log(`Venn running at http://localhost:${port}`));
 }

@@ -32,7 +32,7 @@ body:
   - type: dropdown
     id: hosting
     attributes:
-      label: Where are you running Overlap?
+      label: Where are you running Venn?
       options:
         - A public instance
         - Self-hosted on Cloudflare

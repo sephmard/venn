@@ -1,6 +1,6 @@
 # Deploys main to Cloudflare Workers. Off by default so forks don't try to deploy.
 # To enable, set in the repo's Settings → Secrets and variables → Actions:
-#   variables: CLOUDFLARE_DEPLOY=true, D1_DATABASE_ID=<from `npx wrangler d1 create overlap`>
+#   variables: CLOUDFLARE_DEPLOY=true, D1_DATABASE_ID=<from `npx wrangler d1 create venn`>
 #   secrets:   CLOUDFLARE_API_TOKEN (Workers + D1 edit), CLOUDFLARE_ACCOUNT_ID
 name: Deploy
 

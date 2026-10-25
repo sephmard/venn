@@ -28,33 +28,33 @@ const $ = (sel, root = document) => root.querySelector(sel);
 
 function saved(id) {
   try {
-    return JSON.parse(localStorage.getItem(`overlap:${id}`)) || {};
+    return JSON.parse(localStorage.getItem(`venn:${id}`)) || {};
   } catch {
     return {};
   }
 }
 function save(id, patch) {
   try {
-    localStorage.setItem(`overlap:${id}`, JSON.stringify({ ...saved(id), ...patch }));
+    localStorage.setItem(`venn:${id}`, JSON.stringify({ ...saved(id), ...patch }));
   } catch {}
 }
 function forget(id, ...keys) {
   const s = saved(id);
   for (const k of keys) delete s[k];
   try {
-    localStorage.setItem(`overlap:${id}`, JSON.stringify(s));
+    localStorage.setItem(`venn:${id}`, JSON.stringify(s));
   } catch {}
 }
 function lastName() {
   try {
-    return localStorage.getItem('overlap:name') || '';
+    return localStorage.getItem('venn:name') || '';
   } catch {
     return '';
   }
 }
 function rememberName(n) {
   try {
-    localStorage.setItem('overlap:name', n);
+    localStorage.setItem('venn:name', n);
   } catch {}
 }
 
@@ -155,7 +155,7 @@ window.addEventListener('popstate', route);
 // ---------- create page ----------
 
 function renderCreate() {
-  document.title = 'Overlap: find a time that works';
+  document.title = 'Venn: find a time that works';
   const selected = new Set();
   const times = new Map(); // date -> Set of minutes after midnight (specific-times polls)
   let mode = 'options';
@@ -544,7 +544,7 @@ async function renderEvent(id) {
     return;
   }
 
-  document.title = `${st.ev.title} · Overlap`;
+  document.title = `${st.ev.title} · Venn`;
   const shareUrl = `${location.origin}/e/${id}`;
   const optionsMode = isOptionsPoll(st.ev);
   st.touched = new Set(); // options this visitor explicitly answered (so "No" shows as chosen)
