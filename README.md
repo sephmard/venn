@@ -18,7 +18,7 @@
 </p>
 
 <p align="center">
-  <a href="https://sephmard.github.io/venn/">Website &amp; docs</a> ·
+  <a href="https://venn.day">Website &amp; docs</a> ·
   <a href="#quick-start">Quick start</a> ·
   <a href="#self-hosting">Self-hosting</a> ·
   <a href="#privacy">Privacy</a> ·
@@ -96,7 +96,7 @@ npm start     # http://localhost:8787
 
 Polls are saved to `data/venn.db` (SQLite).
 
-More screenshots, and all the docs, are on the [website](https://sephmard.github.io/venn/).
+More screenshots, and all the docs, are on the [website](https://venn.day).
 
 ## Self-hosting
 
