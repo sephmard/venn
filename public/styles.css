@@ -41,6 +41,9 @@
 * {
   box-sizing: border-box;
 }
+button {
+  -webkit-tap-highlight-color: transparent;
+}
 [hidden] {
   display: none !important;
 }
