@@ -112,7 +112,7 @@ The [self-hosting guide](docs/SELF-HOSTING.md) covers Cloudflare, Node, deployin
 
 - **No accounts, cookies or analytics.** Venn stores only what people type into a poll: its title and details, names, and answers.
 - **Links are the keys.** The organizer link and each person's personal edit link contain a secret after the `#`. Browsers never send that part to the server. The server stores only a SHA-256 hash of each secret, so a database leak doesn't let anyone edit polls.
-- **Your calendar stays with you.** _Check my calendar_ runs entirely in the browser. Google and Outlook are asked only for busy/free times, the sign-in token never reaches the server, and calendar files are never uploaded.
+- **Your calendar stays with you.** _Check my calendar_ (coming soon) runs entirely in the browser. Google and Outlook are asked only for busy/free times, the sign-in token never reaches the server, and calendar files are never uploaded.
 - **Delete anytime.** People can remove their own response. The organizer can remove anyone's response, or delete the whole poll.
 
 Found a security issue? Please report it privately. See [SECURITY.md](SECURITY.md).

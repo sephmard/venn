@@ -3,7 +3,7 @@
 Organizers can be told whenever someone responds to a poll, changes their answers or removes them. There are two ways:
 
 - **Email**, sent through [Resend](https://resend.com). Off unless the server has an email key.
-- **Webhooks**, to Slack, Discord, Zapier, Make or your own endpoint. Always available.
+- **Custom notifications** (webhooks), to Slack, Discord, Zapier, Make or your own endpoint. Always available. The panel shows an example of the JSON and how to check the signature.
 
 Organizers set these up from the **Notifications** button on their poll. Email can also be turned on when creating a poll.
 
@@ -27,7 +27,7 @@ Organizers set these up from the **Notifications** button on their poll. Email c
 
    With Node, set them as environment variables.
 
-The "Email me when people respond" field appears automatically once both settings are present.
+The "Email me when people answer" field appears on the create pages automatically once both settings are present, and email becomes the first choice in the Notifications panel. Until then, both say that email isn't switched on, and point to custom notifications (webhooks).
 
 ### How email stays safe
 

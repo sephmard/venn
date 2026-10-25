@@ -8,7 +8,6 @@ import {
   DAY_PARTS,
   addDays,
   allDaySpan,
-  availabilityFromBusy,
   eventWindows,
   googleCalendarUrl,
   isDaysPoll,
@@ -16,13 +15,11 @@ import {
   isPartsPoll,
   meetingEnd,
   outlookCalendarUrl,
-  parseIcsBusy,
   partOf,
   rankTimes,
   slotEnd,
   utcToZoned,
 } from './core.js';
-import { PROVIDERS, fetchBusy, needsSignIn, openSignInWindow } from './calendars.js';
 import { dayChip, isPhone, timeView } from './picker.js';
 import {
   $,
@@ -43,6 +40,7 @@ import {
   fmtWhen,
   forget,
   getConfig,
+  lastEmail,
   lastName,
   lengthLabel,
   localTz,
@@ -107,6 +105,8 @@ export async function renderEvent(id, navigate) {
   try {
     const mine = await load();
     if (mine) st.mine = { ...mine.availability };
+    // A saved answer with nothing marked means "none of these work".
+    st.declined = !!mine && !Object.keys(mine.availability).length;
   } catch (e) {
     app.innerHTML = `<div class="sheet empty"><h1>Poll not found</h1><p class="muted">${esc(e.message)}</p><a class="btn btn-primary" href="/new" data-link>Start a new poll</a></div>`;
     return () => {};
@@ -138,16 +138,8 @@ export async function renderEvent(id, navigate) {
   const me = () => ev().participants.find((p) => p.id === saved(id).participantId);
   st.tab = me() || (ev().isAdmin && ev().participants.length) ? 'group' : 'mine';
 
-  const calMenu = `
-    <div class="cal-connect">
-      <button type="button" class="pill" id="cal-btn" aria-haspopup="true" aria-expanded="false" aria-controls="cal-menu">Check my calendar</button>
-      <div class="menu" id="cal-menu" hidden>
-        <button type="button" class="menu-item" data-provider="google" hidden>Google Calendar</button>
-        <button type="button" class="menu-item" data-provider="microsoft" hidden>Outlook / Microsoft 365</button>
-        <label class="menu-item file-item">Calendar file (.ics)<input type="file" id="ics" accept=".ics,text/calendar"></label>
-        <p class="hint">Only busy and free times are read, right here in your browser. Nothing is shared until you save.</p>
-      </div>
-    </div>`;
+  // Reading busy times from Google, Outlook or a calendar file comes back later.
+  const calMenu = `<button type="button" class="pill soon" id="cal-btn" disabled aria-describedby="cal-soon">Check my calendar <span class="badge-soon" id="cal-soon">Coming soon</span></button>`;
 
   app.innerHTML = `
     <article id="event-root" class="poll">
@@ -180,6 +172,7 @@ export async function renderEvent(id, navigate) {
             ${calMenu}
             ${optionsMode ? '<button type="button" class="pill" id="ai-answer-btn" hidden aria-expanded="false" aria-controls="ai-answer">Answer for me</button>' : ''}
             <button type="button" class="pill pill-quiet" id="fill">${listMode ? 'Yes to all' : 'All'}</button>
+            <button type="button" class="pill pill-quiet" id="decline">None of these work</button>
             <button type="button" class="pill pill-quiet" id="none">Clear</button>
           </div>
           ${
@@ -217,6 +210,7 @@ export async function renderEvent(id, navigate) {
                 <div class="tv-strip" id="hour-days" role="group" aria-label="Days" hidden></div>
                 <div class="grid-scroll"><div class="grid" id="mine" role="group" aria-label="Your availability. Use the arrow keys to move and Space to mark a time."></div></div>`
           }
+          <div class="my-picks" id="my-picks" aria-live="polite" hidden></div>
           <div class="mine-footer">
             <p class="hint" id="edit-link" hidden></p>
             <button type="button" class="link-btn danger" id="leave" hidden>Remove my answer</button>
@@ -249,6 +243,10 @@ export async function renderEvent(id, navigate) {
                    <div class="hover-info" id="inspect"></div>`
             }
           </div>
+          <aside class="sheet grow-card" id="grow" hidden>
+            <p><b>Planning something yourself?</b> Make your own poll in a minute. It's free, and nobody needs an account.</p>
+            <a class="btn btn-primary" href="/new" data-link>Create your own poll</a>
+          </aside>
         </section>
       </div>
       <details class="tz-line">
@@ -322,13 +320,16 @@ export async function renderEvent(id, navigate) {
   }
 
   // `cellAttrs(slot)` adds the role and state: toggle buttons in your grid, labelled images in the group heatmap.
-  function gridHtml(cellClass, cellAttrs = () => '', layout = L) {
+  // In your own grid the day names are buttons that mark the whole day at once.
+  function gridHtml(cellClass, cellAttrs = () => '', layout = L, dayButtons = false) {
     const { dates, mins, at } = layout;
     const labelEvery = ev().slotMinutes >= 60 ? ev().slotMinutes : 60;
     let h = '<div></div>';
     for (const d of dates) {
       const dt = dateParts(d);
-      h += `<div class="day-label"><b>${fmtDow.format(dt)}</b>${fmtMonthDay.format(dt)}</div>`;
+      h += dayButtons
+        ? `<button type="button" class="day-label day-fill" data-fill-day="${d}"><b>${fmtDow.format(dt)}</b>${fmtMonthDay.format(dt)}<span class="sr-only">: mark the whole day</span></button>`
+        : `<div class="day-label"><b>${fmtDow.format(dt)}</b>${fmtMonthDay.format(dt)}</div>`;
     }
     mins.forEach((m, r) => {
       h += `<div class="time-label">${m % labelEvery === 0 ? minutesLabel(m) : ''}</div>`;
@@ -355,10 +356,53 @@ export async function renderEvent(id, navigate) {
   // Everyone's answers, with my unsaved edits shown live.
   const others = () => ev().participants.map((p) => (p.id === me()?.id ? { ...p, availability: st.mine } : p));
   const changed = () => {
+    if (Object.values(st.mine).some((v) => v > 0)) st.declined = false;
     setDirty(true);
     renderGroup();
     renderBest();
+    renderPicks();
   };
+
+  // ----- what I've picked so far, in words -----
+  const hasAnswer = () => Object.values(st.mine).some((v) => v > 0) || st.declined || (listMode && st.touched.size > 0);
+  /** Runs of free slots on each day of an hours poll: "Sat, Nov 7: 9 AM – 12 PM". */
+  function hourRuns(v) {
+    const runs = [];
+    let cur = null;
+    for (const s of ev().slots) {
+      const z = utcToZoned(s, st.tz);
+      const end = utcToZoned(slotEnd(ev(), s), st.tz);
+      const to = end.date === z.date ? end.minutes : 1440;
+      if (st.mine[s] === v && cur && cur.date === z.date && cur.to === z.minutes) cur.to = to;
+      else if (st.mine[s] === v) runs.push((cur = { date: z.date, from: z.minutes, to }));
+      else cur = null;
+    }
+    return runs.map((r) => `${fmtDay.format(dateParts(r.date))}, ${shortRange(r.from, r.to)}`);
+  }
+  function renderPicks() {
+    const box = $('#my-picks');
+    const label = (v) =>
+      listMode ? windows.filter((w) => st.mine[w.start] === v).map((w) => when(w.start, w.end)) : hourRuns(v);
+    const yes = label(YES);
+    const maybe = label(IF_NEEDED);
+    box.hidden = !hasAnswer();
+    if (box.hidden) return;
+    if (!yes.length && !maybe.length) {
+      box.innerHTML = `<p><b>Your answer:</b> none of these work for you.</p>`;
+      return;
+    }
+    const max = 6;
+    const chips = [...yes.map((t) => [t, 'yes', '✓']), ...maybe.map((t) => [t, 'maybe', '~'])];
+    const shown = chips
+      .slice(0, max)
+      .map(([t, cls, icon]) => `<span class="chip ${cls}"><span aria-hidden="true">${icon}</span> ${esc(t)}</span>`)
+      .join('');
+    const counts = [yes.length ? `${yes.length} yes` : '', maybe.length ? `${maybe.length} if needed` : '']
+      .filter(Boolean)
+      .join(', ');
+    box.innerHTML = `<p><b>Your answer:</b> ${esc(counts)}${listMode ? `, no to the other ${windows.length - yes.length - maybe.length}` : ''}</p>
+      <div class="chips">${shown}${chips.length > max ? `<span class="chip">+${chips.length - max} more</span>` : ''}</div>`;
+  }
 
   /** The date block on the left of a row: weekday, big day number, month. */
   const dateBlock = (d) => {
@@ -406,7 +450,8 @@ export async function renderEvent(id, navigate) {
     mineEl.innerHTML = [...byDay()]
       .map(
         ([d, ws]) => `<div class="row parts-row">${dateBlock(d)}
-          <div class="row-main"><div class="row-when">${esc(fmtDowLong.format(dateParts(d)))}</div></div>
+          <div class="row-main"><div class="row-when">${esc(fmtDowLong.format(dateParts(d)))}</div>
+            ${ws.length > 1 ? `<button type="button" class="link-btn all-day" data-all-day="${d}">Free all day<span class="sr-only">, ${esc(fmtDay.format(dateParts(d)))}</span></button>` : ''}</div>
           <div class="part-votes">${ws
             .map((w) => {
               const p = partOf(w.start, w.end, ev().timezone);
@@ -442,6 +487,14 @@ export async function renderEvent(id, navigate) {
     mineEl.addEventListener('click', (e) => {
       const b = e.target.closest('.part-vote');
       if (b) cycle(b.dataset.opt);
+      const day = e.target.closest('[data-all-day]');
+      if (day)
+        markAll(
+          byDay()
+            .get(day.dataset.allDay)
+            .map((w) => String(w.start)),
+          YES,
+        );
     });
 
   // ----- the calendar view of the options -----
@@ -553,6 +606,8 @@ export async function renderEvent(id, navigate) {
     mineEl.innerHTML = gridHtml(
       (s) => (st.mine[s] === YES ? 'yes' : st.mine[s] === IF_NEEDED ? 'maybe' : '') + (finalSet().has(s) ? ' final' : ''),
       (s) => `role="button" aria-pressed="${pressed(s)}" aria-label="${esc(fmtWhen(s, slotEnd(ev(), s), st.tz))}"`,
+      L,
+      true,
     );
     const first = $('.cell[data-slot]', mineEl);
     if (first) first.tabIndex = 0;
@@ -590,7 +645,24 @@ export async function renderEvent(id, navigate) {
     drag = null;
     changed();
   };
+  /** Mark every slot in `slots` with `v`, or clear them all when they already are. */
+  function markAll(slots, v) {
+    const all = slots.every((s) => (st.mine[s] || 0) === v);
+    for (const s of slots) {
+      if (v && !all) st.mine[s] = v;
+      else delete st.mine[s];
+      st.touched.add(String(s));
+    }
+    refreshMine();
+    changed();
+  }
   if (!listMode) {
+    mineEl.addEventListener('click', (e) => {
+      const b = e.target.closest('[data-fill-day]');
+      if (!b) return;
+      const slots = ev().slots.filter((s) => utcToZoned(s, st.tz).date === b.dataset.fillDay);
+      markAll(slots, st.brush);
+    });
     mineEl.addEventListener('pointerdown', (e) => {
       const el = e.target.closest('.cell[data-slot]');
       if (!el || e.button > 0) return;
@@ -653,75 +725,23 @@ export async function renderEvent(id, navigate) {
   };
   $('#none').onclick = () => {
     st.mine = {};
+    st.declined = false;
+    st.touched.clear();
     refreshMine();
     changed();
   };
-
-  // ----- check my calendar: Google, Outlook or an .ics file -----
-  const range = [windows[0].start, Math.max(...windows.map((w) => w.end))];
-  const calBtn = $('#cal-btn');
-  const calMenuEl = $('#cal-menu');
-  const setMenu = (open) => {
-    calMenuEl.hidden = !open;
-    calBtn.setAttribute('aria-expanded', open);
-  };
-  calBtn.onclick = () => setMenu(calMenuEl.hidden);
-  const closeMenu = (e) => !calMenuEl.hidden && !e.target.closest('.cal-connect') && setMenu(false);
-  document.addEventListener('click', closeMenu);
-
-  function applyBusy(busy, source) {
-    st.lastBusy = busy.map(({ start, end, tentative }) => ({ start, end, tentative: !!tentative })); // for "Answer for me"
-    if (Object.keys(st.mine).length && !confirm(`Replace your current answers with what ${source} says?`)) return;
-    st.aiNotes = {};
-    st.mine = availabilityFromBusy(windows, busy);
-    for (const w of windows) st.touched.add(String(w.start));
-    renderMine();
+  // Saying no to everything is an answer too: it shows as a row of No in the group.
+  $('#decline').onclick = () => {
+    st.mine = {};
+    st.declined = true;
+    for (const s of ev().slots) st.touched.add(String(s));
+    refreshMine();
     changed();
-    const free = windows.filter((w) => st.mine[w.start] === YES).length;
-    const maybe = windows.filter((w) => st.mine[w.start] === IF_NEEDED).length;
-    toast(
-      `Checked ${source}: you're free for ${free} of ${windows.length}${maybe ? `, ${maybe} clash with tentative plans` : ''}. Review, then save.`,
-    );
-  }
-
-  calMenuEl.addEventListener('click', async (e) => {
-    const item = e.target.closest('[data-provider]');
-    if (!item) return;
-    const provider = item.dataset.provider;
-    // Open the popup right away: browsers block popups opened after an await.
-    const popup = needsSignIn(provider) ? openSignInWindow() : null;
-    setMenu(false);
-    calBtn.disabled = true;
-    calBtn.textContent = 'Checking…';
-    try {
-      const { calendars } = await getConfig();
-      applyBusy(await fetchBusy(provider, calendars, range[0], range[1], popup), `your ${PROVIDERS[provider].label}`);
-    } catch (ex) {
-      popup?.close();
-      toast(ex.message);
-    } finally {
-      calBtn.disabled = false;
-      calBtn.textContent = 'Check my calendar';
-    }
-  });
-
-  $('#ics').onchange = async (e) => {
-    const file = e.target.files[0];
-    e.target.value = '';
-    setMenu(false);
-    if (!file) return;
-    try {
-      applyBusy(parseIcsBusy(await file.text(), range[0], range[1], st.tz), 'your calendar file');
-    } catch (ex) {
-      console.error(ex);
-      toast("Couldn't read that calendar file. Export it again as .ics and retry.");
-    }
   };
 
   // ----- AI: answer for me, and the organizer's summary -----
   let aiOn = false;
   getConfig().then((c) => {
-    for (const b of $$('[data-provider]', calMenuEl)) b.hidden = !c.calendars?.[b.dataset.provider];
     if (!c.ai) return;
     aiOn = true;
     if (optionsMode) $('#ai-answer-btn').hidden = false;
@@ -789,9 +809,20 @@ export async function renderEvent(id, navigate) {
   };
 
   // ----- saving -----
+  /** What's still missing before the answer can be saved, or '' when it can. */
+  const needs = () => {
+    const name = !$('#name').value.trim();
+    const pick = !hasAnswer();
+    if (name && pick) return `Add your name and pick at least one ${listMode ? 'option' : 'time'} to save.`;
+    if (name) return 'Add your name to save.';
+    if (pick) return `Pick at least one ${listMode ? 'option' : 'time'} to save, or choose "None of these work".`;
+    return '';
+  };
   function setDirty(v) {
     st.dirty = v;
     const el = $('#save-state');
+    const need = needs();
+    $('#save').dataset.ready = !need;
     if (v) {
       el.className = 'dirty';
       el.textContent = 'Not saved yet';
@@ -799,9 +830,10 @@ export async function renderEvent(id, navigate) {
         const answered = ev().slots.filter((s) => st.mine[s] || st.touched.has(String(s))).length;
         el.textContent += `, ${answered} of ${ev().slots.length} answered`;
       }
+      if (need) el.textContent += `. ${need}`;
     } else {
       el.className = 'hint';
-      el.textContent = me() ? 'Saved' : '';
+      el.textContent = me() ? 'Saved' : need;
     }
   }
 
@@ -812,6 +844,11 @@ export async function renderEvent(id, navigate) {
     if (!name) {
       err.textContent = 'Add your name so everyone knows who you are.';
       $('#name').focus();
+      return;
+    }
+    if (!hasAnswer()) {
+      err.textContent = `Pick at least one ${listMode ? 'option' : 'time'} that works, or choose "None of these work".`;
+      $('#mine').scrollIntoView({ behavior: reducedMotion() ? 'auto' : 'smooth', block: 'center' });
       return;
     }
     rememberName(name);
@@ -863,6 +900,8 @@ export async function renderEvent(id, navigate) {
     }
     forget(id, 'participantId', 'editToken');
     st.mine = {};
+    st.declined = false;
+    st.touched.clear();
     await load();
     setDirty(false);
     renderAll();
@@ -906,7 +945,7 @@ export async function renderEvent(id, navigate) {
               ? `<td class="m-yes ${cls(w)}"><span aria-hidden="true">✓</span><span class="sr-only">Yes</span></td>`
               : v === IF_NEEDED
                 ? `<td class="m-maybe ${cls(w)}"><span aria-hidden="true">~</span><span class="sr-only">If needed</span></td>`
-                : `<td class="m-no ${cls(w)}"><span class="sr-only">No</span></td>`;
+                : `<td class="m-no ${cls(w)}"><span aria-hidden="true">✕</span><span class="sr-only">No</span></td>`;
           })
           .join('');
         return `<tr class="${p.id === st.focus ? 'focus' : ''}"><th scope="row">${avatar(p.name, 'av-sm')}<span>${esc(p.name)}${p.id === myId ? ' <span class="muted">(you)</span>' : ''}</span></th>${cells}</tr>`;
@@ -923,7 +962,7 @@ export async function renderEvent(id, navigate) {
       <tbody>${rows}</tbody>
       <tfoot><tr><th scope="row">Can come</th>${totals}</tr></tfoot>
     </table></div>
-    <p class="hint">✓ yes, ~ if needed. ${daysMode ? '' : 'The most popular are highlighted.'}</p>`;
+    <p class="hint">✓ yes, ~ if needed, ✕ no. ${daysMode ? '' : 'The most popular are highlighted.'}</p>`;
   }
 
   // Parts of the day: a day-by-part table, shaded by how many people are free.
@@ -1137,12 +1176,18 @@ export async function renderEvent(id, navigate) {
     };
     const pick = (b) =>
       ev().isAdmin && ev().finalStart !== b.start ? `<button class="btn btn-sm" data-pick="${b.start}">Pick</button>` : '';
+    // Everyone by their full name, so the host knows exactly who can come.
+    const names = (b) => {
+      const list = [...b.yes.map(esc), ...b.ifNeeded.map((x) => `${esc(x)} <span class="muted">(if needed)</span>`)];
+      return list.length ? `<p class="names"><span class="sr-only">Can make it: </span>${list.join(', ')}</p>` : '';
+    };
     const missing = (b) => (b.no.length ? `<p class="hint">Can't make it: ${b.no.map(esc).join(', ')}</p>` : '');
     const lenNote = !optionsMode && ev().durationMinutes > ev().slotMinutes ? ` (${lengthLabel(ev().durationMinutes)})` : '';
     $('#best').innerHTML = `
       <div class="best-hero${ev().finalStart === first.start ? ' final' : ''}">
         <div class="best-when">${esc(when(first.start, first.end))}${esc(lenNote)}</div>
         <div class="best-who">${avatarStack([...first.yes, ...first.ifNeeded], 7)}<span>${esc(who(first))}</span></div>
+        ${names(first)}
         ${missing(first)}
         ${pick(first) ? `<div class="btn-row">${pick(first).replace('btn btn-sm', 'btn btn-primary')}</div>` : ''}
       </div>
@@ -1154,6 +1199,7 @@ export async function renderEvent(id, navigate) {
                   <div class="grow">
                     <div class="when">${esc(when(b.start, b.end))}</div>
                     <div class="best-who small">${avatarStack([...b.yes, ...b.ifNeeded], 4)}<span>${esc(who(b))}</span></div>
+                    ${names(b)}
                   </div>
                   ${pick(b)}
                 </li>`,
@@ -1208,6 +1254,17 @@ export async function renderEvent(id, navigate) {
       : s.emailConfirmed
         ? `<span class="ok">✓ Confirmed.</span> Last email: ${delivery(s.lastDelivery.email)}`
         : `<span class="dirty">Waiting for confirmation.</span> Open the link we sent to ${esc(s.email)}.`;
+    const sample = JSON.stringify(
+      {
+        event: 'response.created',
+        sentAt: new Date().toISOString(),
+        poll: { id, title: ev().title, url: shareUrl, responses: ev().participants.length + 1, finalStart: null },
+        response: { name: 'Ana' },
+        bestTime: { start: '…', end: '…', available: 3, ifNeeded: 1, label: '…' },
+      },
+      null,
+      2,
+    );
     box.innerHTML = `
       <section class="sheet" aria-labelledby="notify-h">
         <div class="sheet-head">
@@ -1216,19 +1273,21 @@ export async function renderEvent(id, navigate) {
         </div>
         <p class="hint">Find out when someone answers, changes their answers or removes them.</p>
         <form id="notify-form" class="stack" novalidate>
-          ${
-            s.emailAvailable
-              ? `<div>
-                  <label for="n-email">Email</label>
-                  <input id="n-email" type="email" inputmode="email" autocomplete="email" maxlength="254" placeholder="you@example.com" value="${esc(s.email || '')}">
-                  ${emailStatus ? `<p class="hint">${emailStatus}</p>` : ''}
-                </div>`
-              : ''
-          }
-          <div>
-            <label for="n-hook">Webhook URL <span class="muted">(optional)</span></label>
+          <fieldset class="notify-way">
+            <legend>Email</legend>
+            ${
+              s.emailAvailable
+                ? `<label for="n-email">Send emails to</label>
+                  <input id="n-email" type="email" inputmode="email" autocomplete="email" maxlength="254" placeholder="you@example.com" value="${esc(s.email || lastEmail())}">
+                  <p class="hint">${emailStatus || "We'll send one link to confirm the address first."}</p>`
+                : `<p class="hint" id="email-off">Email isn't switched on for this Venn server yet. Until it is, use a custom notification below, for example a Slack or Discord channel.</p>`
+            }
+          </fieldset>
+          <details class="notify-way custom"${s.webhookUrl || !s.emailAvailable ? ' open' : ''}>
+            <summary>Custom notifications <span class="muted">(webhooks, for Slack, Discord, Zapier or your own app)</span></summary>
+            <label for="n-hook">Webhook URL</label>
             <input id="n-hook" type="url" inputmode="url" autocomplete="off" spellcheck="false" placeholder="https://hooks.slack.com/services/…" value="${esc(s.webhookUrl || '')}">
-            <p class="hint">Works with Slack, Discord, Zapier, Make or your own endpoint.</p>
+            <p class="hint">Slack and Discord webhook links get a readable message. Any other <code>https://</code> address gets JSON.</p>
             ${
               s.webhookSecret
                 ? `<div class="secret-row">
@@ -1239,7 +1298,14 @@ export async function renderEvent(id, navigate) {
                   <p class="hint" id="hook-status">Last delivery: ${delivery(s.lastDelivery.webhook)}</p>`
                 : ''
             }
-          </div>
+            <details class="dev">
+              <summary>For developers: what Venn sends</summary>
+              <p class="hint">A <code>POST</code> each time someone answers. <code>event</code> is <code>response.created</code>, <code>response.updated</code>, <code>response.deleted</code> or <code>test</code>.</p>
+              <pre class="code" tabindex="0" aria-label="Example request body"><code>${esc(sample)}</code></pre>
+              <p class="hint">Check that it came from Venn: <code>X-Venn-Signature</code> is <code>sha256=</code> plus the HMAC-SHA256 of <code>"&lt;X-Venn-Timestamp&gt;.&lt;raw body&gt;"</code>, keyed with your signing secret. Requests time out after 5 seconds and aren't retried.</p>
+              <p class="hint"><a href="https://docs.venn.day/notifications.html#webhooks" target="_blank" rel="noopener">Webhook docs, with a verification example</a></p>
+            </details>
+          </details>
           <div class="btn-row"><button class="btn btn-primary" type="submit">Save notifications</button></div>
           <div class="error" id="notify-err" role="alert"></div>
         </form>
@@ -1379,7 +1445,7 @@ export async function renderEvent(id, navigate) {
         <p class="hint">When you're ready, press <b>Pick</b> on the best ${listMode && !daysMode ? 'option' : 'date'} in the group view. To manage this poll from another device, keep your private organizer link, and don't share it.</p>
         ${fresh && saved(id).notifyPending ? '<p class="hint"><b>Check your inbox</b> to confirm email notifications.</p>' : ''}
         <div class="btn-row">
-          <button class="btn btn-sm" id="notify-open" aria-expanded="${notifyOpen}" aria-controls="notify-box">Notifications</button>
+          <button class="btn btn-sm${fresh ? ' btn-primary' : ''}" id="notify-open" aria-expanded="${notifyOpen}" aria-controls="notify-box">${fresh ? 'Get notified when people answer' : 'Notifications'}</button>
           ${aiOn ? '<button class="btn btn-sm" id="ai-write-open" aria-controls="ai-box">Write a message</button>' : ''}
           <button class="btn btn-sm" id="copy-admin">Copy organizer link</button>
           <button class="link-btn danger" id="delete-poll">Delete poll</button>
@@ -1420,6 +1486,8 @@ export async function renderEvent(id, navigate) {
       link.innerHTML = `Answering as <b>${esc(mine.name)}</b>. To change it from another device, <button type="button" class="link-btn" id="copy-edit">copy your personal link</button>.`;
       $('#copy-edit').onclick = () => copy(`${shareUrl}#edit=${s.participantId}.${s.editToken}`, 'Personal link copied');
     } else link.hidden = true;
+    // Guests who just answered are the people most likely to plan the next thing.
+    $('#grow').hidden = !mine || ev().isAdmin;
   }
 
   function renderAll() {
@@ -1437,6 +1505,7 @@ export async function renderEvent(id, navigate) {
     renderGroup();
     renderBest();
     renderMeState();
+    renderPicks();
     setDirty(st.dirty);
   }
 
@@ -1476,6 +1545,5 @@ export async function renderEvent(id, navigate) {
     window.removeEventListener('pointerup', endPaint);
     window.removeEventListener('pointercancel', endPaint);
     window.removeEventListener('beforeunload', beforeUnload);
-    document.removeEventListener('click', closeMenu);
   };
 }

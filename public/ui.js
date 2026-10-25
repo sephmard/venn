@@ -47,6 +47,20 @@ export function rememberName(n) {
   } catch {}
 }
 
+/** The organizer's email for notifications, so the next poll fills it in. */
+export function lastEmail() {
+  try {
+    return localStorage.getItem('venn:email') || '';
+  } catch {
+    return '';
+  }
+}
+export function rememberEmail(e) {
+  try {
+    localStorage.setItem('venn:email', e);
+  } catch {}
+}
+
 // ---------- feedback ----------
 
 let toastTimer;
