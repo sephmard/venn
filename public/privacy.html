@@ -1,0 +1,92 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="referrer" content="no-referrer" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <title>Privacy · Venn</title>
+    <meta name="description" content="What Venn stores, what it doesn't, and how to delete it." />
+    <link rel="canonical" href="https://venn.day/privacy" />
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+    <link rel="stylesheet" href="/styles.css" />
+    <link rel="stylesheet" href="/site.css" />
+  </head>
+  <body class="site">
+    <header class="topbar">
+      <a href="/" class="brand">
+        <svg viewBox="0 0 120 80" width="36" height="24" aria-hidden="true">
+          <defs>
+            <clipPath id="brand-left"><circle cx="45" cy="40" r="30" /></clipPath>
+          </defs>
+          <circle cx="45" cy="40" r="30" fill="var(--accent)" fill-opacity=".28" />
+          <circle cx="75" cy="40" r="30" fill="var(--accent)" fill-opacity=".28" />
+          <circle cx="75" cy="40" r="30" fill="var(--accent)" clip-path="url(#brand-left)" />
+        </svg>
+        Venn
+      </a>
+      <nav class="site-nav" aria-label="Main"><a href="/new" class="btn btn-primary btn-sm">Create a poll</a></nav>
+    </header>
+    <main>
+      <article class="prose">
+        <h1>Privacy</h1>
+        <p class="muted">Last updated October 25, 2026</p>
+        <p>
+          Venn is built to know as little about you as possible. There are no accounts, no cookies, no analytics and no ads. This
+          page explains exactly what is stored.
+        </p>
+
+        <h2>What we store</h2>
+        <ul>
+          <li><b>Polls:</b> the title, description, organizer name, time zone and proposed times.</li>
+          <li><b>Responses:</b> the name each person types and their answers.</li>
+          <li>
+            <b>Notification settings, if the organizer turns them on:</b> an email address or a webhook URL. These are never shown
+            to people answering the poll.
+          </li>
+          <li>
+            <b>Secrets:</b> only a SHA-256 hash of each organizer and edit link secret. The secret itself is in the part of the
+            link after <code>#</code>, which browsers never send to the server.
+          </li>
+        </ul>
+
+        <h2>What we don't collect</h2>
+        <ul>
+          <li>No accounts, passwords or sign-ups.</li>
+          <li>No cookies, tracking pixels, analytics or advertising.</li>
+          <li>
+            No calendar data. <i>Check my calendar</i> runs in your browser. Google and Microsoft are asked only for busy/free
+            times, the sign-in token never reaches our server, and calendar files are never uploaded.
+          </li>
+        </ul>
+        <p>
+          Your browser saves which polls you organized or answered (in local storage on your device) so you can come back to them.
+          You can clear it at any time in your browser settings.
+        </p>
+
+        <h2>Who processes data</h2>
+        <ul>
+          <li><b>Cloudflare</b> hosts the site and the database.</li>
+          <li><b>Resend</b> sends notification emails, only to addresses that confirmed they want them.</li>
+        </ul>
+        <p>We never sell or share poll data with anyone else.</p>
+
+        <h2>How long we keep it, and how to delete it</h2>
+        <p>
+          Polls are kept until the organizer deletes them. The organizer can delete the whole poll or anyone's response. Anyone
+          can remove their own response. Every notification email has a one-click unsubscribe link.
+        </p>
+
+        <h2>Contact</h2>
+        <p>
+          Questions or requests? <a href="https://github.com/sephmard/venn/issues/new/choose">Open an issue</a>, or for anything
+          sensitive, follow our <a href="https://github.com/sephmard/venn/security/policy">security policy</a>.
+        </p>
+      </article>
+    </main>
+    <footer class="footer site-footer">
+      <span>© Venn · MIT licensed</span>
+      <a href="/">Home</a>
+      <a href="https://github.com/sephmard/venn">GitHub</a>
+    </footer>
+  </body>
+</html>

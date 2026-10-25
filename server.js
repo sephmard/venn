@@ -5,13 +5,14 @@
 import { createServer } from 'node:http';
 import { mkdirSync } from 'node:fs';
 import { readFile } from 'node:fs/promises';
-import { basename, dirname, extname, join, normalize } from 'node:path';
+import { basename, dirname, extname, join, normalize, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { DatabaseSync } from 'node:sqlite';
 import { lookup } from 'node:dns/promises';
 import { handleApi } from './src/api.js';
 import { createStore, sqliteAdapter } from './src/store.js';
 import { SECURITY_HEADERS } from './src/security-headers.js';
+import { isAppRoute } from './src/routes.js';
 
 const root = dirname(fileURLToPath(import.meta.url));
 const publicDir = join(root, 'public');
@@ -22,6 +23,9 @@ const TYPES = {
   '.css': 'text/css; charset=utf-8',
   '.svg': 'image/svg+xml',
   '.png': 'image/png',
+  '.webp': 'image/webp',
+  '.txt': 'text/plain; charset=utf-8',
+  '.xml': 'application/xml; charset=utf-8',
   '.ico': 'image/x-icon',
   '.webmanifest': 'application/manifest+json',
 };
@@ -74,19 +78,28 @@ export function createApp({ dbPath = ':memory:', env = process.env, fetchImpl = 
 }
 
 async function serveStatic(pathname, res) {
-  const rel = normalize(decodeURIComponent(pathname)).replace(/^(\.\.[/\\])+/, '');
-  let file = join(publicDir, rel);
-  // Stay inside public/, and keep config files like _headers private.
-  if (!file.startsWith(publicDir) || basename(file).startsWith('_')) file = join(publicDir, 'index.html');
-  let data;
-  try {
-    data = await readFile(file);
-  } catch {
-    // Single-page app: unknown paths (e.g. /e/abc123) get index.html.
-    file = join(publicDir, 'index.html');
+  let rel = normalize(decodeURIComponent(pathname)).replace(/^(\.\.[/\\])+/, '');
+  if (rel.endsWith('/')) rel += 'index';
+  // Like Cloudflare: /privacy serves privacy.html. The app's own routes get the app shell.
+  const candidates = isAppRoute(pathname) ? ['app.html'] : [rel, `${rel}.html`];
+  let status = 200;
+  let file, data;
+  for (const c of candidates) {
+    const f = join(publicDir, c);
+    // Stay inside public/, and keep config files like _headers private.
+    if (!f.startsWith(publicDir + sep) || basename(f).startsWith('_')) continue;
+    try {
+      data = await readFile(f);
+      file = f;
+      break;
+    } catch {}
+  }
+  if (!data) {
+    status = 404;
+    file = join(publicDir, '404.html');
     data = await readFile(file);
   }
-  res.writeHead(200, { ...SECURITY_HEADERS, 'content-type': TYPES[extname(file)] || 'application/octet-stream' });
+  res.writeHead(status, { ...SECURITY_HEADERS, 'content-type': TYPES[extname(file)] || 'application/octet-stream' });
   res.end(data);
 }
 

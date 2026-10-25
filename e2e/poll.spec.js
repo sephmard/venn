@@ -12,7 +12,7 @@ test.beforeEach(async ({ page }) => {
 });
 
 async function startPoll(page, title) {
-  await page.goto('/');
+  await page.goto('/new');
   await page.fill('#title', title);
   await page.fill('#organizer', 'Sam');
   await page.click('#weekdays');
@@ -198,7 +198,7 @@ test('fill answers from Google Calendar and Outlook (mocked providers)', async (
 
 test('phone: no zoom on focus, tap targets, tap-to-pick dates, Save always in reach', async ({ page, isMobile }) => {
   test.skip(!isMobile, 'phone-only behaviour');
-  await page.goto('/');
+  await page.goto('/new');
 
   // iOS zooms into inputs under 16px.
   const small = await page.evaluate(
@@ -234,6 +234,16 @@ test('phone: no zoom on focus, tap targets, tap-to-pick dates, Save always in re
   expect(save.y + save.height).toBeLessThanOrEqual(page.viewportSize().height);
 });
 
+test('landing page leads to the poll creator', async ({ page }) => {
+  await page.goto('/');
+  await expect(page.locator('h1')).toHaveText(/Find a time that works/);
+  await page.locator('.site-hero').getByRole('link', { name: 'Create a poll' }).click();
+  await expect(page).toHaveURL(/\/new$/);
+  await expect(page.locator('#title')).toBeVisible();
+  await page.getByRole('link', { name: 'Venn' }).click();
+  await expect(page).toHaveURL(/\/$/);
+});
+
 test('installable: manifest and icons are served', async ({ request }) => {
   const manifest = await (await request.get('/manifest.webmanifest')).json();
   expect(manifest.name).toBe('Venn');
@@ -241,7 +251,7 @@ test('installable: manifest and icons are served', async ({ request }) => {
 });
 
 test('AI: describe a poll in words, then summarize and write messages as the organizer', async ({ page }) => {
-  await page.goto('/');
+  await page.goto('/new');
   await expect(page.locator('#ai-draft')).toBeVisible();
   await page.fill('#ai-prompt', '45 minute design review, afternoons later this week');
   await page.click('#ai-go');

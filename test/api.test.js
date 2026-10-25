@@ -150,10 +150,21 @@ test('validation errors come back as 400', async () => {
   assert.equal(p.status, 400);
 });
 
-test('serves the app for client-side routes', async () => {
-  const res = await fetch(`${baseUrl}/e/whatever`);
-  assert.equal(res.status, 200);
-  assert.match(await res.text(), /<main id="app"/);
+test('serves the landing page, the app on its routes, and a 404 for anything else', async () => {
+  const home = await fetch(`${baseUrl}/`);
+  assert.equal(home.status, 200);
+  assert.match(await home.text(), /href="\/new"/);
+  for (const path of ['/new', '/e/whatever']) {
+    const res = await fetch(baseUrl + path);
+    assert.equal(res.status, 200, path);
+    assert.match(await res.text(), /<main id="app"/, path);
+  }
+  const privacy = await fetch(`${baseUrl}/privacy`);
+  assert.equal(privacy.status, 200);
+  assert.match(await privacy.text(), /<h1>Privacy<\/h1>/);
+  const missing = await fetch(`${baseUrl}/nope`);
+  assert.equal(missing.status, 404);
+  assert.match(await missing.text(), /Page not found/);
   const js = await fetch(`${baseUrl}/core.js`);
   assert.match(js.headers.get('content-type'), /javascript/);
   const traversal = await fetch(`${baseUrl}/..%2f..%2fpackage.json`);
@@ -161,7 +172,7 @@ test('serves the app for client-side routes', async () => {
 });
 
 test('security headers on pages and API responses', async () => {
-  for (const path of ['/', '/e/abc', '/app.js', '/api/events/nope']) {
+  for (const path of ['/', '/new', '/e/abc', '/nope', '/app.js', '/api/events/nope']) {
     const res = await fetch(baseUrl + path);
     for (const [name, value] of Object.entries(SECURITY_HEADERS))
       assert.equal(res.headers.get(name), value, `${name} on ${path}`);

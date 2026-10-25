@@ -22,6 +22,7 @@
     "screenshots": "node scripts/screenshots.js",
     "headers": "node scripts/headers.js",
     "icons": "node scripts/icons.js",
+    "og": "node scripts/og-image.js",
     "test:coverage": "node --test --experimental-test-coverage --test-coverage-include=server.js --test-coverage-include='src/**' --test-coverage-include='public/**' --test-coverage-lines=90 --test-coverage-branches=80 --test-coverage-functions=85 test/*.test.js",
     "lint:links": "node scripts/check-links.js",
     "site": "node scripts/build-site.js"
@@ -33,7 +34,7 @@
   "bugs": {
     "url": "https://github.com/sephmard/venn/issues"
   },
-  "homepage": "https://github.com/sephmard/venn#readme",
+  "homepage": "https://venn.day",
   "devDependencies": {
     "@axe-core/playwright": "4.14.0",
     "@eslint/js": "10.0.1",

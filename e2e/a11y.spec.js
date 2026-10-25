@@ -16,8 +16,16 @@ for (const scheme of ['light', 'dark']) {
   test.describe(`${scheme} mode`, () => {
     test.use({ colorScheme: scheme });
 
-    test('create page', async ({ page }) => {
+    test('landing and privacy pages', async ({ page }) => {
       await page.goto('/');
+      await page.locator('.faq details').first().click();
+      await audit(page, 'landing page');
+      await page.goto('/privacy');
+      await audit(page, 'privacy page');
+    });
+
+    test('create page', async ({ page }) => {
+      await page.goto('/new');
       await page.click('#weekdays');
       const day = await page.locator('[data-add]').first().getAttribute('data-add');
       await page.click(`[data-add="${day}"]`);
@@ -26,7 +34,7 @@ for (const scheme of ['light', 'dark']) {
 
     test('answering and results, as organizer', async ({ page }) => {
       page.on('dialog', (d) => d.accept());
-      await page.goto('/');
+      await page.goto('/new');
       await page.fill('#title', 'Accessibility check');
       await page.click('#weekdays');
       const day = await page.locator('[data-add]').first().getAttribute('data-add');
@@ -45,7 +53,7 @@ for (const scheme of ['light', 'dark']) {
     });
 
     test('open time range grid', async ({ page }) => {
-      await page.goto('/');
+      await page.goto('/new');
       await page.fill('#title', 'Grid check');
       await page.click('[data-mode="grid"]');
       await page.click('#weekdays');
