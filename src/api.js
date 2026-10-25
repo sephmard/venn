@@ -4,6 +4,7 @@ import {
   LIMITS,
   ValidationError,
   buildIcs,
+  isValidTimeZone,
   buildSlots,
   meetingEnd,
   normalizeAvailability,
@@ -22,6 +23,7 @@ import {
   sendWebhook,
   validateWebhookUrl,
 } from './notify.js';
+import { AiUnavailableError, aiEnabled, allowAiRequest, answerForMe, draftPoll, summarize, writeMessage } from './ai.js';
 
 const MAX_BODY = 200_000;
 const ID_ALPHABET = 'abcdefghijkmnopqrstuvwxyzABCDEFGHJKLMNPQRSTUVWXYZ23456789';
@@ -122,7 +124,7 @@ async function changeEmail(settings, value, { env, origin, ev, fetchImpl }) {
 export async function handleApi(
   request,
   store,
-  { now = Date.now, env = {}, waitUntil = (p) => p, fetchImpl = fetch, resolveHost } = {},
+  { now = Date.now, env = {}, waitUntil = (p) => p, fetchImpl = fetch, resolveHost, clientIp = '', anthropic, aiWindows } = {},
 ) {
   const url = new URL(request.url);
   const parts = url.pathname
@@ -141,6 +143,7 @@ export async function handleApi(
     if (parts.length === 1 && parts[0] === 'config' && method === 'GET') {
       return json({
         email: emailEnabled(env),
+        ai: aiEnabled(env),
         // OAuth client IDs are public by design; they only identify the app to Google/Microsoft.
         calendars: {
           google: env.GOOGLE_CLIENT_ID || null,
@@ -148,6 +151,22 @@ export async function handleApi(
           microsoftTenant: env.MICROSOFT_TENANT || 'common',
         },
       });
+    }
+
+    // Every AI endpoint: switched on, and rate limited per visitor (each call costs money).
+    const isAi = (parts[0] === 'ai' && parts.length === 2) || (parts[0] === 'events' && parts[2] === 'ai' && parts.length === 4);
+    if (isAi) {
+      if (method !== 'POST') return error(405, 'Method not allowed');
+      if (!aiEnabled(env)) return error(404, "AI features aren't turned on for this server");
+      if (!(await allowAiRequest(env, clientIp, now(), aiWindows)))
+        return error(429, "You're going a bit fast. Try again in a minute.");
+    }
+
+    // POST /api/ai/draft-poll  { prompt, timezone }
+    if (isAi && parts[0] === 'ai' && parts[1] === 'draft-poll') {
+      const { prompt, timezone } = await readJson(request);
+      if (!isValidTimeZone(timezone)) throw new ValidationError('Unknown time zone');
+      return json(await draftPoll(env, { prompt, timezone }, { now: now(), anthropic }));
     }
 
     // POST /api/events
@@ -266,6 +285,24 @@ export async function handleApi(
       return error(404, 'Not found');
     }
 
+    // POST /api/events/:id/ai/{summary,answer,message}
+    if (isAi) {
+      const kind = parts[3];
+      if (kind === 'answer') {
+        const body = await readJson(request);
+        if (body.timezone && !isValidTimeZone(body.timezone)) throw new ValidationError('Unknown time zone');
+        return json(await answerForMe(env, ev, body, { anthropic }));
+      }
+      if (!isAdmin) return error(403, 'Only the organizer can use this');
+      const participants = await store.listParticipants(ev.id);
+      if (kind === 'summary') return json(await summarize(env, ev, participants, { anthropic }));
+      if (kind === 'message') {
+        const { kind: messageKind } = await readJson(request);
+        return json(await writeMessage(env, ev, participants, { kind: messageKind, url: `${origin}/e/${ev.id}` }, { anthropic }));
+      }
+      return error(404, 'Not found');
+    }
+
     // POST /api/events/:id/finalize  { start: number | null }
     if (parts.length === 3 && parts[2] === 'finalize' && method === 'POST') {
       if (!isAdmin) return error(403, 'Only the organizer can pick the final time');
@@ -330,6 +367,10 @@ export async function handleApi(
     return error(404, 'Not found');
   } catch (e) {
     if (e instanceof ValidationError) return error(400, e.message);
+    if (e instanceof AiUnavailableError) {
+      if (e.cause) console.error('AI request failed', e.cause);
+      return error(503, e.message);
+    }
     console.error(e);
     return error(500, 'Something went wrong');
   }

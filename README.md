@@ -39,6 +39,7 @@ Everyone's availability is a circle. Venn finds where they overlap.
 - **Time zones handled.** Everyone sees times in their own time zone automatically.
 - **Picks the best time for you.** Options are ranked by how many people can make it, then by how many gave a firm yes.
 - **Check your calendar.** Fill in your answers from Google Calendar, Outlook or a calendar file. Only busy/free times are read, in your browser, and nothing is stored on the server.
+- **AI when you want it.** Describe a meeting in words and get a ready-to-check poll, let AI fill in your answers from your preferences, or get a summary and a suggested time. Optional; powered by Claude.
 - **Know when people answer.** Get an email, or a message in Slack, Discord or any webhook, whenever someone responds.
 - **Straight into calendars.** Once the time is picked, everyone gets Google, Outlook and Apple calendar links.
 - **Yours to run.** Host it free on Cloudflare, or on any server that runs Node.
@@ -88,7 +89,7 @@ You need [Node.js](https://nodejs.org) 22.13 or newer.
 ```sh
 git clone https://github.com/sephmard/venn.git
 cd venn
-npm install   # dev tools only: the app itself has no runtime dependencies
+npm install   # the browser code has no dependencies; the server uses the Anthropic SDK for optional AI
 npm start     # http://localhost:8787
 ```
 
@@ -121,6 +122,7 @@ To deploy on every push to `main` with GitHub Actions, set the repository variab
 | Email notifications (Resend) | Set `RESEND_API_KEY` and `EMAIL_FROM`. See [docs/NOTIFICATIONS.md](docs/NOTIFICATIONS.md).       |
 | Webhook notifications        | Always on. Organizers add a URL from their poll.                                                 |
 | Google Calendar / Outlook    | Set `GOOGLE_CLIENT_ID` and/or `MICROSOFT_CLIENT_ID`. See [docs/CALENDARS.md](docs/CALENDARS.md). |
+| AI features (Claude)         | Set `ANTHROPIC_API_KEY`. See [docs/AI.md](docs/AI.md).                                           |
 
 ### Any server with Node
 
@@ -143,7 +145,7 @@ Found a security issue? Please report it privately. See [SECURITY.md](SECURITY.m
 
 ## How it's built
 
-No framework and no build step: plain HTML, CSS and JavaScript, a small JSON API, and SQLite.
+No framework and no build step: plain HTML, CSS and JavaScript, a small JSON API, and SQLite. The only runtime dependency is the Anthropic SDK, used on the server for the optional AI features.
 
 <details>
 <summary><strong>Project layout</strong></summary>
@@ -160,6 +162,7 @@ src/
   api.js           JSON API on web-standard Request/Response
   store.js         SQL storage for Cloudflare D1 and node:sqlite
   notify.js        email and webhook notifications
+  ai.js            AI features (Claude)
   worker.js        Cloudflare Worker entry point
 server.js          Node server entry point
 test/              unit and API tests (node:test)
