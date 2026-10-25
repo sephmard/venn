@@ -69,6 +69,7 @@ Lines stay under 65 characters. Italic serif is the only emphasis inside headlin
 ## Imagery and motion
 
 - The hero is the Venn diagram itself, drawn in SVG: three translucent circles (green, amber, blue) whose shared center fills solid green and carries the agreed time.
+- **Icon** (`favicon.svg`, `icons/icon.svg` and its PNGs from `npm run icons`): a solid `--green` tile with two white circle outlines and a white overlap, built to read at 16 px on light and dark tabs. The app icon is full-bleed, with the rings inside the maskable safe zone.
 - The GitHub mark (Octicons, official) appears only on links to the repository.
 - One real product screenshot (light and dark versions), framed on `--paper-2` and faded at the bottom.
 - No icons, emoji, stock photos or gradients on text.
