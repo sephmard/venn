@@ -757,8 +757,8 @@ details.tz-line[open] summary::before {
   padding: 4px 0;
 }
 .cal-day {
-  aspect-ratio: 1;
-  min-height: 44px;
+  position: relative;
+  height: clamp(44px, 11vw, 58px);
   border-radius: 14px;
   border: 1.5px solid transparent;
   background: var(--surface-2);
@@ -1301,6 +1301,10 @@ ol.best .when {
 .brush {
   margin-bottom: 4px;
 }
+.brush button {
+  white-space: nowrap;
+  padding: 6px 8px;
+}
 .swatch {
   width: 12px;
   height: 12px;
@@ -1617,4 +1621,349 @@ details.organizer summary b {
     animation: none !important;
     transition: none !important;
   }
+}
+
+/* ---------- calendar picker: week / day / month ---------- */
+.tv-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px 12px;
+  margin-bottom: 12px;
+}
+.tv-views {
+  min-width: 220px;
+}
+.tv-nav {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.tv-label {
+  font-weight: 650;
+  min-width: 110px;
+  text-align: center;
+}
+.tv-strip {
+  display: flex;
+  gap: 6px;
+  overflow-x: auto;
+  scrollbar-width: none;
+  margin: 0 -4px 12px;
+  padding: 2px 4px;
+}
+.tv-chip {
+  position: relative; /* keeps its screen-reader-only text inside the strip */
+  flex: 1 0 44px;
+  min-height: 56px;
+  display: grid;
+  justify-items: center;
+  align-content: center;
+  gap: 0;
+  border-radius: 14px;
+  border: 1.5px solid var(--border);
+  background: var(--surface);
+  cursor: pointer;
+  line-height: 1.1;
+}
+.tv-chip small {
+  font-size: 0.75rem;
+  color: var(--muted);
+}
+.tv-chip b {
+  font-size: 1.05rem;
+}
+.tv-chip i {
+  font-style: normal;
+  font-size: 0.7rem;
+  font-weight: 700;
+  color: var(--accent);
+}
+.tv-chip[aria-pressed='true'] {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--accent-ink);
+}
+.tv-chip[aria-pressed='true'] small,
+.tv-chip[aria-pressed='true'] i {
+  color: inherit;
+}
+.tv-chip:disabled {
+  opacity: 0.4;
+}
+
+.tg {
+  --row: 24px;
+  border: 1.5px solid var(--border);
+  border-radius: var(--radius);
+  overflow: hidden;
+}
+.tg-head,
+.tg-body {
+  display: grid;
+  grid-template-columns: 52px repeat(var(--cols), minmax(0, 1fr));
+}
+.tg-head {
+  border-bottom: 1.5px solid var(--border);
+  background: var(--surface-2);
+}
+.tg-day {
+  text-align: center;
+  font-size: 0.8rem;
+  padding: 6px 2px;
+  line-height: 1.2;
+}
+.tg-day b {
+  display: block;
+  font-size: 0.85rem;
+}
+.tg-scroll {
+  max-height: 460px;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+.tg-times,
+.tg-col {
+  position: relative;
+  height: calc(var(--rows) * var(--row));
+}
+.tg-times span {
+  position: absolute;
+  right: 8px;
+  transform: translateY(-50%);
+  font-size: 0.72rem;
+  color: var(--muted);
+  white-space: nowrap;
+}
+.tg-times span:first-child {
+  transform: none;
+}
+.tg-col {
+  border-left: 1px solid var(--border);
+  /* a line every hour, a fainter one every half hour */
+  background-image:
+    linear-gradient(to bottom, var(--border) 1px, transparent 1px),
+    linear-gradient(to bottom, color-mix(in srgb, var(--border) 45%, transparent) 1px, transparent 1px);
+  background-size:
+    100% calc(var(--row) * 2),
+    100% var(--row);
+}
+.tg-draw {
+  cursor: crosshair;
+  touch-action: pan-y;
+  user-select: none;
+  -webkit-user-select: none;
+}
+.tg-block,
+.tg-busy {
+  position: absolute;
+  left: 3px;
+  right: 3px;
+  box-sizing: border-box;
+  border-radius: 8px;
+  font-size: 0.75rem;
+  font-weight: 700;
+  line-height: 1.2;
+  padding: 3px 6px;
+  overflow: hidden;
+  text-align: left;
+}
+.tg-block {
+  border: 1.5px solid var(--accent);
+  background: var(--accent);
+  color: var(--accent-ink);
+  cursor: pointer;
+  display: flex;
+  align-items: flex-start;
+  min-height: 0;
+}
+.tg-block span {
+  overflow: hidden;
+  overflow-wrap: anywhere;
+}
+.tg-ghost {
+  background: var(--accent-soft);
+  color: var(--text);
+  border-style: dashed;
+  pointer-events: none;
+}
+.tg-busy {
+  background: repeating-linear-gradient(
+    -45deg,
+    var(--surface-2),
+    var(--surface-2) 6px,
+    var(--cell-empty) 6px,
+    var(--cell-empty) 12px
+  );
+  color: var(--muted);
+  font-weight: 600;
+  right: 40%;
+}
+/* Guests: options coloured by their answer */
+.tg-block.ans-none {
+  background: var(--surface);
+  color: var(--text);
+  border-style: dashed;
+}
+.tg-block.ans-2 {
+  background: var(--yes);
+  border-color: var(--yes);
+  color: var(--yes-ink);
+}
+.tg-block.ans-1 {
+  background: var(--maybe);
+  border-color: var(--maybe);
+  color: var(--maybe-ink);
+}
+.tg-block.ans-0 {
+  background: var(--surface-2);
+  border-color: var(--no-bg);
+  color: var(--muted);
+  text-decoration: line-through;
+}
+.cal-day.marked small {
+  display: block;
+  font-size: 0.68rem;
+  font-weight: 700;
+  line-height: 1;
+  color: var(--accent);
+}
+.cal-day[aria-current='date'] {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+}
+.cal-day.marked {
+  display: grid;
+  place-content: center;
+}
+.day-panel {
+  margin-top: 14px;
+  padding: 14px;
+  border-radius: var(--radius);
+  background: var(--surface-2);
+}
+.day-panel h3 {
+  margin-bottom: 10px;
+}
+.day-panel .chips,
+.day-panel .other-time {
+  margin-top: 10px;
+}
+.day-panel .other-time label {
+  margin: 0;
+  font-weight: 600;
+}
+.pill.part small {
+  font-weight: 500;
+}
+.opt-list:not(:empty) {
+  margin-top: 16px;
+}
+.opt-list h3 {
+  margin-bottom: 8px;
+}
+.opt-list .chip,
+.day-panel .chip {
+  padding: 4px 4px 4px 12px;
+}
+@media (max-width: 520px) {
+  .tg {
+    --row: 28px;
+  }
+  .tg-head,
+  .tg-body {
+    grid-template-columns: 52px repeat(var(--cols), minmax(0, 1fr));
+  }
+  .tv-views {
+    width: 100%;
+  }
+}
+
+/* Guests: list or calendar */
+.mine-view {
+  margin: 0 0 14px;
+}
+/* Parts of the day: a button per part, tap to cycle free → if needed → clear */
+.parts-row {
+  align-items: start;
+}
+.parts-row .date-block {
+  grid-row: auto;
+}
+.part-votes {
+  grid-column: 1 / -1;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 6px;
+  margin-top: 6px;
+}
+.part-vote {
+  display: grid;
+  justify-items: start;
+  gap: 1px;
+  min-height: 64px;
+  padding: 8px 10px;
+  border-radius: 12px;
+  border: 1.5px solid var(--border);
+  background: var(--surface);
+  text-align: left;
+  cursor: pointer;
+  line-height: 1.2;
+}
+.part-vote small {
+  font-size: 0.78rem;
+  color: var(--muted);
+}
+.pv-state {
+  font-size: 0.78rem;
+  font-weight: 700;
+  min-height: 1em;
+}
+.part-vote[data-v='2'] {
+  background: var(--yes);
+  border-color: var(--yes);
+  color: var(--yes-ink);
+}
+.part-vote[data-v='1'] {
+  background: var(--maybe);
+  border-color: var(--maybe);
+  color: var(--maybe-ink);
+}
+.part-vote[data-v='2'] small,
+.part-vote[data-v='1'] small {
+  color: inherit;
+}
+.part-vote.final {
+  outline: 2.5px solid var(--final);
+}
+.heat-table {
+  border-collapse: separate;
+  border-spacing: 4px;
+  width: 100%;
+}
+.heat-table th {
+  font-size: 0.85rem;
+  font-weight: 650;
+  text-align: left;
+  white-space: nowrap;
+}
+.heat-table thead th {
+  text-align: center;
+  color: var(--muted);
+}
+.heat-btn {
+  width: 100%;
+  min-height: 44px;
+  border: 1.5px solid transparent;
+  border-radius: 10px;
+  background: rgba(var(--heat), calc(0.08 + 0.5 * var(--a)));
+  font-weight: 800;
+  cursor: pointer;
+}
+.heat-btn.active {
+  border-color: var(--text);
+}
+.heat-btn.final {
+  outline: 2.5px solid var(--final);
 }

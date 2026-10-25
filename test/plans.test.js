@@ -123,3 +123,25 @@ test('all-day spans become all-day calendar events', () => {
   assert.equal(outlook.get('allday'), 'true');
   assert.equal(outlook.get('startdt'), '2026-11-06');
 });
+
+test('parts of the day: options must be a morning, afternoon or evening', async () => {
+  const { DAY_PARTS, isPartsPoll, partOf } = await import('../public/core.js');
+  const part = (d, p) => ({ start: zonedToUtc(d, p.start, NY), end: zonedToUtc(d, p.end, NY) });
+  const options = ['2026-11-06', '2026-11-07'].flatMap((d) => DAY_PARTS.map((p) => part(d, p)));
+  const ev = normalizeEventInput({ title: 'Brunch or dinner', timezone: NY, mode: 'options', layout: 'parts', options });
+  assert.ok(isPartsPoll(ev));
+  assert.equal(ev.options.length, 6);
+  assert.equal(partOf(options[2].start, options[2].end, NY).key, 'evening');
+  assert.equal(partOf(options[0].start, options[0].end + 60_000, NY), null);
+
+  const odd = { start: zonedToUtc('2026-11-06', 600, NY), end: zonedToUtc('2026-11-06', 660, NY) };
+  assert.throws(
+    () => normalizeEventInput({ title: 'x', timezone: NY, mode: 'options', layout: 'parts', options: [odd] }),
+    /morning, an afternoon or an evening/,
+  );
+  assert.throws(
+    () => normalizeEventInput({ title: 'x', timezone: NY, mode: 'options', layout: 'grid', options: [odd] }),
+    /Unknown layout/,
+  );
+  assert.equal(isPartsPoll(normalizeEventInput({ title: 'x', timezone: NY, mode: 'options', options: [odd] })), false);
+});

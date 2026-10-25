@@ -11,17 +11,29 @@ test.beforeEach(async ({ page }) => {
   });
 });
 
-/** Start a "vote on a few dates" poll: the next 7 days, at the given times (minutes after midnight). */
-async function startPick(page, title, times = [600]) {
+/**
+ * In the month view of "vote on a few dates", add options on the first `days` days of next month
+ * (so every day is in the future), for the given parts of the day.
+ */
+async function addParts(page, days, parts = ['evening']) {
+  await page.click('[data-view="month"]');
+  await page.click('.month-cal [data-nav="1"]');
+  for (let i = 0; i < days; i++) {
+    await page.locator('.month-cal .cal-day').nth(i).click();
+    for (const p of parts) await page.click(`[data-part="${p}"]`);
+  }
+}
+
+/** Start a "vote on a few dates" poll: 7 days, at the given parts of the day. */
+async function startPick(page, title, parts = ['evening']) {
   await page.goto('/new/pick');
   await page.fill('#title', title);
   await page.fill('#organizer', 'Sam');
-  await page.click('#q-week');
-  for (const m of times) await page.click(`#times [data-time="${m}"]`);
+  await addParts(page, 7, parts);
 }
 
 test('vote on a few dates: collect votes, pick the final date', async ({ page, request }) => {
-  await startPick(page, 'Dinner', [1080, 1140]);
+  await startPick(page, 'Dinner', ['afternoon', 'evening']);
   await expect(page.locator('#summary')).toHaveText('14 options to vote on');
 
   await page.click('#submit');
@@ -63,8 +75,10 @@ test('a trip: options that last several days become all-day calendar events', as
   await page.goto('/new/pick');
   await page.click('[data-occasion="7"]'); // ✈️ Trip: "A few days", 3 days
   await expect(page.locator('[data-length="days"]')).toHaveAttribute('aria-pressed', 'true');
-  await expect(page.locator('#times-sheet')).toBeHidden();
-  await page.click('#q-week');
+  await expect(page.locator('.tg')).toHaveCount(0); // whole-day options are picked on the month only
+  await expect(page.locator('#when-hint')).toContainText('Each option lasts 3 days');
+  await page.click('[data-nav="1"]');
+  for (let i = 0; i < 7; i++) await page.locator('.cal-day').nth(i).click();
   await expect(page.locator('#summary')).toHaveText('7 options to vote on');
   await page.click('#submit');
   await expect(page.locator('#ev-title')).toHaveText('Trip');
@@ -83,6 +97,7 @@ test('ask when people are free: days, looking for a run of days', async ({ page 
   await page.goto('/new/free');
   await page.fill('#title', 'Cabin weekend');
   await page.click('#q-2w');
+  await page.click('[data-mark="days"]');
   await expect(page.locator('#summary')).toHaveText('14 days to choose from');
   await page.click('[data-step="1"]');
   await expect(page.locator('#span')).toHaveValue('2');
@@ -109,6 +124,9 @@ test('ask when people are free: paint hours and see the best time', async ({ pag
   await page.selectOption('#duration', '60');
   await page.click('#submit');
   await expect(page.locator('#mine .cell[data-slot]').first()).toBeVisible();
+  // Phones show one day at a time, and the page still fits the screen.
+  if (isMobile) await expect(page.locator('#hour-days .tv-chip')).toHaveCount(14);
+  expect(await page.evaluate(() => document.documentElement.scrollWidth - screen.width)).toBeLessThanOrEqual(0);
 
   const cell = (r, c) => page.locator(`#mine .cell[data-r="${r}"][data-c="${c}"]`);
   // Keep the painted cells clear of the sticky Save bar at the bottom of the screen.
@@ -131,13 +149,14 @@ test('ask when people are free: paint hours and see the best time', async ({ pag
 });
 
 test('page never scrolls sideways', async ({ page }) => {
-  await startPick(page, 'Width check', [600, 720, 1080, 1140]);
+  await startPick(page, 'Width check', ['morning', 'afternoon', 'evening']);
   await page.click('#submit');
   await page.click('#fill');
   await page.fill('#name', 'Sam');
   await page.click('#save');
   await expect(page.locator('.matrix')).toBeVisible();
-  const overflow = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
+  // Against the device's width: on a phone, content that's too wide makes the browser zoom out instead.
+  const overflow = await page.evaluate(() => document.documentElement.scrollWidth - screen.width);
   expect(overflow).toBeLessThanOrEqual(0);
 });
 
@@ -247,18 +266,20 @@ test('phone: no zoom on focus, tap targets, tap-to-pick dates, Save always in re
   );
   expect(small).toBe(0);
 
-  // Tapping a date toggles it.
-  const day = page.locator('.cal-day:not([disabled])').last();
-  await day.tap();
-  await expect(page.locator('.cal-day[aria-pressed="true"]')).toHaveCount(1);
-  await page.locator('.cal-day[aria-pressed="true"]').tap();
-  await expect(page.locator('.cal-day[aria-pressed="true"]')).toHaveCount(0);
+  // Phones open the day view: tapping the calendar adds an option of the chosen length.
+  await expect(page.locator('[data-view="day"]')).toHaveAttribute('aria-checked', 'true');
+  await page.click('[data-length="60"]');
+  await page.locator('.tg-scroll').scrollIntoViewIfNeeded();
+  const grid = await page.locator('.tg-scroll').boundingBox();
+  await page.touchscreen.tap(grid.x + grid.width / 2, grid.y + 40);
+  await expect(page.locator('.tg-block')).toHaveCount(1);
+  await page.locator('.tg-block').tap(); // and tapping an option removes it
+  await expect(page.locator('.tg-block')).toHaveCount(0);
 
   // Buttons are big enough to tap.
-  await page.click('#q-week');
   const tooSmall = await page.evaluate(
     () =>
-      [...document.querySelectorAll('.btn, .pill, .cal-day')].filter(
+      [...document.querySelectorAll('.btn, .pill, .cal-day, .tv-chip')].filter(
         (b) => b.offsetParent && b.getBoundingClientRect().height < 40,
       ).length,
   );
@@ -266,7 +287,7 @@ test('phone: no zoom on focus, tap targets, tap-to-pick dates, Save always in re
 
   // Create a long poll and answer the first option: Save stays on screen and shows progress.
   await page.fill('#title', 'Long poll');
-  for (const m of [600, 720, 900]) await page.click(`#times [data-time="${m}"]`);
+  await addParts(page, 7, ['morning', 'afternoon', 'evening']);
   await page.click('#submit');
   await page.locator('#mine .row').first().locator('[data-vote="2"]').tap();
   await expect(page.locator('#save-state')).toContainText('1 of 21 answered');
@@ -318,9 +339,9 @@ test('AI: describe a poll in words, then summarize and write messages as the org
   await expect(page.locator('#title')).toHaveValue('Design review');
   await expect(page.locator('[data-length="custom"]')).toHaveAttribute('aria-pressed', 'true');
   await expect(page.locator('#custom')).toHaveValue('45');
-  const picked = page.locator('#times [data-time][aria-pressed="true"]');
+  const picked = page.locator('#options-list .chip');
   await expect(picked).toHaveCount(3);
-  await expect(picked.first()).toContainText('2:00 PM');
+  await expect(picked.first()).toContainText('2:00 – 2:45 PM');
 
   await page.click('#submit');
   await expect(page.locator('#mine .row')).toHaveCount(3);
@@ -356,4 +377,80 @@ test('AI: answer for me, using preferences and calendar busy times', async ({ pa
   await expect(row(0)).toHaveAttribute('data-v', '0');
   await expect(row(1)).toHaveAttribute('data-v', '2');
   await expect(row(0).locator('.row-note')).toHaveText('You said no mornings');
+});
+
+test('organizer draws options on the week view, and removes one', async ({ page, isMobile }) => {
+  test.skip(isMobile, 'drag to draw is for a mouse; phones tap (see the phone test)');
+  await page.goto('/new/pick');
+  await page.fill('#title', 'Drinks');
+  await expect(page.locator('[data-view="week"]')).toHaveAttribute('aria-checked', 'true');
+  await page.click('.tv-nav [data-step="1"]'); // next week, so every day is in the future
+  const grid = await page.locator('.tg-scroll').boundingBox();
+  const col = await page.locator('.tg-col').nth(2).boundingBox();
+  // Drag down four rows: a two-hour option.
+  await page.mouse.move(col.x + 10, grid.y + 10);
+  await page.mouse.down();
+  await page.mouse.move(col.x + 10, grid.y + 10 + 24 * 3, { steps: 4 });
+  await page.mouse.up();
+  // Click elsewhere: an option of the chosen length (2 hours).
+  const col2 = await page.locator('.tg-col').nth(4).boundingBox();
+  await page.mouse.click(col2.x + 10, grid.y + 10);
+  await expect(page.locator('.tg-block')).toHaveCount(2);
+  await expect(page.locator('#summary')).toHaveText('2 options to vote on');
+  await expect(page.locator('#options-list .chip').first()).toContainText(/–/);
+  await page.locator('.tg-block').first().click();
+  await expect(page.locator('.tg-block')).toHaveCount(1);
+  await page.click('#submit');
+  await expect(page.locator('#mine .row')).toHaveCount(1);
+});
+
+test('ask when people are free: parts of the day', async ({ page }) => {
+  await page.goto('/new/free');
+  await page.fill('#title', 'Coffee');
+  await expect(page.locator('[data-mark="parts"]')).toHaveAttribute('aria-checked', 'true');
+  await page.click('[data-ask="morning"]'); // afternoons and evenings only
+  await page.click('[data-nav="1"]');
+  for (let i = 0; i < 3; i++) await page.locator('.cal-day').nth(i).click();
+  await expect(page.locator('#summary')).toHaveText('6 times to choose from');
+  await page.click('#submit');
+
+  await expect(page.locator('.part-vote')).toHaveCount(6);
+  const part = (i) => page.locator('.part-vote').nth(i);
+  await part(0).click(); // free
+  await part(1).click();
+  await part(1).click(); // if needed
+  await expect(part(0)).toHaveAttribute('data-v', '2');
+  await expect(part(1)).toHaveAttribute('data-v', '1');
+  await expect(part(1)).toHaveAttribute('aria-pressed', 'mixed');
+  await page.fill('#name', 'Sam');
+  await page.click('#save');
+  await expect(page.locator('.best-hero')).toContainText('afternoon (12 – 5 PM)');
+  await page.locator('.heat-btn').first().click();
+  await expect(page.locator('#parts-inspect')).toContainText('Sam');
+});
+
+test('guests can see the options on a calendar and answer there', async ({ page, request }) => {
+  const H = 3_600_000;
+  const t0 = Date.UTC(2030, 0, 8, 17); // 5pm UTC, two overlapping options and one the next day
+  const options = [
+    { start: t0, end: t0 + 2 * H },
+    { start: t0 + H, end: t0 + 3 * H },
+    { start: t0 + 24 * H, end: t0 + 26 * H },
+  ];
+  const { id } = await (
+    await request.post('/api/events', { data: { title: 'Dinner', timezone: 'UTC', mode: 'options', options } })
+  ).json();
+  await page.goto(`/e/${id}`);
+  await page.click('[data-mine-view="calendar"]');
+  const block = (key) => page.locator(`.tg-block[data-key="${key}"]`);
+  // Overlapping options sit side by side, so both can be tapped.
+  await block(t0).click();
+  await block(t0 + H).click();
+  await block(t0 + H).click();
+  await expect(block(t0)).toHaveClass(/ans-2/);
+  await expect(block(t0 + H)).toHaveClass(/ans-1/);
+  // The list shows the same answers.
+  await page.click('[data-mine-view="list"]');
+  await expect(page.locator('#mine .row').nth(0)).toHaveAttribute('data-v', '2');
+  await expect(page.locator('#mine .row').nth(1)).toHaveAttribute('data-v', '1');
 });

@@ -35,6 +35,7 @@ public/            the whole front end, served as-is
   app.js           router
   create.js        the create pages: "vote on a few dates" and "ask when people are free"
   event.js         the poll page: answering, the group's results, organizer tools
+  picker.js        the calendar views: week, day and month, for organizers and guests
   ui.js            shared UI helpers: formatting, avatars, storage, API calls
   core.js          shared logic: time zones, ranking, calendar import/export
   calendars.js     Google / Outlook free-busy, in the browser

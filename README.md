@@ -51,7 +51,7 @@ Everyone's availability is a circle. Venn finds where they overlap.
 
 ### 1. Suggest some dates
 
-Choose the kind of plan, tap the dates, tap the times, and share the link. Or ask when people are free, and they mark the days (or hours) that work.
+Choose the kind of plan, then draw options on the week (or day, on a phone), or pick days on the month and tap Morning, Afternoon or Evening. Share the link. Or ask when people are free, and they tap the mornings, afternoons and evenings (or whole days, or hours) that work.
 
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="docs/screenshots/create-dark.png">
