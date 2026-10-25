@@ -18,7 +18,7 @@ Every color is a CSS variable in `site.css`. Pages use the names, never raw valu
 | `--green`                 | `#0b7a5c`             | `#2fc497`             | Primary: buttons, links, the overlap                                                       |
 | `--green-ink`             | `#ffffff`             | `#06140f`             | Text on green                                                                              |
 | `--green-soft`            | `#dcefe6`             | `#163a2f`             | Tints, step numbers                                                                        |
-| `--mint`                  | `#c3f2de`             | `#1d4d3d`             | The logo's lightest shade; soft glows behind the hero and the screenshot                   |
+| `--mint`                  | `#c3f2de`             | `#1d4d3d`             | The logo's lightest shade; soft glows behind the hero                                      |
 | `--green-deep`            | `#064c39`             | `#8ff0c8`             | The logo's deepest shade; end of the call-to-action gradient                               |
 | `--cta-from` / `--cta-to` | `#0b7a5c` → `#064c39` | `#3fd8a6` → `#1f9d72` | The main call-to-action gradient; text is `--cta-ink` (white in light, near-black in dark) |
 | `--card`                  | `#ffffff`             | `#171a1c`             | The hero's start card                                                                      |
@@ -73,9 +73,16 @@ Lines stay under 65 characters. Italic serif is the only emphasis inside headlin
 
 - **Logo:** three circles in a triangle, a three-way Venn. One shade where one circle covers, a deeper one where two overlap, and the deepest green where all three meet. Each shade is a green gradient. The header shows `favicon.svg` itself, so there is one source.
 - The hero's background is the same three circles, very large and soft (radial `--mint` glows), behind the start card.
-- **Icon** (`favicon.svg`, `favicon.ico`, `icons/icon.svg` and its PNGs, all from `npm run icons`): the logo, drawn on a 16 px grid so the three overlap levels stay distinct in a browser tab. The app icon puts it on `--paper`, inside the maskable safe zone. When the icon changes, bump the `?v=` on the icon links so browsers drop their cached copy.
+- **Tab icons** (all from `npm run icons`, which renders each SVG to an `.ico` of 16, 32 and 48 px). Each place has its own, so tabs are easy to tell apart:
+  - **Site and app** (`favicon.svg`): the logo itself.
+  - **Poll pages** (`favicon-poll.svg`, swapped in by `app.js` on `/e/:id`): the Venn in white on a green-gradient tile, with its centre lit up.
+  - **Docs** (`site-src/favicon.svg`): the logo on a dark ink tile.
+
+  All are drawn on a 16 px grid so they stay sharp in a browser tab. The home-screen icon (`icons/icon.svg`) puts the logo on `--paper`, inside the maskable safe zone. When an icon changes, bump the `?v=` on the icon links so browsers drop their cached copy.
+
 - The GitHub mark (Octicons, official) appears only on links to the repository.
-- One real product screenshot (light and dark versions), framed on `--paper-2` and faded at the bottom.
+- **"Less group chat. More plans."** is shown, not screenshotted: a slightly tilted group-chat card going back and forth, an arrow, then a crisp result card ("Dinner at Finn's", the agreed date, everyone's initials, Add to calendar). It's built in HTML and CSS, so it stays sharp and follows dark mode, and it's one `role="img"` with a description for screen readers. The landing page has no product screenshots.
+- Example names: use **Finn's** for the restaurant ("Dinner at Finn's"), and Priya, Marcus, Ana, Jordan and Lee for people.
 - Benefits use the logo as their bullet. No other icons, no emoji, no stock photos, no gradients on text.
 - Motion: only small hover lifts on the choice buttons.
 

@@ -62,7 +62,7 @@ function rewriteLinks(html, src, page) {
   });
 }
 
-const LOGO = `<img src="favicon.svg?v=4" width="26" height="26" alt="">`;
+const LOGO = `<img src="logo.svg?v=5" width="26" height="26" alt="">`;
 
 function sidebar(page) {
   const groups = [...new Set(DOCS.map((d) => d[3]))];
@@ -90,8 +90,8 @@ function docPage([src, page, title]) {
   <title>${esc(fullTitle)}</title>
   <meta name="description" content="${esc(`Developer documentation for Venn, the open-source scheduling poll: ${title}.`)}">
   <meta property="og:title" content="${esc(fullTitle)}">
-  <link rel="icon" href="favicon.ico?v=4" sizes="32x32">
-  <link rel="icon" href="favicon.svg?v=4" type="image/svg+xml">
+  <link rel="icon" href="favicon.ico?v=5" sizes="32x32">
+  <link rel="icon" href="favicon.svg?v=5" type="image/svg+xml">
   <link rel="stylesheet" href="site.css">
 </head>
 <body>
@@ -132,8 +132,10 @@ function docPage([src, page, title]) {
 rmSync(out, { recursive: true, force: true });
 mkdirSync(out, { recursive: true });
 cpSync(join(root, 'docs'), join(out, 'assets'), { recursive: true, filter: (p) => !p.endsWith('.md') });
-cpSync(join(root, 'public', 'favicon.svg'), join(out, 'favicon.svg'));
-cpSync(join(root, 'public', 'favicon.ico'), join(out, 'favicon.ico'));
+// The docs have their own tab icon; the header shows the main logo.
+cpSync(join(root, 'site-src', 'favicon.svg'), join(out, 'favicon.svg'));
+cpSync(join(root, 'site-src', 'favicon.ico'), join(out, 'favicon.ico'));
+cpSync(join(root, 'public', 'favicon.svg'), join(out, 'logo.svg'));
 cpSync(join(root, 'public', 'fonts'), join(out, 'fonts'), { recursive: true });
 cpSync(join(root, 'site-src', 'site.css'), join(out, 'site.css'));
 writeFileSync(join(out, '.nojekyll'), ''); // serve files as-is
