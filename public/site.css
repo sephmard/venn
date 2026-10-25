@@ -486,7 +486,7 @@ h2 em {
 /* For groups */
 .groups {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(0, 1.1fr);
+  grid-template-columns: minmax(0, 0.85fr) minmax(0, 1.25fr);
   gap: 64px;
   align-items: center;
 }
@@ -509,7 +509,7 @@ h2 em {
   top: 1px;
   width: 26px;
   height: 26px;
-  background: url('/favicon.svg?v=4') center / contain no-repeat;
+  background: url('/favicon.svg?v=5') center / contain no-repeat;
 }
 h3 {
   font-size: 1.125rem;
@@ -522,22 +522,117 @@ h3 {
   margin: 0;
   color: var(--ink-2);
 }
-.shot {
+/* "Less group chat. More plans.": a messy chat, then the one clear answer. */
+.story {
   margin: 0;
-  padding: clamp(14px, 3vw, 28px) clamp(14px, 3vw, 28px) 0;
-  background: linear-gradient(160deg, var(--mint) 0%, var(--paper-2) 60%);
-  border-radius: 24px;
-  overflow: hidden;
-  max-height: 620px;
-  -webkit-mask-image: linear-gradient(to bottom, #000 75%, transparent);
-  mask-image: linear-gradient(to bottom, #000 75%, transparent);
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1.1fr);
+  align-items: center;
+  gap: 18px;
 }
-.shot img {
+.chat {
+  padding: 16px;
+  background: var(--paper-2);
+  border: 1px solid var(--line);
+  border-radius: 22px;
+  transform: rotate(-2deg);
+}
+.chat-head {
+  margin: 0 0 10px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--ink-2);
+}
+.msg {
+  width: fit-content;
+  max-width: 100%;
+  margin: 0 0 6px;
+  padding: 6px 11px 7px;
+  border-radius: 14px 14px 14px 4px;
+  background: var(--card);
+  border: 1px solid var(--line);
+  font-size: 0.875rem;
+  line-height: 1.35;
+}
+.msg b {
   display: block;
-  width: 100%;
-  height: auto;
-  border-radius: 14px 14px 0 0;
-  box-shadow: var(--shot-shadow);
+  font-size: 0.6875rem;
+  color: var(--ink-2);
+}
+.msg-me {
+  margin: 8px 0 0 auto;
+  border: 0;
+  border-radius: 14px 14px 4px 14px;
+  background: var(--green);
+  color: var(--green-ink);
+}
+.story-arrow {
+  font-size: 1.75rem;
+  color: var(--green);
+}
+.result {
+  padding: 22px;
+  background: var(--card);
+  border-radius: 24px;
+  box-shadow: var(--card-shadow);
+}
+.result-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0 0 18px;
+  font-weight: 700;
+}
+.result-label {
+  display: inline-block;
+  margin: 0 0 6px;
+  padding: 3px 10px;
+  border-radius: 999px;
+  background: var(--green-soft);
+  color: var(--green-deep);
+  font-size: 0.8125rem;
+  font-weight: 700;
+}
+.result-date {
+  margin: 0 0 16px;
+  font: 400 clamp(1.6rem, 2.4vw, 2.1rem) / 1.05 var(--serif);
+  white-space: nowrap;
+}
+.faces {
+  display: flex;
+  align-items: center;
+  margin-bottom: 18px;
+}
+.faces span {
+  display: grid;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  margin-right: -8px;
+  border-radius: 50%;
+  border: 2px solid var(--card);
+  background: hsl(var(--h) 55% 30%);
+  color: #fff;
+  font-size: 0.6875rem;
+  font-weight: 700;
+}
+.faces em {
+  margin-left: 18px;
+  font-style: normal;
+  font-weight: 600;
+  color: var(--ink-2);
+  font-size: 0.875rem;
+}
+.result-cta {
+  margin: 0;
+  padding: 12px;
+  border-radius: 14px;
+  background: linear-gradient(135deg, var(--cta-from) 0%, var(--cta-to) 100%);
+  color: var(--cta-ink);
+  text-align: center;
+  font-weight: 700;
 }
 
 /* For developers */
@@ -710,6 +805,9 @@ h3 {
     grid-template-columns: minmax(0, 1fr);
     gap: 48px;
   }
+  .story {
+    max-width: 560px;
+  }
 }
 @media (max-width: 640px) {
   :root {
@@ -750,8 +848,16 @@ h3 {
     border-radius: 22px;
   }
   .start-choices,
-  .dev-points {
+  .dev-points,
+  .story {
     grid-template-columns: minmax(0, 1fr);
+  }
+  .story-arrow {
+    justify-self: center;
+    transform: rotate(90deg);
+  }
+  .chat {
+    transform: none;
   }
   .cta-row .btn {
     flex: 1 1 100%;

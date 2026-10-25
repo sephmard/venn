@@ -9,6 +9,9 @@ async function route() {
   document.getElementById('toast').hidden = true;
   const path = location.pathname.replace(/\/$/, '');
   const poll = path.match(/^\/e\/([A-Za-z0-9]+)$/);
+  // Poll pages get their own tab icon.
+  for (const l of document.querySelectorAll('link[rel=icon]'))
+    l.href = l.href.replace(/favicon[^.]*/, poll ? 'favicon-poll' : 'favicon');
   let off;
   if (poll) off = await (await import('./event.js')).renderEvent(poll[1], navigate);
   else {

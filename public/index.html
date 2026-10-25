@@ -25,9 +25,9 @@
     <meta property="og:image:height" content="630" />
     <meta name="twitter:card" content="summary_large_image" />
     <link rel="manifest" href="/manifest.webmanifest" />
-    <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png?v=4" />
-    <link rel="icon" href="/favicon.ico?v=4" sizes="32x32" />
-    <link rel="icon" href="/favicon.svg?v=4" type="image/svg+xml" />
+    <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png?v=5" />
+    <link rel="icon" href="/favicon.ico?v=5" sizes="32x32" />
+    <link rel="icon" href="/favicon.svg?v=5" type="image/svg+xml" />
     <link rel="preload" href="/fonts/instrument-serif-latin-400-normal.woff2" as="font" type="font/woff2" crossorigin />
     <link rel="stylesheet" href="/site.css" />
   </head>
@@ -36,7 +36,7 @@
     <header class="topbar">
       <div class="wrap nav">
         <a href="/" class="brand">
-          <img src="/favicon.svg?v=4" width="28" height="28" alt="" />
+          <img src="/favicon.svg?v=5" width="28" height="28" alt="" />
           Venn
         </a>
         <nav class="nav-links" aria-label="Main">
@@ -87,7 +87,7 @@
               name="title"
               type="text"
               maxlength="120"
-              placeholder="Dinner at Luca's"
+              placeholder="Dinner at Finn's"
               autocomplete="off"
               enterkeyhint="go"
             />
@@ -139,19 +139,32 @@
               </li>
             </ul>
           </div>
-          <figure class="shot">
-            <picture>
-              <source media="(max-width: 640px) and (prefers-color-scheme: dark)" srcset="/img/mobile-dark.webp" />
-              <source media="(max-width: 640px)" srcset="/img/mobile-light.webp" />
-              <source media="(prefers-color-scheme: dark)" srcset="/img/results-dark.webp" />
-              <img
-                src="/img/results-light.webp"
-                width="1600"
-                height="2138"
-                loading="lazy"
-                alt="A dinner poll in Venn: each suggested evening with Yes, If needed and No answers, and the best options ranked with who can make them"
-              />
-            </picture>
+          <figure
+            class="story"
+            role="img"
+            aria-label="A group chat going back and forth about which day works, next to a Venn poll for Dinner at Finn's showing Friday, November 13 at 7 PM works for all six people"
+          >
+            <div class="chat" aria-hidden="true">
+              <p class="chat-head">Dinner crew · 6</p>
+              <p class="msg"><b>Priya</b>Dinner next week? Tuesday?</p>
+              <p class="msg"><b>Marcus</b>Can't do Tue, sorry</p>
+              <p class="msg"><b>Ana</b>Wed or Thu?</p>
+              <p class="msg"><b>Jordan</b>Thu's out for me</p>
+              <p class="msg"><b>Lee</b>wait which week</p>
+              <p class="msg msg-me">ok I'll just make a poll</p>
+            </div>
+            <div class="story-arrow" aria-hidden="true">→</div>
+            <div class="result" aria-hidden="true">
+              <p class="result-head"><img src="/favicon.svg?v=5" width="20" height="20" alt="" /> Dinner at Finn's</p>
+              <p class="result-label">Everyone can make it</p>
+              <p class="result-date">Fri, Nov 13 · 7:00 PM</p>
+              <div class="faces">
+                <span style="--h: 152">PS</span><span style="--h: 28">ML</span><span style="--h: 210">AG</span
+                ><span style="--h: 330">JK</span><span style="--h: 262">LW</span><span style="--h: 96">SN</span>
+                <em>6 of 6</em>
+              </div>
+              <p class="result-cta">Add to calendar</p>
+            </div>
           </figure>
         </div>
       </section>

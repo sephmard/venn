@@ -181,6 +181,15 @@ test('unknown poll shows a friendly error', async ({ page }) => {
   await expect(page.getByRole('heading', { name: 'Poll not found' })).toBeVisible();
 });
 
+test('poll pages get their own tab icon', async ({ page }) => {
+  const icon = page.locator('link[rel="icon"][type="image/svg+xml"]');
+  await page.goto('/new');
+  await expect(icon).toHaveAttribute('href', /\/favicon\.svg/);
+  await page.goto('/e/doesnotexist');
+  await expect(icon).toHaveAttribute('href', /\/favicon-poll\.svg/);
+  await expect(page.locator('link[rel="icon"][sizes]')).toHaveAttribute('href', /\/favicon-poll\.ico/);
+});
+
 test('organizer sets up a webhook from the Notifications panel', async ({ page }) => {
   await startPick(page, 'Webhook poll');
   // This test server has no email service, so the email field stays hidden and says why.
@@ -348,8 +357,8 @@ test('installable: manifest and icons are served', async ({ request }) => {
   const manifest = await (await request.get('/manifest.webmanifest')).json();
   expect(manifest.name).toBe('Venn');
   for (const icon of manifest.icons) expect((await request.get(icon.src)).status()).toBe(200);
-  // Browser tabs: the SVG favicon, and the .ico that some browsers ask for by name.
-  for (const path of ['/favicon.svg', '/favicon.ico']) {
+  // Browser tabs: SVG and .ico favicons for the site and app, and for poll pages.
+  for (const path of ['/favicon.svg', '/favicon.ico', '/favicon-poll.svg', '/favicon-poll.ico']) {
     const res = await request.get(path);
     expect(res.status()).toBe(200);
     expect(res.headers()['content-type']).toMatch(/image/);
