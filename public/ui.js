@@ -108,6 +108,15 @@ export const fmtMonthDay = fmt({ month: 'short', day: 'numeric' });
 export const fmtDay = fmt({ weekday: 'short', month: 'short', day: 'numeric' });
 const fmtMinutes = fmt({ hour: 'numeric', minute: '2-digit' });
 export const minutesLabel = (m) => fmtMinutes.format(new Date(Date.UTC(2000, 0, 1, 0, m)));
+const at = (m) => new Date(Date.UTC(2000, 0, 1, 0, m));
+const fmtHour = fmt({ hour: 'numeric' });
+/** "7 PM", or "7:30 PM" when there are minutes. */
+export const shortTime = (m) => (m % 60 ? minutesLabel(m % 1440) : fmtHour.format(at(m % 1440)));
+/** "6 – 10 PM", "9 AM – 12 PM", "7:30 – 9:30 PM". */
+export function shortRange(from, to) {
+  if (to >= 1440) return `${shortTime(from)} – midnight`;
+  return (from % 60 || to % 60 ? fmtMinutes : fmtHour).formatRange(at(from), at(to));
+}
 export const dayLabel = (d) => fmtDay.format(dateParts(d));
 
 export function lengthLabel(min) {

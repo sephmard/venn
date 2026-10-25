@@ -5,20 +5,25 @@
 import {
   YES,
   IF_NEEDED,
+  DAY_PARTS,
+  addDays,
   allDaySpan,
   availabilityFromBusy,
   eventWindows,
   googleCalendarUrl,
   isDaysPoll,
   isOptionsPoll,
+  isPartsPoll,
   meetingEnd,
   outlookCalendarUrl,
   parseIcsBusy,
+  partOf,
   rankTimes,
   slotEnd,
   utcToZoned,
 } from './core.js';
 import { PROVIDERS, fetchBusy, needsSignIn, openSignInWindow } from './calendars.js';
+import { dayChip, isPhone, timeView } from './picker.js';
 import {
   $,
   $$,
@@ -30,6 +35,7 @@ import {
   copy,
   dateParts,
   esc,
+  fmtDay,
   fmtDow,
   fmtDowLong,
   fmtMonthDay,
@@ -46,6 +52,8 @@ import {
   rememberName,
   save,
   saved,
+  shortRange,
+  shortTime,
   toast,
   tzName,
   tzOptions,
@@ -111,6 +119,21 @@ export async function renderEvent(id, navigate) {
   const daysMode = isDaysPoll(ev());
   const listMode = optionsMode || daysMode; // answered row by row
   const windows = eventWindows(ev());
+  const partsMode = isPartsPoll(ev()); // people tap the mornings, afternoons and evenings they're free
+  // Options inside a single day can also be shown on a calendar, next to the guest's busy times.
+  const calendarOk =
+    optionsMode &&
+    !partsMode &&
+    windows.every(
+      (w) => !allDaySpan(w.start, w.end, ev().timezone) && utcToZoned(w.start, st.tz).date === utcToZoned(w.end - 1, st.tz).date,
+    );
+  /** How an option reads: "Sat, Nov 7, evening (6 – 10 PM)" in parts polls, otherwise its date and time. */
+  const when = (s, e) => {
+    const p = partsMode && partOf(s, e, ev().timezone);
+    return p
+      ? `${fmtDay.format(dateParts(utcToZoned(s, ev().timezone).date))}, ${p.label.toLowerCase()} (${shortRange(p.start, p.end)})`
+      : fmtWhen(s, e, st.tz);
+  };
   const canShare = !!navigator.share && matchMedia('(pointer: coarse)').matches;
   const me = () => ev().participants.find((p) => p.id === saved(id).participantId);
   st.tab = me() || (ev().isAdmin && ev().participants.length) ? 'group' : 'mine';
@@ -174,13 +197,24 @@ export async function renderEvent(id, navigate) {
           }
           ${
             listMode
-              ? '<div id="mine" class="rows"></div>'
+              ? `${
+                  calendarOk
+                    ? `<div class="seg mine-view" role="radiogroup" aria-label="Show the options as">
+                        <button type="button" role="radio" data-mine-view="list">List</button>
+                        <button type="button" role="radio" data-mine-view="calendar">Calendar</button>
+                      </div>`
+                    : ''
+                }
+                ${partsMode ? '<p class="hint">Tap each time you\'re free. Tap again for "if needed", and once more to clear it.</p>' : ''}
+                <div id="mine" class="rows"></div>
+                <div id="mine-cal" hidden></div>`
               : `<div class="seg brush" role="group" aria-label="Brush">
                   <button type="button" data-brush="${YES}"><span class="swatch swatch-yes"></span>Free</button>
                   <button type="button" data-brush="${IF_NEEDED}"><span class="swatch swatch-maybe"></span>If needed</button>
                   <button type="button" data-brush="0"><span class="swatch swatch-no"></span>Busy</button>
                 </div>
                 <p class="hint">Drag across the times you're free. On a phone, tap or drag.</p>
+                <div class="tv-strip" id="hour-days" role="group" aria-label="Days" hidden></div>
                 <div class="grid-scroll"><div class="grid" id="mine" role="group" aria-label="Your availability. Use the arrow keys to move and Space to mark a time."></div></div>`
           }
           <div class="mine-footer">
@@ -260,7 +294,7 @@ export async function renderEvent(id, navigate) {
   });
 
   // ----- grid layout (hours polls) in the viewer's time zone -----
-  let L;
+  let L, LG;
   function computeLayout() {
     const dates = new Set(),
       mins = new Set(),
@@ -271,12 +305,25 @@ export async function renderEvent(id, navigate) {
       mins.add(z.minutes);
       at.set(`${z.date}|${z.minutes}`, s);
     }
-    L = { dates: [...dates].sort(), mins: [...mins].sort((a, b) => a - b), at };
+    LG = { dates: [...dates].sort(), mins: [...mins].sort((a, b) => a - b), at };
+    // Phones paint one day at a time, picked from a strip of days.
+    const oneDay = isPhone() && LG.dates.length > 1;
+    if (oneDay && !LG.dates.includes(st.hourDay)) st.hourDay = LG.dates[0];
+    L = oneDay ? { ...LG, dates: [st.hourDay] } : LG;
+    const strip = $('#hour-days');
+    strip.hidden = !oneDay;
+    if (oneDay)
+      strip.innerHTML = LG.dates
+        .map((d) => {
+          const n = ev().slots.filter((s) => st.mine[s] && utcToZoned(s, st.tz).date === d).length;
+          return `<button type="button" class="tv-chip" data-hour-day="${d}" aria-pressed="${d === st.hourDay}">${dayChip(d, n ? '✓' : '')}</button>`;
+        })
+        .join('');
   }
 
   // `cellAttrs(slot)` adds the role and state: toggle buttons in your grid, labelled images in the group heatmap.
-  function gridHtml(cellClass, cellAttrs = () => '') {
-    const { dates, mins, at } = L;
+  function gridHtml(cellClass, cellAttrs = () => '', layout = L) {
+    const { dates, mins, at } = layout;
     const labelEvery = ev().slotMinutes >= 60 ? ev().slotMinutes : 60;
     let h = '<div></div>';
     for (const d of dates) {
@@ -295,7 +342,7 @@ export async function renderEvent(id, navigate) {
     });
     return h;
   }
-  const gridCols = () => `auto repeat(${L.dates.length}, minmax(38px, 1fr))`;
+  const gridCols = (layout = L) => `auto repeat(${layout.dates.length}, minmax(38px, 1fr))`;
   const finalSet = () => {
     const set = new Set();
     const f = ev().finalStart;
@@ -317,7 +364,7 @@ export async function renderEvent(id, navigate) {
   const dateBlock = (d) => {
     const dt = dateParts(d);
     // Whole-day polls name the weekday in the row itself.
-    return `<span class="date-block" aria-hidden="true">${daysMode ? '' : `<small>${esc(fmtDow.format(dt))}</small>`}<b>${dt.getUTCDate()}</b><small>${esc(dt.toLocaleDateString(undefined, { month: 'short', timeZone: 'UTC' }))}</small></span>`;
+    return `<span class="date-block" aria-hidden="true">${daysMode || partsMode ? '' : `<small>${esc(fmtDow.format(dt))}</small>`}<b>${dt.getUTCDate()}</b><small>${esc(dt.toLocaleDateString(undefined, { month: 'short', timeZone: 'UTC' }))}</small></span>`;
   };
 
   function renderMineList() {
@@ -344,6 +391,128 @@ export async function renderEvent(id, navigate) {
       .join('');
     refreshMineList();
   }
+
+  // ----- parts of the day: a row per day, a button per part -----
+  const byDay = () => {
+    const days = new Map();
+    for (const w of windows) {
+      const d = utcToZoned(w.start, ev().timezone).date;
+      if (!days.has(d)) days.set(d, []);
+      days.get(d).push(w);
+    }
+    return days;
+  };
+  function renderMineParts() {
+    mineEl.innerHTML = [...byDay()]
+      .map(
+        ([d, ws]) => `<div class="row parts-row">${dateBlock(d)}
+          <div class="row-main"><div class="row-when">${esc(fmtDowLong.format(dateParts(d)))}</div></div>
+          <div class="part-votes">${ws
+            .map((w) => {
+              const p = partOf(w.start, w.end, ev().timezone);
+              return `<button type="button" class="part-vote${w.start === ev().finalStart ? ' final' : ''}" data-opt="${w.start}"><b>${esc(p.label)}</b><small>${esc(shortRange(p.start, p.end))}</small><span class="pv-state"></span></button>`;
+            })
+            .join('')}</div>
+        </div>`,
+      )
+      .join('');
+    refreshMineParts();
+  }
+  function refreshMineParts() {
+    for (const b of $$('.part-vote', mineEl)) {
+      const v = st.mine[b.dataset.opt] || 0;
+      b.dataset.v = v;
+      // Pressed: true = free, mixed = if needed. The state is also written out for screen readers.
+      b.setAttribute('aria-pressed', v === YES ? 'true' : v === IF_NEEDED ? 'mixed' : 'false');
+      $('.pv-state', b).innerHTML =
+        v === YES ? '✓ Free' : v === IF_NEEDED ? '~ If needed' : '<span class="sr-only">Not marked</span>';
+    }
+  }
+  /** Not marked or no → yes → if needed → no. */
+  function cycle(s) {
+    const v = st.mine[s] || 0;
+    if (v === YES) st.mine[s] = IF_NEEDED;
+    else if (v === IF_NEEDED) delete st.mine[s];
+    else st.mine[s] = YES;
+    st.touched.add(String(s));
+    refreshMine();
+    changed();
+  }
+  if (partsMode)
+    mineEl.addEventListener('click', (e) => {
+      const b = e.target.closest('.part-vote');
+      if (b) cycle(b.dataset.opt);
+    });
+
+  // ----- the calendar view of the options -----
+  let calView = null;
+  st.mineView = 'list';
+  const pieces = (start, end) => {
+    // Split an interval into per-day pieces in the viewer's time zone.
+    const out = [];
+    let d = utcToZoned(start, st.tz).date;
+    const last = utcToZoned(end - 1, st.tz).date;
+    for (let i = 0; d <= last && i < 60; d = addDays(d, 1), i++) {
+      const a = d === utcToZoned(start, st.tz).date ? utcToZoned(start, st.tz).minutes : 0;
+      const b = d === last ? utcToZoned(end, st.tz).minutes || 1440 : 1440;
+      if (b > a) out.push({ date: d, from: a, to: b });
+    }
+    return out;
+  };
+  function renderMineView() {
+    if (!calendarOk) return;
+    for (const b of $$('[data-mine-view]')) b.setAttribute('aria-checked', b.dataset.mineView === st.mineView);
+    const cal = st.mineView === 'calendar';
+    mineEl.hidden = cal;
+    $('#mine-cal').hidden = !cal;
+    if (!cal) return;
+    if (calView) return calView.render();
+    const days = [...new Set(windows.map((w) => utcToZoned(w.start, st.tz).date))].sort();
+    const mins = windows.flatMap((w) => [utcToZoned(w.start, st.tz).minutes, utcToZoned(w.end, st.tz).minutes || 1440]);
+    const from = Math.max(0, Math.floor((Math.min(...mins) - 60) / 60) * 60);
+    const to = Math.min(1440, Math.ceil((Math.max(...mins) + 60) / 60) * 60);
+    const answered = () => !!me();
+    calView = timeView($('#mine-cal'), {
+      days,
+      label: 'Options',
+      views: isPhone() ? ['day'] : ['week', 'day'],
+      range: () => [from, to],
+      busy: () => (st.lastBusy || []).flatMap((b) => pieces(b.start, b.end)),
+      blocks: () =>
+        windows.map((w) => {
+          const v = st.mine[w.start] || 0;
+          const shown = v > 0 || answered() || st.touched.has(String(w.start)) ? v : 'none';
+          const z = utcToZoned(w.start, st.tz);
+          const to2 = utcToZoned(w.end, st.tz).minutes || 1440;
+          const state = shown === YES ? 'Yes' : shown === IF_NEEDED ? 'If needed' : shown === 0 ? 'No' : 'Not answered';
+          return {
+            key: String(w.start),
+            date: z.date,
+            from: z.minutes,
+            to: to2,
+            cls: `ans-${shown}`,
+            label: `${shown === YES ? '✓ ' : shown === IF_NEEDED ? '~ ' : ''}${shortRange(z.minutes, to2)}`,
+            short: `${shown === YES ? '✓ ' : shown === IF_NEEDED ? '~ ' : ''}${shortTime(z.minutes)}`,
+            title: `${shortRange(z.minutes, to2)}, ${fmtDay.format(dateParts(z.date))}: ${state}. Tap to change`,
+          };
+        }),
+      onBlock: cycle,
+      marks: (d) => String(windows.filter((w) => utcToZoned(w.start, st.tz).date === d).length),
+    });
+  }
+  $('#panel-mine').addEventListener('click', (e) => {
+    const v = e.target.closest('[data-mine-view]');
+    if (v) {
+      st.mineView = v.dataset.mineView;
+      renderMineView();
+    }
+    const day = e.target.closest('[data-hour-day]');
+    if (day) {
+      st.hourDay = day.dataset.hourDay;
+      computeLayout();
+      renderMine();
+    }
+  });
 
   function refreshMineList() {
     const people = others().filter((p) => p.id !== me()?.id);
@@ -377,6 +546,7 @@ export async function renderEvent(id, navigate) {
     });
 
   function renderMine() {
+    if (partsMode) return renderMineParts();
     if (listMode) return renderMineList();
     mineEl.style.gridTemplateColumns = gridCols();
     const pressed = (s) => (st.mine[s] === YES ? 'true' : st.mine[s] === IF_NEEDED ? 'mixed' : 'false');
@@ -388,6 +558,8 @@ export async function renderEvent(id, navigate) {
     if (first) first.tabIndex = 0;
   }
   function refreshMine() {
+    calView?.render();
+    if (partsMode) return refreshMineParts();
     if (listMode) return refreshMineList();
     for (const el of $$('.cell[data-slot]', mineEl)) {
       const v = st.mine[el.dataset.slot];
@@ -603,7 +775,7 @@ export async function renderEvent(id, navigate) {
         r.recommendedStart == null
           ? ''
           : `<div class="ai-rec">
-              <div><b>Suggested:</b> ${esc(fmtWhen(r.recommendedStart, meetingEnd(ev(), r.recommendedStart), st.tz))}${r.reason ? `<div class="hint">${esc(r.reason)}</div>` : ''}</div>
+              <div><b>Suggested:</b> ${esc(when(r.recommendedStart, meetingEnd(ev(), r.recommendedStart)))}${r.reason ? `<div class="hint">${esc(r.reason)}</div>` : ''}</div>
               ${ev().finalStart === r.recommendedStart ? '' : `<button class="btn btn-sm" data-pick="${r.recommendedStart}">Pick this</button>`}
             </div>`;
       $('#ai-summary').innerHTML =
@@ -754,14 +926,76 @@ export async function renderEvent(id, navigate) {
     <p class="hint">✓ yes, ~ if needed. ${daysMode ? '' : 'The most popular are highlighted.'}</p>`;
   }
 
+  // Parts of the day: a day-by-part table, shaded by how many people are free.
+  function renderGroupParts() {
+    const people = others();
+    const n = people.length;
+    if (!n) return (groupEl.innerHTML = '');
+    const parts = DAY_PARTS.filter((p) => windows.some((w) => partOf(w.start, w.end, ev().timezone)?.key === p.key));
+    const rows = [...byDay()]
+      .map(([d, ws]) => {
+        const cells = parts
+          .map((p) => {
+            const w = ws.find((x) => partOf(x.start, x.end, ev().timezone)?.key === p.key);
+            if (!w) return '<td></td>';
+            const yes = people.filter((x) => x.availability[w.start] === YES).length;
+            const maybe = people.filter((x) => x.availability[w.start] === IF_NEEDED).length;
+            const label = `${when(w.start, w.end)}: ${yes} of ${n} free${maybe ? `, ${maybe} if needed` : ''}`;
+            return `<td><button type="button" class="heat-btn${String(w.start) === String(st.inspect) ? ' active' : ''}${w.start === ev().finalStart ? ' final' : ''}" data-inspect="${w.start}" style="--a:${((yes + maybe / 2) / n).toFixed(2)}" aria-label="${esc(label)}">${yes + maybe}</button></td>`;
+          })
+          .join('');
+        return `<tr><th scope="row">${esc(fmtDay.format(dateParts(d)))}</th>${cells}</tr>`;
+      })
+      .join('');
+    groupEl.innerHTML = `<div class="matrix-scroll"><table class="heat-table">
+        <thead><tr><th></th>${parts.map((p) => `<th scope="col">${esc(p.label)}</th>`).join('')}</tr></thead>
+        <tbody>${rows}</tbody>
+      </table></div>
+      <p class="hint">How many people are free. Darker means more. Tap one to see who.</p>
+      <div class="hover-info" id="parts-inspect"></div>`;
+    renderPartsInspect();
+  }
+  function renderPartsInspect() {
+    const box = $('#parts-inspect');
+    if (!box || st.inspect == null) return;
+    const s = +st.inspect;
+    const w = windows.find((x) => x.start === s);
+    if (!w) return;
+    const people = others();
+    const chips = (list, cls) =>
+      list.map((p) => `<span class="chip ${cls}">${avatar(p.name, 'av-xs')}${esc(p.name)}</span>`).join('');
+    box.innerHTML = `
+      <div class="sheet-head">
+        <b>${esc(when(w.start, w.end))}</b>
+        ${ev().isAdmin && ev().finalStart !== s ? `<button class="btn btn-sm" data-pick="${s}">Pick this</button>` : ''}
+      </div>
+      <div class="chips">${chips(
+        people.filter((p) => p.availability[s] === YES),
+        'yes',
+      )}${chips(
+        people.filter((p) => p.availability[s] === IF_NEEDED),
+        'maybe',
+      )}${chips(
+        people.filter((p) => !p.availability[s]),
+        'no',
+      )}</div>`;
+  }
+  groupEl.addEventListener('click', (e) => {
+    const b = e.target.closest('[data-inspect]');
+    if (!b) return;
+    st.inspect = b.dataset.inspect;
+    renderGroupParts();
+  });
+
   function renderGroup() {
     $('#group-count').textContent = ev().participants.length || '';
+    if (partsMode) return renderGroupParts();
     if (listMode) return renderGroupList();
     const people = others();
     const n = people.length;
     const fs = finalSet();
     const focus = people.find((p) => p.id === st.focus);
-    groupEl.style.gridTemplateColumns = gridCols();
+    groupEl.style.gridTemplateColumns = gridCols(LG);
     // Each heatmap cell says, in words, what its colour shows.
     const groupLabel = (s) => {
       const yes = people.filter((p) => p.availability[s] === YES).length;
@@ -769,12 +1003,16 @@ export async function renderEvent(id, navigate) {
       const when = fmtWhen(s, slotEnd(ev(), s), st.tz);
       return `role="img" aria-label="${esc(`${when}: ${yes} of ${n} free${maybe ? `, ${maybe} if needed` : ''}`)}"`;
     };
-    groupEl.innerHTML = gridHtml((s) => {
-      let cls = fs.has(s) ? 'final' : '';
-      if (String(s) === String(st.inspect)) cls += ' active';
-      if (focus) cls += focus.availability[s] === YES ? ' yes' : focus.availability[s] === IF_NEEDED ? ' maybe' : '';
-      return cls;
-    }, groupLabel);
+    groupEl.innerHTML = gridHtml(
+      (s) => {
+        let cls = fs.has(s) ? 'final' : '';
+        if (String(s) === String(st.inspect)) cls += ' active';
+        if (focus) cls += focus.availability[s] === YES ? ' yes' : focus.availability[s] === IF_NEEDED ? ' maybe' : '';
+        return cls;
+      },
+      groupLabel,
+      LG,
+    );
     if (!focus)
       for (const el of $$('.cell[data-slot]', groupEl)) {
         const s = el.dataset.slot;
@@ -903,7 +1141,7 @@ export async function renderEvent(id, navigate) {
     const lenNote = !optionsMode && ev().durationMinutes > ev().slotMinutes ? ` (${lengthLabel(ev().durationMinutes)})` : '';
     $('#best').innerHTML = `
       <div class="best-hero${ev().finalStart === first.start ? ' final' : ''}">
-        <div class="best-when">${esc(fmtWhen(first.start, first.end, st.tz))}${esc(lenNote)}</div>
+        <div class="best-when">${esc(when(first.start, first.end))}${esc(lenNote)}</div>
         <div class="best-who">${avatarStack([...first.yes, ...first.ifNeeded], 7)}<span>${esc(who(first))}</span></div>
         ${missing(first)}
         ${pick(first) ? `<div class="btn-row">${pick(first).replace('btn btn-sm', 'btn btn-primary')}</div>` : ''}
@@ -914,7 +1152,7 @@ export async function renderEvent(id, navigate) {
               .map(
                 (b) => `<li>
                   <div class="grow">
-                    <div class="when">${esc(fmtWhen(b.start, b.end, st.tz))}</div>
+                    <div class="when">${esc(when(b.start, b.end))}</div>
                     <div class="best-who small">${avatarStack([...b.yes, ...b.ifNeeded], 4)}<span>${esc(who(b))}</span></div>
                   </div>
                   ${pick(b)}
@@ -1125,7 +1363,7 @@ export async function renderEvent(id, navigate) {
       };
       h += `<section class="banner-final${st.celebrate && !reducedMotion() ? ' celebrate' : ''}" aria-labelledby="final-h">
         <p class="kicker">It's happening</p>
-        <h2 id="final-h">${esc(fmtWhen(start, end, st.tz))}</h2>
+        <h2 id="final-h">${esc(when(start, end))}</h2>
         <div class="btn-row">
           <a class="btn btn-sm" href="${esc(googleCalendarUrl(info))}" target="_blank" rel="noopener">Google Calendar</a>
           <a class="btn btn-sm" href="${esc(outlookCalendarUrl(info))}" target="_blank" rel="noopener">Outlook</a>
@@ -1191,6 +1429,10 @@ export async function renderEvent(id, navigate) {
     renderTabs();
     renderBrush();
     renderMine();
+    // The calendar view is built for the viewer's time zone: rebuild it when that changes.
+    calView?.cleanup();
+    calView = null;
+    renderMineView();
     renderPeople();
     renderGroup();
     renderBest();
@@ -1229,6 +1471,7 @@ export async function renderEvent(id, navigate) {
       .catch((ex) => toast(ex.message));
 
   return () => {
+    calView?.cleanup();
     clearInterval(poll);
     window.removeEventListener('pointerup', endPaint);
     window.removeEventListener('pointercancel', endPaint);

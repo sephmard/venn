@@ -21,6 +21,13 @@ const DAY_MINUTES = 1440;
 // Longest trip or multi-day option, in days.
 export const MAX_SPAN_DAYS = 14;
 
+/** Parts of the day, in minutes after midnight, for quick picks and "parts of the day" polls. */
+export const DAY_PARTS = [
+  { key: 'morning', label: 'Morning', start: 540, end: 720 },
+  { key: 'afternoon', label: 'Afternoon', start: 720, end: 1020 },
+  { key: 'evening', label: 'Evening', start: 1080, end: 1320 },
+];
+
 // ---------- time zones ----------
 
 const formatterCache = new Map();
@@ -216,8 +223,25 @@ function normalizeOptionsEvent(input, base) {
     options.push({ start, end });
   }
   options.sort((a, b) => a.start - b.start);
-  return { ...base, mode: 'options', options, durationMinutes: (options[0].end - options[0].start) / MINUTE };
+  const ev = { ...base, mode: 'options', options, durationMinutes: (options[0].end - options[0].start) / MINUTE };
+  // "Parts of the day": people mark the mornings, afternoons and evenings they're free.
+  if (input.layout === 'parts') {
+    if (!options.every((o) => partOf(o.start, o.end, base.timezone)))
+      throw new ValidationError('Each option must be a morning, an afternoon or an evening');
+    ev.layout = 'parts';
+  } else if (input.layout != null) throw new ValidationError('Unknown layout');
+  return ev;
 }
+
+/** The part of the day (from DAY_PARTS) that `start`–`end` covers exactly in `tz`, or null. */
+export function partOf(start, end, tz) {
+  const a = utcToZoned(start, tz),
+    b = utcToZoned(end, tz);
+  if (a.date !== b.date) return null;
+  return DAY_PARTS.find((p) => p.start === a.minutes && p.end === b.minutes) || null;
+}
+
+export const isPartsPoll = (ev) => isOptionsPoll(ev) && ev.layout === 'parts';
 
 export const isOptionsPoll = (ev) => ev.mode === 'options';
 /** Polls where people mark whole days rather than times of day. */
