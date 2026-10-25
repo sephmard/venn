@@ -43,7 +43,29 @@ jobs:
         env:
           CUSTOM_DOMAIN: ${{ vars.CUSTOM_DOMAIN }}
         run: printf '\n[[routes]]\npattern = "%s"\ncustom_domain = true\n' "$CUSTOM_DOMAIN" >> wrangler.toml
-      - run: npx wrangler deploy
+      - name: Deploy
         env:
-          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          RAW_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          RAW_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: |
+          # Forgive copy-paste slips (spaces, line breaks, a "Bearer " prefix), and say what's
+          # wrong without ever printing the secrets.
+          token=$(printf '%s' "$RAW_TOKEN" | tr -d '[:space:]')
+          token=${token#Bearer}
+          account=$(printf '%s' "$RAW_ACCOUNT_ID" | tr -d '[:space:]')
+          echo "::add-mask::$token"
+          echo "::add-mask::$account"
+          if [ -z "$token" ]; then
+            echo "::error::CLOUDFLARE_API_TOKEN is empty. Add it as a secret on the environment this job uses."
+            exit 1
+          fi
+          if ! printf '%s' "$token" | grep -Eq '^[A-Za-z0-9_-]+$'; then
+            echo "::error::CLOUDFLARE_API_TOKEN (${#token} characters) contains characters a token can't have, such as quotes, ':' or '/'. Paste only the token itself, not the curl command or anything around it."
+            exit 1
+          fi
+          if ! printf '%s' "$account" | grep -Eq '^[0-9a-f]{32}$'; then
+            echo "::error::CLOUDFLARE_ACCOUNT_ID should be 32 characters of 0-9 and a-f; this one has ${#account}."
+            exit 1
+          fi
+          echo "Token: ${#token} characters. Account ID: ok."
+          CLOUDFLARE_API_TOKEN=$token CLOUDFLARE_ACCOUNT_ID=$account npx wrangler deploy
