@@ -77,7 +77,14 @@ These can't be stored in the code, so set them by hand. They're listed in order.
 
 **Settings → Pages → Build and deployment → Source:** _GitHub Actions_. `pages.yml` then publishes the product page and docs on every push to `main`, at `https://<owner>.github.io/venn/`.
 
-- Optionally, under **Settings → Secrets and variables → Actions → Variables**, add `APP_URL` with the address of your hosted instance. The site's main button then says **Open Venn** and links there.
+The project's docs use the subdomain **docs.venn.day** (the app itself is on `venn.day`; see [below](#the-official-site-vennday)). To set up a subdomain like it:
+
+1. **Settings → Pages → Custom domain:** enter `docs.venn.day` and save. Pages deployed by Actions don't need a `CNAME` file.
+2. **Cloudflare → DNS:** add `CNAME docs → <owner>.github.io` set to **DNS only** (grey cloud), so GitHub can issue the HTTPS certificate.
+3. **GitHub → your account → Settings → Pages → Add a domain:** verify `venn.day` with the `TXT` record it gives you. This stops anyone else's repository from claiming any of its subdomains.
+4. Once the certificate is issued, tick **Enforce HTTPS** under the repository's Pages settings.
+
+The site's main button links to `https://venn.day`. Forks can point it at their own instance with the repository variable `APP_URL`.
 
 ### 7. Automated review
 
