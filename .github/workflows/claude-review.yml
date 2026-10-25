@@ -1,0 +1,69 @@
+name: Claude review
+
+# An AI code review on every pull request. Advisory only: it comments, it never blocks merging.
+# Needs the ANTHROPIC_API_KEY repository secret. Pull requests from forks don't get secrets,
+# so they are skipped; a maintainer can review those (or push the branch to this repo).
+
+on:
+  pull_request:
+    types: [opened, synchronize, ready_for_review, reopened]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: claude-review-${{ github.event.pull_request.number }}
+  cancel-in-progress: true # a new push replaces the review of the previous one
+
+jobs:
+  review:
+    if: >-
+      github.event.pull_request.draft == false &&
+      github.event.pull_request.head.repo.full_name == github.repository &&
+      github.actor != 'dependabot[bot]'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: read
+      pull-requests: write
+      id-token: write
+    steps:
+      - name: Check that the API key is configured
+        id: key
+        env:
+          KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+        run: |
+          if [ -n "$KEY" ]; then echo "present=true" >> "$GITHUB_OUTPUT"; else
+            echo "::notice::Add the ANTHROPIC_API_KEY repository secret to turn on Claude reviews."
+          fi
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        if: steps.key.outputs.present == 'true'
+        with:
+          persist-credentials: false
+          fetch-depth: 1
+      - uses: anthropics/claude-code-action@925afb53776cf1a2b738c6bdbed37b4d4000ef13 # v1.0.262
+        if: steps.key.outputs.present == 'true'
+        with:
+          anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+          use_sticky_comment: true
+          prompt: |
+            REPO: ${{ github.repository }}
+            PR NUMBER: ${{ github.event.pull_request.number }}
+
+            Review this pull request for Venn, a scheduling poll app. Read CLAUDE.md first; it
+            describes the project's rules. CI already runs lint, formatting, unit and browser tests,
+            accessibility checks and CodeQL, so don't repeat what those catch.
+
+            Look for real problems, most important first:
+            1. Bugs: wrong results, broken edge cases (time zones and DST especially), race conditions.
+            2. Security: user text reaching HTML without esc(), secrets or tokens leaking, webhook or
+               fetch targets that could reach internal networks, missing organizer/edit-token checks.
+            3. Privacy: anything new sent to the server or third parties that the docs don't mention.
+            4. Phones and accessibility: layouts that break at 375px, missing labels or keyboard access.
+            5. Missing tests for new behaviour.
+
+            Keep it short and useful. Comment inline only on real issues, each with a concrete fix.
+            Skip style preferences and anything formatting tools handle. Mark anything optional as
+            "(optional)". If you find nothing important, say so in one line; that's a fine outcome.
+          claude_args: |
+            --allowedTools "mcp__github_inline_comment__create_inline_comment,Bash(gh pr comment:*),Bash(gh pr diff:*),Bash(gh pr view:*)"

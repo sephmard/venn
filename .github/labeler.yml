@@ -1,0 +1,18 @@
+app:
+  - changed-files:
+      - any-glob-to-any-file: ['public/**']
+server:
+  - changed-files:
+      - any-glob-to-any-file: ['src/**', 'server.js', 'wrangler.toml']
+docs:
+  - changed-files:
+      - any-glob-to-any-file: ['**/*.md', 'docs/**', 'site-src/**']
+tests:
+  - changed-files:
+      - any-glob-to-any-file: ['test/**', 'e2e/**']
+ci:
+  - changed-files:
+      - any-glob-to-any-file: ['.github/**']
+dependencies:
+  - changed-files:
+      - any-glob-to-any-file: ['package.json', 'package-lock.json']
