@@ -80,28 +80,22 @@
           <p class="kicker">Free group polls · No sign-up</p>
           <h1>Find the day that works for <em>everyone.</em></h1>
           <p class="lede">Dinners, book clubs, game nights and trips. Share one link and see the day everyone can make.</p>
-          <form class="start-card" action="/new/pick" method="get">
-            <label for="start-title">What are you planning?</label>
-            <input
-              id="start-title"
-              name="title"
-              type="text"
-              maxlength="120"
-              placeholder="Dinner at Finn's"
-              autocomplete="off"
-              enterkeyhint="go"
-            />
-            <div class="start-choices">
-              <button type="submit" class="choice-btn choice-primary" formaction="/new/pick">
-                <span class="choice-title">Vote on a few dates</span>
-                <span class="choice-sub">For dinners, book clubs and parties</span>
-              </button>
-              <button type="submit" class="choice-btn" formaction="/new/free">
-                <span class="choice-title">Ask when people are free</span>
-                <span class="choice-sub">For trips, or when any day works</span>
-              </button>
-            </div>
-          </form>
+          <div class="start-cards">
+            <a class="poll-card" href="/new/pick">
+              <span class="poll-art art-dates" aria-hidden="true"><i>Fri</i><i class="on">Sat</i><i>Sun</i></span>
+              <span class="poll-title">Vote on a few dates</span>
+              <span class="poll-text">Suggest some dates or times. Everyone says yes, if needed or no.</span>
+              <span class="poll-fit">For dinners, book clubs and parties</span>
+              <span class="poll-go" aria-hidden="true">Start <span>→</span></span>
+            </a>
+            <a class="poll-card" href="/new/free">
+              <span class="poll-art art-free" aria-hidden="true"><i></i><i></i><i></i></span>
+              <span class="poll-title">Ask when people are free</span>
+              <span class="poll-text">Pick a range of days. Everyone marks when they're free; Venn finds the overlap.</span>
+              <span class="poll-fit">For trips, or when any day works</span>
+              <span class="poll-go" aria-hidden="true">Start <span>→</span></span>
+            </a>
+          </div>
           <ul class="trust" aria-label="Venn is">
             <li>No sign-up</li>
             <li>No ads</li>
