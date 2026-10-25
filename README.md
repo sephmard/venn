@@ -5,9 +5,9 @@
 <h1 align="center">Venn</h1>
 
 <p align="center">
-  <strong>Find a time that works for everyone.</strong><br>
-  Free scheduling polls. Propose a few times, share one link, and see where everyone's availability overlaps.<br>
-  No accounts. No ads. No tracking.
+  <strong>Get the group together.</strong><br>
+  Free polls for dinners, book clubs, game nights and trips. Suggest a few dates or ask when people are free, share one link, and see which day works for everyone.<br>
+  No ads. No tracking.
 </p>
 
 <p align="center">
@@ -27,7 +27,7 @@
 </p>
 
 <p align="center">
-  <img src="docs/demo.gif" width="880" alt="Creating a poll, answering it, and picking the time everyone can make">
+  <img src="docs/demo.gif" width="880" alt="Creating a dinner poll, answering it, and picking the evening everyone can make">
 </p>
 
 ## Why Venn
@@ -35,8 +35,9 @@
 Everyone's availability is a circle. Venn finds where they overlap.
 
 - **Free, with no accounts.** Nobody signs up, not even the organizer. There are no ads and no trackers.
-- **Fast to set up.** Pick dates on a calendar, add a few times, and copy them to every day with one click.
-- **Easy to answer, especially on a phone.** Big _Yes_ / _If needed_ / _No_ buttons for each time, with live tallies.
+- **Two ways to plan.** Vote on a few dates you suggest, or ask when people are free and let Venn find the overlap, even three days in a row for a trip.
+- **Fast to set up.** Pick a kind of plan (dinner, drinks, book club, trip…), tap dates on a calendar, and tap the times. No dropdowns.
+- **Easy to answer, especially on a phone.** Big _Yes_ / _If needed_ / _No_ buttons for each option, with who's in shown as faces.
 - **Time zones handled.** Everyone sees times in their own time zone automatically.
 - **Picks the best time for you.** Options are ranked by how many people can make it, then by how many gave a firm yes.
 - **Check your calendar.** Fill in your answers from Google Calendar, Outlook or a calendar file. Only busy/free times are read, in your browser, and nothing is stored on the server.
@@ -48,13 +49,13 @@ Everyone's availability is a circle. Venn finds where they overlap.
 
 ## A quick tour
 
-### 1. Propose some times
+### 1. Suggest some dates
 
-Pick the days, add the times you'd like to suggest, and share the link.
+Choose the kind of plan, tap the dates, tap the times, and share the link. Or ask when people are free, and they mark the days (or hours) that work.
 
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="docs/screenshots/create-dark.png">
-  <img src="docs/screenshots/create-light.png" alt="Creating a poll: picking dates on a calendar and adding times to propose">
+  <img src="docs/screenshots/create-light.png" alt="Creating a dinner poll: picking dates on a calendar and choosing 7:00 and 7:30 PM">
 </picture>
 
 ### 2. Everyone answers, on any device
@@ -68,21 +69,21 @@ People enter their name and tap what works. No app, no account.
   </picture>
 </p>
 
-### 3. See the overlap and pick a time
+### 3. See the overlap and pick
 
-**Best times** ranks every option. The **Everyone** table shows who said what, with the most popular time highlighted. The organizer picks one, and everyone can add it to their calendar.
+**Best options** ranks every option and shows who's in. **Everyone's answers** shows who said what. Anyone can check how it's going; the organizer picks one, and everyone can add it to their calendar.
 
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="docs/screenshots/results-dark.png">
-  <img src="docs/screenshots/results-light.png" alt="Poll results: best times ranked, and a table of everyone's answers">
+  <img src="docs/screenshots/results-light.png" alt="A dinner poll: answers on the left; the best options and everyone's answers on the right">
 </picture>
 
 ### Two kinds of poll
 
-|                            | How it works                                                                                             | Best for                                            |
-| -------------------------- | -------------------------------------------------------------------------------------------------------- | --------------------------------------------------- |
-| **Propose specific times** | You suggest exact times. People answer each one with _Yes_, _If needed_ or _No_.                         | Meetings where you already have a few slots in mind |
-| **Open time range**        | You pick the days and an hours window. People click and drag to paint when they're free, like a heatmap. | Wide-open planning, when you're not sure what works |
+|                              | How it works                                                                                                                                 | Good for                          |
+| ---------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------- |
+| **Vote on a few dates**      | You suggest dates, with times, all day, or several days long. People answer each one with _Yes_, _If needed_ or _No_.                        | Dinners, book clubs, parties      |
+| **Ask when people are free** | You pick a range of days. People mark the days they're free (Venn can look for several in a row), or paint the hours they're free on a grid. | Trips, or when any day could work |
 
 ## Quick start
 
@@ -158,7 +159,10 @@ No framework and no build step: plain HTML, CSS and JavaScript, a small JSON API
 public/            the whole front end, served as-is
   index.html       landing page (/); privacy.html and 404.html sit beside it
   app.html         app shell, served for /new and /e/:id
-  app.js           UI: create page, voting, grid painting, results
+  app.js           router
+  create.js        the create pages: "vote on a few dates" and "ask when people are free"
+  event.js         the poll page: answering, the group's results, organizer tools
+  ui.js            shared UI helpers: formatting, avatars, storage, API calls
   core.js          shared logic: time zones, ranking, calendar import/export
   calendars.js     Google / Outlook free-busy, in the browser
   oauth-callback.* where calendar sign-in popups land
@@ -184,20 +188,20 @@ CLAUDE.md          project rules for code review
 <details>
 <summary><strong>API</strong></summary>
 
-| Method           | Path                                 | Notes                                                                                                           |
-| ---------------- | ------------------------------------ | --------------------------------------------------------------------------------------------------------------- |
-| `POST`           | `/api/events`                        | Create a poll → `{ id, adminToken }`. Specific times: `{ mode: "options", options: [{ start, end }] }` (UTC ms) |
-| `GET`            | `/api/events/:id`                    | Poll and responses. Sending the `x-admin-token` header sets `isAdmin`.                                          |
-| `DELETE`         | `/api/events/:id`                    | Organizer only                                                                                                  |
-| `POST`           | `/api/events/:id/participants`       | `{ name, availability }` → `{ id, editToken }`                                                                  |
-| `PUT` / `DELETE` | `/api/events/:id/participants/:pid`  | Needs `x-edit-token`. The organizer can also delete.                                                            |
-| `POST`           | `/api/events/:id/finalize`           | `{ start }`, or `{ start: null }` to clear. Organizer only.                                                     |
-| `GET`            | `/api/events/:id/event.ics`          | Calendar file for the picked time                                                                               |
-| `GET` / `PUT`    | `/api/events/:id/notifications`      | Email and webhook settings. Organizer only. See [docs/NOTIFICATIONS.md](docs/NOTIFICATIONS.md).                 |
-| `POST`           | `/api/events/:id/notifications/test` | Send a test webhook. Organizer only.                                                                            |
-| `GET`            | `/api/config`                        | Which optional features (email, calendars, AI) this server has turned on                                        |
-| `POST`           | `/api/ai/draft-poll`                 | `{ prompt, timezone }` → a draft poll. See [docs/AI.md](docs/AI.md).                                            |
-| `POST`           | `/api/events/:id/ai/:kind`           | `summary` and `message` (organizer only), `answer` (anyone)                                                     |
+| Method           | Path                                 | Notes                                                                                                                                                                          |
+| ---------------- | ------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `POST`           | `/api/events`                        | Create a poll → `{ id, adminToken }`. Specific times: `{ mode: "options", options: [{ start, end }] }` (UTC ms). Whole days: `slotMinutes: 1440`. Optional `location`, `emoji` |
+| `GET`            | `/api/events/:id`                    | Poll and responses. Sending the `x-admin-token` header sets `isAdmin`.                                                                                                         |
+| `DELETE`         | `/api/events/:id`                    | Organizer only                                                                                                                                                                 |
+| `POST`           | `/api/events/:id/participants`       | `{ name, availability }` → `{ id, editToken }`                                                                                                                                 |
+| `PUT` / `DELETE` | `/api/events/:id/participants/:pid`  | Needs `x-edit-token`. The organizer can also delete.                                                                                                                           |
+| `POST`           | `/api/events/:id/finalize`           | `{ start }`, or `{ start: null }` to clear. Organizer only.                                                                                                                    |
+| `GET`            | `/api/events/:id/event.ics`          | Calendar file for the picked time                                                                                                                                              |
+| `GET` / `PUT`    | `/api/events/:id/notifications`      | Email and webhook settings. Organizer only. See [docs/NOTIFICATIONS.md](docs/NOTIFICATIONS.md).                                                                                |
+| `POST`           | `/api/events/:id/notifications/test` | Send a test webhook. Organizer only.                                                                                                                                           |
+| `GET`            | `/api/config`                        | Which optional features (email, calendars, AI) this server has turned on                                                                                                       |
+| `POST`           | `/api/ai/draft-poll`                 | `{ prompt, timezone }` → a draft poll. See [docs/AI.md](docs/AI.md).                                                                                                           |
+| `POST`           | `/api/events/:id/ai/:kind`           | `summary` and `message` (organizer only), `answer` (anyone)                                                                                                                    |
 
 `availability` maps each option's start time (UTC ms) to `2` (yes) or `1` (if needed). Anything missing means no.
 

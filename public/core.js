@@ -8,6 +8,7 @@ export const LIMITS = {
   title: 120,
   description: 1000,
   name: 80,
+  location: 200,
   dates: 62,
   slots: 2500,
   participants: 300,
@@ -16,6 +17,9 @@ export const LIMITS = {
 
 const MINUTE = 60_000;
 const DAY = 86_400_000;
+const DAY_MINUTES = 1440;
+// Longest trip or multi-day option, in days.
+export const MAX_SPAN_DAYS = 14;
 
 // ---------- time zones ----------
 
@@ -134,11 +138,16 @@ export function normalizeEventInput(input) {
   const title = cleanText(input.title, LIMITS.title, 'Title', true);
   const description = cleanText(input.description, LIMITS.description, 'Description');
   const organizer = cleanText(input.organizer, LIMITS.name, 'Organizer name');
+  const location = cleanText(input.location, LIMITS.location, 'Location');
+  const emoji = cleanEmoji(input.emoji);
 
   const timezone = input.timezone;
   if (!isValidTimeZone(timezone)) throw new ValidationError('Unknown time zone');
 
-  if (input.mode === 'options') return normalizeOptionsEvent(input, { title, description, organizer, timezone });
+  const base = { title, description, organizer, timezone };
+  if (location) base.location = location;
+  if (emoji) base.emoji = emoji;
+  if (input.mode === 'options') return normalizeOptionsEvent(input, base);
 
   if (!Array.isArray(input.dates) || input.dates.length === 0) throw new ValidationError('Pick at least one date');
   const dates = [...new Set(input.dates)].sort();
@@ -146,7 +155,8 @@ export function normalizeEventInput(input) {
   if (!dates.every((d) => typeof d === 'string' && isRealDate(d))) throw new ValidationError('Invalid date');
 
   const slotMinutes = Number(input.slotMinutes);
-  if (![15, 30, 60].includes(slotMinutes)) throw new ValidationError('Slot size must be 15, 30 or 60 minutes');
+  if (![15, 30, 60, DAY_MINUTES].includes(slotMinutes))
+    throw new ValidationError('Slot size must be 15, 30 or 60 minutes, or whole days');
 
   const startMinute = Number(input.startMinute);
   const endMinute = Number(input.endMinute);
@@ -164,9 +174,14 @@ export function normalizeEventInput(input) {
   const durationMinutes = Number(input.durationMinutes ?? slotMinutes);
   if (!Number.isInteger(durationMinutes) || durationMinutes < slotMinutes || durationMinutes % slotMinutes)
     throw new ValidationError('Meeting length must be a multiple of the slot size');
-  if (durationMinutes > endMinute - startMinute) throw new ValidationError('Meeting length is longer than the daily time window');
+  // Whole-day polls can look for several days in a row (a trip); others fit inside one day's window.
+  if (slotMinutes === DAY_MINUTES) {
+    if (durationMinutes > MAX_SPAN_DAYS * DAY_MINUTES)
+      throw new ValidationError(`Look for at most ${MAX_SPAN_DAYS} days in a row`);
+  } else if (durationMinutes > endMinute - startMinute)
+    throw new ValidationError('Meeting length is longer than the daily time window');
 
-  const ev = { title, description, organizer, timezone, dates, startMinute, endMinute, slotMinutes, durationMinutes };
+  const ev = { ...base, dates, startMinute, endMinute, slotMinutes, durationMinutes };
   if (buildSlots(ev).length > LIMITS.slots)
     throw new ValidationError('Too many time slots: pick fewer dates, a shorter window or a larger slot size');
   return ev;
@@ -193,8 +208,9 @@ function normalizeOptionsEvent(input, base) {
       end % MINUTE
     )
       throw new ValidationError('Invalid proposed time');
-    if (end <= start || end - start > DAY)
-      throw new ValidationError('Each proposed time must last between 1 minute and 24 hours');
+    // A few hours over the limit allows for daylight saving changes inside a multi-day option.
+    if (end <= start || end - start > MAX_SPAN_DAYS * DAY + 2 * 60 * MINUTE)
+      throw new ValidationError(`Each proposed time must last between 1 minute and ${MAX_SPAN_DAYS} days`);
     if (seen.has(start)) throw new ValidationError('Two proposed times start at the same moment');
     seen.add(start);
     options.push({ start, end });
@@ -204,11 +220,44 @@ function normalizeOptionsEvent(input, base) {
 }
 
 export const isOptionsPoll = (ev) => ev.mode === 'options';
+/** Polls where people mark whole days rather than times of day. */
+export const isDaysPoll = (ev) => !isOptionsPoll(ev) && ev.slotMinutes === DAY_MINUTES;
+
+// Optional emoji for the kind of plan (🍝, ✈️…). Up to a few emoji, nothing else.
+const EMOJI_RE = /^(?:\p{Extended_Pictographic}|\p{Emoji_Component}|\u200d|\ufe0f)+$/u;
+function cleanEmoji(v) {
+  if (v == null || v === '') return '';
+  if (typeof v !== 'string' || v.length > 16 || !EMOJI_RE.test(v) || /[0-9#*]/.test(v))
+    throw new ValidationError('Invalid emoji');
+  return v;
+}
+
+/** Midnight that starts the day `n` days after the one containing `ms`, in `tz`. */
+function midnightAfter(ms, n, tz) {
+  return zonedToUtc(addDays(utcToZoned(ms, tz).date, n), 0, tz);
+}
+
+/** End of the slot that starts at `s`. Whole-day slots end at the next midnight, whatever DST does. */
+export function slotEnd(ev, s) {
+  return isDaysPoll(ev) ? midnightAfter(s, 1, ev.timezone) : s + ev.slotMinutes * MINUTE;
+}
 
 /** End instant of the meeting that starts at `start`. */
 export function meetingEnd(ev, start) {
   if (isOptionsPoll(ev)) return ev.options.find((o) => o.start === start)?.end ?? start + ev.durationMinutes * MINUTE;
+  if (isDaysPoll(ev)) return midnightAfter(start, ev.durationMinutes / DAY_MINUTES, ev.timezone);
   return start + ev.durationMinutes * MINUTE;
+}
+
+/**
+ * If `start`–`end` covers whole days in `tz` (midnight to midnight), the first day and the
+ * day after the last, as YYYY-MM-DD. Calendars show these as all-day events.
+ */
+export function allDaySpan(start, end, tz) {
+  const a = utcToZoned(start, tz),
+    b = utcToZoned(end, tz);
+  if (a.minutes || b.minutes || b.date <= a.date) return null;
+  return { startDate: a.date, endDate: b.date };
 }
 
 /** All slot start instants (UTC ms), sorted, for an event. For option polls, one per option. */
@@ -252,10 +301,13 @@ export function rankTimes(ev, slots, participants, limit = 5) {
   if (isOptionsPoll(ev)) return rankOptions(ev, participants, limit);
   const slotMs = ev.slotMinutes * MINUTE;
   const k = Math.max(1, Math.round(ev.durationMinutes / ev.slotMinutes));
+  const days = isDaysPoll(ev);
   const results = [];
   for (let i = 0; i + k <= slots.length; i++) {
     const start = slots[i];
-    if (slots[i + k - 1] !== start + (k - 1) * slotMs) continue; // window must be contiguous
+    // The window must be contiguous: back-to-back slots, or consecutive days for whole-day polls.
+    const last = slots[i + k - 1];
+    if (days ? last !== midnightAfter(start, k - 1, ev.timezone) : last !== start + (k - 1) * slotMs) continue;
     const yes = [],
       ifNeeded = [],
       no = [];
@@ -265,7 +317,7 @@ export function rankTimes(ev, slots, participants, limit = 5) {
       (worst === YES ? yes : worst === IF_NEEDED ? ifNeeded : no).push(p.name);
     }
     if (yes.length + ifNeeded.length === 0) continue;
-    results.push({ start, end: start + k * slotMs, yes, ifNeeded, no });
+    results.push({ start, end: days ? midnightAfter(start, k, ev.timezone) : start + k * slotMs, yes, ifNeeded, no });
   }
   return sortRanked(results).slice(0, limit);
 }
@@ -309,7 +361,10 @@ function icsEscape(s) {
     .replace(/[,;]/g, (c) => '\\' + c);
 }
 
-export function buildIcs({ id, title, description, start, end, url }) {
+const icsDate = (d) => d.replace(/-/g, '');
+
+/** Pass `allDay` ({startDate, endDate} from allDaySpan) to make an all-day event. */
+export function buildIcs({ id, title, description, start, end, url, allDay, location }) {
   const lines = [
     'BEGIN:VCALENDAR',
     'VERSION:2.0',
@@ -319,36 +374,41 @@ export function buildIcs({ id, title, description, start, end, url }) {
     'BEGIN:VEVENT',
     `UID:${id}-${start}@venn`,
     `DTSTAMP:${icsStamp(Date.now())}`,
-    `DTSTART:${icsStamp(start)}`,
-    `DTEND:${icsStamp(end)}`,
+    ...(allDay
+      ? [`DTSTART;VALUE=DATE:${icsDate(allDay.startDate)}`, `DTEND;VALUE=DATE:${icsDate(allDay.endDate)}`]
+      : [`DTSTART:${icsStamp(start)}`, `DTEND:${icsStamp(end)}`]),
     `SUMMARY:${icsEscape(title)}`,
   ];
   const desc = [description, url].filter(Boolean).join('\n\n');
   if (desc) lines.push(`DESCRIPTION:${icsEscape(desc)}`);
+  if (location) lines.push(`LOCATION:${icsEscape(location)}`);
   if (url) lines.push(`URL:${url}`);
   lines.push('END:VEVENT', 'END:VCALENDAR');
   return lines.join('\r\n') + '\r\n';
 }
 
-export function googleCalendarUrl({ title, description, start, end }) {
+export function googleCalendarUrl({ title, description, start, end, allDay, location }) {
   const q = new URLSearchParams({
     action: 'TEMPLATE',
     text: title,
-    dates: `${icsStamp(start)}/${icsStamp(end)}`,
+    dates: allDay ? `${icsDate(allDay.startDate)}/${icsDate(allDay.endDate)}` : `${icsStamp(start)}/${icsStamp(end)}`,
     details: description || '',
   });
+  if (location) q.set('location', location);
   return `https://calendar.google.com/calendar/render?${q}`;
 }
 
-export function outlookCalendarUrl({ title, description, start, end }) {
+export function outlookCalendarUrl({ title, description, start, end, allDay, location }) {
   const q = new URLSearchParams({
     path: '/calendar/action/compose',
     rru: 'addevent',
     subject: title,
     body: description || '',
-    startdt: new Date(start).toISOString(),
-    enddt: new Date(end).toISOString(),
+    startdt: allDay ? allDay.startDate : new Date(start).toISOString(),
+    enddt: allDay ? allDay.endDate : new Date(end).toISOString(),
   });
+  if (allDay) q.set('allday', 'true');
+  if (location) q.set('location', location);
   return `https://outlook.live.com/calendar/0/deeplink/compose?${q}`;
 }
 
@@ -516,7 +576,7 @@ function expandRrule(start, r, rangeEnd) {
 /** Which windows of an event (grid slots or proposed options) as [{start, end}]. */
 export function eventWindows(ev) {
   if (isOptionsPoll(ev)) return ev.options;
-  return buildSlots(ev).map((s) => ({ start: s, end: s + ev.slotMinutes * MINUTE }));
+  return buildSlots(ev).map((s) => ({ start: s, end: slotEnd(ev, s) }));
 }
 
 /**
