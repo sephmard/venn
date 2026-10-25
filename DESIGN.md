@@ -94,7 +94,9 @@ The app (`public/styles.css`, for `/new` and `/e/:id`) uses the same colors and 
 - **Type:** Instrument Serif only for the page title, the best option and the picked date. Everything else is the system sans.
 - **People** appear as round avatars with initials, in a color from their name. Overlapping avatar stacks echo the Venn.
 - **Quick picks** are pills that fill with green when pressed: kinds of plan, lengths, parts of the day. No dropdowns where a few choices will do.
-- **The calendar** has three views, the same for organizers and guests: Week (the default on desktop) and Day (the default on phones) are 30-minute rows to draw options on, or to see options next to your busy times; Month picks a day, then Morning (9–12), Afternoon (12–5), Evening (6–10) or an exact time. Overlapping options sit side by side.
+- **Organizers build options in two steps**: pick the days on a month, then the start times (every 30 minutes, grouped into morning, afternoon and evening), then press **Add**. Different times on different days are added one batch at a time, or with **+ Time** on a day. "Options in your poll" always lists exactly what guests will see. Trips are blocks of days on the month, each with its own length. A week (desktop) or day (phones) of 30-minute rows is the other way in: **Draw on a week**.
+- **Answers use colour and words.** Yes is green, if needed amber, and an explicit no is red, so it never looks like an unanswered row. Guests see a summary of what they picked, and need a name and at least one answer (or "None of these work") to save.
+- **Guests see options on a calendar too**: Week on desktop, Day on phones, with overlapping options side by side.
 - **Emoji** mark the kind of plan (🍝 dinner, ✈️ trip…) in the app only; the landing page stays without.
 - **Phones first:** 44px tap targets, 16px inputs, sticky Save and Create bars, and two tabs ("Your answer", "The group") that become two columns on wide screens.
 - **Motion:** one small celebration when the date is picked. Nothing moves under `prefers-reduced-motion`.

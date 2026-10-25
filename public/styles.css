@@ -25,6 +25,8 @@
   --maybe-soft: #faefd8;
   --no-bg: #55585c;
   --no-ink: #ffffff;
+  --no: #b42318;
+  --no-soft: #fbe6e2;
   --danger: #b42318;
   --cell-empty: #ece8df;
   --heat: 11, 122, 92;
@@ -56,6 +58,8 @@
     --maybe-soft: #3a2f16;
     --no-bg: #c9c6bf;
     --no-ink: #0f1112;
+    --no: #ff8577;
+    --no-soft: #3a1f1c;
     --danger: #ff8577;
     --cell-empty: #23272a;
     --heat: 47, 196, 151;
@@ -696,16 +700,6 @@ details.tz-line[open] summary::before {
 .date-times h3 {
   margin-bottom: 8px;
 }
-.other-time {
-  display: inline-flex;
-  gap: 6px;
-  align-items: center;
-}
-.other-time input {
-  width: 132px;
-  min-height: 44px;
-  padding: 8px 10px;
-}
 .ai-row {
   display: flex;
   gap: 8px;
@@ -976,6 +970,11 @@ details.tz-line[open] summary::before {
   background: var(--maybe-soft);
   border-color: var(--maybe);
 }
+/* An explicit "no" is red, so it never looks like a row that hasn't been answered yet. */
+.row[data-v='0'] {
+  background: var(--no-soft);
+  border-color: var(--no);
+}
 .row.final {
   outline: 2.5px solid var(--final);
 }
@@ -1045,9 +1044,9 @@ details.tz-line[open] summary::before {
   color: var(--maybe-ink);
 }
 .vote .v-no[aria-checked='true'] {
-  background: var(--no-bg);
-  border-color: var(--no-bg);
-  color: var(--no-ink);
+  background: var(--no);
+  border-color: var(--no);
+  color: var(--surface);
 }
 @container (max-width: 420px) {
   .vote [aria-hidden='true'] {
@@ -1283,7 +1282,8 @@ ol.best .when {
   color: var(--maybe-ink);
 }
 .m-no {
-  background: var(--cell-empty);
+  background: var(--no-soft);
+  color: var(--no);
 }
 .matrix thead th.top,
 .matrix tfoot td.top {
@@ -1344,6 +1344,21 @@ ol.best .when {
   text-align: center;
   line-height: 1.2;
   padding-bottom: 4px;
+}
+.grid .day-fill {
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  font-size: 0.75rem;
+  min-height: 44px;
+  border-radius: 8px;
+  cursor: pointer;
+  text-decoration: underline dotted;
+  text-underline-offset: 3px;
+}
+.grid .day-fill:hover {
+  background: var(--surface-2);
 }
 .grid .day-label b {
   display: block;
@@ -1817,9 +1832,9 @@ details.organizer summary b {
   color: var(--maybe-ink);
 }
 .tg-block.ans-0 {
-  background: var(--surface-2);
-  border-color: var(--no-bg);
-  color: var(--muted);
+  background: var(--no-soft);
+  border-color: var(--no);
+  color: var(--no);
   text-decoration: line-through;
 }
 .cal-day.marked small {
@@ -1837,23 +1852,6 @@ details.organizer summary b {
   display: grid;
   place-content: center;
 }
-.day-panel {
-  margin-top: 14px;
-  padding: 14px;
-  border-radius: var(--radius);
-  background: var(--surface-2);
-}
-.day-panel h3 {
-  margin-bottom: 10px;
-}
-.day-panel .chips,
-.day-panel .other-time {
-  margin-top: 10px;
-}
-.day-panel .other-time label {
-  margin: 0;
-  font-weight: 600;
-}
 .pill.part small {
   font-weight: 500;
 }
@@ -1863,8 +1861,7 @@ details.organizer summary b {
 .opt-list h3 {
   margin-bottom: 8px;
 }
-.opt-list .chip,
-.day-panel .chip {
+.opt-list .chip {
   padding: 4px 4px 4px 12px;
 }
 @media (max-width: 520px) {
@@ -1966,4 +1963,231 @@ details.organizer summary b {
 }
 .heat-btn.final {
   outline: 2.5px solid var(--final);
+}
+
+/* ---------- organizer: days, then start times, then the options in the poll ---------- */
+.pick-mode {
+  margin-bottom: 12px;
+}
+.composer {
+  display: grid;
+  gap: 20px;
+}
+.step h3 {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 6px;
+}
+.step-n {
+  display: inline-grid;
+  place-items: center;
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  background: var(--accent);
+  color: var(--accent-ink);
+  font-size: 0.85rem;
+}
+.time-groups {
+  margin: 8px 0 12px;
+}
+.pills.times .pill {
+  min-width: 84px;
+  justify-content: center;
+}
+.composer-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 12px 14px;
+  border-radius: var(--radius);
+  background: var(--surface-2);
+}
+.cal-day.in-trip {
+  background: var(--accent-soft);
+  border-color: var(--accent-soft);
+}
+.poll-preview .preview-lede {
+  margin-bottom: 10px;
+}
+.od-list {
+  list-style: none;
+  margin: 0 0 4px;
+  padding: 0;
+  display: grid;
+  gap: 8px;
+}
+.od-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 12px;
+  padding: 10px 12px;
+  border-radius: var(--radius);
+  background: var(--surface-2);
+}
+.od-row .chip {
+  background: var(--surface);
+}
+.od-date {
+  font-weight: 750;
+  min-width: 112px;
+}
+.od-add {
+  margin-left: auto;
+}
+.od-len {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  margin-left: auto;
+  font-weight: 600;
+}
+
+/* ---------- "ask when people are free": hours without dropdowns ---------- */
+.field-h {
+  font-size: 1rem;
+  margin: 4px 0 0;
+}
+.pill small {
+  font-weight: 500;
+}
+.time-steps {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px 24px;
+}
+.time-step {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+.time-step .ts-label {
+  font-weight: 650;
+  min-width: 44px;
+}
+.time-step output {
+  min-width: 84px;
+  text-align: center;
+  font-weight: 700;
+}
+.guest-preview {
+  margin: 16px 0 0;
+  padding: 12px 14px;
+  border-radius: var(--radius);
+  background: var(--accent-soft);
+}
+
+/* ---------- guests: what I've picked, and calendar coming soon ---------- */
+.my-picks {
+  margin-top: 14px;
+  padding: 12px 14px;
+  border-radius: var(--radius);
+  border: 1.5px solid var(--border);
+}
+.my-picks p {
+  margin: 0 0 8px;
+}
+.my-picks p:last-child {
+  margin: 0;
+}
+.pill.soon:disabled {
+  opacity: 1;
+  color: var(--muted);
+  cursor: default;
+}
+.badge-soon {
+  font-size: 0.75rem;
+  font-weight: 700;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: var(--surface-2);
+  color: var(--muted);
+}
+/* Not ready to save yet (no name, or nothing picked): an outline, so it reads as not done. */
+#save[data-ready='false'] {
+  background: var(--surface);
+  color: var(--accent);
+}
+.all-day {
+  min-height: 32px;
+  font-size: 0.9rem;
+}
+.best-hero .names,
+.best .names {
+  margin: 6px 0 0;
+  font-weight: 600;
+}
+.best .names {
+  font-size: 0.9rem;
+}
+.grow-card {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+.grow-card p {
+  margin: 0;
+  flex: 1 1 240px;
+}
+
+/* ---------- notifications: email first, then custom ---------- */
+.notify-way {
+  border: 1.5px solid var(--border);
+  border-radius: var(--radius);
+  padding: 14px;
+  margin: 0;
+  min-width: 0;
+}
+.notify-way legend,
+.notify-way > summary {
+  font-weight: 750;
+  padding: 0 4px;
+}
+.notify-way > summary {
+  cursor: pointer;
+  min-height: 32px;
+}
+.notify-way.custom[open] > summary {
+  margin-bottom: 12px;
+}
+.dev {
+  margin-top: 12px;
+}
+.dev summary {
+  cursor: pointer;
+  font-weight: 650;
+  color: var(--accent);
+  min-height: 32px;
+}
+pre.code {
+  overflow-x: auto;
+  max-width: 100%;
+  padding: 12px;
+  border-radius: 10px;
+  background: var(--surface-2);
+  font-size: 0.8rem;
+  line-height: 1.45;
+}
+
+/* ---------- top bar: start a new poll ---------- */
+.btn-new {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+.btn-new .short {
+  display: none;
+}
+@media (max-width: 520px) {
+  .btn-new .long {
+    display: none;
+  }
+  .btn-new .short {
+    display: inline;
+  }
 }

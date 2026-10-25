@@ -13,11 +13,12 @@ import {
   dayLabel,
   esc,
   getConfig,
+  lastEmail,
   lastName,
   lengthLabel,
   localTz,
-  minutesLabel,
   plural,
+  rememberEmail,
   rememberName,
   shortRange,
   shortTime,
@@ -33,10 +34,11 @@ import {
 const OCCASIONS = [
   { emoji: '🍝', label: 'Dinner', length: 120, part: 'evening' },
   { emoji: '🍻', label: 'Drinks', length: 120, part: 'evening' },
+  { emoji: '☕', label: 'Coffee', length: 60, part: 'morning' },
   { emoji: '📚', label: 'Book club', length: 120, part: 'evening' },
   { emoji: '🥞', label: 'Brunch', length: 120, part: 'morning' },
   { emoji: '🎲', label: 'Game night', length: 180, part: 'evening' },
-  { emoji: '🥾', label: 'Hike', length: 240, part: 'morning' },
+  { emoji: '🥾', label: 'Hike', length: 'allday', part: 'morning' },
   { emoji: '🎉', label: 'Party', length: 240, part: 'evening' },
   { emoji: '✈️', label: 'Trip', length: 'days', days: 3 },
 ];
@@ -114,9 +116,11 @@ function youFields() {
         <input id="organizer" type="text" maxlength="80" autocomplete="name" value="${esc(lastName())}" placeholder="So people know who's asking">
       </div>
       <div id="notify-field" hidden>
-        <label for="notify">Email me when people answer <span class="muted">(optional)</span></label>
-        <input id="notify" type="email" inputmode="email" autocomplete="email" maxlength="254" placeholder="you@example.com">
+        <label for="notify">Email me when people answer <span class="muted">(recommended)</span></label>
+        <input id="notify" type="email" inputmode="email" autocomplete="email" maxlength="254" placeholder="you@example.com" value="${esc(lastEmail())}">
+        <p class="hint">We'll send one link to confirm it's you. Webhooks for Slack, Discord or your own app are under Notifications once the poll exists.</p>
       </div>
+      <p class="hint" id="notify-off" hidden>Email notifications aren't switched on for this Venn server yet. You can add a webhook from the poll's Notifications panel.</p>
       <details class="reveal">
         <summary>Time zone: <span id="tz-name">${esc(tzName(localTz))}</span></summary>
         <label for="tz">Time zone for the times you propose</label>
@@ -162,6 +166,7 @@ async function submit(body, occasion) {
   const notifyEmail = $('#notify-field').hidden ? '' : $('#notify').value.trim();
   if (notifyEmail) body.notifyEmail = notifyEmail;
   if (body.organizer) rememberName(body.organizer);
+  if (notifyEmail) rememberEmail(notifyEmail);
   $('#submit').disabled = true;
   try {
     const { id, adminToken } = await api('events', { method: 'POST', body });
@@ -177,7 +182,9 @@ async function submit(body, occasion) {
 
 function showConfig() {
   getConfig().then((c) => {
-    if ($('#notify-field')) $('#notify-field').hidden = !c.email;
+    if (!$('#notify-field')) return;
+    $('#notify-field').hidden = !c.email;
+    $('#notify-off').hidden = !!c.email;
   });
 }
 
@@ -193,13 +200,20 @@ const createBar = (label) => `
 // ---------- "Vote on a few dates" ----------
 
 const LENGTHS = [
+  [30, '30 min'],
   [60, '1 hour'],
+  [90, '1½ hours'],
   [120, '2 hours'],
   [180, '3 hours'],
-  [240, '4 hours'],
   ['allday', 'All day'],
-  ['days', 'A few days'],
+  ['days', 'Several days'],
   ['custom', 'Other'],
+];
+// Start times on offer, every 30 minutes, in three groups.
+const TIME_GROUPS = [
+  { key: 'morning', label: 'Morning', from: 420, to: 720 },
+  { key: 'afternoon', label: 'Afternoon', from: 720, to: 1020 },
+  { key: 'evening', label: 'Evening', from: 1020, to: 1380 },
 ];
 const timeRange = shortRange;
 
@@ -209,9 +223,12 @@ export function renderPick() {
   const items = new Map();
   let length = 120;
   let spanDays = 3;
-  let openDay = null; // the day open in the month view
-  let view = null; // the week / day / month picker, while the length is in hours
-  let month = null; // the month picker, for all-day options and trips
+  let mode = 'compose'; // 'compose' (days, then times) or 'calendar' (draw on a week)
+  let timeGroup = 'evening';
+  const draftDays = new Set(); // days picked in the composer, not added yet
+  const draftTimes = new Set(); // start times picked in the composer
+  let view = null; // the week / day picker
+  let month = null; // the composer's month
 
   app.innerHTML = `
     <form id="create" class="create" novalidate>
@@ -232,7 +249,7 @@ export function renderPick() {
           ${LENGTHS.map(([v, l]) => `<button type="button" class="pill" data-length="${v}" aria-pressed="false">${l}</button>`).join('')}
         </div>
         <div class="inline-field" id="span-field" hidden>
-          <label for="span">How many days?</label>
+          <label for="span">How many days is the trip?</label>
           <div class="stepper">
             <button type="button" class="icon-btn" data-step="-1" aria-label="One day fewer">−</button>
             <input id="span" type="number" min="2" max="${MAX_SPAN_DAYS}" value="3" inputmode="numeric">
@@ -246,8 +263,15 @@ export function renderPick() {
       </section>
       <section class="sheet" aria-labelledby="when-h">
         <h2 id="when-h">When could it be?</h2>
+        <div class="seg pick-mode" role="radiogroup" aria-label="How to add options" id="pick-mode">
+          <button type="button" role="radio" data-pick-mode="compose">Days, then times</button>
+          <button type="button" role="radio" data-pick-mode="calendar">Draw on a week</button>
+        </div>
         <p class="hint" id="when-hint"></p>
         <div id="picker"></div>
+      </section>
+      <section class="sheet poll-preview" aria-labelledby="preview-h">
+        <h2 id="preview-h">Options in your poll</h2>
         <div id="options-list" class="opt-list" aria-live="polite"></div>
       </section>
       ${youFields()}
@@ -260,6 +284,7 @@ export function renderPick() {
       spanDays = o.days;
       $('#span').value = spanDays;
     }
+    if (o.part) timeGroup = o.part;
     setLength(o.length);
   });
 
@@ -267,6 +292,7 @@ export function renderPick() {
   const minutes = () => (length === 'custom' ? Math.max(15, Math.min(1440, +$('#custom').value || 60)) : length);
   const onDate = (d) => [...items.values()].filter((it) => it.date === d);
   const mark = (d) => (onDate(d).length ? String(onDate(d).length) : '');
+  const tripDays = (it) => it.days || spanDays;
 
   // ----- adding and removing options -----
   const key = (it) => `${it.date}|${it.from ?? 'day'}`;
@@ -282,11 +308,10 @@ export function renderPick() {
   };
 
   function changed() {
-    // The month view only needs its marks refreshed; re-creating it would jump back to this month.
-    if (view && view.view !== 'month') view.render();
+    view?.render();
     month?.render();
-    if (openDay) renderDayPanel();
     renderList();
+    renderComposerBar();
   }
 
   // ----- the pickers -----
@@ -295,12 +320,15 @@ export function renderPick() {
     month?.cleanup();
     view = month = null;
     const root = $('#picker');
-    if (timed()) {
+    $('#pick-mode').hidden = !timed();
+    for (const b of $$('[data-pick-mode]')) b.setAttribute('aria-checked', b.dataset.pickMode === mode);
+    if (timed() && mode === 'calendar') {
       $('#when-hint').textContent = isPhone()
-        ? 'Tap the calendar to add an option of the length above, and tap an option to remove it. Or use Month to pick a day, then morning, afternoon or evening.'
-        : 'Drag on the calendar to add an option, or click to add one of the length above. Click an option to remove it. Or use Month to pick a day, then morning, afternoon or evening.';
+        ? 'Tap the calendar to add an option of the length above. Tap an option to remove it.'
+        : 'Drag on the calendar to add an option, or click to add one of the length above. Click an option to remove it.';
       view = timeView(root, {
         label: 'Calendar',
+        views: ['week', 'day'],
         range: () => [420, 1440],
         tapLength: minutes,
         blocks: () =>
@@ -319,120 +347,203 @@ export function renderPick() {
         onCreate: (date, from, to) => toggle({ date, from, to }),
         onBlock: remove,
         marks: mark,
-        month: monthPanel,
       });
+    } else if (timed()) {
+      $('#when-hint').textContent = '';
+      root.innerHTML = `
+        <div class="composer">
+          <div class="step">
+            <h3><span class="step-n" aria-hidden="true">1</span> Pick the days</h3>
+            <p class="hint">Tap the days it could be. Drag across days with a mouse.</p>
+            <div id="draft-cal"></div>
+          </div>
+          <div class="step">
+            <h3><span class="step-n" aria-hidden="true">2</span> Pick the start times</h3>
+            <div class="seg time-groups" role="radiogroup" aria-label="Part of the day">
+              ${TIME_GROUPS.map((g) => `<button type="button" role="radio" data-tgroup="${g.key}">${g.label}</button>`).join('')}
+            </div>
+            <div class="pills times" id="times" role="group" aria-label="Start times"></div>
+          </div>
+          <div class="composer-bar">
+            <span class="hint" id="draft-sum" aria-live="polite"></span>
+            <button type="button" class="btn btn-primary" id="add-draft">Add options</button>
+          </div>
+        </div>`;
+      month = monthView($('#draft-cal'), {
+        selected: draftDays,
+        onChange: renderComposerBar,
+        marks: mark,
+        markLabel: 'options already',
+      });
+      renderTimes();
+      renderComposerBar();
     } else {
       $('#when-hint').textContent =
         length === 'days'
-          ? `Tap each day the trip could start. Each option lasts ${spanDays} days.`
+          ? 'Tap the first day of each trip you could take. The highlighted days show how long each one lasts.'
           : 'Tap each day you want to suggest.';
-      const picked = new Set([...items.values()].filter((it) => it.from == null).map((it) => it.date));
+      const starts = new Set([...items.values()].filter((it) => it.from == null).map((it) => it.date));
+      const covered = (d) =>
+        length === 'days' &&
+        [...items.values()].some((it) => it.from == null && d > it.date && d < addDays(it.date, tripDays(it)));
       month = monthView(root, {
-        selected: picked,
-        marks: () => '',
+        selected: starts,
+        dayClass: (d) => (covered(d) ? 'in-trip' : ''),
         onChange: () => {
-          for (const [k, it] of items) if (it.from == null && !picked.has(it.date)) items.delete(k);
-          for (const d of picked) if (!items.has(`${d}|day`)) items.set(`${d}|day`, { date: d, days: 0 });
+          for (const [k, it] of items) if (it.from == null && !starts.has(it.date)) items.delete(k);
+          for (const d of starts)
+            if (!items.has(`${d}|day`)) items.set(`${d}|day`, { date: d, days: length === 'days' ? spanDays : 1 });
+          month.render();
           renderList();
         },
       });
     }
   }
 
-  // Month view for options in hours: open a day, then pick parts of it or an exact time.
-  function monthPanel(el) {
-    el.innerHTML = '<div class="month-cal"></div><div class="day-panel" aria-live="polite"></div>';
-    const m = monthView($('.month-cal', el), {
-      onDay: (d) => {
-        openDay = d;
-        m.render();
-        renderDayPanel();
-      },
-      active: () => openDay,
-      marks: mark,
-      markLabel: 'options',
-    });
-    month = m;
-    if (openDay) m.show(openDay); // back to the month of the open day
-    renderDayPanel();
-    return () => {
-      m.cleanup();
-      if (month === m) month = null;
-    };
+  // ----- the composer: days × start times -----
+  function renderTimes() {
+    for (const b of $$('[data-tgroup]')) b.setAttribute('aria-checked', b.dataset.tgroup === timeGroup);
+    const g = TIME_GROUPS.find((x) => x.key === timeGroup);
+    let h = '';
+    for (let m = g.from; m < g.to; m += 30)
+      h += `<button type="button" class="pill time" data-time="${m}" aria-pressed="${draftTimes.has(m)}">${esc(shortTime(m))}</button>`;
+    $('#times').innerHTML = h;
   }
-
-  function renderDayPanel() {
-    const panel = $('.day-panel');
-    if (!panel) return;
-    if (!openDay) {
-      panel.innerHTML = '<p class="hint">Pick a day to add options to it.</p>';
-      return;
-    }
-    const has = (from, to) => items.get(`${openDay}|${from}`)?.to === to;
-    const parts = DAY_PARTS.map(
-      (p) =>
-        `<button type="button" class="pill part" data-part="${p.key}" aria-pressed="${has(p.start, p.end)}">${p.label} <small>${esc(timeRange(p.start, p.end))}</small></button>`,
-    ).join('');
-    const exact = onDate(openDay)
-      .filter((it) => it.from != null && !DAY_PARTS.some((p) => p.start === it.from && p.end === it.to))
-      .map(
-        (it) =>
-          `<span class="chip">${esc(timeRange(it.from, it.to))}<button type="button" data-remove="${esc(key(it))}" aria-label="Remove ${esc(timeRange(it.from, it.to))}">×</button></span>`,
-      )
-      .join('');
-    panel.innerHTML = `
-      <h3>${esc(dayLabel(openDay))}</h3>
-      <div class="pills" role="group" aria-label="Parts of ${esc(dayLabel(openDay))}">${parts}</div>
-      ${exact ? `<div class="chips">${exact}</div>` : ''}
-      <div class="other-time">
-        <label for="exact">Or an exact time</label>
-        <input type="time" id="exact" step="900">
-        <button type="button" class="pill pill-quiet" id="add-exact">Add</button>
-      </div>`;
+  function renderComposerBar() {
+    const btn = $('#add-draft');
+    if (!btn) return;
+    const n = draftDays.size * draftTimes.size;
+    const times = [...draftTimes].sort((a, b) => a - b).map(shortTime);
+    $('#draft-sum').textContent = !draftDays.size
+      ? 'Pick at least one day.'
+      : !draftTimes.size
+        ? `${plural(draftDays.size, 'day')} picked. Now pick a start time.`
+        : `${plural(draftDays.size, 'day')} × ${times.join(', ')}, ${lengthLabel(minutes())} each`;
+    btn.textContent = n ? `Add ${plural(n, 'option')}` : 'Add options';
+    btn.disabled = !n;
+  }
+  function addDraft() {
+    let added = 0;
+    for (const date of draftDays)
+      for (const from of draftTimes) {
+        const k = `${date}|${from}`;
+        if (!items.has(k)) added++;
+        items.set(k, { date, from, to: Math.min(from + minutes(), 1440) });
+      }
+    draftDays.clear();
+    changed();
+    toast(
+      added ? `Added ${plural(added, 'option')}. Pick more days to add other times.` : 'Those options are already in your poll',
+    );
   }
   $('#picker').addEventListener('click', (e) => {
-    const part = e.target.closest('[data-part]');
-    if (part) {
-      const p = DAY_PARTS.find((x) => x.key === part.dataset.part);
-      return toggle({ date: openDay, from: p.start, to: p.end });
+    const g = e.target.closest('[data-tgroup]');
+    if (g) {
+      timeGroup = g.dataset.tgroup;
+      return renderTimes();
     }
-    if (e.target.closest('#add-exact')) {
-      const v = $('#exact').value;
-      if (!v) return $('#exact').focus();
-      const [h, mm] = v.split(':').map(Number);
-      const from = h * 60 + mm;
-      items.set(`${openDay}|${from}`, { date: openDay, from, to: Math.min(from + minutes(), 1440) });
-      return changed();
+    const t = e.target.closest('[data-time]');
+    if (t) {
+      const m = +t.dataset.time;
+      if (draftTimes.has(m)) draftTimes.delete(m);
+      else draftTimes.add(m);
+      t.setAttribute('aria-pressed', draftTimes.has(m));
+      return renderComposerBar();
     }
-    const rm = e.target.closest('.day-panel [data-remove]');
-    if (rm) remove(rm.dataset.remove);
+    if (e.target.closest('#add-draft')) addDraft();
   });
 
-  // ----- the list of options, under the calendar -----
+  // ----- the options in the poll, by day -----
   const itemLabel = (it) =>
     it.from != null
-      ? `${dayLabel(it.date)}, ${timeRange(it.from, it.to)}`
+      ? timeRange(it.from, it.to)
       : length === 'days'
-        ? `${dayLabel(it.date)} – ${dayLabel(addDays(it.date, spanDays - 1))}`
-        : `${dayLabel(it.date)}, all day`;
+        ? `${dayLabel(it.date)} – ${dayLabel(addDays(it.date, tripDays(it) - 1))}`
+        : 'All day';
   const sorted = () =>
     [...items.entries()].sort(([, a], [, b]) => a.date.localeCompare(b.date) || (a.from ?? -1) - (b.from ?? -1));
   function renderList() {
     const list = sorted();
-    $('#options-list').innerHTML = list.length
-      ? `<h3>${plural(list.length, 'option')}</h3><div class="chips">${list
-          .map(
-            ([k, it]) =>
-              `<span class="chip">${esc(itemLabel(it))}<button type="button" data-remove="${esc(k)}" aria-label="Remove ${esc(itemLabel(it))}">×</button></span>`,
-          )
-          .join('')}</div>`
-      : '';
+    const box = $('#options-list');
     $('#summary').textContent = list.length ? `${plural(list.length, 'option')} to vote on` : '';
+    if (!list.length) {
+      box.innerHTML = `<p class="hint">Nothing yet. ${timed() ? 'Pick days and start times above, then press Add.' : 'Tap days on the calendar above.'} Everyone will say yes, if needed or no to each option you add.</p>`;
+      return;
+    }
+    const removeBtn = (k, label) => `<button type="button" data-remove="${esc(k)}" aria-label="Remove ${esc(label)}">×</button>`;
+    let rows;
+    if (length === 'days') {
+      rows = list
+        .map(
+          ([k, it]) => `<li class="od-row">
+            <span class="chip trip">${esc(itemLabel(it))}${removeBtn(k, itemLabel(it))}</span>
+            <span class="od-len">
+              <button type="button" class="icon-btn" data-trip="${esc(k)}" data-d="-1" aria-label="One day shorter, ${esc(itemLabel(it))}"${tripDays(it) <= 2 ? ' disabled' : ''}>−</button>
+              <span>${plural(tripDays(it), 'day')}</span>
+              <button type="button" class="icon-btn" data-trip="${esc(k)}" data-d="1" aria-label="One day longer, ${esc(itemLabel(it))}"${tripDays(it) >= MAX_SPAN_DAYS ? ' disabled' : ''}>+</button>
+            </span>
+          </li>`,
+        )
+        .join('');
+    } else {
+      const days = new Map();
+      for (const [k, it] of list) {
+        if (!days.has(it.date)) days.set(it.date, []);
+        days.get(it.date).push([k, it]);
+      }
+      rows = [...days]
+        .map(
+          ([d, its]) => `<li class="od-row">
+            <span class="od-date">${esc(dayLabel(d))}</span>
+            <span class="chips">${its
+              .map(
+                ([k, it]) => `<span class="chip">${esc(itemLabel(it))}${removeBtn(k, `${dayLabel(d)}, ${itemLabel(it)}`)}</span>`,
+              )
+              .join('')}</span>
+            ${timed() ? `<button type="button" class="pill pill-quiet od-add" data-add-to="${d}" aria-label="Add a time on ${esc(dayLabel(d))}">+ Time</button>` : ''}
+          </li>`,
+        )
+        .join('');
+    }
+    box.innerHTML = `<p class="preview-lede">Guests will choose from <b>${plural(list.length, 'option')}</b>.</p>
+      <ul class="od-list">${rows}</ul>
+      <button type="button" class="link-btn" id="clear-options">Remove all</button>`;
   }
   $('#options-list').addEventListener('click', (e) => {
     const rm = e.target.closest('[data-remove]');
     if (rm) remove(rm.dataset.remove);
-    if (!timed()) mountPicker();
+    const trip = e.target.closest('[data-trip]');
+    if (trip) {
+      const it = items.get(trip.dataset.trip);
+      it.days = Math.max(2, Math.min(MAX_SPAN_DAYS, tripDays(it) + +trip.dataset.d));
+      changed();
+      $(`[data-trip="${trip.dataset.trip}"][data-d="${trip.dataset.d}"]`)?.focus();
+    }
+    const add = e.target.closest('[data-add-to]');
+    if (add) {
+      // Another time on this day: open the composer with just this day picked.
+      if (mode !== 'compose') setMode('compose');
+      draftDays.clear();
+      draftDays.add(add.dataset.addTo);
+      month?.show(add.dataset.addTo);
+      renderComposerBar();
+      $('#times')?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      $('#times .pill')?.focus({ preventScroll: true });
+    }
+    if (e.target.closest('#clear-options') && confirm('Remove all the options?')) {
+      items.clear();
+      changed();
+    }
+    if (!timed() && (rm || e.target.closest('#clear-options'))) mountPicker();
+  });
+
+  function setMode(m) {
+    mode = m;
+    mountPicker();
+  }
+  $('#pick-mode').addEventListener('click', (e) => {
+    const b = e.target.closest('[data-pick-mode]');
+    if (b) setMode(b.dataset.pickMode);
   });
 
   // ----- length -----
@@ -447,7 +558,12 @@ export function renderPick() {
       items.clear();
       toast('Options cleared for the new length');
     }
-    if (!view || wasTimed !== timed() || !timed()) mountPicker();
+    // A new length applies to the options already added.
+    if (timed()) for (const it of items.values()) it.to = Math.min(it.from + minutes(), 1440);
+    else for (const it of items.values()) it.days = v === 'days' ? spanDays : 1;
+    // Keep the composer (and the month it shows) when only the number of hours changes.
+    if (wasTimed !== timed() || !timed() || (!view && !month)) mountPicker();
+    else changed();
     renderList();
   }
   $('#create').addEventListener('click', (e) => {
@@ -456,14 +572,20 @@ export function renderPick() {
     const st = e.target.closest('#span-field [data-step]');
     if (st) {
       $('#span').value = Math.max(2, Math.min(MAX_SPAN_DAYS, (+$('#span').value || 3) + +st.dataset.step));
-      spanDays = +$('#span').value;
-      mountPicker();
-      renderList();
+      setSpan();
     }
   });
-  $('#span').oninput = () => {
+  // The trip length applies to every trip, unless one was changed on its own.
+  function setSpan() {
     spanDays = Math.max(2, Math.min(MAX_SPAN_DAYS, +$('#span').value || 2));
+    for (const it of items.values()) if (it.from == null) it.days = spanDays;
+    month?.render();
     renderList();
+  }
+  $('#span').oninput = setSpan;
+  $('#custom').oninput = () => {
+    for (const it of items.values()) if (it.from != null) it.to = Math.min(it.from + minutes(), 1440);
+    changed();
   };
   $('#tz').onchange = (e) => ($('#tz-name').textContent = tzName(e.target.value));
 
@@ -471,7 +593,10 @@ export function renderPick() {
     const tz = $('#tz').value;
     return sorted().map(([, it]) => {
       if (it.from == null)
-        return { start: zonedToUtc(it.date, 0, tz), end: zonedToUtc(addDays(it.date, length === 'days' ? spanDays : 1), 0, tz) };
+        return {
+          start: zonedToUtc(it.date, 0, tz),
+          end: zonedToUtc(addDays(it.date, length === 'days' ? tripDays(it) : 1), 0, tz),
+        };
       const start = zonedToUtc(it.date, it.from, tz);
       return { start, end: start + (it.to - it.from) * MINUTE };
     });
@@ -479,7 +604,13 @@ export function renderPick() {
 
   $('#create').onsubmit = (e) => {
     e.preventDefault();
-    if (!items.size) return ($('#err').textContent = 'Add at least one option to vote on.');
+    if (!items.size) {
+      $('#err').textContent =
+        draftDays.size && draftTimes.size
+          ? 'Press "Add options" to put them in your poll.'
+          : 'Add at least one option to vote on.';
+      return;
+    }
     submit({ mode: 'options', options: options() }, occasion);
   };
 
@@ -507,9 +638,9 @@ export function renderPick() {
         items.set(`${z.date}|${z.minutes}`, { date: z.date, from: z.minutes, to: Math.min(z.minutes + minutes(), 1440) });
       }
       const first = sorted()[0]?.[1].date;
-      if (first) view.show(first);
+      if (first) (view || month)?.show(first);
       changed();
-      $('#when-h').scrollIntoView({ behavior: 'smooth', block: 'start' });
+      $('#preview-h').scrollIntoView({ behavior: 'smooth', block: 'start' });
       toast(`Filled in ${plural(draft.options.length, 'option')}. Check them, then create the poll.`);
     } catch (ex) {
       toast(ex.message);
@@ -533,24 +664,30 @@ export function renderPick() {
 // ---------- "Ask when people are free" ----------
 
 const WINDOWS = [
+  ['all', 'All day', 480, 1380],
+  ['morning', 'Mornings', 480, 720],
   ['day', 'Daytime', 540, 1020],
   ['evening', 'Evenings', 1020, 1380],
-  ['all', 'Morning to night', 480, 1380],
   ['custom', 'Other hours', null, null],
 ];
+const DURATIONS = [30, 60, 90, 120, 180, 240];
 
 export function renderFree() {
   document.title = 'Ask when people are free · Venn';
   const selected = new Set();
   const parts = new Set(DAY_PARTS.map((p) => p.key));
   let mark = 'parts';
+  const hours = { start: 480, end: 1380, duration: 120, slot: 30, window: 'all' };
 
-  const hourOptions = (sel) =>
-    Array.from(
-      { length: 25 },
-      (_, h) =>
-        `<option value="${h * 60}"${h * 60 === sel ? ' selected' : ''}>${minutesLabel((h * 60) % 1440)}${h === 24 ? ' (midnight)' : ''}</option>`,
-    ).join('');
+  const pill = (attr, v, label, on) =>
+    `<button type="button" class="pill" ${attr}="${v}" aria-pressed="${on}">${esc(label)}</button>`;
+  const timeStep = (k, label) => `
+    <div class="time-step" role="group" aria-labelledby="${k}-l">
+      <span id="${k}-l" class="ts-label">${label}</span>
+      <button type="button" class="icon-btn" data-tstep="${k}" data-d="-30" aria-label="${label} earlier">−</button>
+      <output id="${k}-out" aria-live="polite"></output>
+      <button type="button" class="icon-btn" data-tstep="${k}" data-d="30" aria-label="${label} later">+</button>
+    </div>`;
 
   app.innerHTML = `
     <form id="create" class="create" novalidate>
@@ -590,24 +727,21 @@ export function renderFree() {
           <p class="hint" id="span-hint"></p>
         </div>
         <div data-for="hours" class="stack-sm">
-          <div class="pills" role="group" aria-label="Hours">
-            ${WINDOWS.map(([k, l]) => `<button type="button" class="pill" data-window="${k}" aria-pressed="false">${l}</button>`).join('')}
+          <h3 class="field-h" id="hours-h">Which hours?</h3>
+          <div class="pills" role="group" aria-labelledby="hours-h">
+            ${WINDOWS.map(([k, l, a, b]) => `<button type="button" class="pill" data-window="${k}" aria-pressed="false">${l}${a != null ? ` <small>${esc(shortRange(a, b))}</small>` : ''}</button>`).join('')}
           </div>
-          <div class="row" id="custom-hours" hidden>
-            <div><label for="start">From</label><select id="start">${hourOptions(9 * 60)}</select></div>
-            <div><label for="end">Until</label><select id="end">${hourOptions(17 * 60)}</select></div>
+          <div class="time-steps" id="custom-hours" hidden>${timeStep('start', 'From')}${timeStep('end', 'Until')}</div>
+          <h3 class="field-h" id="dur-h">How long is it?</h3>
+          <div class="pills" role="group" aria-labelledby="dur-h">
+            ${DURATIONS.map((m) => pill('data-duration', m, lengthLabel(m), m === hours.duration)).join('')}
           </div>
-          <div class="row">
-            <div>
-              <label for="duration">How long is it?</label>
-              <select id="duration">${[60, 120, 180, 240].map((m) => `<option value="${m}"${m === 120 ? ' selected' : ''}>${lengthLabel(m)}</option>`).join('')}</select>
-            </div>
-            <div>
-              <label for="slot">People mark every</label>
-              <select id="slot"><option value="60" selected>hour</option><option value="30">half hour</option></select>
-            </div>
+          <h3 class="field-h" id="slot-h">People mark every</h3>
+          <div class="pills" role="group" aria-labelledby="slot-h">
+            ${pill('data-slot', 30, '30 minutes', true)}${pill('data-slot', 60, '1 hour', false)}
           </div>
         </div>
+        <p class="guest-preview" id="guest-preview" aria-live="polite"></p>
       </section>
       ${youFields()}
       ${createBar('Create poll')}
@@ -621,8 +755,10 @@ export function renderFree() {
       parts.clear();
       parts.add(o.part);
       for (const b of $$('[data-ask]')) b.setAttribute('aria-pressed', parts.has(b.dataset.ask));
+      setWindow(o.part === 'evening' ? 'evening' : o.part === 'morning' ? 'morning' : 'all');
     }
-    setMark(o.days ? 'days' : 'parts');
+    if (typeof o.length === 'number') setHours('duration', o.length);
+    setMark(o.days || o.length === 'allday' ? 'days' : 'parts');
   });
 
   function setMark(v) {
@@ -632,20 +768,45 @@ export function renderFree() {
     renderSummary();
   }
   function setWindow(k) {
+    hours.window = k;
     for (const b of $$('[data-window]')) b.setAttribute('aria-pressed', b.dataset.window === k);
     $('#custom-hours').hidden = k !== 'custom';
     const w = WINDOWS.find((x) => x[0] === k);
-    if (w[2] != null) {
-      $('#start').value = w[2];
-      $('#end').value = w[3];
-    }
+    if (w[2] != null) [hours.start, hours.end] = [w[2], w[3]];
+    renderHours();
+  }
+  function setHours(k, v) {
+    hours[k] = v;
+    for (const b of $$(`[data-${k}]`)) b.setAttribute('aria-pressed', +b.dataset[k] === v);
+    renderHours();
+  }
+  function renderHours() {
+    $('#start-out').textContent = shortTime(hours.start);
+    $('#end-out').textContent = hours.end >= 1440 ? 'midnight' : shortTime(hours.end);
+    $('[data-tstep="start"][data-d="-30"]').disabled = hours.start <= 0;
+    $('[data-tstep="start"][data-d="30"]').disabled = hours.start + 60 >= hours.end;
+    $('[data-tstep="end"][data-d="-30"]').disabled = hours.end - 60 <= hours.start;
+    $('[data-tstep="end"][data-d="30"]').disabled = hours.end >= 1440;
+    renderSummary();
   }
   const span = () => Math.max(1, Math.min(MAX_SPAN_DAYS, +$('#span').value || 1));
+  // Hourly steps need whole hours; otherwise people mark every 30 minutes.
+  const slotFor = () => ([hours.start, hours.end, hours.duration].every((v) => v % 60 === 0) ? hours.slot : 30);
   $('#create').addEventListener('click', (e) => {
     const m = e.target.closest('[data-mark]');
     if (m) setMark(m.dataset.mark);
     const w = e.target.closest('[data-window]');
     if (w) setWindow(w.dataset.window);
+    const ts = e.target.closest('[data-tstep]');
+    if (ts) {
+      const k = ts.dataset.tstep;
+      hours[k] = Math.max(0, Math.min(1440, hours[k] + +ts.dataset.d));
+      renderHours();
+    }
+    const du = e.target.closest('[data-duration]');
+    if (du) setHours('duration', +du.dataset.duration);
+    const sl = e.target.closest('[data-slot]');
+    if (sl) setHours('slot', +sl.dataset.slot);
     const a = e.target.closest('[data-ask]');
     if (a) {
       if (parts.has(a.dataset.ask)) parts.delete(a.dataset.ask);
@@ -661,6 +822,9 @@ export function renderFree() {
   });
   $('#span').oninput = renderSummary;
 
+  /** "Nov 1 – Nov 14" or "Sat, Nov 7". */
+  const dayRange = (dates) => (dates.length === 1 ? dayLabel(dates[0]) : `${dayLabel(dates[0])} – ${dayLabel(dates.at(-1))}`);
+
   function renderSummary() {
     const n = selected.size;
     const k = span();
@@ -671,6 +835,22 @@ export function renderFree() {
       : mark === 'parts' && parts.size
         ? `${plural(n * parts.size, 'time')} to choose from`
         : `${plural(n, 'day')} to choose from`;
+    // Say plainly what guests will be asked, before the poll exists.
+    const dates = [...selected].sort();
+    const on = n ? ` on ${plural(n, 'day')} (${dayRange(dates)})` : '';
+    const names = DAY_PARTS.filter((p) => parts.has(p.key)).map((p) => `${p.label.toLowerCase()}s`);
+    const list = names.length > 1 ? `${names.slice(0, -1).join(', ')} and ${names.at(-1)}` : names[0] || '';
+    $('#guest-preview').innerHTML = !n
+      ? 'Pick some days above to see what your guests will be asked.'
+      : `<b>Guests will mark</b> ${
+          mark === 'parts'
+            ? list
+              ? `which ${esc(list)} they're free${esc(on)}.`
+              : 'nothing yet: pick at least one part of the day.'
+            : mark === 'days'
+              ? `the whole days they're free${esc(on)}.`
+              : `when they're free between ${esc(shortRange(hours.start, hours.end))}${esc(on)}, in ${slotFor()}-minute steps. Venn looks for ${esc(lengthLabel(hours.duration))} that works.`
+        }`;
   }
 
   const fill = (n, keep) => {
@@ -705,15 +885,17 @@ export function renderFree() {
       );
       return submit({ mode: 'options', layout: 'parts', options }, occasion);
     }
+    if (mark === 'hours' && hours.duration > hours.end - hours.start)
+      return (err.textContent = `The hours are shorter than ${lengthLabel(hours.duration)}. Make them longer, or the plan shorter.`);
     const body =
       mark === 'days'
         ? { dates, startMinute: 0, endMinute: 1440, slotMinutes: 1440, durationMinutes: span() * 1440 }
         : {
             dates,
-            startMinute: +$('#start').value,
-            endMinute: +$('#end').value,
-            slotMinutes: +$('#slot').value,
-            durationMinutes: +$('#duration').value,
+            startMinute: hours.start,
+            endMinute: hours.end,
+            slotMinutes: slotFor(),
+            durationMinutes: hours.duration,
           };
     if (mark === 'days' && span() > dates.length)
       return (err.textContent = `Pick at least ${span()} days, so there's room for ${span()} in a row.`);
@@ -721,7 +903,7 @@ export function renderFree() {
   };
 
   setMark('parts');
-  setWindow('evening');
+  setWindow('all');
   showConfig();
   prefillTitle();
   $('#title').focus();
