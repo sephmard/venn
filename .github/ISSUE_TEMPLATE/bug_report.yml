@@ -1,0 +1,40 @@
+name: Bug report
+description: Something isn't working the way it should
+labels: [bug]
+body:
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened?
+      description: What did you do, what did you expect, and what happened instead?
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      placeholder: |
+        1. Create a poll with …
+        2. Open the link on …
+        3. …
+    validations:
+      required: true
+  - type: input
+    id: browser
+    attributes:
+      label: Browser and device
+      placeholder: e.g. Safari 18 on iPhone 15, Chrome 140 on Windows
+  - type: input
+    id: timezone
+    attributes:
+      label: Your time zone (if times look wrong)
+      placeholder: e.g. Europe/London
+  - type: dropdown
+    id: hosting
+    attributes:
+      label: Where are you running Overlap?
+      options:
+        - A public instance
+        - Self-hosted on Cloudflare
+        - Self-hosted with Node
+        - Local development
