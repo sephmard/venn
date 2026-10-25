@@ -558,7 +558,7 @@ async function renderEvent(id) {
         <p class="muted" id="ev-meta" style="margin:0"></p>
       </div>
       <div class="share">
-        <input type="text" readonly value="${esc(shareUrl)}" aria-label="Share link" onclick="this.select()">
+        <input type="text" readonly value="${esc(shareUrl)}" aria-label="Share link">
         <button class="btn" id="copy">Copy link</button>
       </div>
     </div>
@@ -637,6 +637,7 @@ ${
     </div>`;
 
   $('#copy').onclick = () => copy(shareUrl);
+  $('.share input').onclick = (e) => e.target.select();
   $('#name').value = me()?.name || lastName();
   $('#name').oninput = () => setDirty(true);
   $('#tz').onchange = (e) => {

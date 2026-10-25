@@ -5,11 +5,12 @@
 import { createServer } from 'node:http';
 import { mkdirSync } from 'node:fs';
 import { readFile } from 'node:fs/promises';
-import { dirname, extname, join, normalize } from 'node:path';
+import { basename, dirname, extname, join, normalize } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { DatabaseSync } from 'node:sqlite';
 import { handleApi } from './src/api.js';
 import { createStore, sqliteAdapter } from './src/store.js';
+import { SECURITY_HEADERS } from './src/security-headers.js';
 
 const root = dirname(fileURLToPath(import.meta.url));
 const publicDir = join(root, 'public');
@@ -52,7 +53,8 @@ export function createApp({ dbPath = ':memory:' } = {}) {
 async function serveStatic(pathname, res) {
   const rel = normalize(decodeURIComponent(pathname)).replace(/^(\.\.[/\\])+/, '');
   let file = join(publicDir, rel);
-  if (!file.startsWith(publicDir)) file = join(publicDir, 'index.html');
+  // Stay inside public/, and keep config files like _headers private.
+  if (!file.startsWith(publicDir) || basename(file).startsWith('_')) file = join(publicDir, 'index.html');
   let data;
   try {
     data = await readFile(file);
@@ -61,7 +63,7 @@ async function serveStatic(pathname, res) {
     file = join(publicDir, 'index.html');
     data = await readFile(file);
   }
-  res.writeHead(200, { 'content-type': TYPES[extname(file)] || 'application/octet-stream' });
+  res.writeHead(200, { ...SECURITY_HEADERS, 'content-type': TYPES[extname(file)] || 'application/octet-stream' });
   res.end(data);
 }
 

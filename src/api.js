@@ -10,6 +10,7 @@ import {
   normalizeEventInput,
   normalizeName,
 } from '../public/core.js';
+import { SECURITY_HEADERS } from './security-headers.js';
 
 const MAX_BODY = 200_000;
 const ID_ALPHABET = 'abcdefghijkmnopqrstuvwxyzABCDEFGHJKLMNPQRSTUVWXYZ23456789';
@@ -40,12 +41,15 @@ async function tokenMatches(token, hash) {
 const json = (data, status = 200) =>
   new Response(JSON.stringify(data), {
     status,
-    headers: { 'content-type': 'application/json; charset=utf-8', 'cache-control': 'no-store' },
+    headers: { ...SECURITY_HEADERS, 'content-type': 'application/json; charset=utf-8', 'cache-control': 'no-store' },
   });
 
 const error = (status, message) => json({ error: message }, status);
 
 async function readJson(request) {
+  // Only accept real JSON requests. Browsers can't send these cross-site without CORS, which we don't allow.
+  if (!(request.headers.get('content-type') || '').toLowerCase().startsWith('application/json'))
+    throw new ValidationError('Requests must be sent as JSON');
   const text = await request.text();
   if (text.length > MAX_BODY) throw new ValidationError('Request is too large');
   try {
@@ -112,6 +116,7 @@ export async function handleApi(request, store, { now = Date.now } = {}) {
       });
       return new Response(body, {
         headers: {
+          ...SECURITY_HEADERS,
           'content-type': 'text/calendar; charset=utf-8',
           'content-disposition': `attachment; filename="${ev.id}.ics"`,
         },

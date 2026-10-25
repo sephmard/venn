@@ -1,6 +1,8 @@
 import { test, before, after } from 'node:test';
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
 import { createApp } from '../server.js';
+import { SECURITY_HEADERS } from '../src/security-headers.js';
 
 let server, baseUrl;
 
@@ -156,4 +158,41 @@ test('serves the app for client-side routes', async () => {
   assert.match(js.headers.get('content-type'), /javascript/);
   const traversal = await fetch(`${baseUrl}/..%2f..%2fpackage.json`);
   assert.doesNotMatch(await traversal.text(), /"scripts"/);
+});
+
+test('security headers on pages and API responses', async () => {
+  for (const path of ['/', '/e/abc', '/app.js', '/api/events/nope']) {
+    const res = await fetch(baseUrl + path);
+    for (const [name, value] of Object.entries(SECURITY_HEADERS))
+      assert.equal(res.headers.get(name), value, `${name} on ${path}`);
+  }
+});
+
+test('public/_headers matches the security headers used by the servers', () => {
+  const lines = readFileSync(new URL('../public/_headers', import.meta.url), 'utf8')
+    .trim()
+    .split('\n');
+  assert.equal(lines[0], '/*');
+  const parsed = Object.fromEntries(
+    lines.slice(1).map((l) => {
+      const i = l.indexOf(':');
+      return [l.slice(0, i).trim().toLowerCase(), l.slice(i + 1).trim()];
+    }),
+  );
+  assert.deepEqual(parsed, SECURITY_HEADERS);
+});
+
+test('config files in public/ are not served', async () => {
+  const text = await (await fetch(`${baseUrl}/_headers`)).text();
+  assert.doesNotMatch(text, /Content-Security-Policy/);
+});
+
+test('writes must be JSON', async () => {
+  const res = await fetch(`${baseUrl}/api/events`, {
+    method: 'POST',
+    headers: { 'content-type': 'text/plain' },
+    body: JSON.stringify({ title: 'x' }),
+  });
+  assert.equal(res.status, 400);
+  assert.match((await res.json()).error, /JSON/);
 });

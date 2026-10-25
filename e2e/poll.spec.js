@@ -5,6 +5,10 @@ test.beforeEach(async ({ page }) => {
   page.on('pageerror', (e) => {
     throw e;
   });
+  // The app must work under its own Content Security Policy.
+  page.on('console', (msg) => {
+    if (msg.type() === 'error' && /Content Security Policy/i.test(msg.text())) throw new Error(msg.text());
+  });
 });
 
 async function startPoll(page, title) {
