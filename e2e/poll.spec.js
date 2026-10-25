@@ -239,3 +239,49 @@ test('installable: manifest and icons are served', async ({ request }) => {
   expect(manifest.name).toBe('Venn');
   for (const icon of manifest.icons) expect((await request.get(icon.src)).status()).toBe(200);
 });
+
+test('AI: describe a poll in words, then summarize and write messages as the organizer', async ({ page }) => {
+  await page.goto('/');
+  await expect(page.locator('#ai-draft')).toBeVisible();
+  await page.fill('#ai-prompt', '45 minute design review, afternoons later this week');
+  await page.click('#ai-go');
+  await expect(page.locator('#toast')).toContainText('Drafted 3 times');
+  await expect(page.locator('#title')).toHaveValue('Design review');
+  await expect(page.locator('#length')).toHaveValue('45');
+  await expect(page.locator('.time-chip')).toHaveCount(3);
+  await expect(page.locator('.time-chip').first()).toContainText('2:00 PM');
+
+  await page.click('#submit');
+  await expect(page.locator('.opt')).toHaveCount(3);
+  await page.locator('.opt').first().locator('[data-vote="2"]').click();
+  await page.fill('#name', 'Sam');
+  await page.click('#save');
+  await expect(page.locator('#save-state')).toHaveText('Saved');
+
+  await page.click('#ai-summary-btn');
+  await expect(page.locator('.ai-card')).toContainText('Most people can make the first option.');
+  await page.locator('.ai-card [data-pick]').click();
+  await expect(page.locator('.banner-final')).toBeVisible();
+
+  await page.click('#ai-write-open');
+  await page.click('[data-kind="announcement"]');
+  await expect(page.locator('#ai-msg')).toHaveValue(/Hi team! .*\/e\/\w+/);
+});
+
+test('AI: answer for me, using preferences and calendar busy times', async ({ page, request }) => {
+  const H = 3_600_000;
+  const t0 = Date.UTC(2030, 0, 8, 15);
+  const options = [0, 24].map((h) => ({ start: t0 + h * H, end: t0 + (h + 1) * H }));
+  const { id } = await (
+    await request.post('/api/events', { data: { title: 'Sync', timezone: 'UTC', mode: 'options', options } })
+  ).json();
+
+  await page.goto(`/e/${id}`);
+  await page.click('#ai-answer-btn');
+  await page.fill('#ai-prefs', 'No mornings please');
+  await page.click('#ai-answer-go');
+  await expect(page.locator('#toast')).toContainText('Filled in your answers');
+  await expect(page.locator('.opt').nth(0)).toHaveAttribute('data-v', '0');
+  await expect(page.locator('.opt').nth(1)).toHaveAttribute('data-v', '2');
+  await expect(page.locator('.opt').nth(0).locator('.opt-note')).toHaveText('You said no mornings');
+});

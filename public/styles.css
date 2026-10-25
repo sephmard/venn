@@ -1086,11 +1086,68 @@ button:focus-visible,
   }
 }
 .quick-actions {
-  flex-wrap: nowrap;
+  flex-wrap: wrap;
 }
+/* Phones: up to four actions (calendar, AI, yes to all, clear) as an even 2×2 grid. */
 @media (max-width: 520px) {
   .quick-actions {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
     width: 100%;
-    justify-content: space-between;
   }
+  .quick-actions > .btn,
+  .quick-actions .cal-connect > .btn {
+    width: 100%;
+  }
+}
+
+/* ---------- AI ---------- */
+.ai-draft {
+  margin-bottom: 20px;
+}
+.ai-row {
+  display: flex;
+  gap: 8px;
+  align-items: stretch;
+}
+.ai-row textarea {
+  min-height: 48px;
+}
+@media (max-width: 520px) {
+  .ai-row {
+    flex-direction: column;
+  }
+}
+.ai-panel {
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 12px;
+  background: var(--surface-2);
+}
+.ai-panel .check {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  font-weight: 500;
+  margin-top: 8px;
+}
+.ai-card {
+  border: 1px solid color-mix(in srgb, var(--accent) 35%, transparent);
+  background: var(--accent-soft);
+  border-radius: var(--radius);
+  padding: 12px 14px;
+  margin-bottom: 12px;
+}
+.ai-rec {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: 10px;
+}
+.opt-note {
+  color: var(--muted);
+  margin-top: 2px;
+  font-style: italic;
 }

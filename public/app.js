@@ -203,6 +203,14 @@ function renderCreate() {
           <span>People paint when they're free across the days and hours you pick.</span>
         </button>
       </div>
+      <div class="card ai-draft" id="ai-draft" hidden>
+        <label for="ai-prompt">Describe it, and AI drafts the poll <span class="muted">(optional)</span></label>
+        <div class="ai-row">
+          <textarea id="ai-prompt" rows="2" maxlength="600" placeholder="45 minutes with the design team, any afternoon next week"></textarea>
+          <button type="button" class="btn" id="ai-go">Draft it</button>
+        </div>
+        <p class="small muted" style="margin:6px 0 0">Fills in the form below for you to check. Your description is sent to Anthropic's Claude to do this.</p>
+      </div>
       <div class="create-grid">
       <div class="card stack">
         <div>
@@ -272,9 +280,11 @@ function renderCreate() {
   const cal = $('#cal');
   const today = todayStr();
 
+  let aiOn = false;
   function renderMode() {
     for (const b of app.querySelectorAll('[data-mode]')) b.setAttribute('aria-checked', b.dataset.mode === mode);
     for (const el of app.querySelectorAll('[data-for]')) el.hidden = el.dataset.for !== mode;
+    $('#ai-draft').hidden = !aiOn || mode !== 'options';
     renderSummary();
   }
   for (const b of app.querySelectorAll('[data-mode]'))
@@ -529,7 +539,48 @@ function renderCreate() {
       $('#submit').disabled = false;
     }
   };
-  getConfig().then((c) => $('#notify-field') && ($('#notify-field').hidden = !c.email));
+  getConfig().then((c) => {
+    if (!$('#notify-field')) return; // navigated away
+    $('#notify-field').hidden = !c.email;
+    aiOn = !!c.ai;
+    renderMode();
+  });
+
+  $('#ai-go').onclick = async () => {
+    const prompt = $('#ai-prompt').value.trim();
+    if (!prompt) return $('#ai-prompt').focus();
+    const btn = $('#ai-go');
+    btn.disabled = true;
+    btn.textContent = 'Drafting…';
+    try {
+      const tz = $('#tz').value;
+      const draft = await api('ai/draft-poll', { method: 'POST', body: { prompt, timezone: tz } });
+      if (!$('#title').value.trim()) $('#title').value = draft.title;
+      if (!$('#desc').value.trim()) $('#desc').value = draft.description;
+      const len = $('#length');
+      if (![...len.options].some((o) => +o.value === draft.durationMinutes))
+        len.add(new Option(lengthLabel(draft.durationMinutes), draft.durationMinutes));
+      len.value = draft.durationMinutes;
+      selected.clear();
+      times.clear();
+      for (const o of draft.options) {
+        const z = utcToZoned(o.start, tz);
+        selected.add(z.date);
+        if (!times.has(z.date)) times.set(z.date, new Set());
+        times.get(z.date).add(z.minutes);
+      }
+      const first = [...selected].sort()[0];
+      cursor = new Date(+first.slice(0, 4), +first.slice(5, 7) - 1, 1);
+      renderCal();
+      $('#times').scrollIntoView({ behavior: 'smooth', block: 'start' });
+      toast(`Drafted ${draft.options.length} times. Check them, then create the poll.`);
+    } catch (ex) {
+      toast(ex.message);
+    } finally {
+      btn.disabled = false;
+      btn.textContent = 'Draft it';
+    }
+  };
   $('#title').focus();
 }
 
@@ -602,6 +653,7 @@ async function renderEvent(id) {
     </div>
     <div id="banners"></div>
     <div id="notify-box"></div>
+    <div id="ai-box"></div>
     <div class="toolbar">
       <div class="tz-picker small">
         <label for="tz" style="margin:0;font-weight:500" class="muted">Times in</label>
@@ -632,8 +684,18 @@ ${
                   <p class="small muted">Only busy and free times are read, right here in your browser. Nothing is shared until you save.</p>
                 </div>
               </div>
+              <button type="button" class="btn btn-sm" id="ai-answer-btn" hidden aria-expanded="false" aria-controls="ai-answer">Answer for me</button>
               <button type="button" class="btn btn-sm btn-ghost" id="fill">Yes to all</button>
               <button type="button" class="btn btn-sm btn-ghost" id="none">Clear</button>
+            </div>
+          </div>
+          <div id="ai-answer" class="ai-panel" hidden>
+            <label for="ai-prefs">What works for you?</label>
+            <textarea id="ai-prefs" rows="2" maxlength="600" placeholder="No mornings. Fridays are best. I'm out on the 12th."></textarea>
+            <label class="check small" id="ai-use-cal-row" hidden><input type="checkbox" id="ai-use-cal" checked> Also use the busy times from my calendar</label>
+            <div class="btn-row" style="margin-top:8px">
+              <button type="button" class="btn btn-primary btn-sm" id="ai-answer-go">Fill in my answers</button>
+              <span class="small muted">Sent to Anthropic's Claude to fill in. You can change anything before saving.</span>
             </div>
           </div>
           <div id="mine" class="opt-list"></div>`
@@ -675,7 +737,11 @@ ${
       </section>
       <div class="stack">
         <section class="card" aria-labelledby="best-h">
-          <h2 id="best-h">Best times</h2>
+          <div class="btn-row" style="justify-content:space-between;margin-bottom:12px">
+            <h2 id="best-h" style="margin:0">Best times</h2>
+            <button type="button" class="btn btn-sm" id="ai-summary-btn" hidden>Summarize with AI</button>
+          </div>
+          <div id="ai-summary"></div>
           <div id="best"></div>
         </section>
         <section class="card" aria-labelledby="group-h">
@@ -778,6 +844,7 @@ ${
         h += `<div class="opt${o.start === st.ev.finalStart ? ' final' : ''}" data-opt="${o.start}">
           <div class="opt-main">
             <div class="opt-time">${esc(optTime(o))}${o.start === st.ev.finalStart ? ' <span class="badge">Picked</span>' : ''}</div>
+            ${st.aiNotes?.[o.start] ? `<div class="opt-note small">${esc(st.aiNotes[o.start])}</div>` : ''}
             <div class="opt-tally"></div>
           </div>
           <div class="vote" role="radiogroup" aria-label="${esc(fmtRange(o.start, o.end, st.tz))}">
@@ -1006,10 +1073,80 @@ ${
   document.addEventListener('click', closeMenu);
   getConfig().then((c) => {
     for (const b of calMenu.querySelectorAll('[data-provider]')) b.hidden = !c.calendars?.[b.dataset.provider];
+    if (!c.ai) return;
+    if (optionsMode) $('#ai-answer-btn').hidden = false;
+    if (st.ev.isAdmin) $('#ai-summary-btn').hidden = false;
+    aiOn = true;
+    renderBanners();
   });
 
+  // ----- AI: answer for me -----
+  if (optionsMode) {
+    $('#ai-answer-btn').onclick = () => {
+      const panel = $('#ai-answer');
+      panel.hidden = !panel.hidden;
+      $('#ai-answer-btn').setAttribute('aria-expanded', !panel.hidden);
+      $('#ai-use-cal-row').hidden = !st.lastBusy;
+      if (!panel.hidden) $('#ai-prefs').focus();
+    };
+    $('#ai-answer-go').onclick = async (e) => {
+      const preferences = $('#ai-prefs').value.trim();
+      if (!preferences) return $('#ai-prefs').focus();
+      const busy = st.lastBusy && $('#ai-use-cal').checked ? st.lastBusy : [];
+      if (Object.keys(st.mine).length && !confirm('Replace your current answers with AI suggestions?')) return;
+      e.target.disabled = true;
+      e.target.textContent = 'Thinking…';
+      try {
+        const { answers } = await api(`events/${id}/ai/answer`, { method: 'POST', body: { preferences, busy, timezone: st.tz } });
+        st.mine = {};
+        st.aiNotes = {};
+        for (const [s, a] of Object.entries(answers)) {
+          if (a.answer) st.mine[s] = a.answer;
+          if (a.note) st.aiNotes[s] = a.note;
+          st.touched.add(s);
+        }
+        $('#ai-answer').hidden = true;
+        renderMine();
+        setDirty(true);
+        renderGroup();
+        renderBest();
+        toast('Filled in your answers. Check them, then save.');
+      } catch (ex) {
+        toast(ex.message);
+      } finally {
+        e.target.disabled = false;
+        e.target.textContent = 'Fill in my answers';
+      }
+    };
+  }
+
+  // ----- AI: summary for the organizer -----
+  $('#ai-summary-btn').onclick = async (e) => {
+    e.target.disabled = true;
+    e.target.textContent = 'Summarizing…';
+    try {
+      const r = await api(`events/${id}/ai/summary`, { method: 'POST', body: {}, headers: authHeaders() });
+      const rec =
+        r.recommendedStart == null
+          ? ''
+          : `<div class="ai-rec">
+              <div><b>Suggested:</b> ${esc(fmtRange(r.recommendedStart, meetingEnd(st.ev, r.recommendedStart), st.tz))}${r.reason ? `<div class="small muted">${esc(r.reason)}</div>` : ''}</div>
+              ${st.ev.finalStart === r.recommendedStart ? '' : `<button class="btn btn-sm" data-pick="${r.recommendedStart}">Pick this time</button>`}
+            </div>`;
+      $('#ai-summary').innerHTML =
+        `<div class="ai-card"><p style="margin:0">${esc(r.summary)}</p>${rec}<p class="small muted" style="margin:8px 0 0">Written by AI from the answers so far. Double-check before deciding.</p></div>`;
+    } catch (ex) {
+      toast(ex.message);
+    } finally {
+      e.target.disabled = false;
+      e.target.textContent = 'Summarize with AI';
+    }
+  };
+
   function applyBusy(busy, source) {
+    st.lastBusy = busy.map(({ start, end, tentative }) => ({ start, end, tentative: !!tentative })); // for "Answer for me"
     if (Object.keys(st.mine).length && !confirm(`Replace your current answers with what ${source} says?`)) return;
+    st.aiNotes = {};
     st.mine = availabilityFromBusy(windows, busy);
     for (const w of windows) st.touched.add(String(w.start));
     refreshMine();
@@ -1412,6 +1549,49 @@ ${
     };
   }
 
+  // ----- AI: write a message (organizer) -----
+  let aiOn = false;
+  function toggleWriter() {
+    const box = $('#ai-box');
+    if (box.innerHTML) return (box.innerHTML = '');
+    const kinds = [
+      ['invite', 'Invite'],
+      ['reminder', 'Reminder'],
+      ['announcement', 'Final time'],
+    ];
+    box.innerHTML = `
+      <section class="card" aria-labelledby="ai-write-h">
+        <div class="btn-row" style="justify-content:space-between">
+          <h2 id="ai-write-h" style="margin:0">Write a message</h2>
+          <button type="button" class="btn btn-sm btn-ghost" id="ai-write-close">Close</button>
+        </div>
+        <p class="small muted">AI drafts a message to paste into chat or email.</p>
+        <div class="segmented" role="group" aria-label="Message type">
+          ${kinds.map(([k, l]) => `<button type="button" data-kind="${k}"${k === 'announcement' && st.ev.finalStart == null ? ' disabled title="Pick the final time first"' : ''}>${l}</button>`).join('')}
+        </div>
+        <div id="ai-write-out" style="margin-top:12px"></div>
+      </section>`;
+    $('#ai-write-close').onclick = () => (box.innerHTML = '');
+    for (const b of box.querySelectorAll('[data-kind]')) {
+      b.onclick = async () => {
+        for (const x of box.querySelectorAll('[data-kind]')) x.setAttribute('aria-pressed', x === b);
+        const out = $('#ai-write-out');
+        out.innerHTML = '<p class="muted small">Writing…</p>';
+        try {
+          const { message } = await api(`events/${id}/ai/message`, {
+            method: 'POST',
+            body: { kind: b.dataset.kind },
+            headers: authHeaders(),
+          });
+          out.innerHTML = `<textarea id="ai-msg" rows="5">${esc(message)}</textarea><div class="btn-row" style="margin-top:8px"><button type="button" class="btn btn-sm btn-primary" id="ai-msg-copy">Copy</button></div>`;
+          $('#ai-msg-copy').onclick = () => copy($('#ai-msg').value);
+        } catch (ex) {
+          out.innerHTML = `<p class="error">${esc(ex.message)}</p>`;
+        }
+      };
+    }
+  }
+
   function renderBanners() {
     const ev = st.ev;
     let h = '';
@@ -1441,6 +1621,7 @@ ${
         ${fresh && saved(id).notifyPending ? '<p class="small" style="margin:0 0 8px"><strong style="display:inline">Check your inbox</strong> to confirm email notifications.</p>' : ''}
         <div class="btn-row">
           <button class="btn btn-sm" id="notify-open" aria-expanded="${notifyOpen}" aria-controls="notify-box">Notifications</button>
+          ${aiOn ? '<button class="btn btn-sm" id="ai-write-open" aria-controls="ai-box">Write a message</button>' : ''}
           <button class="btn btn-sm" id="copy-admin">Copy organizer link</button>
           <button class="btn btn-sm btn-ghost btn-danger" id="delete-poll">Delete poll</button>
         </div>
@@ -1449,6 +1630,7 @@ ${
     $('#banners').innerHTML = h;
     $('#copy-admin') && ($('#copy-admin').onclick = () => copy(`${shareUrl}#admin=${saved(id).adminToken}`));
     $('#notify-open') && ($('#notify-open').onclick = () => toggleNotify(!notifyOpen));
+    $('#ai-write-open') && ($('#ai-write-open').onclick = () => toggleWriter());
     $('#delete-poll') &&
       ($('#delete-poll').onclick = async () => {
         if (!confirm('Delete this poll and all responses? This cannot be undone.')) return;
