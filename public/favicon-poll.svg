@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" role="img" aria-label="Venn poll">
+  <!-- The tab icon on poll pages (/e/:id): the Venn in white on the green tile, its centre lit up. -->
+  <defs>
+    <linearGradient id="t" x1="0" y1="0" x2="16" y2="16" gradientUnits="userSpaceOnUse"><stop offset="0" stop-color="#2fc497"/><stop offset="1" stop-color="#064c39"/></linearGradient>
+    <clipPath id="a"><circle cx="5.9" cy="6.3" r="3.7"/></clipPath><clipPath id="b"><circle cx="10.1" cy="6.3" r="3.7"/></clipPath>
+  </defs>
+  <rect width="16" height="16" rx="3.6" fill="url(#t)"/>
+  <g fill="#fff" fill-opacity=".34"><circle cx="5.9" cy="6.3" r="3.7"/><circle cx="10.1" cy="6.3" r="3.7"/><circle cx="8" cy="9.9" r="3.7"/></g>
+  <g clip-path="url(#a)"><g clip-path="url(#b)"><circle cx="8" cy="9.9" r="3.7" fill="#fff"/></g></g>
+</svg>

@@ -90,7 +90,7 @@ function planFields(kind) {
         <span class="emoji-tile" id="emoji-tile" aria-hidden="true">🗓️</span>
         <div class="grow">
           <label for="title">Name</label>
-          <input id="title" type="text" maxlength="120" placeholder="${kind === 'free' ? 'Summer cabin trip' : "Dinner at Luca's"}" required>
+          <input id="title" type="text" maxlength="120" placeholder="${kind === 'free' ? 'Summer cabin trip' : "Dinner at Finn's"}" required>
         </div>
       </div>
       <div>
