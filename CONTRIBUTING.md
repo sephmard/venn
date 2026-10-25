@@ -35,9 +35,10 @@ CI runs all of these on every pull request, plus a check that the Cloudflare Wor
 
 ## What happens to your pull request
 
-1. CI runs: lint, formatting, tests on Node 22 and 24, browser tests, a Worker build, CodeQL and a dependency review. If you're a first-time contributor, a maintainer approves the run first.
-2. A maintainer reviews it. Please resolve each conversation once you've addressed it.
-3. When the **CI passed** check is green, it's squash-merged into `main`. Your pull request title becomes the commit message, so make it a clear summary.
+1. CI runs: lint, formatting, tests on Node 22 and 24 with a coverage floor, browser and accessibility tests on desktop and phone, a Worker build, CodeQL and a dependency review. Docs-only changes skip the heavy jobs. If you're a first-time contributor, a maintainer approves the run first. See [docs/CI.md](docs/CI.md) for the details.
+2. An automated Claude review may leave comments. It's advisory: fix what's right, and reply where you disagree.
+3. A maintainer reviews it. Please resolve each conversation once you've addressed it.
+4. When the **CI passed** check is green, it's squash-merged into `main`. Your pull request title becomes the commit message, so make it a clear summary.
 
 ## How the code is organised
 

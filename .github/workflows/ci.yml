@@ -1,5 +1,9 @@
 name: CI
 
+# Fast feedback first: lint and docs checks run on every pull request (~30s). The heavier jobs
+# (tests, browser tests, Worker build) run whenever code changes and are skipped for docs-only
+# pull requests. "CI passed" is the single check branch protection requires.
+
 on:
   push:
     branches: [main]
@@ -14,9 +18,38 @@ concurrency:
   group: ci-${{ github.ref }}
   cancel-in-progress: true
 
+env:
+  ACTIONLINT_VERSION: 1.7.12
+
 jobs:
+  changes:
+    name: Detect changes
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      code: ${{ steps.filter.outputs.code }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+      - id: filter
+        name: Is this a docs-only change?
+        env:
+          EVENT: ${{ github.event_name }}
+          BASE: ${{ github.event.pull_request.base.sha }}
+        run: |
+          if [ "$EVENT" != "pull_request" ]; then
+            echo "code=true" >> "$GITHUB_OUTPUT"; exit 0
+          fi
+          # Anything outside these paths counts as code and gets the full pipeline.
+          changed=$(git diff --name-only "$BASE...HEAD")
+          code=$(echo "$changed" | grep -vE '\.md$|^docs/|^LICENSE$|^\.github/ISSUE_TEMPLATE/|^\.github/pull_request_template\.md$|^\.github/CODEOWNERS$' || true)
+          if [ -n "$code" ]; then echo "code=true" >> "$GITHUB_OUTPUT"; else echo "code=false" >> "$GITHUB_OUTPUT"; fi
+          { echo "### Changed files"; echo '```'; echo "$changed"; echo '```'; } >> "$GITHUB_STEP_SUMMARY"
+
   lint:
-    name: Lint & format
+    name: Lint, format & docs
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
@@ -32,9 +65,22 @@ jobs:
         run: npm audit signatures
       - run: npm run lint
       - run: npm run format:check
+      - name: Check links between docs
+        run: npm run lint:links
+      - name: Build the docs site (fails on broken links)
+        run: npm run site
+      - name: Lint GitHub Actions workflows
+        run: |
+          curl -sSfLO "https://github.com/rhysd/actionlint/releases/download/v${ACTIONLINT_VERSION}/actionlint_${ACTIONLINT_VERSION}_linux_amd64.tar.gz"
+          curl -sSfLO "https://github.com/rhysd/actionlint/releases/download/v${ACTIONLINT_VERSION}/actionlint_${ACTIONLINT_VERSION}_checksums.txt"
+          sha256sum --check --ignore-missing "actionlint_${ACTIONLINT_VERSION}_checksums.txt"
+          tar xzf "actionlint_${ACTIONLINT_VERSION}_linux_amd64.tar.gz" actionlint
+          ./actionlint -color
 
   test:
     name: Unit & API tests (Node ${{ matrix.node }})
+    needs: changes
+    if: needs.changes.outputs.code == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 10
     strategy:
@@ -50,12 +96,25 @@ jobs:
           node-version: ${{ matrix.node }}
           cache: npm
       - run: npm ci
-      - run: npm test
+      - name: Tests with coverage floor (lines 90%, branches 80%, functions 85%)
+        run: |
+          set -o pipefail
+          npm run test:coverage | tee coverage.txt
+      - name: Coverage summary
+        if: always() && matrix.node == 22
+        run: |
+          { echo "### Test coverage"; echo '```'; sed -n '/start of coverage report/,/end of coverage report/p' coverage.txt | sed 's/^# //'; echo '```'; } >> "$GITHUB_STEP_SUMMARY"
 
   e2e:
-    name: End-to-end (desktop + mobile)
+    name: Browser tests (${{ matrix.project }})
+    needs: changes
+    if: needs.changes.outputs.code == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        project: [desktop, mobile]
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -65,17 +124,36 @@ jobs:
           node-version-file: .nvmrc
           cache: npm
       - run: npm ci
-      - run: npx playwright install --with-deps chromium
-      - run: npm run test:e2e
+      - name: Playwright version
+        id: pw
+        run: echo "version=$(node -p "require('@playwright/test/package.json').version")" >> "$GITHUB_OUTPUT"
+      - name: Cache browsers
+        id: cache
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ runner.os }}-${{ steps.pw.outputs.version }}
+      - name: Install Chromium
+        if: steps.cache.outputs.cache-hit != 'true'
+        run: npx playwright install --with-deps chromium
+      - name: Install system libraries only (browser is cached)
+        if: steps.cache.outputs.cache-hit == 'true'
+        run: npx playwright install-deps chromium
+      - name: Functional and accessibility tests
+        env:
+          PROJECT: ${{ matrix.project }}
+        run: npx playwright test --project "$PROJECT"
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         if: failure()
         with:
-          name: playwright-report
+          name: playwright-report-${{ matrix.project }}
           path: playwright-report/
           retention-days: 7
 
   worker:
     name: Cloudflare Worker build
+    needs: changes
+    if: needs.changes.outputs.code == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
@@ -105,15 +183,17 @@ jobs:
         with:
           fail-on-severity: moderate
           comment-summary-in-pr: on-failure
-          # Runtime code has no dependencies; keep dev tooling to permissive licenses.
+          # Keep dependencies on permissive licenses.
           allow-licenses: MIT, ISC, Apache-2.0, BSD-2-Clause, BSD-3-Clause, 0BSD, BlueOak-1.0.0, CC0-1.0, Python-2.0, MIT-0, Unlicense
+          # Test-only tool (MPL-2.0), never shipped to users.
+          allow-dependencies-licenses: pkg:npm/axe-core, pkg:npm/%40axe-core/playwright
 
-  # The one check branch protection requires. It passes only if every job above
-  # passed (or was skipped on purpose), so adding a job never needs a settings change.
+  # The one check branch protection requires. It passes only if every job above passed or was
+  # skipped on purpose (docs-only changes), so adding a job never needs a settings change.
   ci-passed:
     name: CI passed
     if: always()
-    needs: [lint, test, e2e, worker, dependency-review]
+    needs: [changes, lint, test, e2e, worker, dependency-review]
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:

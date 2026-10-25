@@ -720,7 +720,7 @@ ${
             </div>
           </div>
           <p class="small muted" style="margin:0">Click and drag to paint the times you can make it. On a phone, tap or drag.</p>
-          <div class="grid-scroll"><div class="grid" id="mine" role="grid" aria-label="Your availability"></div></div>`
+          <div class="grid-scroll"><div class="grid" id="mine" role="group" aria-label="Your availability. Use the arrow keys to move and Space to mark a time."></div></div>`
 }
         </div>
         <div class="mine-footer">
@@ -746,11 +746,11 @@ ${
         </section>
         <section class="card" aria-labelledby="group-h">
           <h2 id="group-h">Everyone</h2>
-          <ul class="people" id="people"></ul>
+          <div class="people" id="people" role="group" aria-label="People who responded"></div>
           ${
             optionsMode
               ? '<div id="group" style="margin-top:12px"></div>'
-              : `<div class="grid-scroll" style="margin-top:12px"><div class="grid readonly" id="group" aria-label="Group availability"></div></div>
+              : `<div class="grid-scroll" style="margin-top:12px"><div class="grid readonly" id="group" role="group" aria-label="Everyone's availability"></div></div>
           <div class="legend" id="legend"></div>
           <div class="hover-info" id="inspect"></div>`
           }
@@ -787,7 +787,8 @@ ${
     L = { dates: [...dates].sort(), mins: [...mins].sort((a, b) => a - b), at };
   }
 
-  function gridHtml(cellClass) {
+  // `cellAttrs(slot)` adds the role and state: toggle buttons in your grid, labelled images in the group heatmap.
+  function gridHtml(cellClass, cellAttrs = () => '') {
     const { dates, mins, at } = L;
     const labelEvery = st.ev.slotMinutes >= 60 ? st.ev.slotMinutes : 60;
     let h = '<div></div>';
@@ -802,7 +803,7 @@ ${
         const hour = m % 60 === 0 && r > 0 ? ' hour' : '';
         if (s == null) h += `<div class="cell void${hour}"></div>`;
         else
-          h += `<div class="cell${hour} ${cellClass(s)}" data-slot="${s}" data-r="${r}" data-c="${c}" role="gridcell" tabindex="-1" aria-label="${esc(fmtRange(s, s + st.ev.slotMinutes * MINUTE, st.tz))}"></div>`;
+          h += `<div class="cell${hour} ${cellClass(s)}" data-slot="${s}" data-r="${r}" data-c="${c}" tabindex="-1" ${cellAttrs(s)}></div>`;
       });
     });
     return h;
@@ -952,7 +953,11 @@ ${
   function renderMine() {
     if (optionsMode) return renderMineOptions();
     mineEl.style.gridTemplateColumns = gridCols();
-    mineEl.innerHTML = gridHtml((s) => mineClass(s) + (finalSet().has(s) ? ' final' : ''));
+    const pressed = (s) => (st.mine[s] === YES ? 'true' : st.mine[s] === IF_NEEDED ? 'mixed' : 'false');
+    mineEl.innerHTML = gridHtml(
+      (s) => mineClass(s) + (finalSet().has(s) ? ' final' : ''),
+      (s) => `role="button" aria-pressed="${pressed(s)}" aria-label="${esc(fmtRange(s, s + st.ev.slotMinutes * MINUTE, st.tz))}"`,
+    );
     const first = mineEl.querySelector('.cell[data-slot]');
     if (first) first.tabIndex = 0;
   }
@@ -962,6 +967,7 @@ ${
       const v = st.mine[el.dataset.slot];
       el.classList.toggle('yes', v === YES);
       el.classList.toggle('maybe', v === IF_NEEDED);
+      el.setAttribute('aria-pressed', v === YES ? 'true' : v === IF_NEEDED ? 'mixed' : 'false');
     }
   }
 
@@ -1293,12 +1299,19 @@ ${
     const fs = finalSet();
     const focus = people.find((p) => p.id === st.focus);
     groupEl.style.gridTemplateColumns = gridCols();
+    // Each heatmap cell says, in words, what its colour shows.
+    const groupLabel = (s) => {
+      const yes = people.filter((p) => p.availability[s] === YES).length;
+      const maybe = people.filter((p) => p.availability[s] === IF_NEEDED).length;
+      const when = fmtRange(s, s + st.ev.slotMinutes * MINUTE, st.tz);
+      return `role="img" aria-label="${esc(`${when}: ${yes} of ${n} available${maybe ? `, ${maybe} if needed` : ''}`)}"`;
+    };
     groupEl.innerHTML = gridHtml((s) => {
       let cls = fs.has(s) ? 'final' : '';
       if (String(s) === String(st.inspect)) cls += ' active';
       if (focus) cls += focus.availability[s] === YES ? ' yes' : focus.availability[s] === IF_NEEDED ? ' maybe' : '';
       return cls;
-    });
+    }, groupLabel);
     if (!focus) {
       for (const el of groupEl.querySelectorAll('.cell[data-slot]')) {
         const s = el.dataset.slot;
@@ -1369,7 +1382,7 @@ ${
     $('#people').innerHTML = st.ev.participants
       .map((p) => {
         const canDelete = p.id === myId || st.ev.isAdmin;
-        return `<li class="chip${p.id === myId ? ' me' : ''}${p.id === st.focus ? ' focus' : ''}" data-person="${esc(p.id)}" role="button" tabindex="0" aria-pressed="${p.id === st.focus}">${esc(p.name)}${p.id === myId ? ' (you)' : ''}${canDelete && p.id !== myId ? `<button data-remove="${esc(p.id)}" aria-label="Remove ${esc(p.name)}" title="Remove">×</button>` : ''}</li>`;
+        return `<span class="chip${p.id === myId ? ' me' : ''}${p.id === st.focus ? ' focus' : ''}" data-person="${esc(p.id)}" role="button" tabindex="0" aria-pressed="${p.id === st.focus}">${esc(p.name)}${p.id === myId ? ' (you)' : ''}${canDelete && p.id !== myId ? `<button data-remove="${esc(p.id)}" aria-label="Remove ${esc(p.name)}" title="Remove">×</button>` : ''}</span>`;
       })
       .join('');
   }
