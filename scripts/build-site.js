@@ -62,7 +62,7 @@ function rewriteLinks(html, src, page) {
   });
 }
 
-const LOGO = `<svg viewBox="0 0 120 80" width="33" height="22" aria-hidden="true"><defs><clipPath id="l"><circle cx="45" cy="40" r="30"/></clipPath></defs><circle cx="45" cy="40" r="30" fill="var(--green)" fill-opacity=".28"/><circle cx="75" cy="40" r="30" fill="var(--green)" fill-opacity=".28"/><circle cx="75" cy="40" r="30" fill="var(--green)" clip-path="url(#l)"/></svg>`;
+const LOGO = `<img src="favicon.svg?v=4" width="26" height="26" alt="">`;
 
 function sidebar(page) {
   const groups = [...new Set(DOCS.map((d) => d[3]))];
@@ -90,8 +90,8 @@ function docPage([src, page, title]) {
   <title>${esc(fullTitle)}</title>
   <meta name="description" content="${esc(`Developer documentation for Venn, the open-source scheduling poll: ${title}.`)}">
   <meta property="og:title" content="${esc(fullTitle)}">
-  <link rel="icon" href="favicon.ico?v=3" sizes="32x32">
-  <link rel="icon" href="favicon.svg?v=3" type="image/svg+xml">
+  <link rel="icon" href="favicon.ico?v=4" sizes="32x32">
+  <link rel="icon" href="favicon.svg?v=4" type="image/svg+xml">
   <link rel="stylesheet" href="site.css">
 </head>
 <body>

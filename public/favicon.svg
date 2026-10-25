@@ -1,8 +1,8 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" role="img" aria-label="Venn">
-  <!-- Drawn on a 16 px grid so it stays sharp in browser tabs. Two colours keep the circles distinct. -->
-  <rect width="16" height="16" rx="3.5" fill="#16181a"/>
-  <defs><clipPath id="l"><circle cx="6" cy="8" r="4.5"/></clipPath></defs>
-  <circle cx="6" cy="8" r="4.5" fill="#2fc497"/>
-  <circle cx="10" cy="8" r="4.5" fill="#f2b13c"/>
-  <circle cx="10" cy="8" r="4.5" fill="#faf8f4" clip-path="url(#l)"/>
+  <!-- Three circles in a triangle on a 16 px grid: light where one covers, mid where two overlap,
+       deep green where all three meet. Each shade is a gradient. -->
+  <defs><linearGradient id="one" x1="0" y1="0" x2="16" y2="16" gradientUnits="userSpaceOnUse"><stop offset="0" stop-color="#c3f2de"/><stop offset="1" stop-color="#7fd9b4"/></linearGradient><linearGradient id="two" x1="0" y1="0" x2="16" y2="16" gradientUnits="userSpaceOnUse"><stop offset="0" stop-color="#5fd0a2"/><stop offset="1" stop-color="#1f9d72"/></linearGradient><linearGradient id="three" x1="0" y1="0" x2="16" y2="16" gradientUnits="userSpaceOnUse"><stop offset="0" stop-color="#0f8a63"/><stop offset="1" stop-color="#064c39"/></linearGradient><clipPath id="a"><circle cx="5.6" cy="6.1" r="4.6"/></clipPath><clipPath id="b"><circle cx="10.4" cy="6.1" r="4.6"/></clipPath></defs>
+<g fill="url(#one)"><circle cx="5.6" cy="6.1" r="4.6"/><circle cx="10.4" cy="6.1" r="4.6"/><circle cx="8" cy="10.3" r="4.6"/></g>
+<g fill="url(#two)"><circle cx="10.4" cy="6.1" r="4.6" clip-path="url(#a)"/><circle cx="8" cy="10.3" r="4.6" clip-path="url(#a)"/><circle cx="8" cy="10.3" r="4.6" clip-path="url(#b)"/></g>
+<g clip-path="url(#a)"><g clip-path="url(#b)"><circle cx="8" cy="10.3" r="4.6" fill="url(#three)"/></g></g>
 </svg>

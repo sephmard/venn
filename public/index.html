@@ -25,9 +25,9 @@
     <meta property="og:image:height" content="630" />
     <meta name="twitter:card" content="summary_large_image" />
     <link rel="manifest" href="/manifest.webmanifest" />
-    <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png?v=3" />
-    <link rel="icon" href="/favicon.ico?v=3" sizes="32x32" />
-    <link rel="icon" href="/favicon.svg?v=3" type="image/svg+xml" />
+    <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png?v=4" />
+    <link rel="icon" href="/favicon.ico?v=4" sizes="32x32" />
+    <link rel="icon" href="/favicon.svg?v=4" type="image/svg+xml" />
     <link rel="preload" href="/fonts/instrument-serif-latin-400-normal.woff2" as="font" type="font/woff2" crossorigin />
     <link rel="stylesheet" href="/site.css" />
   </head>
@@ -36,18 +36,12 @@
     <header class="topbar">
       <div class="wrap nav">
         <a href="/" class="brand">
-          <svg viewBox="0 0 120 80" width="36" height="24" aria-hidden="true">
-            <defs>
-              <clipPath id="brand-left"><circle cx="45" cy="40" r="30" /></clipPath>
-            </defs>
-            <circle cx="45" cy="40" r="30" fill="var(--green)" fill-opacity=".28" />
-            <circle cx="75" cy="40" r="30" fill="var(--green)" fill-opacity=".28" />
-            <circle cx="75" cy="40" r="30" fill="var(--green)" clip-path="url(#brand-left)" />
-          </svg>
+          <img src="/favicon.svg?v=4" width="28" height="28" alt="" />
           Venn
         </a>
         <nav class="nav-links" aria-label="Main">
-          <a href="/#how" class="hide-md">How it works</a>
+          <a href="/#groups" class="hide-md">For groups</a>
+          <a href="/#developers" class="hide-md">For developers</a>
           <a href="https://docs.venn.day" class="hide-md">Docs</a>
           <a href="/privacy" class="hide-md">Privacy</a>
           <a href="https://github.com/sephmard/venn" class="gh-link"
@@ -66,7 +60,8 @@
               </svg>
             </summary>
             <div class="menu-panel">
-              <a href="/#how">How it works</a>
+              <a href="/#groups">For groups</a>
+              <a href="/#developers">For developers</a>
               <a href="https://docs.venn.day">Docs</a>
               <a href="/privacy">Privacy</a>
               <a href="https://github.com/sephmard/venn">GitHub</a>
@@ -77,81 +72,73 @@
     </header>
 
     <main id="main">
-      <section class="wrap hero">
-        <div>
-          <h1>Find the time that works for <em>everyone.</em></h1>
-          <p class="lede">Dinners, game nights, trips. Share one link and see when everyone's free. No sign-up.</p>
-          <form class="start" action="/new" method="get">
-            <label for="start-title" class="sr-only">What are you planning?</label>
+      <section class="hero" id="top">
+        <div class="hero-art" aria-hidden="true">
+          <span class="blob blob-green"></span><span class="blob blob-amber"></span><span class="blob blob-blue"></span>
+        </div>
+        <div class="wrap hero-inner">
+          <p class="kicker">Free group polls · No sign-up</p>
+          <h1>Find the day that works for <em>everyone.</em></h1>
+          <p class="lede">Dinners, book clubs, game nights and trips. Share one link and see the day everyone can make.</p>
+          <form class="start-card" action="/new/pick" method="get">
+            <label for="start-title">What are you planning?</label>
             <input
               id="start-title"
               name="title"
               type="text"
               maxlength="120"
-              placeholder="What are you planning?"
+              placeholder="Dinner at Luca's"
               autocomplete="off"
               enterkeyhint="go"
             />
-            <button class="btn" type="submit">Create poll</button>
+            <div class="start-choices">
+              <button type="submit" class="choice-btn choice-primary" formaction="/new/pick">
+                <span class="choice-title">Vote on a few dates</span>
+                <span class="choice-sub">For dinners, book clubs and parties</span>
+              </button>
+              <button type="submit" class="choice-btn" formaction="/new/free">
+                <span class="choice-title">Ask when people are free</span>
+                <span class="choice-sub">For trips, or when any day works</span>
+              </button>
+            </div>
           </form>
+          <ul class="trust" aria-label="Venn is">
+            <li>No sign-up</li>
+            <li>No ads</li>
+            <li>No tracking</li>
+            <li>Open source</li>
+          </ul>
         </div>
-
-        <svg
-          class="venn"
-          viewBox="0 0 540 500"
-          role="img"
-          aria-label="Three overlapping circles for Ana, Marcus and Priya. Where all three overlap: Tuesday at 3:00 PM."
-        >
-          <defs>
-            <clipPath id="clip-green"><circle cx="210" cy="200" r="150" /></clipPath>
-            <clipPath id="clip-amber"><circle cx="330" cy="200" r="150" /></clipPath>
-          </defs>
-          <circle class="c c-green" cx="210" cy="200" r="150" />
-          <circle class="c c-amber" cx="330" cy="200" r="150" />
-          <circle class="c c-blue" cx="270" cy="304" r="150" />
-          <g clip-path="url(#clip-green)">
-            <g clip-path="url(#clip-amber)">
-              <circle class="overlap" cx="270" cy="304" r="150" />
-            </g>
-          </g>
-          <g class="label">
-            <text class="who" x="40" y="34">Ana</text>
-            <text class="when" x="40" y="54">Mon, Tue afternoons</text>
-            <text class="who" x="500" y="34" text-anchor="end">Marcus</text>
-            <text class="when" x="500" y="54" text-anchor="end">Tue, Thu</text>
-            <text class="who" x="270" y="478" text-anchor="middle">Priya</text>
-            <text class="when" x="270" y="498" text-anchor="middle">Tue after lunch</text>
-          </g>
-          <g class="pick-group">
-            <rect class="pick-bg" x="186" y="228" width="168" height="44" rx="22" />
-            <circle class="pulse pick-dot" cx="214" cy="250" r="6" />
-            <circle class="pick-dot" cx="214" cy="250" r="6" />
-            <text class="pick" x="230" y="255">Tue · 3:00 PM</text>
-          </g>
-        </svg>
       </section>
 
-      <section id="how" class="section">
-        <div class="wrap">
-          <p class="eyebrow">How it works</p>
-          <h2>Three steps. <em>One link.</em></h2>
-          <ol class="steps">
-            <li>
-              <span class="num" aria-hidden="true">1</span>
-              <h3>Suggest dates</h3>
-              <p>Pick a few dates to vote on, or ask when people are free.</p>
-            </li>
-            <li>
-              <span class="num" aria-hidden="true">2</span>
-              <h3>Share one link</h3>
-              <p>Everyone taps Yes, If needed or No. No account needed.</p>
-            </li>
-            <li>
-              <span class="num" aria-hidden="true">3</span>
-              <h3>Pick the winner</h3>
-              <p>Venn ranks every option. Pick one and everyone adds it to their calendar.</p>
-            </li>
-          </ol>
+      <section id="groups" class="section">
+        <div class="wrap groups">
+          <div>
+            <p class="eyebrow">For groups</p>
+            <h2>Less group chat. <em>More plans.</em></h2>
+            <ul class="benefits">
+              <li>
+                <h3>No sign-ups, for anyone</h3>
+                <p>Friends open the link, type a name and tap. Nothing to install.</p>
+              </li>
+              <li>
+                <h3>Dates, or free days</h3>
+                <p>Vote on a few dates, or let everyone mark when they're free, even days in a row for a trip.</p>
+              </li>
+              <li>
+                <h3>See who's in at a glance</h3>
+                <p>The best date rises to the top, with everyone who can make it.</p>
+              </li>
+              <li>
+                <h3>Lock it in</h3>
+                <p>Pick the date and everyone adds it to Google, Apple or Outlook Calendar.</p>
+              </li>
+              <li>
+                <h3>Never chase replies</h3>
+                <p>Get an email, or a Slack or Discord message, when someone answers.</p>
+              </li>
+            </ul>
+          </div>
           <figure class="shot">
             <picture>
               <source media="(max-width: 640px) and (prefers-color-scheme: dark)" srcset="/img/mobile-dark.webp" />
@@ -162,46 +149,42 @@
                 width="1600"
                 height="2138"
                 loading="lazy"
-                alt="A dinner poll in Venn: each suggested evening with Yes, If needed and No answers, the best options ranked, and everyone's answers side by side"
+                alt="A dinner poll in Venn: each suggested evening with Yes, If needed and No answers, and the best options ranked with who can make them"
               />
             </picture>
           </figure>
         </div>
       </section>
 
-      <section class="band">
-        <div class="wrap">
-          <p class="eyebrow">Our promise</p>
-          <h2>No accounts. No ads. <em>No tracking.</em></h2>
-          <ul class="facts">
-            <li>
-              <h3>Any time zone</h3>
-              <p>Everyone sees times in their own zone.</p>
-            </li>
-            <li>
-              <h3>Your calendar</h3>
-              <p>Fill in answers from Google or Outlook, in your browser.</p>
-            </li>
-            <li>
-              <h3>Instant updates</h3>
-              <p>Email, Slack or Discord when someone answers.</p>
-            </li>
-            <li>
-              <h3>Two kinds of poll</h3>
-              <p>Vote on dates, or find when people are free, even days in a row.</p>
-            </li>
-          </ul>
-        </div>
-      </section>
-
-      <section id="open-source" class="section">
-        <div class="wrap oss">
+      <section id="developers" class="band">
+        <div class="wrap dev">
           <div>
-            <p class="eyebrow">Open source</p>
-            <h2>Free, open, and <em>yours&nbsp;to&nbsp;run.</em></h2>
-            <p class="lede">MIT licensed and built in the open. Read the code, suggest a feature, or run your own.</p>
+            <p class="eyebrow">For developers</p>
+            <h2>Open source. <em>Built to build on.</em></h2>
+            <p class="lede">
+              MIT licensed, no framework and no build step. Call the API, wire up webhooks, or run your own Venn for free.
+            </p>
+            <ul class="dev-points">
+              <li>
+                <h3>JSON API</h3>
+                <p>Create polls, collect answers and pick the date over plain HTTP.</p>
+              </li>
+              <li>
+                <h3>Signed webhooks</h3>
+                <p>Every answer can post to Slack, Discord or your own endpoint.</p>
+              </li>
+              <li>
+                <h3>Self-host for free</h3>
+                <p>Deploy to Cloudflare Workers and D1, or any server with Node.</p>
+              </li>
+              <li>
+                <h3>Private by design</h3>
+                <p>Edit links carry secrets the server only stores as hashes.</p>
+              </li>
+            </ul>
             <div class="cta-row">
-              <a href="https://github.com/sephmard/venn" class="btn btn-ink"
+              <a href="https://docs.venn.day/api.html" class="btn">Read the API docs</a>
+              <a href="https://github.com/sephmard/venn" class="btn btn-ghost-light"
                 ><svg class="gh-mark" viewBox="0 0 16 16" width="20" height="20" aria-hidden="true">
                   <path
                     fill="currentColor"
@@ -209,36 +192,27 @@
                   /></svg
                 >View on GitHub</a
               >
-              <a href="https://docs.venn.day/self-hosting.html" class="link-arrow"
-                >Self-hosting guide <span aria-hidden="true">→</span></a
-              >
             </div>
           </div>
           <figure class="code-card">
-            <figcaption>Run it yourself</figcaption>
-            <pre><code><span class="prompt">$</span> git clone https://github.com/sephmard/venn
-<span class="prompt">$</span> cd venn &amp;&amp; npm install
-<span class="prompt">$</span> npm start
-<span class="comment"># Venn running at http://localhost:8787</span></code></pre>
+            <figcaption>Create a poll</figcaption>
+            <pre><code><span class="prompt">$</span> curl https://venn.day/api/events \
+    -H 'content-type: application/json' \
+    -d '{"title": "Book club",
+         "timezone": "Europe/London",
+         "mode": "options",
+         "options": [{"start": 1794337200000,
+                      "end": 1794344400000}]}'
+
+<span class="comment"># {"id": "cXar7oEEBo", "adminToken": "…"}</span>
+<span class="comment"># Share venn.day/e/cXar7oEEBo</span></code></pre>
           </figure>
         </div>
       </section>
 
       <section class="wrap closing">
         <h2>Stop the <em>back-and-forth.</em></h2>
-        <form class="start" action="/new" method="get">
-          <label for="end-title" class="sr-only">What are you planning?</label>
-          <input
-            id="end-title"
-            name="title"
-            type="text"
-            maxlength="120"
-            placeholder="What are you planning?"
-            autocomplete="off"
-            enterkeyhint="go"
-          />
-          <button class="btn" type="submit">Create poll</button>
-        </form>
+        <a href="#top" class="btn btn-lg">Create a poll</a>
       </section>
     </main>
 
