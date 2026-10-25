@@ -17,6 +17,7 @@
 </p>
 
 <p align="center">
+  <a href="https://venn.day"><strong>Try it at venn.day</strong></a> ·
   <a href="#quick-start">Quick start</a> ·
   <a href="#self-hosting">Self-hosting</a> ·
   <a href="#privacy">Privacy</a> ·
@@ -148,7 +149,8 @@ No framework and no build step: plain HTML, CSS and JavaScript, a small JSON API
 
 ```
 public/            the whole front end, served as-is
-  index.html
+  index.html       landing page (/); privacy.html and 404.html sit beside it
+  app.html         app shell, served for /new and /e/:id
   app.js           UI: create page, voting, grid painting, results
   core.js          shared logic: time zones, ranking, calendar import/export
   calendars.js     Google / Outlook free-busy, in the browser
@@ -158,11 +160,12 @@ src/
   api.js           JSON API on web-standard Request/Response
   store.js         SQL storage for Cloudflare D1 and node:sqlite
   notify.js        email and webhook notifications
+  routes.js        which paths the app handles
   worker.js        Cloudflare Worker entry point
 server.js          Node server entry point
 test/              unit and API tests (node:test)
 e2e/               browser tests (Playwright, desktop and mobile)
-scripts/           screenshot and demo generator for this README
+scripts/           screenshot, demo and social-image generators
 ```
 
 </details>

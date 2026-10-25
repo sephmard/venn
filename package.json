@@ -21,7 +21,8 @@
     "deploy": "wrangler deploy",
     "screenshots": "node scripts/screenshots.js",
     "headers": "node scripts/headers.js",
-    "icons": "node scripts/icons.js"
+    "icons": "node scripts/icons.js",
+    "og": "node scripts/og-image.js"
   },
   "repository": {
     "type": "git",
@@ -30,7 +31,7 @@
   "bugs": {
     "url": "https://github.com/sephmard/venn/issues"
   },
-  "homepage": "https://github.com/sephmard/venn#readme",
+  "homepage": "https://venn.day",
   "devDependencies": {
     "@eslint/js": "10.0.1",
     "@playwright/test": "1.64.1",

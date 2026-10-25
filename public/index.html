@@ -6,19 +6,33 @@
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
     <meta name="theme-color" content="#f7f7f5" media="(prefers-color-scheme: light)" />
     <meta name="theme-color" content="#131416" media="(prefers-color-scheme: dark)" />
-    <link rel="manifest" href="/manifest.webmanifest" />
-    <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png" />
-    <title>Venn: find a time that works</title>
+    <title>Venn: free scheduling polls, no sign-up</title>
     <meta
       name="description"
-      content="Free, no-signup scheduling poll. Share a link, everyone paints their availability, see the best time instantly."
+      content="Find a time that works for everyone. Propose a few times, share one link, and see where everyone's availability overlaps. Free, no accounts, no ads."
     />
+    <link rel="canonical" href="https://venn.day/" />
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="Venn" />
+    <meta property="og:url" content="https://venn.day/" />
+    <meta property="og:title" content="Venn: find a time that works for everyone" />
+    <meta
+      property="og:description"
+      content="Free scheduling polls. Propose a few times, share one link, and see where everyone's availability overlaps."
+    />
+    <meta property="og:image" content="https://venn.day/og.png" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <link rel="manifest" href="/manifest.webmanifest" />
+    <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png" />
     <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
     <link rel="stylesheet" href="/styles.css" />
+    <link rel="stylesheet" href="/site.css" />
   </head>
-  <body>
+  <body class="site">
     <header class="topbar">
-      <a href="/" class="brand" data-link>
+      <a href="/" class="brand">
         <svg viewBox="0 0 120 80" width="36" height="24" aria-hidden="true">
           <defs>
             <clipPath id="brand-left"><circle cx="45" cy="40" r="30" /></clipPath>
@@ -29,11 +43,205 @@
         </svg>
         Venn
       </a>
-      <a href="/" class="btn btn-ghost" data-link>New poll</a>
+      <nav class="site-nav" aria-label="Main">
+        <a href="#how" class="hide-sm">How it works</a>
+        <a href="#faq" class="hide-sm">FAQ</a>
+        <a href="https://github.com/sephmard/venn" class="hide-sm">GitHub</a>
+        <a href="/new" class="btn btn-primary btn-sm">Create a poll</a>
+      </nav>
     </header>
-    <main id="app" aria-live="polite"></main>
-    <footer class="footer">Free and open source. No accounts, no ads, no tracking.</footer>
-    <div id="toast" role="status" hidden></div>
-    <script type="module" src="/app.js"></script>
+
+    <main>
+      <section class="site-hero">
+        <h1>Find a time that works for&nbsp;everyone</h1>
+        <p class="lede">
+          Propose a few times, share one link, and see where everyone's availability overlaps. Free, with no accounts and no ads.
+        </p>
+        <div class="btn-row site-cta">
+          <a href="/new" class="btn btn-primary btn-lg">Create a poll</a>
+          <a href="#how" class="btn btn-lg">See how it works</a>
+        </div>
+        <p class="small muted">Takes about a minute. Nobody signs up, not even you.</p>
+      </section>
+
+      <figure class="shot shot-hero">
+        <picture>
+          <source media="(prefers-color-scheme: dark)" srcset="/img/results-dark.webp" />
+          <img
+            src="/img/results-light.webp"
+            width="1600"
+            height="1423"
+            alt="A poll's results: each proposed time with Yes, If needed and No answers, the best times ranked, and a table of everyone's answers"
+          />
+        </picture>
+      </figure>
+
+      <section id="how" class="site-section">
+        <h2 class="section-title">How it works</h2>
+        <div class="step">
+          <div class="step-text">
+            <span class="step-num">1</span>
+            <h3>Propose some times</h3>
+            <p class="muted">
+              Pick the days on a calendar and add the times you'd suggest. Copy them to every day with one click. Or skip the
+              times and let people paint when they're free across an hours window.
+            </p>
+          </div>
+          <figure class="shot">
+            <picture>
+              <source media="(prefers-color-scheme: dark)" srcset="/img/create-dark.webp" />
+              <img
+                src="/img/create-light.webp"
+                width="1600"
+                height="1548"
+                loading="lazy"
+                alt="Creating a poll: picking dates on a calendar and adding times to propose"
+              />
+            </picture>
+          </figure>
+        </div>
+        <div class="step step-flip">
+          <div class="step-text">
+            <span class="step-num">2</span>
+            <h3>Share one link</h3>
+            <p class="muted">
+              Send it in a chat, an email or a calendar invite. People type their name and tap <b>Yes</b>, <b>If needed</b> or
+              <b>No</b> for each time. No app to install, and it works great on a phone.
+            </p>
+          </div>
+          <figure class="shot shot-phone">
+            <picture>
+              <source media="(prefers-color-scheme: dark)" srcset="/img/mobile-dark.webp" />
+              <img
+                src="/img/mobile-light.webp"
+                width="600"
+                height="1298"
+                loading="lazy"
+                alt="Answering a poll on a phone with Yes, If needed and No buttons"
+              />
+            </picture>
+          </figure>
+        </div>
+        <div class="step">
+          <div class="step-text">
+            <span class="step-num">3</span>
+            <h3>See the overlap and pick</h3>
+            <p class="muted">
+              Venn ranks every time by how many people can make it, then by how many gave a firm yes. Pick one, and everyone gets
+              links to add it to Google, Outlook or Apple Calendar.
+            </p>
+          </div>
+          <figure class="shot">
+            <picture>
+              <source media="(prefers-color-scheme: dark)" srcset="/img/best-dark.webp" />
+              <img
+                src="/img/best-light.webp"
+                width="1000"
+                height="763"
+                loading="lazy"
+                alt="Best times for a poll, ranked by how many people can make each one"
+              />
+            </picture>
+          </figure>
+        </div>
+      </section>
+
+      <section class="site-section">
+        <h2 class="section-title">Everything you need, nothing you don't</h2>
+        <ul class="features">
+          <li>
+            <h3>No accounts</h3>
+            <p class="muted">Nobody signs up, not even the organizer. Your link is your key.</p>
+          </li>
+          <li>
+            <h3>Time zones handled</h3>
+            <p class="muted">Everyone sees the times in their own time zone, automatically.</p>
+          </li>
+          <li>
+            <h3>Check your calendar</h3>
+            <p class="muted">
+              Fill in your answers from Google Calendar, Outlook or a calendar file. Only busy/free times are read, in your
+              browser.
+            </p>
+          </li>
+          <li>
+            <h3>Know when people answer</h3>
+            <p class="muted">Get an email, or a message in Slack, Discord or any webhook, when someone responds.</p>
+          </li>
+          <li>
+            <h3>Two kinds of poll</h3>
+            <p class="muted">
+              Propose specific times when you have slots in mind, or open a time range and let people paint a heatmap.
+            </p>
+          </li>
+          <li>
+            <h3>Open source</h3>
+            <p class="muted">
+              MIT licensed. Read the code, suggest a feature, or run your own copy on Cloudflare or any Node server.
+            </p>
+          </li>
+        </ul>
+      </section>
+
+      <section class="site-section privacy-band card">
+        <div>
+          <h2 class="section-title">Private by design</h2>
+          <p class="muted">
+            No cookies, no analytics, no ads. Venn stores only what people type into a poll. Edit links carry a secret the server
+            never sees, and the organizer can delete the poll at any time.
+          </p>
+        </div>
+        <a href="/privacy" class="btn">Read the privacy policy</a>
+      </section>
+
+      <section id="faq" class="site-section faq">
+        <h2 class="section-title">Questions</h2>
+        <details>
+          <summary>Is it really free?</summary>
+          <p class="muted">Yes. Venn is open source and cheap to run, so there's no paid plan, no trial and no ads.</p>
+        </details>
+        <details>
+          <summary>Do the people I invite need an account?</summary>
+          <p class="muted">No. They open the link, type a name and answer. That's it.</p>
+        </details>
+        <details>
+          <summary>How do I edit my poll later, or from another device?</summary>
+          <p class="muted">
+            When you create a poll, your browser remembers that you're the organizer. To manage it from somewhere else, copy your
+            private organizer link from the poll page and keep it safe.
+          </p>
+        </details>
+        <details>
+          <summary>Can Venn see my calendar?</summary>
+          <p class="muted">
+            No. <i>Check my calendar</i> runs in your browser and only asks Google or Microsoft for busy/free times. The sign-in
+            never reaches our server, and calendar files are never uploaded.
+          </p>
+        </details>
+        <details>
+          <summary>How long are polls kept?</summary>
+          <p class="muted">Until the organizer deletes them. People can also remove their own answers at any time.</p>
+        </details>
+        <details>
+          <summary>Can I run it myself?</summary>
+          <p class="muted">
+            Yes. Deploy it free on Cloudflare in a few minutes, or run it on any server with Node. See the
+            <a href="https://github.com/sephmard/venn#self-hosting">self-hosting guide</a>.
+          </p>
+        </details>
+      </section>
+
+      <section class="site-final">
+        <h2>Stop the back-and-forth.</h2>
+        <a href="/new" class="btn btn-primary btn-lg">Create a poll</a>
+      </section>
+    </main>
+
+    <footer class="footer site-footer">
+      <span>© Venn · MIT licensed</span>
+      <a href="/privacy">Privacy</a>
+      <a href="https://github.com/sephmard/venn">GitHub</a>
+      <a href="https://github.com/sephmard/venn/issues/new/choose">Feedback</a>
+    </footer>
   </body>
 </html>

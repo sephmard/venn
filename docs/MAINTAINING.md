@@ -85,6 +85,21 @@ The app ships with sensible defaults: a strict Content Security Policy, no-refer
 - **Turn on calendar connections (optional).** Follow [CALENDARS.md](CALENDARS.md). Google requires app verification and Microsoft recommends publisher verification before public launch, so start early.
 - **Add a privacy page.** Say what's stored (titles, names, answers) and how long you keep polls.
 
+## The official site: venn.day
+
+The landing page, privacy page and app are all served by the one Worker. To set it up:
+
+1. **Register the domain.** In the Cloudflare dashboard, go to **Domain Registration → Register Domains** and buy `venn.day`. Registering it with Cloudflare adds it as a zone on the same account automatically. If you buy it elsewhere, add it as a site in Cloudflare and point the registrar's nameservers at the two Cloudflare gives you.
+2. **Create the database**: `npx wrangler d1 create venn`.
+3. **Create an API token** under **My Profile → API Tokens** with _Account → Workers Scripts: Edit_, _Account → D1: Edit_, _Zone → Workers Routes: Edit_ and _Zone → DNS: Edit_ (zone: `venn.day`).
+4. **Set the repository's Actions settings**: variables `CLOUDFLARE_DEPLOY=true`, `D1_DATABASE_ID` and `CUSTOM_DOMAIN=venn.day`; secrets `CLOUDFLARE_API_TOKEN` and `CLOUDFLARE_ACCOUNT_ID`.
+5. **Deploy**: run the **Deploy** workflow, or merge to `main`. Wrangler attaches `venn.day` as a Custom Domain and creates its DNS record and certificate.
+6. **Redirect `www`.** Add a proxied DNS record for `www` (for example `AAAA www 100::`) and a **Rules → Redirect Rules** rule from `www.venn.day/*` to `https://venn.day/${1}` (301, keep the query string).
+7. **Harden it**: work through [hosting a public instance](#hosting-a-public-instance) below: HSTS, the rate-limiting rule and backups. The privacy page is already at `/privacy`; update it if you add another service that handles data.
+8. **Optional extras**: verify `venn.day` in Resend for notification emails (`EMAIL_FROM="Venn <notifications@venn.day>"`), and add `https://venn.day/oauth-callback.html` as a redirect URI for the Google and Microsoft calendar apps.
+
+After changing the landing page's main screenshot, regenerate the social preview with `npm run og`.
+
 ## Releases
 
 Each merge to `main` is deployable. To mark a version, create a release from **Releases → Draft a new release**. Use a tag like `v1.2.0` and let GitHub generate the notes from the merged pull requests.

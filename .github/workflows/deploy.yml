@@ -1,6 +1,7 @@
 # Deploys main to Cloudflare Workers. Off by default so forks don't try to deploy.
 # To enable, set in the repo's Settings → Secrets and variables → Actions:
-#   variables: CLOUDFLARE_DEPLOY=true, D1_DATABASE_ID=<from `npx wrangler d1 create venn`>
+#   variables: CLOUDFLARE_DEPLOY=true, D1_DATABASE_ID=<from `npx wrangler d1 create venn`>,
+#              CUSTOM_DOMAIN=<optional, e.g. venn.day; the domain must be a zone on the same Cloudflare account>
 #   secrets:   CLOUDFLARE_API_TOKEN (Workers + D1 edit), CLOUDFLARE_ACCOUNT_ID
 name: Deploy
 
@@ -37,6 +38,11 @@ jobs:
         env:
           D1_DATABASE_ID: ${{ vars.D1_DATABASE_ID }}
         run: sed -i "s/REPLACE_WITH_YOUR_D1_DATABASE_ID/${D1_DATABASE_ID}/" wrangler.toml
+      - name: Set custom domain
+        if: vars.CUSTOM_DOMAIN != ''
+        env:
+          CUSTOM_DOMAIN: ${{ vars.CUSTOM_DOMAIN }}
+        run: printf '\n[[routes]]\npattern = "%s"\ncustom_domain = true\n' "$CUSTOM_DOMAIN" >> wrangler.toml
       - run: npx wrangler deploy
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}

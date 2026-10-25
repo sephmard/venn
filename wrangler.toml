@@ -2,10 +2,11 @@ name = "venn"
 main = "src/worker.js"
 compatibility_date = "2026-10-01"
 
+# Files in public/ are served first. Paths with no file (the app's /new and /e/:id
+# routes, and 404s) fall through to the Worker.
 [assets]
 directory = "./public"
 binding = "ASSETS"
-not_found_handling = "single-page-application"
 run_worker_first = ["/api/*"]
 
 # Optional features are configured with secrets, never in this file:
@@ -20,3 +21,9 @@ run_worker_first = ["/api/*"]
 binding = "DB"
 database_name = "venn"
 database_id = "REPLACE_WITH_YOUR_D1_DATABASE_ID"
+
+# The public site runs on venn.day. The deploy workflow adds the domain from the
+# CUSTOM_DOMAIN repository variable, so forks never try to claim it. To do it by hand:
+# [[routes]]
+# pattern = "venn.day"
+# custom_domain = true
