@@ -107,6 +107,95 @@ test('unknown poll shows a friendly error', async ({ page }) => {
   await expect(page.getByRole('heading', { name: 'Poll not found' })).toBeVisible();
 });
 
+test('organizer sets up a webhook from the Notifications panel', async ({ page }) => {
+  await startPoll(page, 'Webhook poll');
+  // This test server has no email service, so the email field stays hidden.
+  await expect(page.locator('#notify-field')).toBeHidden();
+  const day = await page.locator('[data-add]').first().getAttribute('data-add');
+  await page.click(`[data-add="${day}"]`);
+  await page.click('#submit');
+  await page.click('#notify-open');
+  await expect(page.locator('#n-email')).toHaveCount(0);
+
+  await page.fill('#n-hook', 'http://example.com/hook');
+  await page.click('#notify-form button[type=submit]');
+  await expect(page.locator('#notify-err')).toContainText('https://');
+
+  // A public IP address needs no DNS lookup, so this works offline.
+  await page.fill('#n-hook', 'https://203.0.113.10/hook');
+  await page.click('#notify-form button[type=submit]');
+  await expect(page.locator('.secret-row code')).toContainText('whsec_');
+  await expect(page.locator('#hook-status')).toContainText('Nothing sent yet');
+
+  await page.click('#notify-close');
+  await expect(page.locator('.notify-panel')).toHaveCount(0);
+});
+
+test('fill answers from Google Calendar and Outlook (mocked providers)', async ({ page, context, request }) => {
+  const H = 3_600_000;
+  const t0 = Date.UTC(2030, 0, 8, 15); // three one-hour options, an hour apart
+  const options = [0, 2, 4].map((h) => ({ start: t0 + h * H, end: t0 + (h + 1) * H }));
+  const { id } = await (
+    await request.post('/api/events', { data: { title: 'Sync', timezone: 'UTC', mode: 'options', options } })
+  ).json();
+
+  // Google: the sign-in page sends the browser straight back with a token; freeBusy says the first option is busy.
+  await context.route('https://accounts.google.com/**', (route) => {
+    const u = new URL(route.request().url());
+    expect(u.searchParams.get('scope')).toBe('https://www.googleapis.com/auth/calendar.freebusy');
+    const back = `${u.searchParams.get('redirect_uri')}#access_token=g-token&token_type=Bearer&expires_in=3600&state=${u.searchParams.get('state')}`;
+    return route.fulfill({ status: 302, headers: { location: back } });
+  });
+  await context.route('https://www.googleapis.com/calendar/v3/freeBusy', (route) => {
+    expect(route.request().headers().authorization).toBe('Bearer g-token');
+    const busy = [{ start: new Date(options[0].start).toISOString(), end: new Date(options[0].end).toISOString() }];
+    return route.fulfill({ json: { calendars: { primary: { busy } } } });
+  });
+
+  await page.goto(`/e/${id}`);
+  await page.click('#cal-btn');
+  await page.click('[data-provider="google"]');
+  await expect(page.locator('#toast')).toContainText('Checked your Google Calendar: 2 of 3 times are free');
+  await expect(page.locator('.opt').nth(0)).toHaveAttribute('data-v', '0');
+  await expect(page.locator('.opt').nth(1)).toHaveAttribute('data-v', '2');
+
+  // Microsoft: authorization code + PKCE, then calendarView. Busy on the 2nd, tentative on the 3rd.
+  await context.route('https://login.microsoftonline.com/common/oauth2/v2.0/authorize?**', (route) => {
+    const u = new URL(route.request().url());
+    expect(u.searchParams.get('code_challenge_method')).toBe('S256');
+    const back = `${u.searchParams.get('redirect_uri')}?code=ms-code&state=${u.searchParams.get('state')}`;
+    return route.fulfill({ status: 302, headers: { location: back } });
+  });
+  await context.route('https://login.microsoftonline.com/common/oauth2/v2.0/token', (route) => {
+    const form = new URLSearchParams(route.request().postData());
+    expect(form.get('code')).toBe('ms-code');
+    expect(form.get('code_verifier')?.length).toBeGreaterThan(40);
+    return route.fulfill({ json: { access_token: 'm-token', expires_in: 3600 } });
+  });
+  await context.route('https://graph.microsoft.com/v1.0/me/calendarView?**', (route) => {
+    expect(route.request().headers().authorization).toBe('Bearer m-token');
+    const at = (ms) => new Date(ms).toISOString().replace('Z', '0000');
+    return route.fulfill({
+      json: {
+        value: [
+          { start: { dateTime: at(options[1].start) }, end: { dateTime: at(options[1].end) }, showAs: 'busy' },
+          { start: { dateTime: at(options[2].start) }, end: { dateTime: at(options[2].end) }, showAs: 'tentative' },
+          { start: { dateTime: at(t0) }, end: { dateTime: at(t0 + 24 * H) }, showAs: 'busy', isAllDay: true },
+        ],
+      },
+    });
+  });
+
+  await page.click('#cal-btn');
+  await page.click('[data-provider="microsoft"]');
+  await expect(page.locator('#toast')).toContainText(
+    'Checked your Outlook: 1 of 3 times are free, 1 clash with tentative events',
+  );
+  await expect(page.locator('.opt').nth(0)).toHaveAttribute('data-v', '2');
+  await expect(page.locator('.opt').nth(1)).toHaveAttribute('data-v', '0');
+  await expect(page.locator('.opt').nth(2)).toHaveAttribute('data-v', '1');
+});
+
 test('phone: no zoom on focus, tap targets, tap-to-pick dates, Save always in reach', async ({ page, isMobile }) => {
   test.skip(!isMobile, 'phone-only behaviour');
   await page.goto('/');

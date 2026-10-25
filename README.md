@@ -36,7 +36,8 @@ Everyone's availability is a circle. Venn finds where they overlap.
 - **Easy to answer, especially on a phone.** Big _Yes_ / _If needed_ / _No_ buttons for each time, with live tallies.
 - **Time zones handled.** Everyone sees times in their own time zone automatically.
 - **Picks the best time for you.** Options are ranked by how many people can make it, then by how many gave a firm yes.
-- **Private calendar check.** Load a calendar export (`.ics`) to mark yourself free or busy. The file never leaves your browser.
+- **Check your calendar.** Fill in your answers from Google Calendar, Outlook or a calendar file. Only busy/free times are read, in your browser, and nothing is stored on the server.
+- **Know when people answer.** Get an email, or a message in Slack, Discord or any webhook, whenever someone responds.
 - **Straight into calendars.** Once the time is picked, everyone gets Google, Outlook and Apple calendar links.
 - **Yours to run.** Host it free on Cloudflare, or on any server that runs Node.
 
@@ -111,6 +112,14 @@ Tables are created automatically on the first request.
 
 To deploy on every push to `main` with GitHub Actions, set the repository variables `CLOUDFLARE_DEPLOY=true` and `D1_DATABASE_ID`, and the secrets `CLOUDFLARE_API_TOKEN` and `CLOUDFLARE_ACCOUNT_ID`. The [deploy workflow](.github/workflows/deploy.yml) is off by default, so forks never try to deploy.
 
+### Optional features
+
+| Feature                      | How to turn it on                                                                                |
+| ---------------------------- | ------------------------------------------------------------------------------------------------ |
+| Email notifications (Resend) | Set `RESEND_API_KEY` and `EMAIL_FROM`. See [docs/NOTIFICATIONS.md](docs/NOTIFICATIONS.md).       |
+| Webhook notifications        | Always on. Organizers add a URL from their poll.                                                 |
+| Google Calendar / Outlook    | Set `GOOGLE_CLIENT_ID` and/or `MICROSOFT_CLIENT_ID`. See [docs/CALENDARS.md](docs/CALENDARS.md). |
+
 ### Any server with Node
 
 ```sh
@@ -125,7 +134,7 @@ Put it behind a reverse proxy (Caddy, nginx) for HTTPS. The SQLite file is the o
 
 - **No accounts, cookies or analytics.** Venn stores only what people type into a poll: its title and details, names, and answers.
 - **Links are the keys.** The organizer link and each person's personal edit link contain a secret after the `#`. Browsers never send that part to the server. The server stores only a SHA-256 hash of each secret, so a database leak doesn't let anyone edit polls.
-- **Your calendar stays with you.** Calendar files used with _Check my calendar_ are read in the browser and never uploaded.
+- **Your calendar stays with you.** _Check my calendar_ runs entirely in the browser. Google and Outlook are asked only for busy/free times, the sign-in token never reaches the server, and calendar files are never uploaded.
 - **Delete anytime.** People can remove their own response. The organizer can remove anyone's response, or delete the whole poll.
 
 Found a security issue? Please report it privately. See [SECURITY.md](SECURITY.md).
@@ -142,10 +151,13 @@ public/            the whole front end, served as-is
   index.html
   app.js           UI: create page, voting, grid painting, results
   core.js          shared logic: time zones, ranking, calendar import/export
+  calendars.js     Google / Outlook free-busy, in the browser
+  oauth-callback.* where calendar sign-in popups land
   styles.css       light and dark themes
 src/
   api.js           JSON API on web-standard Request/Response
   store.js         SQL storage for Cloudflare D1 and node:sqlite
+  notify.js        email and webhook notifications
   worker.js        Cloudflare Worker entry point
 server.js          Node server entry point
 test/              unit and API tests (node:test)
