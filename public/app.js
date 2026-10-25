@@ -581,6 +581,12 @@ function renderCreate() {
       btn.textContent = 'Draft it';
     }
   };
+  // The landing page's "What are you planning?" box sends its text here as ?title=.
+  const fromLanding = new URLSearchParams(location.search).get('title');
+  if (fromLanding) {
+    $('#title').value = fromLanding.trim().slice(0, 120);
+    history.replaceState(null, '', location.pathname);
+  }
   $('#title').focus();
 }
 

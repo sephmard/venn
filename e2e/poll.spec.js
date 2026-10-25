@@ -247,9 +247,11 @@ test('landing page: nav bar with GitHub, and the way to the poll creator', async
     await expect(nav.getByRole('link', { name: 'Privacy' })).toBeVisible();
   }
   await expect(page.locator('h1')).toHaveText(/Find the time that works/);
-  await page.locator('.hero').getByRole('link', { name: 'Create a poll' }).click();
+  // Type what you're planning in the hero and land in the creator with it filled in.
+  await page.locator('.hero').getByRole('textbox', { name: 'What are you planning?' }).fill('Team lunch');
+  await page.keyboard.press('Enter');
   await expect(page).toHaveURL(/\/new$/);
-  await expect(page.locator('#title')).toBeVisible();
+  await expect(page.locator('#title')).toHaveValue('Team lunch');
   await page.getByRole('link', { name: 'Venn' }).click();
   await expect(page).toHaveURL(/\/$/);
 });

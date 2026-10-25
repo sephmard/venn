@@ -305,7 +305,7 @@ h2 em {
   margin-bottom: 28px;
 }
 .hero .lede {
-  margin: 0 0 36px;
+  margin: 0 0 32px;
 }
 .cta-row {
   display: flex;
@@ -313,10 +313,47 @@ h2 em {
   align-items: center;
   gap: 12px 28px;
 }
-.fine {
-  margin: 20px 0 0;
-  font-size: 0.875rem;
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+.start {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  max-width: 500px;
+  padding: 6px;
+  background: var(--paper);
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  box-shadow: 0 8px 30px -12px rgb(22 24 26 / 0.18);
+}
+.start:focus-within {
+  border-color: var(--green);
+  box-shadow: 0 0 0 3px var(--green-soft);
+}
+.start input {
+  flex: 1;
+  min-width: 0;
+  min-height: 48px;
+  padding: 0 18px;
+  border: 0;
+  background: transparent;
+  color: var(--ink);
+  font: 1.0625rem var(--sans);
+}
+.start input::placeholder {
   color: var(--ink-2);
+}
+.start input:focus {
+  outline: none;
+}
+.closing .start {
+  margin: 0 auto;
 }
 
 .venn {
@@ -700,6 +737,14 @@ h3 {
   }
   .cta-row .btn {
     flex: 1 1 100%;
+  }
+  .start {
+    flex-direction: column;
+    align-items: stretch;
+    border-radius: 24px;
+  }
+  .start .btn {
+    width: 100%;
   }
   .venn .who,
   .venn .pick {
