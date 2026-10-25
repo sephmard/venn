@@ -5,12 +5,19 @@ import { renderEvent } from './event.js';
 
 let cleanup = () => {};
 
+// Poll pages get their own tab icon, so an open poll stands out from the create pages.
+function setTabIcon(name) {
+  for (const link of document.querySelectorAll('link[rel="icon"]'))
+    link.href = `/${name}.${link.type === 'image/svg+xml' ? 'svg' : 'ico'}?v=5`;
+}
+
 async function route() {
   cleanup();
   cleanup = () => {};
   document.getElementById('toast').hidden = true;
   const path = location.pathname.replace(/\/$/, '');
   const poll = path.match(/^\/e\/([A-Za-z0-9]+)$/);
+  setTabIcon(poll ? 'favicon-poll' : 'favicon');
   let off;
   if (poll) off = await renderEvent(poll[1], navigate);
   else if (path === '/new/pick') off = renderPick();

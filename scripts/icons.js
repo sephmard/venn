@@ -1,6 +1,7 @@
 // Renders the icons: `npm run icons`.
 // - public/icons/*.png from public/icons/icon.svg (app and home-screen icons)
-// - public/favicon.ico from public/favicon.svg (16, 32 and 48 px, for browsers that ask for it)
+// - tab icons as .ico (16, 32 and 48 px) from their SVGs: public/favicon, public/favicon-poll
+//   (poll pages) and site-src/favicon (docs.venn.day)
 import { readFileSync, writeFileSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -27,25 +28,33 @@ for (const [name, size] of [
 }
 
 // An .ico file is a small header and directory followed by the images; modern ones hold PNGs.
-const sizes = [16, 32, 48];
-const pngs = [];
-for (const size of sizes) pngs.push(await render(join(pub, 'favicon.svg'), size));
-const header = Buffer.alloc(6 + 16 * sizes.length);
-header.writeUInt16LE(0, 0); // reserved
-header.writeUInt16LE(1, 2); // type: icon
-header.writeUInt16LE(sizes.length, 4);
-let offset = header.length;
-sizes.forEach((size, i) => {
-  const entry = 6 + 16 * i;
-  header.writeUInt8(size, entry); // width
-  header.writeUInt8(size, entry + 1); // height
-  header.writeUInt16LE(1, entry + 4); // colour planes
-  header.writeUInt16LE(32, entry + 6); // bits per pixel
-  header.writeUInt32LE(pngs[i].length, entry + 8);
-  header.writeUInt32LE(offset, entry + 12);
-  offset += pngs[i].length;
-});
-writeFileSync(join(pub, 'favicon.ico'), Buffer.concat([header, ...pngs]));
+async function writeIco(svgFile, icoFile) {
+  const sizes = [16, 32, 48];
+  const pngs = [];
+  for (const size of sizes) pngs.push(await render(svgFile, size));
+  const header = Buffer.alloc(6 + 16 * sizes.length);
+  header.writeUInt16LE(0, 0); // reserved
+  header.writeUInt16LE(1, 2); // type: icon
+  header.writeUInt16LE(sizes.length, 4);
+  let offset = header.length;
+  sizes.forEach((size, i) => {
+    const entry = 6 + 16 * i;
+    header.writeUInt8(size, entry); // width
+    header.writeUInt8(size, entry + 1); // height
+    header.writeUInt16LE(1, entry + 4); // colour planes
+    header.writeUInt16LE(32, entry + 6); // bits per pixel
+    header.writeUInt32LE(pngs[i].length, entry + 8);
+    header.writeUInt32LE(offset, entry + 12);
+    offset += pngs[i].length;
+  });
+  writeFileSync(icoFile, Buffer.concat([header, ...pngs]));
+}
+
+// Three tab icons: the site and app, poll pages, and the docs site.
+const root = join(pub, '..');
+await writeIco(join(pub, 'favicon.svg'), join(pub, 'favicon.ico'));
+await writeIco(join(pub, 'favicon-poll.svg'), join(pub, 'favicon-poll.ico'));
+await writeIco(join(root, 'site-src', 'favicon.svg'), join(root, 'site-src', 'favicon.ico'));
 
 await browser.close();
-console.log('wrote public/icons/*.png and public/favicon.ico');
+console.log('wrote public/icons/*.png and the three favicon .ico files');
