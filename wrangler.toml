@@ -10,8 +10,10 @@ binding = "ASSETS"
 run_worker_first = ["/api/*"]
 
 # Optional features are configured with secrets, never in this file:
-#   npx wrangler secret put RESEND_API_KEY   # email notifications (see docs/NOTIFICATIONS.md)
-#   npx wrangler secret put EMAIL_FROM
+#   npx wrangler secret put EMAIL_FROM       # email notifications (see docs/NOTIFICATIONS.md),
+#   npx wrangler secret put RESEND_API_KEY   # sent with Resend, or with Cloudflare Email Sending:
+#     [[send_email]]                         # the deploy workflow adds this binding when the
+#     name = "EMAIL"                         # CLOUDFLARE_EMAIL repository variable is true
 #   npx wrangler secret put ANTHROPIC_API_KEY  # AI features (see docs/AI.md)
 # Calendar client IDs are public and can go in [vars] (see docs/CALENDARS.md):
 #   GOOGLE_CLIENT_ID, MICROSOFT_CLIENT_ID, MICROSOFT_TENANT
