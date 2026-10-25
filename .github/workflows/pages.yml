@@ -1,8 +1,8 @@
 name: Pages
 
 # Publishes the product page and docs (built from the repo's Markdown) to GitHub Pages
-# whenever main changes. Set the repository variable APP_URL to point "Open Venn" at your
-# hosted instance.
+# (docs.venn.day) whenever main changes. "Open Venn" links to venn.day; set the repository
+# variable APP_URL to point it at another instance.
 
 on:
   push:
@@ -33,7 +33,7 @@ jobs:
       - run: npm ci
       - name: Build site/
         env:
-          APP_URL: ${{ vars.APP_URL }}
+          APP_URL: ${{ vars.APP_URL || 'https://venn.day' }}
         run: npm run site
       - uses: actions/configure-pages@45bfe0192ca1faeb007ade9deae92b16b8254a0d # v6.0.0
       - uses: actions/upload-pages-artifact@fc324d3547104276b827a68afc52ff2a11cc49c9 # v5.0.0
