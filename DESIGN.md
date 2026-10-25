@@ -78,7 +78,7 @@ Lines stay under 65 characters. Italic serif is the only emphasis inside headlin
   - **Poll pages** (`favicon-poll.svg`, swapped in by `app.js` on `/e/:id`): the Venn in white on a green-gradient tile, with its centre lit up.
   - **Docs** (`site-src/favicon.svg`): the logo on a dark ink tile.
 
-  All are drawn on a 16 px grid so they stay sharp in a browser tab. The home-screen icon (`icons/icon.svg`) puts the logo on `--paper`, inside the maskable safe zone. When an icon changes, bump the `?v=` on the icon links (and in `app.js`) so browsers drop their cached copy.
+  All are drawn on a 16 px grid so they stay sharp in a browser tab. The home-screen icon (`icons/icon.svg`) puts the logo on `--paper`, inside the maskable safe zone. When an icon changes, bump the `?v=` on the icon links so browsers drop their cached copy.
 
 - The GitHub mark (Octicons, official) appears only on links to the repository.
 - One real product screenshot (light and dark versions), framed on `--paper-2` and faded at the bottom.

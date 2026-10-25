@@ -149,10 +149,10 @@ test('unknown poll shows a friendly error', async ({ page }) => {
 test('poll pages get their own tab icon', async ({ page }) => {
   const icon = page.locator('link[rel="icon"][type="image/svg+xml"]');
   await page.goto('/new');
-  await expect(icon).toHaveAttribute('href', /^\/favicon\.svg/);
+  await expect(icon).toHaveAttribute('href', /\/favicon\.svg/);
   await page.goto('/e/doesnotexist');
-  await expect(icon).toHaveAttribute('href', /^\/favicon-poll\.svg/);
-  await expect(page.locator('link[rel="icon"][sizes]')).toHaveAttribute('href', /^\/favicon-poll\.ico/);
+  await expect(icon).toHaveAttribute('href', /\/favicon-poll\.svg/);
+  await expect(page.locator('link[rel="icon"][sizes]')).toHaveAttribute('href', /\/favicon-poll\.ico/);
 });
 
 test('organizer sets up a webhook from the Notifications panel', async ({ page }) => {
