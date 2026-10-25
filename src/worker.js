@@ -14,7 +14,11 @@ export default {
     if (url.pathname.startsWith('/api/')) {
       store ??= createStore(d1Adapter(env.DB));
       // waitUntil lets notifications finish after the response has been sent.
-      return handleApi(request, store, { env, waitUntil: (p) => ctx.waitUntil(p) });
+      return handleApi(request, store, {
+        env,
+        waitUntil: (p) => ctx.waitUntil(p),
+        clientIp: request.headers.get('cf-connecting-ip') || '',
+      });
     }
     const app = isAppRoute(url.pathname);
     // Static assets serve app.html at /app and 404.html at /404.

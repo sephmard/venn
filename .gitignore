@@ -8,3 +8,4 @@ playwright-report/
 docs/.video/
 .dev.vars*
 .env*
+site/

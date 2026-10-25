@@ -1,0 +1,20 @@
+name: Label pull requests
+
+# Labels each pull request by the area it touches (see .github/labeler.yml), to make triage and
+# release notes easier. Uses pull_request_target so it also works for forks; it never checks out
+# or runs the pull request's code.
+
+on: pull_request_target
+
+permissions:
+  contents: read
+
+jobs:
+  label:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: read
+      pull-requests: write
+    steps:
+      - uses: actions/labeler@bf12e9b00b37c5c0ca2b87b79b2daf7891dbda13 # v7.0.0

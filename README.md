@@ -12,12 +12,14 @@
 
 <p align="center">
   <a href="https://github.com/sephmard/venn/actions/workflows/ci.yml"><img src="https://github.com/sephmard/venn/actions/workflows/ci.yml/badge.svg" alt="CI status"></a>
-  <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-0f9d76.svg" alt="MIT license"></a>
-  <a href="CONTRIBUTING.md"><img src="https://img.shields.io/badge/PRs-welcome-0f9d76.svg" alt="PRs welcome"></a>
+  <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-0b7a5c.svg" alt="MIT license"></a>
+  <a href="CONTRIBUTING.md"><img src="https://img.shields.io/badge/PRs-welcome-0b7a5c.svg" alt="PRs welcome"></a>
+  <a href="https://scorecard.dev/viewer/?uri=github.com/sephmard/venn"><img src="https://api.scorecard.dev/projects/github.com/sephmard/venn/badge" alt="OpenSSF Scorecard"></a>
 </p>
 
 <p align="center">
   <a href="https://venn.day"><strong>Try it at venn.day</strong></a> ·
+  <a href="https://sephmard.github.io/venn/">Docs</a> ·
   <a href="#quick-start">Quick start</a> ·
   <a href="#self-hosting">Self-hosting</a> ·
   <a href="#privacy">Privacy</a> ·
@@ -38,8 +40,10 @@ Everyone's availability is a circle. Venn finds where they overlap.
 - **Time zones handled.** Everyone sees times in their own time zone automatically.
 - **Picks the best time for you.** Options are ranked by how many people can make it, then by how many gave a firm yes.
 - **Check your calendar.** Fill in your answers from Google Calendar, Outlook or a calendar file. Only busy/free times are read, in your browser, and nothing is stored on the server.
+- **AI when you want it.** Describe a meeting in words and get a ready-to-check poll, let AI fill in your answers from your preferences, or get a summary and a suggested time. Optional; powered by Claude.
 - **Know when people answer.** Get an email, or a message in Slack, Discord or any webhook, whenever someone responds.
 - **Straight into calendars.** Once the time is picked, everyone gets Google, Outlook and Apple calendar links.
+- **Accessible.** Works with a keyboard and screen readers, with WCAG AA contrast in light and dark mode. Checked automatically on every change.
 - **Yours to run.** Host it free on Cloudflare, or on any server that runs Node.
 
 ## A quick tour
@@ -87,11 +91,13 @@ You need [Node.js](https://nodejs.org) 22.13 or newer.
 ```sh
 git clone https://github.com/sephmard/venn.git
 cd venn
-npm install   # dev tools only: the app itself has no runtime dependencies
+npm install   # the browser code has no dependencies; the server uses the Anthropic SDK for optional AI
 npm start     # http://localhost:8787
 ```
 
 Polls are saved to `data/venn.db` (SQLite).
+
+More screenshots, and all the docs, are on the [website](https://sephmard.github.io/venn/).
 
 ## Self-hosting
 
@@ -120,6 +126,7 @@ To deploy on every push to `main` with GitHub Actions, set the repository variab
 | Email notifications (Resend) | Set `RESEND_API_KEY` and `EMAIL_FROM`. See [docs/NOTIFICATIONS.md](docs/NOTIFICATIONS.md).       |
 | Webhook notifications        | Always on. Organizers add a URL from their poll.                                                 |
 | Google Calendar / Outlook    | Set `GOOGLE_CLIENT_ID` and/or `MICROSOFT_CLIENT_ID`. See [docs/CALENDARS.md](docs/CALENDARS.md). |
+| AI features (Claude)         | Set `ANTHROPIC_API_KEY`. See [docs/AI.md](docs/AI.md).                                           |
 
 ### Any server with Node
 
@@ -142,7 +149,7 @@ Found a security issue? Please report it privately. See [SECURITY.md](SECURITY.m
 
 ## How it's built
 
-No framework and no build step: plain HTML, CSS and JavaScript, a small JSON API, and SQLite.
+No framework and no build step: plain HTML, CSS and JavaScript, a small JSON API, and SQLite. The only runtime dependency is the Anthropic SDK, used on the server for the optional AI features.
 
 <details>
 <summary><strong>Project layout</strong></summary>
@@ -156,16 +163,20 @@ public/            the whole front end, served as-is
   calendars.js     Google / Outlook free-busy, in the browser
   oauth-callback.* where calendar sign-in popups land
   styles.css       light and dark themes
+site-src/          styles for the GitHub Pages site
 src/
   api.js           JSON API on web-standard Request/Response
   store.js         SQL storage for Cloudflare D1 and node:sqlite
   notify.js        email and webhook notifications
+  ai.js            AI features (Claude)
   routes.js        which paths the app handles
   worker.js        Cloudflare Worker entry point
 server.js          Node server entry point
 test/              unit and API tests (node:test)
 e2e/               browser tests (Playwright, desktop and mobile)
-scripts/           screenshot, demo and social-image generators
+docs/              guides (notifications, calendars, AI, CI, maintaining), images
+scripts/           README screenshots, social image, the docs site build, link checks
+CLAUDE.md          project rules for code review
 ```
 
 </details>
@@ -173,15 +184,20 @@ scripts/           screenshot, demo and social-image generators
 <details>
 <summary><strong>API</strong></summary>
 
-| Method           | Path                                | Notes                                                                                                           |
-| ---------------- | ----------------------------------- | --------------------------------------------------------------------------------------------------------------- |
-| `POST`           | `/api/events`                       | Create a poll → `{ id, adminToken }`. Specific times: `{ mode: "options", options: [{ start, end }] }` (UTC ms) |
-| `GET`            | `/api/events/:id`                   | Poll and responses. Sending the `x-admin-token` header sets `isAdmin`.                                          |
-| `DELETE`         | `/api/events/:id`                   | Organizer only                                                                                                  |
-| `POST`           | `/api/events/:id/participants`      | `{ name, availability }` → `{ id, editToken }`                                                                  |
-| `PUT` / `DELETE` | `/api/events/:id/participants/:pid` | Needs `x-edit-token`. The organizer can also delete.                                                            |
-| `POST`           | `/api/events/:id/finalize`          | `{ start }`, or `{ start: null }` to clear. Organizer only.                                                     |
-| `GET`            | `/api/events/:id/event.ics`         | Calendar file for the picked time                                                                               |
+| Method           | Path                                 | Notes                                                                                                           |
+| ---------------- | ------------------------------------ | --------------------------------------------------------------------------------------------------------------- |
+| `POST`           | `/api/events`                        | Create a poll → `{ id, adminToken }`. Specific times: `{ mode: "options", options: [{ start, end }] }` (UTC ms) |
+| `GET`            | `/api/events/:id`                    | Poll and responses. Sending the `x-admin-token` header sets `isAdmin`.                                          |
+| `DELETE`         | `/api/events/:id`                    | Organizer only                                                                                                  |
+| `POST`           | `/api/events/:id/participants`       | `{ name, availability }` → `{ id, editToken }`                                                                  |
+| `PUT` / `DELETE` | `/api/events/:id/participants/:pid`  | Needs `x-edit-token`. The organizer can also delete.                                                            |
+| `POST`           | `/api/events/:id/finalize`           | `{ start }`, or `{ start: null }` to clear. Organizer only.                                                     |
+| `GET`            | `/api/events/:id/event.ics`          | Calendar file for the picked time                                                                               |
+| `GET` / `PUT`    | `/api/events/:id/notifications`      | Email and webhook settings. Organizer only. See [docs/NOTIFICATIONS.md](docs/NOTIFICATIONS.md).                 |
+| `POST`           | `/api/events/:id/notifications/test` | Send a test webhook. Organizer only.                                                                            |
+| `GET`            | `/api/config`                        | Which optional features (email, calendars, AI) this server has turned on                                        |
+| `POST`           | `/api/ai/draft-poll`                 | `{ prompt, timezone }` → a draft poll. See [docs/AI.md](docs/AI.md).                                            |
+| `POST`           | `/api/events/:id/ai/:kind`           | `summary` and `message` (organizer only), `answer` (anyone)                                                     |
 
 `availability` maps each option's start time (UTC ms) to `2` (yes) or `1` (if needed). Anything missing means no.
 
@@ -191,11 +207,12 @@ scripts/           screenshot, demo and social-image generators
 
 Ideas we'd love help with:
 
-- [ ] Email or webhook notifications when someone responds
+- [x] Email or webhook notifications when someone responds
+- [x] Check Google and Outlook calendars for busy times
+- [x] Optional AI: describe a poll in words, answer for me, summaries and messages
 - [ ] Recurring "any week" polls (days of the week rather than dates)
-- [ ] Live Google and Microsoft calendar overlay (today it's `.ics` import)
 - [ ] Translations
-- [ ] Rate limiting for public instances
+- [ ] Built-in rate limiting for the whole API (today: AI only, plus [your host's rate limiting](docs/MAINTAINING.md#hosting-a-public-instance))
 
 Have another idea? [Open an issue](https://github.com/sephmard/venn/issues/new/choose).
 
@@ -203,9 +220,13 @@ Have another idea? [Open an issue](https://github.com/sephmard/venn/issues/new/c
 
 Contributions are welcome, from typo fixes to new features. [CONTRIBUTING.md](CONTRIBUTING.md) covers setup, tests and how pull requests are reviewed. Please follow the [Code of Conduct](CODE_OF_CONDUCT.md). Maintainers: see [docs/MAINTAINING.md](docs/MAINTAINING.md).
 
+Every pull request gets quick automatic checks: lint, unit and browser tests on desktop and phone, accessibility checks, a coverage floor, a page-weight budget, and an advisory review from Claude. Docs-only changes take about 30 seconds. See [docs/CI.md](docs/CI.md).
+
 ```sh
-npm run check      # lint, formatting, unit and API tests
-npm run test:e2e   # browser tests on desktop and mobile
+npm run check          # lint, formatting, docs links, unit and API tests
+npm run test:coverage  # unit tests with the coverage floor
+npm run test:e2e       # browser and accessibility tests on desktop and mobile
+npm run site           # build the website and docs into site/
 ```
 
 ## License

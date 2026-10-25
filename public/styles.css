@@ -4,17 +4,18 @@
   --surface-2: #f0f0ec;
   --border: #e2e2dc;
   --text: #1c1d1f;
-  --muted: #6b6d70;
-  --accent: #0f9d76;
+  --muted: #5c5f63;
+  --accent: #0b7a5c;
   --accent-ink: #ffffff;
   --accent-soft: #dff3ec;
   --maybe: #e7a321;
-  --danger: #c4372b;
+  --danger: #b42318;
   --cell-empty: #ecece7;
-  --heat: 15, 157, 118;
+  --heat: 11, 122, 92;
   --final: #3b5bdb;
   --no-bg: #5d6066;
   --no-ink: #ffffff;
+  --final-ink: #ffffff;
   --radius: 10px;
   --shadow: 0 1px 2px rgba(0, 0, 0, 0.05), 0 4px 16px rgba(0, 0, 0, 0.05);
   color-scheme: light;
@@ -31,12 +32,13 @@
     --accent-ink: #0b1f19;
     --accent-soft: #173a30;
     --maybe: #e9b14a;
-    --danger: #ef6a5e;
+    --danger: #ff8577;
     --cell-empty: #2a2b30;
     --heat: 47, 196, 151;
     --final: #7c95ff;
     --no-bg: #b9bcc2;
     --no-ink: #131416;
+    --final-ink: #131416;
     --shadow: none;
     color-scheme: dark;
   }
@@ -840,7 +842,7 @@ button:focus-visible,
 .badge {
   font-size: 0.7rem;
   font-weight: 700;
-  color: #fff;
+  color: var(--final-ink);
   background: var(--final);
   border-radius: 999px;
   padding: 1px 8px;
@@ -1086,11 +1088,68 @@ button:focus-visible,
   }
 }
 .quick-actions {
-  flex-wrap: nowrap;
+  flex-wrap: wrap;
 }
+/* Phones: up to four actions (calendar, AI, yes to all, clear) as an even 2×2 grid. */
 @media (max-width: 520px) {
   .quick-actions {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
     width: 100%;
-    justify-content: space-between;
   }
+  .quick-actions > .btn,
+  .quick-actions .cal-connect > .btn {
+    width: 100%;
+  }
+}
+
+/* ---------- AI ---------- */
+.ai-draft {
+  margin-bottom: 20px;
+}
+.ai-row {
+  display: flex;
+  gap: 8px;
+  align-items: stretch;
+}
+.ai-row textarea {
+  min-height: 48px;
+}
+@media (max-width: 520px) {
+  .ai-row {
+    flex-direction: column;
+  }
+}
+.ai-panel {
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 12px;
+  background: var(--surface-2);
+}
+.ai-panel .check {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  font-weight: 500;
+  margin-top: 8px;
+}
+.ai-card {
+  border: 1px solid color-mix(in srgb, var(--accent) 35%, transparent);
+  background: var(--accent-soft);
+  border-radius: var(--radius);
+  padding: 12px 14px;
+  margin-bottom: 12px;
+}
+.ai-rec {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: 10px;
+}
+.opt-note {
+  color: var(--muted);
+  margin-top: 2px;
+  font-style: italic;
 }

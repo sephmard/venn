@@ -33,9 +33,10 @@ const TYPES = {
 // Node can resolve DNS, so webhook hosts are checked against private addresses before use.
 const resolveHost = async (host) => (await lookup(host, { all: true })).map((a) => a.address);
 
-export function createApp({ dbPath = ':memory:', env = process.env, fetchImpl = fetch, resolve = resolveHost } = {}) {
+export function createApp({ dbPath = ':memory:', env = process.env, fetchImpl = fetch, resolve = resolveHost, anthropic } = {}) {
   if (dbPath !== ':memory:') mkdirSync(dirname(dbPath), { recursive: true });
   const store = createStore(sqliteAdapter(new DatabaseSync(dbPath)));
+  const aiWindows = new Map(); // AI rate limiting, per server
   // Background work (notifications) runs after the response is sent; tests can await it.
   const pending = new Set();
   const waitUntil = (promise) => {
@@ -53,7 +54,15 @@ export function createApp({ dbPath = ':memory:', env = process.env, fetchImpl = 
         for await (const c of req) chunks.push(c);
         const body = chunks.length ? Buffer.concat(chunks) : undefined;
         const request = new Request(url, { method: req.method, headers: req.headers, body: body?.length ? body : undefined });
-        const response = await handleApi(request, store, { env, waitUntil, fetchImpl, resolveHost: resolve });
+        const response = await handleApi(request, store, {
+          env,
+          waitUntil,
+          fetchImpl,
+          resolveHost: resolve,
+          clientIp: req.socket.remoteAddress || '',
+          anthropic,
+          aiWindows,
+        });
         res.writeHead(response.status, Object.fromEntries(response.headers));
         res.end(Buffer.from(await response.arrayBuffer()));
         return;
