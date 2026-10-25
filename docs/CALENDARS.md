@@ -1,5 +1,7 @@
 # Connecting Google Calendar and Outlook
 
+> **Coming soon.** The **Check my calendar** button is shown as "Coming soon" in the app for now. The code below stays in `public/calendars.js`, ready to switch back on.
+
 Invitees can tap **Check my calendar** to fill in their answers from Google Calendar or Outlook / Microsoft 365. Uploading a calendar file (`.ics`) always works, with no setup.
 
 ## How it works and what's shared

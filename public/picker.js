@@ -21,10 +21,20 @@ const ymd = (y, m, d) => `${y}-${String(m + 1).padStart(2, '0')}-${String(d).pad
  * - Toggle mode (`selected` + `onChange`): tap or drag to pick several days.
  * - Open mode (`onDay`): tap a day to open it; `active()` is the open day.
  * `marks(date)` returns a short note shown under the day number (and read out with it).
+ * `dayClass(date)` adds classes to a day, for ranges such as the days a trip covers.
  */
 export function monthView(
   root,
-  { selected, onChange, onDay, active = () => null, marks = () => '', markLabel = 'marked', allowed = () => true },
+  {
+    selected,
+    onChange,
+    onDay,
+    active = () => null,
+    marks = () => '',
+    markLabel = 'marked',
+    allowed = () => true,
+    dayClass = () => '',
+  },
 ) {
   const today = todayStr();
   const toggle = !!selected;
@@ -55,7 +65,7 @@ export function monthView(
       const off = ds < today || !allowed(ds);
       // The number is the visible name; the weekday, month and note are read out with it.
       const dt = dateParts(ds);
-      h += `<button type="button" class="cal-day${ds === today ? ' today' : ''}${mark ? ' marked' : ''}" data-date="${ds}" ${state}${off ? ' disabled' : ''}><span class="sr-only">${esc(fmtDow.format(dt))} </span>${d}<span class="sr-only"> ${esc(fmtMonth.format(dt))}${mark ? `, ${esc(mark)} ${esc(markLabel)}` : ''}</span>${mark ? `<small aria-hidden="true">${esc(mark)}</small>` : ''}</button>`;
+      h += `<button type="button" class="cal-day${ds === today ? ' today' : ''}${mark ? ' marked' : ''} ${dayClass(ds)}" data-date="${ds}" ${state}${off ? ' disabled' : ''}><span class="sr-only">${esc(fmtDow.format(dt))} </span>${d}<span class="sr-only"> ${esc(fmtMonth.format(dt))}${mark ? `, ${esc(mark)} ${esc(markLabel)}` : ''}</span>${mark ? `<small aria-hidden="true">${esc(mark)}</small>` : ''}</button>`;
     }
     grid.innerHTML = h;
     $('[data-nav="-1"]', root).disabled = y === new Date().getFullYear() && m === new Date().getMonth();

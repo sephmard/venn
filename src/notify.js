@@ -1,7 +1,10 @@
-// Notifications when people respond to a poll: email (via Resend) and webhooks.
+// Notifications when people respond to a poll: email (through a provider in email.js) and webhooks.
 // Everything here runs after the response is saved, so failures never affect the person answering.
 
 import { ValidationError, buildSlots, rankTimes } from '../public/core.js';
+import { emailProvider, sendEmail } from './email.js';
+
+export { sendEmail };
 
 const TIMEOUT_MS = 5000;
 // Don't email the organizer again about the same person editing their answer within this window.
@@ -10,7 +13,7 @@ const EDIT_EMAIL_COOLDOWN_MS = 10 * 60_000;
 export const MAX_CONFIRMATIONS = 3;
 const EMAIL_RE = /^[^\s@<>"',;]+@[^\s@<>"',;]+\.[^\s@<>"',;]+$/;
 
-export const emailEnabled = (env) => Boolean(env.RESEND_API_KEY && env.EMAIL_FROM);
+export const emailEnabled = (env) => emailProvider(env) != null;
 
 export function normalizeEmail(value) {
   if (value == null || value === '') return null;
@@ -201,16 +204,6 @@ export async function sendWebhook(url, secret, s, { fetchImpl, now }) {
     body,
   });
   return { ok: res.status >= 200 && res.status < 300, status: res.status };
-}
-
-export async function sendEmail(env, { to, subject, text, html, headers }, { fetchImpl }) {
-  const res = await fetchImpl('https://api.resend.com/emails', {
-    method: 'POST',
-    signal: AbortSignal.timeout(TIMEOUT_MS),
-    headers: { authorization: `Bearer ${env.RESEND_API_KEY}`, 'content-type': 'application/json' },
-    body: JSON.stringify({ from: env.EMAIL_FROM, to: [to], subject, text, html, headers }),
-  });
-  if (!res.ok) throw new Error(`Email service responded with ${res.status}`);
 }
 
 /** Send whatever the organizer has set up for this poll. Never throws. */
