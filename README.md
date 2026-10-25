@@ -117,7 +117,7 @@ npx wrangler deploy
 
 Tables are created automatically on the first request.
 
-To deploy on every push to `main` with GitHub Actions, set the repository variables `CLOUDFLARE_DEPLOY=true` and `D1_DATABASE_ID`, and the secrets `CLOUDFLARE_API_TOKEN` and `CLOUDFLARE_ACCOUNT_ID`. The [deploy workflow](.github/workflows/deploy.yml) is off by default, so forks never try to deploy.
+To deploy on every push to `main` with GitHub Actions, set the repository variables `CLOUDFLARE_DEPLOY=true` and `D1_DATABASE_ID`, and the secrets `CLOUDFLARE_API_TOKEN` and `CLOUDFLARE_ACCOUNT_ID`. The [deploy workflow](.github/workflows/deploy.yml) is off by default, so forks never try to deploy. It can also run a staging copy, with `main` deploying to staging and releases to production. See [docs/MAINTAINING.md](docs/MAINTAINING.md#staging-stagingvennday).
 
 ### Optional features
 

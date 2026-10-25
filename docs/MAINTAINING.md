@@ -23,7 +23,7 @@ With a single maintainer, no approving review is required, because GitHub doesn'
 | `dependabot-auto-merge.yml`  | Dependabot PRs                    | Auto-merges patch and minor updates once CI passes                                                                                                                                                                                                        |
 | `pages.yml`                  | Push to `main`                    | Builds and publishes the website and docs to GitHub Pages                                                                                                                                                                                                 |
 | `scorecard.yml`              | Push to `main`, and weekly        | OpenSSF Scorecard security score (README badge)                                                                                                                                                                                                           |
-| `deploy.yml`                 | Push to `main`                    | Deploys to Cloudflare, only if `CLOUDFLARE_DEPLOY=true` is set (off by default)                                                                                                                                                                           |
+| `deploy.yml`                 | Push to `main`, releases          | `main` → staging.venn.day, releases → venn.day (see [staging](#staging-stagingvennday)). Only if `CLOUDFLARE_DEPLOY=true` is set (off by default)                                                                                                         |
 | Dependabot                   | Weekly                            | Grouped update PRs for npm dev tools and GitHub Actions, after a 3-day cooldown                                                                                                                                                                           |
 
 All workflows start with read-only permissions. Pull requests from forks run with no access to secrets. Every third-party action is pinned to a full commit hash; Dependabot keeps the hashes current.
@@ -65,13 +65,13 @@ These can't be stored in the code, so set them by hand. They're listed in order.
 - Turn on **Secret scanning** and **Push protection**.
 - **CodeQL:** leave _Default setup_ off. The repo uses its own `codeql.yml` (advanced setup), and the two can't run together.
 
-### 5. Deploy environment (only if you use `deploy.yml`)
+### 5. Deploy environments (only if you use `deploy.yml`)
 
-**Settings → Environments → New environment** named `production`:
+**Settings → Environments → New environment**, once named `production` and once named `staging`:
 
-- **Deployment branches:** _Selected branches_ → `main`.
-- Optionally add yourself as a **Required reviewer**, so each deploy waits for one click.
-- Put `CLOUDFLARE_API_TOKEN` and `CLOUDFLARE_ACCOUNT_ID` here as **environment secrets**, not repository secrets, so only this job can read them. Use a Cloudflare API token limited to Workers and D1 for this one account.
+- **Deployment branches and tags:** _Selected branches and tags_. Add the branch `main`, and for `production` also the tag pattern `v*` (releases deploy from their tag).
+- On `production`, optionally add yourself as a **Required reviewer**, so each production deploy waits for one click.
+- Put `CLOUDFLARE_API_TOKEN` and `CLOUDFLARE_ACCOUNT_ID` in both as **environment secrets**, not repository secrets, so only the deploy job can read them. Use a Cloudflare API token limited to this one account (permissions are in [the official site](#the-official-site-vennday) below).
 
 ### 6. GitHub Pages
 
@@ -116,14 +116,37 @@ The landing page, privacy page and app are all served by the one Worker. To set 
 1. **Register the domain.** In the Cloudflare dashboard, go to **Domain Registration → Register Domains** and buy `venn.day`. Registering it with Cloudflare adds it as a zone on the same account automatically. If you buy it elsewhere, add it as a site in Cloudflare and point the registrar's nameservers at the two Cloudflare gives you.
 2. **Create the database**: `npx wrangler d1 create venn`.
 3. **Create an API token** under **My Profile → API Tokens** with _Account → Workers Scripts: Edit_, _Account → D1: Edit_, _Zone → Workers Routes: Edit_ and _Zone → DNS: Edit_ (zone: `venn.day`).
-4. **Set the repository's Actions settings**: variables `CLOUDFLARE_DEPLOY=true`, `D1_DATABASE_ID` and `CUSTOM_DOMAIN=venn.day`; secrets `CLOUDFLARE_API_TOKEN` and `CLOUDFLARE_ACCOUNT_ID`.
-5. **Deploy**: run the **Deploy** workflow, or merge to `main`. Wrangler attaches `venn.day` as a Custom Domain and creates its DNS record and certificate.
+4. **Set the repository's Actions settings**: variables `CLOUDFLARE_DEPLOY=true`, `D1_DATABASE_ID` and `CUSTOM_DOMAIN=venn.day`; secrets `CLOUDFLARE_API_TOKEN` and `CLOUDFLARE_ACCOUNT_ID` (on the environments from [step 5 above](#5-deploy-environments-only-if-you-use-deployyml)).
+5. **Deploy**: publish a release, or run **Actions → Deploy → Run workflow → production**. Wrangler attaches `venn.day` as a Custom Domain and creates its DNS record and certificate. (Until staging is set up, merging to `main` also deploys here.)
 6. **Redirect `www`.** Add a proxied DNS record for `www` (for example `AAAA www 100::`) and a **Rules → Redirect Rules** rule from `www.venn.day/*` to `https://venn.day/${1}` (301, keep the query string).
 7. **Harden it**: work through [hosting a public instance](#hosting-a-public-instance) below: HSTS, the rate-limiting rule and backups. The privacy page is already at `/privacy`; update it if you add another service that handles data.
 8. **Optional extras**: verify `venn.day` in Resend for notification emails (`EMAIL_FROM="Venn <notifications@venn.day>"`), and add `https://venn.day/oauth-callback.html` as a redirect URI for the Google and Microsoft calendar apps.
 
 After changing the landing page's main screenshot, regenerate the social preview with `npm run og`.
 
+## Staging: staging.venn.day
+
+Staging is a second copy of the app for trying changes before they reach venn.day. It has its own Worker (`venn-staging`) and its own database, so test polls never mix with real ones, and every page is marked `noindex` so it stays out of search results.
+
+|          | Staging                   | Production                                               |
+| -------- | ------------------------- | -------------------------------------------------------- |
+| Address  | staging.venn.day          | venn.day                                                 |
+| Deploys  | Every merge to `main`     | When you publish a release (or run the workflow by hand) |
+| Database | `venn-staging`            | `venn`                                                   |
+| Secrets  | Its own (`--env staging`) | Its own                                                  |
+
+To set it up:
+
+1. **Create its database**: `npx wrangler d1 create venn-staging`.
+2. **Set the repository variables** `STAGING_D1_DATABASE_ID` (the id it printed) and `STAGING_DOMAIN=staging.venn.day`. Setting `STAGING_D1_DATABASE_ID` is what switches merges to `main` from production over to staging.
+3. **Deploy**: merge anything to `main`, or run **Actions → Deploy → Run workflow → staging**. Wrangler creates the `staging.venn.day` DNS record and certificate.
+4. **Optional features** need their own secrets, for example `npx wrangler secret put ANTHROPIC_API_KEY --env staging`. Use a separate Anthropic API key with a low spend limit, so staging can't use up production's budget. For calendars, add `https://staging.venn.day/oauth-callback.html` as a redirect URI too.
+5. **Optionally make it private** with Cloudflare Access (**Zero Trust → Access → Applications → Add → Self-hosted**, domain `staging.venn.day`, allow your email). It's free for small teams, and keeps strangers and bots off staging entirely.
+
+To deploy staging from your machine instead: `npm run deploy:staging`.
+
 ## Releases
 
-Each merge to `main` is deployable. To mark a version, create a release from **Releases → Draft a new release**. Use a tag like `v1.2.0` and let GitHub generate the notes from the merged pull requests.
+Each merge to `main` goes to [staging](#staging-stagingvennday) first. Once it looks right there, ship it to venn.day by creating a release: **Releases → Draft a new release**, a tag like `v1.2.0` on `main`, and let GitHub generate the notes from the merged pull requests. Publishing the release deploys that tag to production.
+
+To undo a bad release, run **Actions → Deploy → Run workflow → production** from the previous release's tag, or roll back in the Cloudflare dashboard (**Workers → venn → Deployments**).

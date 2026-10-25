@@ -23,8 +23,29 @@ binding = "DB"
 database_name = "venn"
 database_id = "REPLACE_WITH_YOUR_D1_DATABASE_ID"
 
-# The public site runs on venn.day. The deploy workflow adds the domain from the
-# CUSTOM_DOMAIN repository variable, so forks never try to claim it. To do it by hand:
+# Production runs on venn.day. The deploy workflow adds the domain from the CUSTOM_DOMAIN
+# variable of the "production" GitHub environment, so forks never try to claim it. By hand:
 # [[routes]]
 # pattern = "venn.day"
 # custom_domain = true
+
+# Staging: a separate Worker and database, deployed from main to staging.venn.day.
+#   npx wrangler d1 create venn-staging      (paste the id below)
+#   npx wrangler deploy --env staging
+# Secrets are per environment: npx wrangler secret put ANTHROPIC_API_KEY --env staging
+[env.staging]
+name = "venn-staging"
+
+[env.staging.assets]
+directory = "./public"
+binding = "ASSETS"
+# The Worker runs first for every path so it can mark the whole site noindex.
+run_worker_first = true
+
+[env.staging.vars]
+NOINDEX = "true"
+
+[[env.staging.d1_databases]]
+binding = "DB"
+database_name = "venn-staging"
+database_id = "REPLACE_WITH_YOUR_STAGING_D1_DATABASE_ID"

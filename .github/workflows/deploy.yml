@@ -1,14 +1,33 @@
-# Deploys main to Cloudflare Workers. Off by default so forks don't try to deploy.
-# To enable, set in the repo's Settings → Secrets and variables → Actions:
-#   variables: CLOUDFLARE_DEPLOY=true, D1_DATABASE_ID=<from `npx wrangler d1 create venn`>,
-#              CUSTOM_DOMAIN=<optional, e.g. venn.day; the domain must be a zone on the same Cloudflare account>
-#   secrets:   CLOUDFLARE_API_TOKEN (Workers + D1 edit), CLOUDFLARE_ACCOUNT_ID
+# Deploys to Cloudflare Workers. Off by default so forks don't try to deploy.
+#
+#   main ──push──▶ staging     (staging.venn.day, only if STAGING_D1_DATABASE_ID is set)
+#   release ─────▶ production  (venn.day)
+#
+# Without staging configured, pushes to main deploy straight to production. Either target can
+# also be deployed by hand: Actions → Deploy → Run workflow.
+#
+# Settings → Secrets and variables → Actions:
+#   variables: CLOUDFLARE_DEPLOY=true
+#              D1_DATABASE_ID          from `npx wrangler d1 create venn`
+#              CUSTOM_DOMAIN           optional, e.g. venn.day (a zone on the same Cloudflare account)
+#              STAGING_D1_DATABASE_ID  optional, from `npx wrangler d1 create venn-staging`; turns staging on
+#              STAGING_DOMAIN          optional, e.g. staging.venn.day
+#   secrets:   CLOUDFLARE_API_TOKEN (Workers, D1, Workers Routes, DNS), CLOUDFLARE_ACCOUNT_ID
+#              (as environment secrets on both the "staging" and "production" environments)
 name: Deploy
 
 on:
   push:
     branches: [main]
+  release:
+    types: [published]
   workflow_dispatch:
+    inputs:
+      target:
+        description: Where to deploy
+        type: choice
+        options: [staging, production]
+        default: staging
 
 permissions:
   contents: read
@@ -18,12 +37,40 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
-  deploy:
+  plan:
+    name: Choose target
     if: vars.CLOUDFLARE_DEPLOY == 'true'
     runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      target: ${{ steps.pick.outputs.target }}
+    steps:
+      - id: pick
+        env:
+          EVENT: ${{ github.event_name }}
+          INPUT: ${{ inputs.target }}
+          HAS_STAGING: ${{ vars.STAGING_D1_DATABASE_ID != '' }}
+        run: |
+          case "$EVENT" in
+            release) target=production ;;
+            workflow_dispatch) target="$INPUT" ;;
+            *) if [ "$HAS_STAGING" = true ]; then target=staging; else target=production; fi ;;
+          esac
+          if [ "$target" = staging ] && [ "$HAS_STAGING" != true ]; then
+            echo "::error::Staging isn't set up. Set the STAGING_D1_DATABASE_ID variable first."; exit 1
+          fi
+          echo "target=$target" >> "$GITHUB_OUTPUT"
+          echo "Deploying to **$target**" >> "$GITHUB_STEP_SUMMARY"
+
+  deploy:
+    name: Deploy to ${{ needs.plan.outputs.target }}
+    needs: plan
+    runs-on: ubuntu-latest
     timeout-minutes: 15
-    # Add protection rules to this environment (Settings → Environments) so only main can deploy.
-    environment: production
+    # Protect these under Settings → Environments: production only from main and release tags.
+    environment:
+      name: ${{ needs.plan.outputs.target }}
+      url: ${{ steps.config.outputs.url }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -34,16 +81,30 @@ jobs:
           cache: npm
       - run: npm ci
       - run: npm test
-      - name: Set D1 database id
+      - name: Fill in the database and domain
+        id: config
         env:
-          D1_DATABASE_ID: ${{ vars.D1_DATABASE_ID }}
-        run: sed -i "s/REPLACE_WITH_YOUR_D1_DATABASE_ID/${D1_DATABASE_ID}/" wrangler.toml
-      - name: Set custom domain
-        if: vars.CUSTOM_DOMAIN != ''
+          TARGET: ${{ needs.plan.outputs.target }}
+          PROD_DB: ${{ vars.D1_DATABASE_ID }}
+          PROD_DOMAIN: ${{ vars.CUSTOM_DOMAIN }}
+          STAGING_DB: ${{ vars.STAGING_D1_DATABASE_ID }}
+          STAGING_DOMAIN: ${{ vars.STAGING_DOMAIN }}
+        run: |
+          if [ "$TARGET" = staging ]; then
+            sed -i "s/REPLACE_WITH_YOUR_STAGING_D1_DATABASE_ID/${STAGING_DB}/" wrangler.toml
+            domain="$STAGING_DOMAIN"; table="env.staging.routes"
+          else
+            sed -i "s/REPLACE_WITH_YOUR_D1_DATABASE_ID/${PROD_DB}/" wrangler.toml
+            domain="$PROD_DOMAIN"; table="routes"
+          fi
+          if [ -n "$domain" ]; then
+            printf '\n[[%s]]\npattern = "%s"\ncustom_domain = true\n' "$table" "$domain" >> wrangler.toml
+            echo "url=https://$domain" >> "$GITHUB_OUTPUT"
+          fi
+      - name: Deploy
         env:
-          CUSTOM_DOMAIN: ${{ vars.CUSTOM_DOMAIN }}
-        run: printf '\n[[routes]]\npattern = "%s"\ncustom_domain = true\n' "$CUSTOM_DOMAIN" >> wrangler.toml
-      - run: npx wrangler deploy
-        env:
+          TARGET: ${{ needs.plan.outputs.target }}
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: |
+          if [ "$TARGET" = staging ]; then npx wrangler deploy --env staging; else npx wrangler deploy; fi
