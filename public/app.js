@@ -1,7 +1,5 @@
-// Venn's single-page app: a tiny router over the create pages and the poll page.
-
-import { renderChooser, renderFree, renderPick } from './create.js';
-import { renderEvent } from './event.js';
+// Venn's single-page app: a tiny router over the create pages and the poll page. Each page's code
+// loads when it's first opened, so people answering a poll never download the poll creator.
 
 let cleanup = () => {};
 
@@ -12,10 +10,11 @@ async function route() {
   const path = location.pathname.replace(/\/$/, '');
   const poll = path.match(/^\/e\/([A-Za-z0-9]+)$/);
   let off;
-  if (poll) off = await renderEvent(poll[1], navigate);
-  else if (path === '/new/pick') off = renderPick();
-  else if (path === '/new/free') off = renderFree();
-  else off = renderChooser();
+  if (poll) off = await (await import('./event.js')).renderEvent(poll[1], navigate);
+  else {
+    const create = await import('./create.js');
+    off = path === '/new/pick' ? create.renderPick() : path === '/new/free' ? create.renderFree() : create.renderChooser();
+  }
   if (typeof off === 'function') cleanup = off;
 }
 

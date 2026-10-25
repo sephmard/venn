@@ -28,9 +28,15 @@ for (const scheme of ['light', 'dark']) {
       await audit(page, 'chooser');
       await page.goto('/new/pick');
       await page.click('[data-occasion="0"]');
-      await page.click('#q-week');
-      await page.click('#times [data-time="1140"]');
-      await audit(page, 'vote on a few dates');
+      await page.click('.tv-nav [data-step="1"]');
+      const grid = await page.locator('.tg-scroll').boundingBox();
+      await page.mouse.click(grid.x + grid.width / 2, grid.y + 40);
+      await audit(page, 'vote on a few dates (week or day)');
+      await page.click('[data-view="month"]');
+      await page.click('.month-cal [data-nav="1"]');
+      await page.locator('.month-cal .cal-day').first().click();
+      await page.click('[data-part="evening"]');
+      await audit(page, 'vote on a few dates (month)');
       await page.goto('/new/free');
       await page.click('#q-2w');
       await page.click('[data-mark="hours"]');
@@ -41,12 +47,20 @@ for (const scheme of ['light', 'dark']) {
       page.on('dialog', (d) => d.accept());
       await page.goto('/new/pick');
       await page.fill('#title', 'Accessibility check');
-      await page.click('#q-week');
-      await page.click('#times [data-time="600"]');
+      await page.click('[data-view="month"]');
+      await page.click('.month-cal [data-nav="1"]');
+      for (const i of [0, 1]) {
+        await page.locator('.month-cal .cal-day').nth(i).click();
+        await page.click('[data-part="evening"]');
+      }
       await page.click('#submit');
       await page.locator('#mine .row').first().locator('[data-vote="2"]').click();
       await page.locator('#mine .row').nth(1).locator('[data-vote="1"]').click();
       await audit(page, 'event page (answering)');
+      await page.click('[data-mine-view="calendar"]');
+      await page.locator('.tg-block').first().click();
+      await audit(page, 'event page (answering on the calendar)');
+      await page.click('[data-mine-view="list"]');
       await page.fill('#name', 'Sam');
       await page.click('#save');
       await expect(page.locator('.matrix')).toBeVisible();
@@ -61,6 +75,7 @@ for (const scheme of ['light', 'dark']) {
       await page.goto('/new/free');
       await page.fill('#title', 'Days check');
       await page.click('#q-2w');
+      await page.click('[data-mark="days"]');
       await page.click('#submit');
       await expect(page.locator('#mine .row').first()).toBeVisible();
       await audit(page, 'days poll');
@@ -71,6 +86,15 @@ for (const scheme of ['light', 'dark']) {
       await page.click('#submit');
       await expect(page.locator('#mine .cell[data-slot]').first()).toBeVisible();
       await audit(page, 'hours poll');
+      await page.goto('/new/free');
+      await page.fill('#title', 'Parts check');
+      await page.click('#q-2w');
+      await page.click('#submit');
+      await page.locator('.part-vote').first().click();
+      await page.fill('#name', 'Sam');
+      await page.click('#save');
+      await page.locator('.heat-btn').first().click();
+      await audit(page, 'parts of the day poll');
     });
   });
 }

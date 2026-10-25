@@ -86,7 +86,8 @@ The app (`public/styles.css`, for `/new` and `/e/:id`) uses the same colors and 
 - **Roles:** green for actions and "Yes", amber for "If needed", blue (`--final`) for the picked date.
 - **Type:** Instrument Serif only for the page title, the best option and the picked date. Everything else is the system sans.
 - **People** appear as round avatars with initials, in a color from their name. Overlapping avatar stacks echo the Venn.
-- **Quick picks** are pills that fill with green when pressed: kinds of plan, lengths, times. No dropdowns where a few choices will do.
+- **Quick picks** are pills that fill with green when pressed: kinds of plan, lengths, parts of the day. No dropdowns where a few choices will do.
+- **The calendar** has three views, the same for organizers and guests: Week (the default on desktop) and Day (the default on phones) are 30-minute rows to draw options on, or to see options next to your busy times; Month picks a day, then Morning (9–12), Afternoon (12–5), Evening (6–10) or an exact time. Overlapping options sit side by side.
 - **Emoji** mark the kind of plan (🍝 dinner, ✈️ trip…) in the app only; the landing page stays without.
 - **Phones first:** 44px tap targets, 16px inputs, sticky Save and Create bars, and two tabs ("Your answer", "The group") that become two columns on wide screens.
 - **Motion:** one small celebration when the date is picked. Nothing moves under `prefers-reduced-motion`.

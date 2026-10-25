@@ -147,14 +147,25 @@ async function stills(dark) {
   await desktop.click('[data-occasion="0"]');
   await desktop.fill('#title', 'Dinner at Luca’s');
   await desktop.fill('#location', 'Luca’s Trattoria, 14 Elm St');
+  // Add 7 and 7:30 PM on two Fridays and Saturdays from the month view, then show them on the week.
+  await desktop.click('[data-view="month"]');
   for (const d of [0, 1, 7, 8]) {
     const date = addDays(fri, d);
-    if (!(await desktop.locator(`[data-date="${date}"]`).count())) await desktop.click('[data-nav="1"]');
-    await desktop.click(`[data-date="${date}"]`);
+    if (!(await desktop.locator(`.month-cal [data-date="${date}"]`).count())) await desktop.click('.month-cal [data-nav="1"]');
+    await desktop.click(`.month-cal [data-date="${date}"]`);
+    for (const t of ['19:00', '19:30']) {
+      await desktop.fill('#exact', t);
+      await desktop.click('#add-exact');
+    }
   }
-  for (const m of [1140, 1170]) await desktop.click(`#times [data-time="${m}"]`);
+  await desktop.click('[data-view="week"]');
+  while (!(await desktop.locator(`.tg-col[data-date="${fri}"]`).count())) await desktop.click('.tv-nav [data-step="1"]');
   await desktop.locator('#title').blur();
-  await shoot(desktop, '#times-sheet', join(out, `create-${suffix}.png`), { from: '.sheet:has(#dates-h)', crop: '#create' });
+  await desktop.addStyleTag({ content: '.create-bar { position: static; }' });
+  await shoot(desktop, '.sheet:has(#when-h)', join(out, `create-${suffix}.png`), {
+    from: '.sheet:has(#when-h)',
+    crop: '#create',
+  });
   await desktop.context().close();
 
   const phone = await newPage({ dark, mobile: true });
@@ -217,19 +228,22 @@ async function recordDemo() {
   await click('a[href="/new/pick"]', 600);
   await click('[data-occasion="0"]', 300);
   await type('#title', 'Dinner at Luca’s');
+  await click('[data-view="month"]', 400);
   for (const d of [0, 1, 7, 8]) {
     const date = addDays(fri, d);
-    if (!(await page.locator(`[data-date="${date}"]`).count())) await click('[data-nav="1"]', 300);
-    await click(`[data-date="${date}"]`, 150);
+    if (!(await page.locator(`.month-cal [data-date="${date}"]`).count())) await click('.month-cal [data-nav="1"]', 300);
+    await click(`.month-cal [data-date="${date}"]`, 250);
+    await click('[data-part="evening"]', 250);
   }
-  await click('#times [data-time="1140"]', 200);
-  await click('#times [data-time="1170"]', 400);
+  await click('[data-view="week"]', 300);
+  while (!(await page.locator(`.tg-col[data-date="${fri}"]`).count())) await click('.tv-nav [data-step="1"]', 300);
+  await page.waitForTimeout(600);
   await type('#organizer', 'Priya');
   await click('#submit', 1200);
 
   // 2. Answer.
   await page.evaluate(() => window.scrollTo({ top: 0 }));
-  const votes = [2, 0, 1, 2, 2, 0, 2, 1];
+  const votes = [2, 1, 2, 0];
   for (const [i, v] of votes.entries()) await click(page.locator('#mine .row').nth(i).locator(`[data-vote="${v}"]`), 120);
   await type('#name', 'Priya');
   await click('#save', 900);
@@ -237,12 +251,7 @@ async function recordDemo() {
   // 3. Others answer (behind the scenes), then pick the winner.
   const id = page.url().split('/e/')[1];
   const ev = await api(`/api/events/${id}`);
-  const others = {
-    Marcus: [0, 2, 2, 2, 1, 0, 2, 2],
-    Ana: [2, 1, 0, 2, 2, 0, 1, 0],
-    Jordan: [1, 0, 2, 2, 0, 2, 0, 1],
-    Lee: [2, 2, 0, 2, 1, 0, 2, 0],
-  };
+  const others = { Marcus: [0, 2, 2, 1], Ana: [2, 1, 2, 0], Jordan: [1, 0, 2, 2], Lee: [2, 2, 2, 0] };
   for (const [name, v] of Object.entries(others)) {
     const availability = Object.fromEntries(ev.slots.map((s, i) => [s, v[i]]).filter(([, x]) => x));
     await api(`/api/events/${id}/participants`, { name, availability });
