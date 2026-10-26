@@ -119,6 +119,7 @@ Time zones, ranking and calendar files live in `public/core.js`, shared by the b
 ## What people get
 
 - **Two kinds of poll.** Vote on a few dates, or ask when people are free: paint the hours on a calendar, or pick whole days, or days in a row for a trip.
+- **Links that look like the plan.** Pasted into iMessage, WhatsApp, Slack or Discord, a poll shows its own title, and once it's set, the date.
 - **Nobody signs up.** Open the link, type a name, tap _Yes_, _If needed_ or _No_. It's built for phones first.
 - **The organizer's poll is their answer:** the times they offer count as theirs. They can edit the poll until someone answers, then duplicate it.
 - **The best date rises to the top,** with everyone who can make it. Pick it and everyone adds it to Google, Apple or Outlook Calendar.
