@@ -42,6 +42,10 @@ function login(message = '') {
   $('#token').focus();
 }
 
+/** A table that scrolls sideways on narrow screens, so it can be focused and scrolled with keys. */
+const scroller = (label, table) =>
+  `<div class="table-scroll" tabindex="0" role="region" aria-label="${esc(label)}"><table>${table}</table></div>`;
+
 /** Rows of { label, n } as a table with bars, biggest first. */
 function breakdown(title, rows, { total, sort = true } = {}) {
   const list = sort ? [...rows].sort((a, b) => b.n - a.n) : rows;
@@ -54,7 +58,7 @@ function breakdown(title, rows, { total, sort = true } = {}) {
         )
         .join('')
     : '<tr><td colspan="3" class="muted">Nothing yet</td></tr>';
-  return `<section class="sheet"><h2>${esc(title)}</h2><div class="table-scroll"><table>${body}</table></div></section>`;
+  return `<section class="sheet"><h2>${esc(title)}</h2>${scroller(title, body)}</section>`;
 }
 
 /** Counts of `name` split by one property: [{ label, n }]. */
@@ -95,8 +99,9 @@ function render({ days, since, counts, outcomes }) {
     <section class="sheet">
       <h2>What happens to polls</h2>
       <p class="hint">Polls created in this period, and how they're doing now.</p>
-      <div class="table-scroll"><table>
-        <tr><th>Kind</th><th class="n">Polls</th><th class="n">Got answers</th><th class="n">Date picked</th><th class="n">Median guests</th></tr>
+      ${scroller(
+        'What happens to polls',
+        `        <tr><th>Kind</th><th class="n">Polls</th><th class="n">Got answers</th><th class="n">Date picked</th><th class="n">Median guests</th></tr>
         ${Object.keys(KINDS)
           .filter((k) => outcomes[k])
           .map((k) => {
@@ -104,7 +109,8 @@ function render({ days, since, counts, outcomes }) {
             return `<tr><td>${esc(KINDS[k])}</td><td class="n">${o.polls}</td><td class="n">${pct(o.answered, o.polls)}</td><td class="n">${pct(o.finalized, o.polls)}</td><td class="n">${o.medianGuests}</td></tr>`;
           })
           .join('')}
-      </table></div>
+        `,
+      )}
     </section>
     ${breakdown(
       'From visit to poll',
