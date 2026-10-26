@@ -30,6 +30,11 @@ const PLANS = {
   '🚴': 'bike',
   '⛳': 'golf',
   '✈️': 'trip',
+  // Seasonal templates (public/templates.js)
+  '🦃': 'friendsgiving',
+  '🎄': 'holiday-party',
+  '🎁': 'secret-santa',
+  '🥂': 'new-year',
 };
 
 /**

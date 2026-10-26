@@ -31,6 +31,21 @@ for (const scheme of ['light', 'dark']) {
       await audit(page, 'privacy page');
     });
 
+    test('template pages', async ({ page }) => {
+      for (const path of ['/templates', '/templates/friendsgiving', '/templates/holiday-party', '/templates/secret-santa']) {
+        await page.goto(path);
+        if (path !== '/templates') await page.locator('.faq summary').first().click(); // with a question open
+        await audit(page, path);
+      }
+    });
+
+    test('create page with a seasonal template chosen', async ({ page }) => {
+      await page.clock.setFixedTime(new Date(2026, 10, 20, 12));
+      await page.goto('/new/pick?template=friendsgiving');
+      await expect(page.locator('#desc')).not.toHaveValue('');
+      await audit(page, 'templates row, Friendsgiving chosen');
+    });
+
     test('create pages', async ({ page }) => {
       test.setTimeout(60_000); // eight scans
       page.on('dialog', (d) => d.accept()); // switching to trips clears the options with times, after asking

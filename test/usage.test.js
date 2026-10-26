@@ -1,7 +1,8 @@
 import { test, before, after } from 'node:test';
 import assert from 'node:assert/strict';
 import { createApp } from '../server.js';
-import { cleanUsage, pollKind, sizeOf } from '../src/usage.js';
+import { cleanUsage, planOf, pollKind, sizeOf } from '../src/usage.js';
+import { TEMPLATES } from '../public/templates.js';
 import { IF_NEEDED, YES } from '../public/core.js';
 
 const TOKEN = 'stats-secret';
@@ -30,6 +31,16 @@ const total = (counts, name, match = {}) =>
   counts
     .filter((c) => c.name === name && Object.entries(match).every(([k, v]) => c.props[k] === v))
     .reduce((a, c) => a + c.count, 0);
+
+test('every template on the create page is a plan the usage stats know', () => {
+  for (const t of TEMPLATES) {
+    assert.notEqual(planOf({ emoji: t.emoji }), 'other', t.label);
+    assert.ok(cleanUsage('poll.created', { plan: planOf({ emoji: t.emoji }) }), t.label);
+  }
+  assert.equal(planOf({ emoji: '🦃' }), 'friendsgiving');
+  assert.equal(planOf({ emoji: '🎁' }), 'secret-santa');
+  assert.equal(planOf({ emoji: '🐙' }), 'other');
+});
 
 test('only known events with known values are counted', () => {
   assert.deepEqual(cleanUsage('view', { page: 'poll', as: 'guest' }, { client: true }), {

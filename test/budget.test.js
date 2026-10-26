@@ -27,8 +27,9 @@ const SHELL = ['app.html', 'styles.css', 'app.js'];
 // from a group chat, so the poll page is the tightest. The create pages carry their own stylesheet
 // (create.css), so guests never download it, and each kind of poll loads only its own code.
 const PAGES = {
-  'vote on a few dates page': ['create-pick.js', ['create.css'], 46],
-  'ask when people are available page': ['create-free.js', ['create.css'], 44.25], // +0.25 for usage stats
+  // +1.25 each for templates (templates.js and the cards); their notes and surprises load on demand
+  'vote on a few dates page': ['create-pick.js', ['create.css'], 47.25],
+  'ask when people are available page': ['create-free.js', ['create.css'], 45.5], // +0.25 for usage stats
   'poll page': ['event.js', [], 45],
 };
 

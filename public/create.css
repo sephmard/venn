@@ -111,16 +111,42 @@
   text-decoration: none;
   color: var(--muted);
 }
+/* Templates: a row of cards to scroll, snapping to each. The far edge fades out, so it's clear
+   there's more, and a thin scrollbar shows where you are. */
 .occasions {
   display: flex;
   gap: 8px;
   overflow-x: auto;
-  scrollbar-width: none;
+  scroll-snap-type: x proximity;
+  scroll-padding-inline: 20px;
+  scrollbar-width: thin;
   margin: 0 -20px;
-  padding: 2px 20px 4px;
+  padding: 6px 20px 8px;
+  mask-image: linear-gradient(to right, #000 calc(100% - 28px), transparent);
 }
-.occasions .pill {
+.tpl {
   flex: none;
+  flex-direction: column;
+  justify-content: center;
+  gap: 2px;
+  min-width: 88px;
+  min-height: 76px;
+  padding: 8px 12px;
+  border-radius: var(--radius);
+  font-size: 0.875rem;
+  line-height: 1.2;
+  text-align: center;
+  scroll-snap-align: start;
+}
+.tpl-emoji {
+  font-size: 1.5rem;
+}
+@media (max-width: 520px) {
+  .occasions {
+    margin: 0 -16px;
+    padding: 6px 16px 8px;
+    scroll-padding-inline: 16px;
+  }
 }
 .title-row {
   display: flex;
