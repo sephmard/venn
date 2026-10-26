@@ -1,3 +1,4 @@
+import { readFileSync } from 'node:fs';
 import { test, expect } from '@playwright/test';
 import { addDays, addOptions, nextMonth, showDate, showNextMonth, tapAt, todayIn, submit } from './helpers.js';
 
@@ -1160,7 +1161,7 @@ test('AI: describe a poll in words, then summarize and write messages as the org
   await expect(page.locator('#toast')).toContainText('Filled in 3 options');
   await expect(page.locator('#title')).toHaveValue('Design review');
   await expect(page.locator('#custom')).toHaveValue('45');
-  await expect(page.locator('#other-box summary')).toHaveText('Custom · 45 min');
+  await expect(page.locator('#other-box summary')).toHaveText('Custom · 45 min, selected');
   const picked = page.locator('#options-list .chip');
   await expect(picked).toHaveCount(3);
   await expect(picked.first()).toContainText('2:00 – 2:45 PM');
@@ -1739,7 +1740,11 @@ test('how long: 30 min, 1 hour, half day, all day, several days, and any other l
   // Dinner is two hours: Custom says so, but stays folded away so the chips aren't crowded.
   await page.click('[data-occasion="0"]');
   await expect(other).not.toHaveAttribute('open', '');
-  await expect(other.locator('summary')).toHaveText('Custom · 2 hours');
+  await expect(other.locator('summary')).toHaveText('Custom · 2 hours, selected');
+  // In use, Custom looks like a chosen chip.
+  await expect(other).toHaveClass(/\bon\b/);
+  const bg = await other.locator('summary').evaluate((el) => getComputedStyle(el).backgroundColor);
+  expect(bg).toBe(await page.locator('[data-occasion="0"]').evaluate((el) => getComputedStyle(el).backgroundColor));
   await expect(page.locator('[data-length][aria-pressed="true"]')).toHaveCount(0);
   await other.locator('summary').click();
   await expect(page.getByLabel('Length', { exact: true })).toHaveValue('120');
@@ -1748,11 +1753,12 @@ test('how long: 30 min, 1 hour, half day, all day, several days, and any other l
   await expect(page.locator('[data-length="60"]')).toHaveAttribute('aria-pressed', 'true');
   await expect(other).not.toHaveAttribute('open', '');
   await expect(other.locator('summary')).toHaveText('Custom');
+  await expect(other).not.toHaveClass(/\bon\b/);
   // Opening it uses the length it shows; choosing another one changes it.
   await other.locator('summary').click();
   await expect(page.locator('[data-length="60"]')).toHaveAttribute('aria-pressed', 'false');
   await page.selectOption('#custom', '180');
-  await expect(other.locator('summary')).toHaveText('Custom · 3 hours');
+  await expect(other.locator('summary')).toHaveText('Custom · 3 hours, selected');
   await expect(page.locator('#custom option:checked')).toHaveText('3 hours');
   await addOptions(page, 1, [1080]);
   await expect(page.locator('#options-list .chip')).toContainText('6 – 9 PM');
@@ -1924,8 +1930,8 @@ test('vote on a few dates starts at an hour, and Gym, Run, Bike and Golf are kin
   for (const [name, length] of [
     ['Gym', '1 hour'],
     ['Run', '1 hour'],
-    ['Bike', 'Custom · 2 hours'],
-    ['Golf', 'Custom · 4 hours'],
+    ['Bike', 'Custom · 2 hours, selected'],
+    ['Golf', 'Custom · 4 hours, selected'],
   ]) {
     await page.getByRole('button', { name, exact: true }).click();
     await expect(page.locator('#title')).toHaveAttribute('placeholder', name);
@@ -1963,4 +1969,54 @@ test('usage stats: counted as people use Venn, and shown to whoever has the toke
   await expect(page.locator('[data-days="7"]')).toHaveAttribute('aria-checked', 'true');
   await page.click('#logout');
   await expect(page.locator('#token')).toBeVisible();
+});
+
+test('when everyone gave their email, the organizer invites them all with the calendar, and can email them the date', async ({
+  page,
+  request,
+}) => {
+  const t0 = Date.UTC(2030, 0, 8, 18);
+  const { id, adminToken } = await (
+    await request.post('/api/events', {
+      data: {
+        title: 'Dinner',
+        timezone: 'UTC',
+        mode: 'options',
+        options: [{ start: t0, end: t0 + 7_200_000 }],
+        requireEmail: true,
+      },
+    })
+  ).json();
+  for (const [name, email] of [
+    ['Ana', 'ana@example.com'],
+    ['Jo', 'jo@example.com'],
+  ])
+    await request.post(`/api/events/${id}/participants`, { data: { name, email, availability: { [t0]: 2 } } });
+  await request.post(`/api/events/${id}/finalize`, { data: { start: t0 }, headers: { 'x-admin-token': adminToken } });
+
+  await page.goto(`/e/${id}#admin=${adminToken}`);
+  await expect(page.locator('#cal-add-h')).toHaveText('Add it to your calendar, with everyone invited');
+  await expect(page.locator('#cal-add-hint')).toContainText('the 2 people who answered as guests');
+  const google = new URL(await page.getByRole('link', { name: 'Google Calendar' }).getAttribute('href'));
+  expect(google.searchParams.get('add')).toBe('ana@example.com,jo@example.com');
+  // The iCal file is made in the page, with everyone in it, so the emails never go in a link.
+  const ical = page.getByRole('link', { name: 'iCal' });
+  await expect(ical).toHaveAttribute('download', `${id}.ics`);
+  const [download] = await Promise.all([page.waitForEvent('download'), ical.click()]);
+  expect(download.suggestedFilename()).toBe(`${id}.ics`);
+  const ics = readFileSync(await download.path(), 'utf8');
+  expect(ics).toContain('ATTENDEE;CN="Ana";ROLE=REQ-PARTICIPANT;RSVP=TRUE:mailto:ana@example.com');
+  expect(ics).toContain('mailto:jo@example.com');
+  // Email everyone: their email app, with everyone in BCC and the date and link filled in.
+  const mail = await page.locator('#email-all').getAttribute('href');
+  expect(mail.startsWith('mailto:?bcc=ana%40example.com,jo%40example.com&subject=')).toBe(true);
+  expect(decodeURIComponent(mail.split('&body=')[1])).toContain(`/e/${id}`);
+
+  // Guests see the ordinary buttons, and no one else's email.
+  const guest = await page.context().browser().newPage();
+  await guest.goto(page.url().split('#')[0]);
+  await expect(guest.locator('#cal-add-h')).toHaveText('Add to your calendar');
+  await expect(guest.locator('#email-all')).toHaveCount(0);
+  expect(await guest.content()).not.toContain('ana@example.com');
+  await guest.close();
 });

@@ -1486,11 +1486,24 @@ export async function renderEvent(id, navigate) {
       };
       if (!calJs) return void loadCal().then(renderBanners); // the date was just picked
       const day = utcToZoned(start, info.allDay || partsMode ? ev().timezone : st.tz).date.slice(8);
+      // Everyone who gave their email (the organizer sees them when the poll asked for them): invited
+      // with the calendar, and one tap from an email to them all, in BCC so they don't see each other's.
+      const guests = ev().isAdmin
+        ? ev()
+            .participants.filter((p) => p.email && p.id !== ev().hostId)
+            .map((p) => ({ name: p.name, email: p.email }))
+        : [];
+      const mailAll =
+        guests.length &&
+        `mailto:?bcc=${guests.map((g) => encodeURIComponent(g.email)).join(',')}&subject=${encodeURIComponent(
+          `It's set: ${ev().title}`,
+        )}&body=${encodeURIComponent(`It's set: ${ev().title}, ${when(start, end)}.\n\nAdd it to your calendar: ${shareUrl}\n`)}`;
       h += `<section class="banner-final${st.celebrate && !reducedMotion() ? ' celebrate' : ''}" aria-labelledby="final-h">
         <p class="kicker">It's happening</p>
         <h2 id="final-h">${esc(when(start, end))}</h2>
-        ${calJs.addToCalendar({ id, info, day })}
+        ${calJs.addToCalendar({ id, info, day, url: shareUrl, guests })}
         <div class="final-more">
+          ${mailAll ? `<a class="link-btn" id="email-all" href="${esc(mailAll)}">Email everyone</a>` : ''}
           <button type="button" class="link-btn" data-share>${canShare ? 'Share the date' : 'Copy the link'}</button>
           ${ev().isAdmin ? '<button type="button" class="link-btn" id="unpick">Clear the date</button>' : ''}
         </div>
