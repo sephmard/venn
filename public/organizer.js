@@ -26,11 +26,7 @@ function renderNotify(ctx, s) {
     d
       ? `${d.ok ? '✓ Delivered' : '✕ Failed'}${d.status ? ` (HTTP ${d.status})` : d.error ? ` (${esc(d.error)})` : ''} ${ago(d.at)}`
       : 'Nothing sent yet';
-  const emailStatus = !s.email
-    ? ''
-    : s.emailConfirmed
-      ? `<span class="ok">✓ Confirmed.</span> Last email: ${delivery(s.lastDelivery.email)}`
-      : `<span class="dirty">Waiting for confirmation.</span> Open the link we sent to ${esc(s.email)}.`;
+  const emailStatus = !s.email ? '' : `<span class="ok">✓ On.</span> Last email: ${delivery(s.lastDelivery.email)}`;
   const sample = JSON.stringify(
     {
       event: 'response.created',
@@ -56,7 +52,7 @@ function renderNotify(ctx, s) {
             s.emailAvailable
               ? `<label for="n-email">Send emails to</label>
                 <input id="n-email" type="email" inputmode="email" autocomplete="email" maxlength="254" placeholder="you@example.com" value="${esc(s.email || lastEmail())}">
-                <p class="hint">${emailStatus || "We'll send one link to confirm the address first."}</p>`
+                <p class="hint">${emailStatus || "We'll email you each time someone answers."}</p>`
               : `<p class="hint" id="email-off">Email isn't switched on for this Venn server yet. Until it is, use a custom notification below, for example a Slack or Discord channel.</p>`
           }
         </fieldset>
@@ -110,9 +106,10 @@ function renderNotify(ctx, s) {
     $('#notify-err').textContent = '';
     try {
       const next = await api(`events/${id}/notifications`, { method: 'PUT', body, headers: headers });
-      const newEmail = next.email && !next.emailConfirmed && next.email !== s.email;
       renderNotify(ctx, next);
-      toast(newEmail ? `Saved. Check ${next.email} for a confirmation link.` : 'Notifications saved');
+      toast(
+        next.email && next.email !== s.email ? `Saved. We'll email ${next.email} when people answer.` : 'Notifications saved',
+      );
     } catch (ex) {
       $('#notify-err').textContent = ex.message;
       if (btn) btn.disabled = false;
