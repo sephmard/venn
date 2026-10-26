@@ -111,6 +111,92 @@ test('full poll lifecycle', async () => {
   assert.equal((await call(`/api/events/${id}`)).status, 404);
 });
 
+test('organizer privacy: required emails, hidden names, hidden answers', async () => {
+  const created = await call('/api/events', { method: 'POST', body: { ...newEvent, requireEmail: true, hideNames: true } });
+  assert.equal(created.status, 201);
+  const { id, adminToken } = created.data;
+  const admin = { 'x-admin-token': adminToken };
+  let ev = (await call(`/api/events/${id}`)).data;
+  assert.equal(ev.requireEmail, true);
+  assert.equal(ev.hideNames, true);
+  assert.equal(ev.hideResults, undefined);
+  const [s0, s1] = ev.slots;
+
+  // An email is required, and must be a real address.
+  const answer = (name, email, availability = { [s0]: 2 }) =>
+    call(`/api/events/${id}/participants`, { method: 'POST', body: { name, availability, email } });
+  assert.equal((await answer('Ann')).status, 400);
+  assert.equal((await answer('Ann', 'not an email')).status, 400);
+  const ann = (await answer('Ann', 'Ann@Example.com')).data;
+  const bo = (await answer('Bo', 'bo@example.com', { [s1]: 1 })).data;
+
+  // Guests see answers, but not names or emails.
+  ev = (await call(`/api/events/${id}`)).data;
+  assert.deepEqual(
+    ev.participants.map((p) => p.name),
+    ['Guest 1', 'Guest 2'],
+  );
+  assert.ok(ev.participants.every((p) => !('email' in p)));
+  assert.equal(ev.participants[1].availability[s1], 1);
+  // People see their own name and email, and nobody else's.
+  ev = (await call(`/api/events/${id}`, { headers: { 'x-edit-token': ann.editToken } })).data;
+  assert.deepEqual(
+    ev.participants.map((p) => [p.name, p.email]),
+    [
+      ['Ann', 'ann@example.com'],
+      ['Guest 1', undefined],
+    ],
+  );
+  // The organizer sees everyone, with emails.
+  ev = (await call(`/api/events/${id}`, { headers: admin })).data;
+  assert.deepEqual(
+    ev.participants.map((p) => [p.name, p.email]),
+    [
+      ['Ann', 'ann@example.com'],
+      ['Bo', 'bo@example.com'],
+    ],
+  );
+
+  // Changing an answer keeps the email required, and can change it.
+  const put = (body) =>
+    call(`/api/events/${id}/participants/${bo.id}`, { method: 'PUT', body, headers: { 'x-edit-token': bo.editToken } });
+  assert.equal((await put({ name: 'Bo', availability: {} })).status, 400);
+  assert.equal((await put({ name: 'Bo', availability: {}, email: 'bo@new.example' })).status, 200);
+
+  // Only the organizer can change the settings.
+  const settings = (body, headers = admin) => call(`/api/events/${id}/settings`, { method: 'PUT', body, headers });
+  assert.equal((await settings({ hideResults: true }, {})).status, 403);
+  assert.equal((await settings({ hideResults: 'yes' })).status, 400);
+  assert.deepEqual((await settings({ hideResults: true, hideNames: false })).data, {
+    requireEmail: true,
+    hideNames: false,
+    hideResults: true,
+  });
+
+  // Hidden answers: guests see only their own answer and how many people answered.
+  ev = (await call(`/api/events/${id}`)).data;
+  assert.deepEqual(ev.participants, []);
+  assert.equal(ev.responses, 2);
+  assert.equal(ev.title, newEvent.title);
+  ev = (await call(`/api/events/${id}`, { headers: { 'x-edit-token': bo.editToken } })).data;
+  assert.deepEqual(
+    ev.participants.map((p) => [p.name, p.email]),
+    [['Bo', 'bo@new.example']],
+  );
+  ev = (await call(`/api/events/${id}`, { headers: admin })).data;
+  assert.equal(ev.participants.length, 2);
+  assert.equal(ev.responses, undefined);
+
+  // Removing an answer removes its email; deleting the poll removes the rest.
+  await call(`/api/events/${id}/participants/${ann.id}`, { method: 'DELETE', headers: { 'x-edit-token': ann.editToken } });
+  ev = (await call(`/api/events/${id}`, { headers: admin })).data;
+  assert.deepEqual(
+    ev.participants.map((p) => p.email),
+    ['bo@new.example'],
+  );
+  assert.equal((await call(`/api/events/${id}`, { method: 'DELETE', headers: admin })).status, 200);
+});
+
 test('specific-times poll: votes and finalize use the option end', async () => {
   const start = Date.UTC(2026, 10, 4, 15);
   const { data } = await call('/api/events', {

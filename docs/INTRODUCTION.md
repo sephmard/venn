@@ -35,6 +35,8 @@ public/            the whole front end, served as-is
   app.js           router
   create.js        the create pages: "vote on a few dates" and "ask when people are free"
   event.js         the poll page: answering, the group's results, organizer tools
+  organizer.js     the organizer's Notifications and Privacy panels, loaded only for organizers
+  celebrate.js     the "Poll created!" celebration
   picker.js        the calendar views: week, day and month, for organizers and guests
   ui.js            shared UI helpers: formatting, avatars, storage, API calls
   core.js          shared logic: time zones, ranking, calendar import/export
@@ -58,6 +60,7 @@ scripts/           screenshots, social image, the docs site build, link checks
 ## How data is protected
 
 - **No accounts, cookies or analytics.** The server stores only what people type into a poll: its title and details, names and answers, plus the organizer's notification settings if they add any.
+- **Organizers can keep things private.** They can hide names or everyone's answers from guests, and ask for emails that only they see. The server enforces this: hidden data is never sent to guests.
 - **Links are the keys.** The organizer link and each person's edit link carry a secret after the `#`, which browsers never send to the server. The server stores only a SHA-256 hash of each secret, so a database leak doesn't let anyone edit polls.
 - **Calendars stay in the browser.** Google and Outlook are asked only for busy/free times, the sign-in token never reaches the server, and calendar files are never uploaded. See [Calendars](CALENDARS.md).
 - **Strict headers.** Every response carries a Content Security Policy, no-referrer and no-framing headers, from `src/security-headers.js`.

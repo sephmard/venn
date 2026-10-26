@@ -24,7 +24,6 @@ import { dayChip, isPhone, timeView } from './picker.js';
 import {
   $,
   $$,
-  ago,
   api,
   app,
   avatar,
@@ -93,7 +92,11 @@ export async function renderEvent(id, navigate) {
     fresh: !!saved(id).justCreated, // the organizer just created this poll
     orgOpen: null, // organizer tools open? Starts open for a fresh poll.
   };
-  const authHeaders = () => (saved(id).adminToken ? { 'x-admin-token': saved(id).adminToken } : {});
+  // The edit token also gets your own answer back when the organizer hides everyone's answers.
+  const authHeaders = ({ adminToken: a, editToken: e } = saved(id)) => ({
+    ...(a && { 'x-admin-token': a }),
+    ...(e && { 'x-edit-token': e }),
+  });
 
   async function load() {
     st.ev = await api(`events/${id}`, { headers: authHeaders() });
@@ -136,6 +139,15 @@ export async function renderEvent(id, navigate) {
       : fmtWhen(s, e, st.tz);
   };
   const canShare = !!navigator.share && matchMedia('(pointer: coarse)').matches;
+  // What the organizer keeps private from guests.
+  const hideAll = !ev().isAdmin && ev().hideResults;
+  const privacy = ev().isAdmin
+    ? ''
+    : hideAll
+      ? "Only the organizer sees everyone's answers."
+      : ev().hideNames
+        ? 'Only the organizer sees who answered.'
+        : '';
   const me = () => ev().participants.find((p) => p.id === saved(id).participantId);
   // A poll just made opens on the organizer's own answer; after that, on the group.
   st.tab = !st.fresh && (me() || (ev().isAdmin && ev().participants.length)) ? 'group' : 'mine';
@@ -158,6 +170,7 @@ export async function renderEvent(id, navigate) {
       </header>
       <div id="banners"></div>
       <div id="notify-box"></div>
+      <div id="privacy-box"></div>
       <div id="ai-box"></div>
       <div class="tabs" role="tablist" aria-label="Poll">
         <button type="button" role="tab" id="tab-mine" aria-controls="panel-mine" data-tab="mine">Your answer</button>
@@ -170,11 +183,12 @@ export async function renderEvent(id, navigate) {
             <label for="name">Your name</label>
             <input id="name" type="text" maxlength="80" autocomplete="name">
           </div>
-          <div id="copy-field" hidden>
-            <label for="copy-to">Your email <span class="muted">(optional)</span></label>
+          <div id="copy-field"${ev().requireEmail ? '' : ' hidden'}>
+            <label for="copy-to">Your email <span class="muted">(${ev().requireEmail ? 'the organizer asks for it, and only they see it' : 'optional'})</span></label>
             <input id="copy-to" type="email" inputmode="email" autocomplete="email" maxlength="254" placeholder="you@example.com">
-            <label class="check"><input type="checkbox" id="copy-me" checked> Email me a copy of my answer and a link to change it</label>
+            <label class="check" hidden><input type="checkbox" id="copy-me" checked> Email me a copy of my answer and a link to change it</label>
           </div>
+          ${privacy && `<p class="hint">🔒 ${privacy}</p>`}
           <div class="quick-actions">
             ${calMenu}
             ${optionsMode ? '<button type="button" class="pill" id="ai-answer-btn" hidden aria-expanded="false" aria-controls="ai-answer">Answer for me</button>' : ''}
@@ -231,7 +245,8 @@ export async function renderEvent(id, navigate) {
           </div>
         </section>
         <section class="panel" id="panel-group" role="tabpanel" aria-labelledby="tab-group">
-          <div class="sheet">
+          ${hideAll ? `<p class="sheet">🔒 ${privacy} You'll see the date at the top once they pick it.</p>` : ''}
+          <div class="sheet"${hideAll ? ' hidden' : ''}>
             <div class="sheet-head">
               <h2 class="panel-title" id="best-h">${optionsMode ? 'Best options' : daysMode ? 'Best dates' : 'Best times'}</h2>
               <button type="button" class="pill" id="ai-summary-btn" hidden>Summarize with AI</button>
@@ -239,7 +254,7 @@ export async function renderEvent(id, navigate) {
             <div id="ai-summary"></div>
             <div id="best"></div>
           </div>
-          <div class="sheet">
+          <div class="sheet"${hideAll ? ' hidden' : ''}>
             <h2 class="panel-title" id="group-h">Everyone's answers</h2>
             <div class="people" id="people" role="group" aria-label="People who answered"></div>
             ${
@@ -750,8 +765,9 @@ export async function renderEvent(id, navigate) {
   let aiOn = false;
   getConfig().then((c) => {
     // Guests can get their answer by email. Optional, and on by default once they give an address.
-    $('#copy-field').hidden = !c.email;
-    $('#copy-to').value = lastEmail();
+    $('#copy-field').hidden = !c.email && !ev().requireEmail;
+    $('#copy-me').parentNode.hidden = !c.email;
+    $('#copy-to').value = me()?.email || lastEmail();
     if (!c.ai) return;
     aiOn = true;
     if (optionsMode) $('#ai-answer-btn').hidden = false;
@@ -865,7 +881,9 @@ export async function renderEvent(id, navigate) {
     $('#save').disabled = true;
     try {
       const body = { name, availability: st.mine };
-      const copyTo = !$('#copy-field').hidden && $('#copy-me').checked && $('#copy-to').value.trim();
+      const email = $('#copy-to').value.trim();
+      if (ev().requireEmail) body.email = email;
+      const copyTo = !$('#copy-field').hidden && !$('#copy-me').parentNode.hidden && $('#copy-me').checked && email;
       if (copyTo) {
         body.copyTo = copyTo;
         rememberEmail(copyTo);
@@ -1046,7 +1064,7 @@ export async function renderEvent(id, navigate) {
   });
 
   function renderGroup() {
-    $('#group-count').textContent = ev().participants.length || '';
+    $('#group-count').textContent = ev().responses ?? (ev().participants.length || '');
     if (partsMode) return renderGroupParts();
     if (listMode) return renderGroupList();
     const people = others();
@@ -1246,120 +1264,20 @@ export async function renderEvent(id, navigate) {
     }
   });
 
-  // ----- organizer: notifications -----
-  let notifyOpen = false;
-  async function toggleNotify(open) {
-    notifyOpen = open;
-    $('#notify-open')?.setAttribute('aria-expanded', open);
-    const box = $('#notify-box');
-    if (!open) return (box.innerHTML = '');
-    box.innerHTML = '<div class="sheet hint">Loading…</div>';
-    try {
-      renderNotify(await api(`events/${id}/notifications`, { headers: authHeaders() }));
-      box.scrollIntoView({ block: 'nearest' });
-    } catch (ex) {
-      box.innerHTML = `<div class="sheet error">${esc(ex.message)}</div>`;
-    }
-  }
-
-  function renderNotify(s) {
-    const box = $('#notify-box');
-    const delivery = (d) =>
-      d
-        ? `${d.ok ? '✓ Delivered' : '✕ Failed'}${d.status ? ` (HTTP ${d.status})` : d.error ? ` (${esc(d.error)})` : ''} ${ago(d.at)}`
-        : 'Nothing sent yet';
-    const emailStatus = !s.email
-      ? ''
-      : s.emailConfirmed
-        ? `<span class="ok">✓ Confirmed.</span> Last email: ${delivery(s.lastDelivery.email)}`
-        : `<span class="dirty">Waiting for confirmation.</span> Open the link we sent to ${esc(s.email)}.`;
-    const sample = JSON.stringify(
-      {
-        event: 'response.created',
-        sentAt: new Date().toISOString(),
-        poll: { id, title: ev().title, url: shareUrl, responses: ev().participants.length + 1, finalStart: null },
-        response: { name: 'Ana' },
-        bestTime: { start: '…', end: '…', available: 3, ifNeeded: 1, label: '…' },
-      },
-      null,
-      2,
-    );
-    box.innerHTML = `
-      <section class="sheet" aria-labelledby="notify-h">
-        <div class="sheet-head">
-          <h2 id="notify-h">Notifications</h2>
-          <button type="button" class="link-btn" id="notify-close">Close</button>
-        </div>
-        <p class="hint">Find out when someone answers, changes their answers or removes them.</p>
-        <form id="notify-form" class="stack" novalidate>
-          <fieldset class="notify-way">
-            <legend>Email</legend>
-            ${
-              s.emailAvailable
-                ? `<label for="n-email">Send emails to</label>
-                  <input id="n-email" type="email" inputmode="email" autocomplete="email" maxlength="254" placeholder="you@example.com" value="${esc(s.email || lastEmail())}">
-                  <p class="hint">${emailStatus || "We'll send one link to confirm the address first."}</p>`
-                : `<p class="hint" id="email-off">Email isn't switched on for this Venn server yet. Until it is, use a custom notification below, for example a Slack or Discord channel.</p>`
-            }
-          </fieldset>
-          <details class="notify-way custom"${s.webhookUrl || !s.emailAvailable ? ' open' : ''}>
-            <summary>Custom notifications <span class="muted">(webhooks, for Slack, Discord, Zapier or your own app)</span></summary>
-            <label for="n-hook">Webhook URL</label>
-            <input id="n-hook" type="url" inputmode="url" autocomplete="off" spellcheck="false" placeholder="https://hooks.slack.com/services/…" value="${esc(s.webhookUrl || '')}">
-            <p class="hint">Slack and Discord webhook links get a readable message. Any other <code>https://</code> address gets JSON.</p>
-            ${
-              s.webhookSecret
-                ? `<div class="secret-row">
-                    <span>Signing secret</span><code>${esc(s.webhookSecret)}</code>
-                    <button type="button" class="btn btn-sm" id="copy-secret">Copy</button>
-                    <button type="button" class="btn btn-sm" id="test-hook">Send test</button>
-                  </div>
-                  <p class="hint" id="hook-status">Last delivery: ${delivery(s.lastDelivery.webhook)}</p>`
-                : ''
-            }
-            <details class="dev">
-              <summary>For developers: what Venn sends</summary>
-              <p class="hint">A <code>POST</code> each time someone answers. <code>event</code> is <code>response.created</code>, <code>response.updated</code>, <code>response.deleted</code> or <code>test</code>.</p>
-              <pre class="code" tabindex="0" aria-label="Example request body"><code>${esc(sample)}</code></pre>
-              <p class="hint">Check that it came from Venn: <code>X-Venn-Signature</code> is <code>sha256=</code> plus the HMAC-SHA256 of <code>"&lt;X-Venn-Timestamp&gt;.&lt;raw body&gt;"</code>, keyed with your signing secret. Requests time out after 5 seconds and aren't retried.</p>
-              <p class="hint"><a href="https://docs.venn.day/notifications.html#webhooks" target="_blank" rel="noopener">Webhook docs, with a verification example</a></p>
-            </details>
-          </details>
-          <div class="btn-row"><button class="btn btn-primary" type="submit">Save notifications</button></div>
-          <div class="error" id="notify-err" role="alert"></div>
-        </form>
-      </section>`;
-    $('#notify-close').onclick = () => toggleNotify(false);
-    if ($('#copy-secret')) $('#copy-secret').onclick = () => copy(s.webhookSecret, 'Secret copied');
-    if ($('#test-hook'))
-      $('#test-hook').onclick = async (e) => {
-        e.target.disabled = true;
-        try {
-          const r = await api(`events/${id}/notifications/test`, { method: 'POST', body: {}, headers: authHeaders() });
-          toast(r.ok ? 'Test sent' : `Test failed${r.status ? ` (HTTP ${r.status})` : r.error ? ` (${r.error})` : ''}`);
-          renderNotify(await api(`events/${id}/notifications`, { headers: authHeaders() }));
-        } catch (ex) {
-          toast(ex.message);
-          e.target.disabled = false;
-        }
-      };
-    $('#notify-form').onsubmit = async (e) => {
-      e.preventDefault();
-      const body = { webhookUrl: $('#n-hook').value.trim() || null };
-      if ($('#n-email')) body.email = $('#n-email').value.trim() || null;
-      const btn = e.submitter;
-      if (btn) btn.disabled = true;
-      $('#notify-err').textContent = '';
-      try {
-        const next = await api(`events/${id}/notifications`, { method: 'PUT', body, headers: authHeaders() });
-        const newEmail = next.email && !next.emailConfirmed && next.email !== s.email;
-        renderNotify(next);
-        toast(newEmail ? `Saved. Check ${next.email} for a confirmation link.` : 'Notifications saved');
-      } catch (ex) {
-        $('#notify-err').textContent = ex.message;
-        if (btn) btn.disabled = false;
-      }
-    };
+  // ----- organizer: notifications and privacy, from a module only organizers load -----
+  const panels = {}; // which organizer panels are open: notify, privacy
+  async function panel(name, open) {
+    panels[name] = open;
+    $(`#${name}-open`)?.setAttribute('aria-expanded', open);
+    if (!open) return ($(`#${name}-box`).innerHTML = '');
+    (await import('./organizer.js'))[name]({
+      id,
+      ev: ev(),
+      shareUrl,
+      headers: authHeaders(),
+      close: () => panel(name, false),
+      reload: () => load().then(() => (renderAll(), ev())),
+    });
   }
 
   // ----- organizer: AI-written messages -----
@@ -1406,7 +1324,7 @@ export async function renderEvent(id, navigate) {
   // ----- header, banners -----
   function renderHeader() {
     $('#ev-title').textContent = ev().title;
-    const n = ev().participants.length;
+    const n = ev().responses ?? ev().participants.length;
     const by = ev().organizer
       ? `<span class="host">${avatar(ev().organizer, 'av-xs')}Hosted by ${esc(ev().organizer)}</span>`
       : '';
@@ -1464,8 +1382,9 @@ export async function renderEvent(id, navigate) {
         <p class="hint">When you're ready, press <b>Pick</b> on the best ${listMode && !daysMode ? 'option' : 'date'} in the group view. To manage this poll from another device, keep your private organizer link, and don't share it.</p>
         ${fresh && saved(id).notifyPending ? '<p class="hint"><b>Check your inbox</b> to confirm email notifications.</p>' : ''}
         <div class="btn-row">
-          <button class="btn btn-sm${fresh ? ' btn-primary' : ''}" id="notify-open" aria-expanded="${notifyOpen}" aria-controls="notify-box">${fresh ? 'Get notified when people answer' : 'Notifications'}</button>
+          <button class="btn btn-sm${fresh ? ' btn-primary' : ''}" id="notify-open" aria-expanded="${!!panels.notify}" aria-controls="notify-box">${fresh ? 'Get notified when people answer' : 'Notifications'}</button>
           ${aiOn ? '<button class="btn btn-sm" id="ai-write-open" aria-controls="ai-box">Write a message</button>' : ''}
+          <button class="btn btn-sm" id="privacy-open" aria-expanded="${!!panels.privacy}" aria-controls="privacy-box">Privacy</button>
           <button class="btn btn-sm" id="copy-admin">Copy organizer link</button>
           <button class="link-btn danger" id="delete-poll">Delete poll</button>
         </div>
@@ -1477,7 +1396,8 @@ export async function renderEvent(id, navigate) {
     $('details.organizer')?.addEventListener('toggle', (e) => (st.orgOpen = e.target.open));
     if ($('#copy-admin'))
       $('#copy-admin').onclick = () => copy(`${shareUrl}#admin=${saved(id).adminToken}`, 'Organizer link copied');
-    if ($('#notify-open')) $('#notify-open').onclick = () => toggleNotify(!notifyOpen);
+    for (const name of ['notify', 'privacy'])
+      if ($(`#${name}-open`)) $(`#${name}-open`).onclick = () => panel(name, !panels[name]);
     if ($('#ai-write-open')) $('#ai-write-open').onclick = () => toggleWriter();
     if ($('#delete-poll'))
       $('#delete-poll').onclick = async () => {

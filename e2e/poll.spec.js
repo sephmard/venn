@@ -113,11 +113,12 @@ test('a trip: options that last several days become all-day calendar events', as
 test('ask when people are free: days, looking for a run of days', async ({ page }) => {
   await page.goto('/new/free');
   await page.fill('#title', 'Cabin weekend');
+  await page.click('[data-flength="days"]');
   await page.click('#q-2w');
-  await page.click('[data-mark="days"]');
   await expect(page.locator('#summary')).toHaveText('14 days to choose from');
-  await page.click('[data-step="1"]');
-  await expect(page.locator('#span')).toHaveValue('2');
+  await expect(page.locator('#span')).toHaveValue('3');
+  await page.click('#span-field [data-step="-1"]');
+  await expect(page.locator('#free-list')).toContainText('2 days in a row');
   await page.click('#submit');
 
   await expect(page.locator('#mine .row')).toHaveCount(14);
@@ -133,19 +134,14 @@ test('ask when people are free: days, looking for a run of days', async ({ page 
 test('ask when people are free: paint hours and see the best time', async ({ page, isMobile }) => {
   await page.goto('/new/free');
   await page.fill('#title', 'Book club');
-  await page.click('#q-2w');
-  await page.click('[data-mark="hours"]');
-  await page.click('[data-window="custom"]');
-  for (let i = 0; i < 2; i++) await page.click('[data-tstep="start"][data-d="30"]'); // 8 → 9 AM
-  for (let i = 0; i < 22; i++) await page.click('[data-tstep="end"][data-d="-30"]'); // 11 PM → noon
-  await expect(page.locator('#start-out')).toHaveText('9 AM');
-  await expect(page.locator('#end-out')).toHaveText('12 PM');
-  await page.click('[data-duration="60"]');
-  await expect(page.locator('#guest-preview')).toContainText("when they're free between 9 AM – 12 PM");
+  await page.click('[data-flength="60"]');
+  await expect(page.locator('#submit')).toBeDisabled();
+  await page.click('[data-fill="0"]'); // mornings, 8 AM – 12 PM, all week
+  await expect(page.locator('#free-list')).toContainText('8 AM – 12 PM');
   await page.click('#submit');
   await expect(page.locator('#mine .cell[data-slot]').first()).toBeVisible();
   // Phones show one day at a time, and the page still fits the screen.
-  if (isMobile) await expect(page.locator('#hour-days .tv-chip')).toHaveCount(14);
+  if (isMobile) await expect(page.locator('#hour-days .tv-chip')).toHaveCount(7);
   expect(await page.evaluate(() => document.documentElement.scrollWidth - screen.width)).toBeLessThanOrEqual(0);
 
   const cell = (r, c) => page.locator(`#mine .cell[data-r="${r}"][data-c="${c}"]`);
@@ -390,6 +386,62 @@ test('the poll created celebration shows the dog, and its button skips ahead', a
   await expect(page.locator('.party')).toHaveCount(0);
 });
 
+test('organizer privacy: required emails, hidden names, then hidden answers', async ({ page, browser }) => {
+  await page.goto('/new/pick');
+  await page.fill('#title', 'Secret supper');
+  await page.fill('#organizer', 'Sam');
+  await addOptions(page, 7, [1140]);
+  await page.locator('#privacy-opts summary').click();
+  await page.getByRole('switch', { name: 'Ask everyone for their email' }).check();
+  await page.getByRole('switch', { name: 'Hide names from guests' }).check();
+  await page.click('#submit');
+  await page.getByRole('button', { name: /^Open Secret supper/ }).click();
+  await expect(page.locator('#mine .row').first()).toBeVisible();
+  const url = page.url();
+
+  // Two guests answer. Each must give an email, and sees the others only as "Guest 1, 2…".
+  const guest = await browser.newContext();
+  const g = await guest.newPage();
+  for (const [name, email] of [
+    ['Ana', 'ana@example.com'],
+    ['Lee', 'lee@example.com'],
+  ]) {
+    await g.goto(url);
+    await expect(g.getByText('Only the organizer sees who answered.')).toBeVisible();
+    await g.fill('#name', name);
+    await g.locator('#mine .row').first().locator('[data-vote="2"]').click();
+    await g.fill('#copy-to', '');
+    await g.click('#save');
+    await expect(g.locator('#save-err')).toHaveText(/Add your email/);
+    await g.fill('#copy-to', email);
+    await g.click('#save');
+    await expect(g.locator('#save-state')).toHaveText('Saved');
+    await g.evaluate(() => localStorage.clear()); // the next guest, on the same device
+  }
+  await g.goto(url);
+  await expect(g.locator('#people')).toContainText('Guest 1');
+  await expect(g.locator('#people')).not.toContainText('Ana');
+
+  // The organizer sees everyone, with their emails, and hides the answers.
+  await page.reload();
+  await expect(page.locator('#people')).toContainText('Ana');
+  await expect(page.locator('details.organizer')).toBeVisible();
+  if (!(await page.locator('#privacy-open').isVisible())) await page.locator('details.organizer summary').click();
+  await page.click('#privacy-open');
+  await expect(page.locator('.email-list li')).toHaveText(['Ana ana@example.com', 'Lee lee@example.com']);
+  await page.getByRole('switch', { name: "Hide everyone's answers from guests" }).check();
+  await page.getByRole('button', { name: 'Save privacy settings' }).click();
+  await expect(page.locator('#toast')).toHaveText('Privacy settings saved');
+
+  // Now guests see only that answers are private, and how many people answered.
+  await g.reload();
+  if (await g.locator('#tab-group').isVisible()) await g.click('#tab-group'); // tabs are only on phones
+  await expect(g.locator('#panel-group')).toContainText("Only the organizer sees everyone's answers.");
+  await expect(g.locator('#people')).toBeHidden();
+  await expect(g.locator('#ev-meta')).toContainText('2 people answered');
+  await guest.close();
+});
+
 test('installable: manifest and icons are served', async ({ request }) => {
   const manifest = await (await request.get('/manifest.webmanifest')).json();
   expect(manifest.name).toBe('Venn');
@@ -478,15 +530,17 @@ test('organizer draws options on the week view, and removes one', async ({ page,
   await expect(page.locator('#mine .row')).toHaveCount(1);
 });
 
-test('ask when people are free: parts of the day', async ({ page }) => {
-  await page.goto('/new/free');
-  await page.fill('#title', 'Coffee');
-  await expect(page.locator('[data-mark="parts"]')).toHaveAttribute('aria-checked', 'true');
-  await page.click('[data-ask="morning"]'); // afternoons and evenings only
-  await page.click('[data-nav="1"]');
-  for (let i = 0; i < 3; i++) await page.locator('.cal-day').nth(i).click();
-  await expect(page.locator('#summary')).toHaveText('6 times to choose from');
-  await page.click('#submit');
+test('ask when people are free: parts of the day', async ({ page, request }) => {
+  // Polls made before the calendar painter ask about mornings, afternoons and evenings; they still work.
+  const day = (d, h) => Date.UTC(2030, 0, d, h);
+  const options = [8, 9, 10].flatMap((d) => [
+    { start: day(d, 12), end: day(d, 17) },
+    { start: day(d, 18), end: day(d, 22) },
+  ]);
+  const { id } = await (
+    await request.post('/api/events', { data: { title: 'Coffee', timezone: 'UTC', mode: 'options', layout: 'parts', options } })
+  ).json();
+  await page.goto(`/e/${id}`);
 
   await expect(page.locator('.part-vote')).toHaveCount(6);
   const part = (i) => page.locator('.part-vote').nth(i);
@@ -566,4 +620,38 @@ test('organizers mark options as available or if needed, drag edges to resize, a
   await expect(page.locator('#mine .row').nth(1)).toHaveAttribute('data-v', '1');
   await expect(page.locator('#edit-link')).toContainText('Answering as Sam');
   await expect(page.locator('#mine .row').nth(0)).toContainText(/3 hours|– \d/);
+});
+
+test('organizers paint different hours on different days, and guests mark within them', async ({ page, isMobile }) => {
+  test.skip(isMobile, 'drag to paint with a mouse; phones are covered by the quick fills');
+  await page.goto('/new/free');
+  await page.fill('#title', 'Drinks');
+  await page.click('[data-flength="60"]');
+  await page.click('[data-pstep="1"]'); // next week, so every day is in the future
+  const cell = (r, c) => page.locator(`.pg-cell[data-r="${r}"][data-c="${c}"]`);
+  const drag = async (a, b) => {
+    await a.scrollIntoViewIfNeeded();
+    const p = await a.boundingBox();
+    const q = await b.boundingBox();
+    await page.mouse.move(p.x + 5, p.y + 5);
+    await page.mouse.down();
+    await page.mouse.move(q.x + 5, q.y + 5, { steps: 5 });
+    await page.mouse.up();
+  };
+  // 7 – 9 PM (rows 24–27) on the first two days, then 10 – 11 AM (rows 6–7) on the third.
+  await drag(cell(24, 0), cell(27, 1));
+  await drag(cell(6, 2), cell(7, 2));
+  await expect(page.locator('.pg-cell.on')).toHaveCount(10);
+  const list = page.locator('#free-list .od-row');
+  await expect(list).toHaveCount(2);
+  await expect(list.first()).toContainText('7 – 9 PM');
+  await expect(list.nth(1)).toContainText('10 – 11 AM');
+  // Starting a stroke on a painted time erases.
+  await drag(cell(27, 0), cell(27, 1));
+  await expect(page.locator('.pg-cell.on')).toHaveCount(8);
+  await page.click('#submit');
+
+  // Guests get a grid with just those hours: 3 + 3 + 2 half hours.
+  await expect(page.locator('#mine .cell[data-slot]')).toHaveCount(8);
+  await expect(page.locator('#ev-details')).toContainText('Looking for 1 hour');
 });

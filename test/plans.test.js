@@ -11,11 +11,11 @@ import {
   googleCalendarUrl,
   isDaysPoll,
   meetingEnd,
-  normalizeEventInput,
   outlookCalendarUrl,
   rankTimes,
   zonedToUtc,
 } from '../public/core.js';
+import { normalizeEventInput } from '../src/validate.js';
 
 const NY = 'America/New_York';
 // US clocks go back on Sunday 2026-11-01, so that day is 25 hours long.
@@ -144,4 +144,53 @@ test('parts of the day: options must be a morning, afternoon or evening', async 
     /Unknown layout/,
   );
   assert.equal(isPartsPoll(normalizeEventInput({ title: 'x', timezone: NY, mode: 'options', options: [odd] })), false);
+});
+
+test('free-time polls can have different hours on different days', () => {
+  const ev = normalizeEventInput({
+    title: 'Dinner',
+    timezone: NY,
+    durationMinutes: 60,
+    windows: [
+      { date: '2026-11-07', start: 1080, end: 1200 }, // 6 – 8 PM
+      { date: '2026-11-07', start: 1170, end: 1260 }, // overlaps: merges to 6 – 9 PM
+      { date: '2026-11-08', start: 600, end: 690 }, // 10 – 11:30 AM
+      { date: '2026-11-08', start: 900, end: 930 }, // 3 – 3:30 PM, shorter than the meeting
+    ],
+  });
+  assert.deepEqual(ev.dates, ['2026-11-07', '2026-11-08']);
+  assert.deepEqual(
+    ev.windows.map((w) => [w.date, w.start, w.end]),
+    [
+      ['2026-11-07', 1080, 1260],
+      ['2026-11-08', 600, 690],
+      ['2026-11-08', 900, 930],
+    ],
+  );
+  assert.equal(ev.slotMinutes, 30);
+  const slots = buildSlots(ev);
+  assert.equal(slots.length, 6 + 3 + 1);
+  assert.equal(slots[0], zonedToUtc('2026-11-07', 1080, NY));
+
+  // A meeting never runs across a gap between windows, or from one day into the next.
+  const all = Object.fromEntries(slots.map((s) => [s, YES]));
+  const best = rankTimes(ev, slots, [{ name: 'Ana', availability: all }], 50);
+  assert.equal(best.length, 5 + 2);
+  assert.ok(best.every((b) => b.end - b.start === 3_600_000));
+
+  assert.throws(() => normalizeEventInput({ title: 'x', timezone: NY, windows: [] }), /at least one time/);
+  assert.throws(
+    () => normalizeEventInput({ title: 'x', timezone: NY, windows: [{ date: '2026-11-07', start: 600, end: 615 }] }),
+    /line up/,
+  );
+  assert.throws(
+    () =>
+      normalizeEventInput({
+        title: 'x',
+        timezone: NY,
+        durationMinutes: 120,
+        windows: [{ date: '2026-11-07', start: 600, end: 660 }],
+      }),
+    /shorter than the meeting/,
+  );
 });
