@@ -8,6 +8,7 @@ import {
   allDaySpan,
   buildSlots,
   eventWindows,
+  isEmail,
   isOptionsPoll,
   rankTimes,
 } from '../public/core.js';
@@ -25,7 +26,6 @@ export const MAX_ORGANIZER_EMAILS = 200;
 // address, so each answer gets a few copies at most, and each poll a bounded number.
 export const MAX_COPIES_PER_ANSWER = 3;
 export const MAX_COPIES_PER_POLL = 300;
-const EMAIL_RE = /^[^\s@<>"',;]+@[^\s@<>"',;]+\.[^\s@<>"',;]+$/;
 
 export const emailEnabled = (env) => emailProvider(env) != null;
 
@@ -33,7 +33,7 @@ export function normalizeEmail(value) {
   if (value == null || value === '') return null;
   if (typeof value !== 'string') throw new ValidationError('Invalid email address');
   const email = value.trim().toLowerCase();
-  if (email.length > 254 || !EMAIL_RE.test(email)) throw new ValidationError('Invalid email address');
+  if (!isEmail(email)) throw new ValidationError('Invalid email address');
   return email;
 }
 

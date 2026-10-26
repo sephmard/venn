@@ -408,6 +408,7 @@ input[type='email'],
 input[type='url'],
 input[type='number'],
 input[type='time'],
+input[type='date'],
 textarea,
 select {
   width: 100%;
@@ -434,6 +435,10 @@ select:focus {
 ::placeholder {
   color: var(--muted);
   opacity: 0.8;
+}
+/* Placeholders make way as soon as you start typing in a field; its label stays. */
+:focus::placeholder {
+  color: transparent;
 }
 .check {
   display: flex;
@@ -1296,6 +1301,12 @@ ol.best .when {
 .banner-final .link-btn {
   color: inherit;
 }
+.final-more {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0 20px;
+  margin-top: 8px;
+}
 .banner-final::before,
 .banner-final::after {
   content: '';
@@ -1727,7 +1738,7 @@ details.organizer summary b {
   justify-items: start;
   gap: 1px;
   min-height: 64px;
-  padding: 8px 10px;
+  padding: 8px;
   border-radius: 12px;
   border: 1.5px solid var(--border);
   background: var(--surface);
@@ -1743,6 +1754,11 @@ details.organizer summary b {
   font-size: 0.78rem;
   font-weight: 700;
   min-height: 1em;
+  white-space: nowrap;
+}
+/* Three across on a 375px phone: "Afternoon" and "✓ Available" still fit. */
+.part-vote b {
+  font-size: min(1rem, 4vw);
 }
 .part-vote[data-v='2'] {
   background: var(--yes);
@@ -1810,9 +1826,54 @@ details.organizer summary b {
   background: var(--surface);
   color: var(--accent);
 }
+/* "All day": one tap marks every part of the day */
+.parts-row .row-main {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px 10px;
+}
 .all-day {
-  min-height: 32px;
-  font-size: 0.9rem;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 44px;
+  padding: 6px 14px;
+  border-radius: 999px;
+  border: 1.5px solid var(--border);
+  background: var(--surface);
+  color: var(--text);
+  font-weight: 650;
+  cursor: pointer;
+}
+.ad-mark {
+  display: inline-grid;
+  place-items: center;
+  width: 20px;
+  height: 20px;
+  border-radius: 6px;
+  border: 1.5px solid var(--cell-line);
+  font-size: 0.8rem;
+  line-height: 1;
+}
+.all-day[data-v='2'] {
+  background: var(--yes);
+  border-color: var(--yes);
+  color: var(--yes-ink);
+}
+.all-day[data-v='1'] {
+  background: var(--maybe);
+  border-color: var(--maybe);
+  color: var(--maybe-ink);
+}
+.all-day[data-v='2'] .ad-mark,
+.all-day[data-v='1'] .ad-mark {
+  border-color: currentColor;
+}
+.all-day[data-v='some'] {
+  border-color: var(--accent);
+  border-style: dashed;
 }
 .best-hero .names,
 .best .names {
@@ -1868,7 +1929,6 @@ details.organizer summary b {
 @media (pointer: coarse) {
   .btn-sm,
   .seg button,
-  .all-day,
   .footer a,
   .notify-way > summary,
   .dev summary {
@@ -1902,8 +1962,15 @@ pre.code {
   border-color: var(--accent);
   color: var(--accent);
 }
+.hview-h {
+  margin: 0 0 6px;
+  font-weight: 650;
+}
 .hview {
   margin-bottom: 4px;
+}
+#quick-hours > .hint {
+  margin: 4px 0 2px;
 }
 .quick-votes {
   grid-template-columns: repeat(auto-fit, minmax(96px, 1fr));

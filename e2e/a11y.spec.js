@@ -32,10 +32,12 @@ for (const scheme of ['light', 'dark']) {
     });
 
     test('create pages', async ({ page }) => {
+      test.setTimeout(60_000); // nine scans
       page.on('dialog', (d) => d.accept()); // switching to trips clears the options with times, after asking
       await page.goto('/new');
       await audit(page, 'chooser');
       await page.goto('/new/pick');
+      await page.fill('#organizer', 'Sam');
       await page.click('[data-occasion="0"]');
       await addOptions(page, 2);
       await audit(page, 'vote on a few dates (week or day)');
@@ -45,8 +47,12 @@ for (const scheme of ['light', 'dark']) {
       await page.locator('.cal-grid').evaluate((el) => el.scrollIntoView({ block: 'center' })); // clear of the sticky bar
       await audit(page, 'vote on a few dates (trips)');
       await page.goto('/new/free');
+      await page.fill('#organizer', 'Sam');
       await page.click('#q-2w');
+      await page.locator('#free-list').evaluate((el) => el.scrollIntoView({ block: 'center' })); // clear of the sticky bar
       await audit(page, 'ask when people are free (whole days)');
+      await page.click('#free-list .chip-flip'); // if needed for the organizer: amber
+      await audit(page, 'ask when people are free (whole days, if needed)');
       await page.click('[data-level="parts"]');
       await audit(page, 'ask when people are free (parts of the day)');
       await page.click('[data-level="hours"]');
@@ -55,6 +61,7 @@ for (const scheme of ['light', 'dark']) {
 
     test('privacy options, the Privacy panel, and a guest with answers hidden', async ({ page, browser }) => {
       await page.goto('/new/free');
+      await page.fill('#organizer', 'Sam');
       await page.fill('#title', 'Privacy check'); // whole days is where it starts
       await page.click('#q-2w');
       await page.locator('#privacy-opts summary').click();
@@ -79,6 +86,7 @@ for (const scheme of ['light', 'dark']) {
     test('the poll created celebration', async ({ page }) => {
       await page.emulateMedia({ reducedMotion: 'reduce' }); // no confetti over the text
       await page.goto('/new/free');
+      await page.fill('#organizer', 'Sam');
       await page.fill('#title', 'Celebration check');
       await page.click('#q-2w');
       await page.click('#submit');
@@ -101,6 +109,7 @@ for (const scheme of ['light', 'dark']) {
     test('answering and results, as organizer', async ({ page }) => {
       page.on('dialog', (d) => d.accept());
       await page.goto('/new/pick');
+      await page.fill('#organizer', 'Sam');
       await page.fill('#title', 'Accessibility check');
       await addOptions(page, 2);
       await page.click('#submit');
@@ -126,17 +135,20 @@ for (const scheme of ['light', 'dark']) {
       test.setTimeout(60_000); // three polls, each with its celebration, and five scans
       page.on('dialog', (d) => d.accept()); // leaving a poll with unsaved answers asks first
       await page.goto('/new/free');
+      await page.fill('#organizer', 'Sam');
       await page.fill('#title', 'Days check');
       await page.click('#q-2w');
       await page.click('#submit');
       await expect(page.locator('#mine .row').first()).toBeVisible();
       await audit(page, 'days poll');
       await page.goto('/new/free');
+      await page.fill('#organizer', 'Sam');
       await page.fill('#title', 'Grid check');
       await page.click('[data-level="hours"]');
       await page.click('[data-fill="3"]');
       await page.click('#submit');
-      await expect(page.locator('#quick-hours .part-vote').first()).toBeVisible({ timeout: 10_000 }); // after the celebration
+      await expect(page.locator('[data-hview="quick"]')).toBeVisible({ timeout: 10_000 }); // after the celebration
+      await page.click('[data-hview="quick"]');
       await page.locator('#quick-hours .part-vote').first().click();
       await audit(page, 'hours poll (quick answers)');
       await page.click('[data-hview="exact"]');
@@ -245,8 +257,23 @@ for (const width of [375, 412]) {
         return at === node || node.contains(at);
       });
       expect(hit, await el.innerText()).toBe(true);
+      // Big enough to tap, and inside the screen.
+      const box = await el.boundingBox();
+      expect(box.height, await el.innerText()).toBeGreaterThanOrEqual(44);
+      expect(box.x + box.width).toBeLessThanOrEqual(width);
     }
+    expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(width);
     await banner.getByRole('button', { name: 'Clear the date' }).click();
     await expect(banner).toHaveCount(0);
+  });
+}
+
+for (const scheme of ['light', 'dark']) {
+  test(`"Add to your calendar" passes the checks at 375px (${scheme})`, async ({ page }) => {
+    await page.emulateMedia({ colorScheme: scheme });
+    await page.setViewportSize({ width: 375, height: 900 });
+    await openPoll(page, { picked: true });
+    await expect(page.getByRole('group', { name: 'Add to your calendar' })).toBeVisible();
+    await audit(page, `picked date (${scheme})`);
   });
 }

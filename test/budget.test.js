@@ -25,9 +25,10 @@ function closure(entry, seen = new Set()) {
 const SHELL = ['app.html', 'styles.css', 'app.js'];
 // Each page: its code, its own stylesheet, and its budget in KB. Guests open polls on their phones
 // from a group chat, so the poll page is the tightest. The create pages carry their own stylesheet
-// (create.css), so guests never download it.
+// (create.css), so guests never download it, and each kind of poll loads only its own code.
 const PAGES = {
-  'create pages': ['create.js', ['create.css'], 47],
+  'vote on a few dates page': ['create-pick.js', ['create.css'], 46],
+  'ask when people are available page': ['create-free.js', ['create.css'], 44],
   'poll page': ['event.js', [], 45],
 };
 

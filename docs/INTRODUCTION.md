@@ -33,13 +33,24 @@ public/            the whole front end, served as-is
   index.html       landing page (/); privacy.html and 404.html sit beside it
   app.html         app shell, served for /new and /e/:id
   app.js           router
-  create.js        the create pages: "vote on a few dates" and "ask when people are free"
+  create.js        the create pages' chooser and shared form parts
+  create-pick.js   "vote on a few dates", loaded only on that page
+  create-free.js   "ask when people are available", loaded only on that page
   event.js         the poll page: answering, the group's results, organizer tools
-  organizer.js     the organizer's Notifications and Privacy panels, loaded only for organizers
+  organizer.js     the organizer's tools, Notifications and Privacy panels and AI summary, loaded only for organizers
+  add-to-calendar.js  "Add to your calendar", loaded once a date is picked
+  ai-answer.js     "Answer for me" with AI, loaded when a guest opens it
+  day-parts.js     answering hours polls by mornings, afternoons and evenings, and "All day"
   celebrate.js     the "Poll created!" celebration
   picker.js        the calendar views: week, day and month, for organizers and guests
   block-edit.js    dragging and removing options on the week, loaded only on the create pages
   paint.js         the organizer's painter for hours and parts of the day, loaded only on the create pages
+  half-day.js      half-day options (mornings, afternoons, evenings) on "vote on a few dates", loaded when picked
+  lengths.js       how long a poll's options are, for editing, duplicating and the AI draft
+  edit-poll.js     editing or duplicating a poll on the create pages, loaded only for those links
+  ai-draft.js      "describe it, and AI fills in the form", loaded only when AI is switched on
+  day-nav.js       the organizer's day strip, « » and jump-to-a-day month, loaded after the create page
+  day-window.js    the days that strip offers
   ui.js            shared UI helpers: formatting, avatars, storage, API calls
   core.js          shared logic: time zones, ranking, calendar import/export
   calendars.js     Google / Outlook free-busy, in the browser
