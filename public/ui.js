@@ -63,13 +63,17 @@ export function rememberEmail(e) {
 
 // ---------- feedback ----------
 
+// A status region that stays on the page, emptied then filled, so every message is announced.
 let toastTimer;
 export function toast(msg) {
   const t = document.getElementById('toast');
-  t.textContent = msg;
   t.hidden = false;
+  t.textContent = '';
   clearTimeout(toastTimer);
-  toastTimer = setTimeout(() => (t.hidden = true), 3200);
+  toastTimer = setTimeout(() => {
+    t.textContent = msg;
+    toastTimer = setTimeout(() => (t.textContent = ''), 3200);
+  }, 50);
 }
 
 export async function copy(text, done = 'Link copied') {
@@ -83,17 +87,27 @@ export async function copy(text, done = 'Link copied') {
 
 // ---------- API ----------
 
+/** Errors carry the HTTP `status`, or 0 when Venn can't be reached. */
 export async function api(path, { method = 'GET', body, headers = {} } = {}) {
-  const res = await fetch(`/api/${path}`, {
-    method,
-    headers: { ...(body ? { 'content-type': 'application/json' } : {}), ...headers },
-    body: body ? JSON.stringify(body) : undefined,
-  });
+  const fail = (status, message, cause) => Object.assign(new Error(message, { cause }), { status });
+  let res;
+  try {
+    res = await fetch(`/api/${path}`, {
+      method,
+      headers: { ...(body ? { 'content-type': 'application/json' } : {}), ...headers },
+      body: body ? JSON.stringify(body) : undefined,
+    });
+  } catch (e) {
+    throw fail(0, "Can't reach Venn. Check your connection and try again.", e);
+  }
   const data = await res.json().catch(() => ({}));
   if (!res.ok) {
-    const err = new Error(data.error || `Request failed (${res.status})`);
-    err.status = res.status;
-    throw err;
+    // A 500 or a proxy's error page says nothing useful; a 503 says what's unavailable.
+    const s = res.status;
+    throw fail(
+      s,
+      (s !== 500 && data.error) || (s < 500 ? `Request failed (${s})` : 'Something went wrong on our side. Try again.'),
+    );
   }
   return data;
 }
