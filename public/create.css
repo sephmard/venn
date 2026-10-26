@@ -394,18 +394,55 @@
     overscroll-behavior: auto;
   }
 }
-/* If-needed options keep their amber, and say so in words. */
+/* The organizer's options: green when they're available, amber (and saying so) if needed. */
+.od-row .chip.yes {
+  background: var(--yes);
+  color: var(--yes-ink);
+}
 .od-row .chip.maybe {
-  background: var(--maybe-soft);
+  background: var(--maybe);
+  color: var(--maybe-ink);
+}
+.od-row .chip.yes button,
+.od-row .chip.maybe button {
+  color: inherit;
 }
 .chip-tag {
   margin-left: 4px;
-  padding: 1px 6px;
+  padding: 0 6px;
+  border: 1.5px solid;
   border-radius: 999px;
-  background: var(--maybe);
-  color: var(--maybe-ink);
   font-size: 0.75rem;
   font-weight: 700;
+}
+.pg-cell.part.on.maybe {
+  background: var(--maybe);
+}
+.pg-cell.part.on.maybe small {
+  color: var(--maybe-ink);
+}
+
+/* Required fields say so beside their label; what's missing says so under the field. */
+.req {
+  margin-left: 6px;
+  padding: 1px 8px;
+  border-radius: 999px;
+  background: var(--surface-2);
+  color: var(--muted);
+  font-size: 0.75rem;
+  font-weight: 700;
+}
+.field-err {
+  margin: 6px 0 0;
+  color: var(--danger);
+  font-size: 0.875rem;
+  font-weight: 600;
+}
+.create [aria-invalid='true'] {
+  border-color: var(--danger);
+}
+#more-box > input + label {
+  margin-top: 14px;
 }
 /* "Or add a time", for keyboards */
 .add-time {

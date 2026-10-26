@@ -9,7 +9,8 @@ import {
   MAX_SPAN_DAYS,
   YES,
   addDays,
-  allDaySpan,
+  isEmail,
+  lengthChip,
   longestRun,
   utcToZoned,
   zonedToUtc,
@@ -35,7 +36,6 @@ import {
   shortRange,
   shortTime,
   save,
-  saved,
   toast,
   todayStr,
   tzName,
@@ -94,42 +94,17 @@ function source() {
   return /^[A-Za-z0-9]+$/.test(id ?? '') && { id, edit: q.has('edit') };
 }
 
-/** The poll to start from, with the organizer's view of it when this device has their link. */
-async function loadSource(src) {
-  const token = saved(src.id).adminToken;
-  try {
-    return await api(`events/${src.id}`, { headers: token ? { 'x-admin-token': token } : {} });
-  } catch (ex) {
-    toast(ex.message);
-    return null;
-  }
-}
+let editPoll = null; // the code for editing and duplicating, loaded with the poll to start from
 
+/** The poll to start from (see edit-poll.js), or null. */
+async function loadSource(src) {
+  editPoll = await import('./edit-poll.js').catch(() => null);
+  return editPoll?.loadSource(src) ?? null;
+}
 /** Fill in everything both kinds of poll share: the plan, the organizer and the privacy options. */
 function fillCommon(ev, src) {
-  const i = OCCASIONS.findIndex((o) => o.emoji === ev.emoji);
-  if (i >= 0) $(`[data-occasion="${i}"]`).click();
-  $('#title').value = ev.title;
-  $('#location').value = ev.location || '';
-  $('#desc').value = ev.description || '';
-  $('#desc-box').open = !!ev.description;
-  $('#organizer').value = ev.organizer || '';
-  // Times are in the organizer's time zone (everyone sees them in their own); a poll keeps its own.
-  if (ev.timezone) {
-    $('#tz').innerHTML = tzOptions(ev.timezone);
-    showTz();
-  }
-  for (const [key, el] of PRIVACY) $(el).checked = !!ev[key];
-  $('#privacy-opts').open = PRIVACY.some(([key]) => ev[key]);
-  if (src.edit) {
-    editing = src.id;
-    $('#create h1').textContent = 'Edit your poll';
-    $('#create .back').textContent = '‹ Back to the poll';
-    $('#create .back').setAttribute('href', `/e/${src.id}`);
-    $('#submit').textContent = 'Save changes';
-    $('#notify-field').remove(); // notifications have their own panel on the poll
-    $('#notify-off').remove();
-  } else toast('Copied. Change anything you like, then create the new poll.');
+  editPoll.fillCommon(ev, src, { occasions: OCCASIONS, privacy: PRIVACY, showTz });
+  if (src.edit) editing = src.id;
 }
 
 // ---------- chooser ----------
@@ -160,6 +135,9 @@ export function renderChooser() {
 
 // ---------- shared form parts ----------
 
+// Required fields say so next to their label (screen readers hear aria-required instead).
+const REQ = ' <span class="req" aria-hidden="true">Required</span>';
+
 function planFields(kind) {
   // Asking when people are free suits trips best, so the trip comes first there.
   const order = kind === 'free' ? [...OCCASIONS.filter((o) => o.days), ...OCCASIONS.filter((o) => !o.days)] : OCCASIONS;
@@ -177,21 +155,15 @@ function planFields(kind) {
       <div class="title-row">
         <span class="emoji-tile" id="emoji-tile" aria-hidden="true">🗓️</span>
         <div class="grow">
-          <label for="title">Name of your poll</label>
-          <input id="title" type="text" maxlength="120" placeholder="${kind === 'free' ? 'Summer cabin trip' : "Dinner at Finn's"}" required>
+          <label for="title">Name of your poll${REQ}</label>
+          <input id="title" type="text" maxlength="120" placeholder="${kind === 'free' ? 'Summer cabin trip' : "Dinner at Finn's"}" aria-required="true">
         </div>
       </div>
-      <div>
-        <label for="organizer">Your name</label>
-        <input id="organizer" type="text" maxlength="80" autocomplete="name" value="${esc(lastName())}" placeholder="So people know who's asking">
-      </div>
-      <div>
-        <label for="location">Where <span class="muted">(optional)</span></label>
+      <details class="reveal" id="more-box">
+        <summary>More details</summary>
+        <label for="location">Where</label>
         <input id="location" type="text" maxlength="200" placeholder="A place, an address or a video link">
-      </div>
-      <details class="reveal" id="desc-box">
-        <summary>Add a note for everyone</summary>
-        <label for="desc" class="sr-only">Note</label>
+        <label for="desc">Note for everyone</label>
         <textarea id="desc" maxlength="1000" placeholder="What to bring, who's cooking, the plan for the day"></textarea>
       </details>
     </section>`;
@@ -201,9 +173,13 @@ function youFields() {
   return `
     <section class="sheet" aria-labelledby="you-h">
       <h2 id="you-h">About you</h2>
+      <div>
+        <label for="organizer">Your name${REQ}</label>
+        <input id="organizer" type="text" maxlength="80" autocomplete="name" value="${esc(lastName())}" placeholder="So people know who's asking" aria-required="true">
+      </div>
       <div id="notify-field" hidden>
-        <label for="notify">Your email</label>
-        <input id="notify" type="email" inputmode="email" autocomplete="email" maxlength="254" placeholder="you@example.com" value="${esc(lastEmail())}" aria-describedby="notify-hint">
+        <label for="notify">Your email${REQ}</label>
+        <input id="notify" type="email" inputmode="email" autocomplete="email" maxlength="254" placeholder="you@example.com" value="${esc(lastEmail())}" aria-required="true" aria-describedby="notify-hint">
         <p class="hint" id="notify-hint">We'll email you your poll's link, so you never lose it, then let you know when people answer. Webhooks for Slack, Discord or your own app are under Notifications once the poll exists.</p>
       </div>
       <p class="hint" id="notify-off" hidden>Email notifications aren't switched on for this Venn server yet. You can add a webhook from the poll's Notifications panel.</p>
@@ -252,14 +228,8 @@ function wirePlan(onOccasion) {
  * saved with the poll so they don't have to vote on their own options.
  */
 async function submit(body, occasion, answer = null) {
-  const err = $('#err');
-  err.textContent = '';
+  $('#err').textContent = '';
   const title = $('#title').value.trim() || occasion()?.label || '';
-  if (!title) {
-    err.textContent = 'Give your poll a name.';
-    $('#title').focus();
-    return;
-  }
   Object.assign(body, {
     title,
     location: $('#location').value.trim(),
@@ -269,11 +239,6 @@ async function submit(body, occasion, answer = null) {
   });
   if (occasion()) body.emoji = occasion().emoji;
   for (const [key, el] of PRIVACY) body[key] = $(el).checked;
-  if (emailMissing()) {
-    err.textContent = emailMissing();
-    $('#notify').focus();
-    return;
-  }
   const notifyEmail = !$('#notify-field') || $('#notify-field').hidden ? '' : $('#notify').value.trim();
   if (notifyEmail) body.notifyEmail = notifyEmail;
   if (body.organizer) rememberName(body.organizer);
@@ -281,7 +246,7 @@ async function submit(body, occasion, answer = null) {
   $('#submit').disabled = true;
   // The organizer's own answer: what they marked for each option, or yes to all the times offered.
   if (answer && Object.keys(answer).length) body.hostAvailability = answer;
-  if (editing) return saveEdit(body);
+  if (editing) return editPoll.saveEdit(editing, body);
   body.hostAnswers = true;
   // The celebration (and its picture) load while the poll is saved.
   const celebration = import('./celebrate.js').catch(() => null);
@@ -299,8 +264,7 @@ async function submit(body, occasion, answer = null) {
     const url = `${location.origin}/e/${id}`;
     let copying = null; // the link being copied, so its toast can show once the poll is open
     const share = () => {
-      if (navigator.share && matchMedia('(pointer: coarse)').matches)
-        navigator.share({ title, text: `When works for you? ${title}`, url }).catch(() => {});
+      if (navigator.share && matchMedia('(pointer: coarse)').matches) navigator.share({ title, url }).catch(() => {});
       else
         copying = navigator.clipboard.writeText(url).then(
           () => true,
@@ -316,21 +280,6 @@ async function submit(body, occasion, answer = null) {
     // Opening the poll clears any toast, so say the link was copied after it.
     if (copying) (await copying) ? toast('Invite link copied. Paste it in your group chat.') : prompt('Copy this:', url);
   } catch (ex) {
-    err.textContent = ex.message;
-    $('#submit').disabled = false;
-  }
-}
-
-/** Save the changes to a poll nobody else has answered yet, and go back to it. */
-async function saveEdit(body) {
-  const id = editing;
-  try {
-    await api(`events/${id}`, { method: 'PUT', body, headers: { 'x-admin-token': saved(id).adminToken || '' } });
-    history.pushState(null, '', `/e/${id}`);
-    dispatchEvent(new PopStateEvent('popstate'));
-    scrollTo(0, 0);
-    toast('Poll updated');
-  } catch (ex) {
     $('#err').textContent = ex.message;
     $('#submit').disabled = false;
   }
@@ -338,6 +287,8 @@ async function saveEdit(body) {
 
 /** Show the email field when this server sends email; the organizer's email is then required. */
 function showConfig(update) {
+  tried = false;
+  $('#organizer').addEventListener('input', update);
   getConfig().then((c) => {
     if (!$('#notify-field')) return;
     $('#notify-field').hidden = !c.email;
@@ -347,33 +298,62 @@ function showConfig(update) {
     update();
   });
 }
-/** What's wrong with the organizer's email, if it's needed. */
+/** What's wrong with the organizer's email, if it's needed: the same rule the server checks. */
 function emailMissing() {
   const el = $('#notify');
   if (!el?.required) return '';
   const v = el.value.trim();
-  return !v ? 'Add your email to create the poll' : !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v) ? 'Check your email address' : '';
+  return !v ? 'Add your email' : !isEmail(v) ? 'Check your email address' : '';
+}
+
+/** A message under a field that's missing or wrong, tied to it for screen readers; '' clears it. */
+function flag(el, message) {
+  const id = `${el.id}-err`;
+  let p = $(`#${id}`);
+  const ids = (el.getAttribute('aria-describedby') || '').split(' ').filter((x) => x && x !== id);
+  if (message) {
+    if (!p) el.after((p = Object.assign(document.createElement('p'), { id, className: 'field-err' })));
+    p.textContent = message;
+    ids.unshift(id);
+    el.setAttribute('aria-invalid', 'true');
+  } else {
+    p?.remove();
+    el.removeAttribute('aria-invalid');
+  }
+  if (ids.length) el.setAttribute('aria-describedby', ids.join(' '));
+  else el.removeAttribute('aria-describedby');
 }
 
 /**
  * Show Create as not ready until the poll can be made, and say what's still missing. It stays a
  * working button (aria-disabled), so keyboard and screen-reader users can reach it and press it to
- * hear why. `checks` are [problem?, message, what to focus] in order; the first problem wins.
+ * hear why. `checks` are [problem?, message, what to focus, message under the field], in the order
+ * of the page: the poll's name first, the organizer's name and email last. The first problem wins.
  */
 let notReady = null; // { message, focus } while something is missing
+let tried = false; // Create was pressed: missing fields say so under them, until they're filled in
 function setReady(ready, ...checks) {
-  const [, message, focus] = checks.find(([bad]) => bad) || [];
+  checks.sort((a, b) => (b[2] === '#title') - (a[2] === '#title'));
+  const bad = checks.filter(([x]) => x);
+  const [, first, focus] = bad[0] || [];
+  const message = first && (bad.length > 1 ? `${first} (and ${plural(bad.length - 1, 'more thing')})` : first);
   if (message !== notReady?.message) $('#err').textContent = '';
-  notReady = message ? { message, focus } : null;
+  notReady = message ? { message, focus, checks } : null;
+  markFields(checks);
   $('#submit').setAttribute('aria-disabled', String(!!message));
   $('#submit').classList.toggle('not-ready', !!message);
   if (!$('#err').textContent) $('#summary').textContent = message || ready;
   $('#summary').classList.toggle('missing', !!message);
 }
-/** Create was pressed before the poll is ready: say what's missing, and go there. */
+const markFields = (checks) => {
+  for (const [x, , el, under] of checks) if (under != null && $(el)) flag($(el), tried && x ? under : '');
+};
+/** Create was pressed before the poll is ready: say what's missing, mark each field, and go to the first. */
 function explainNotReady() {
   if (!notReady) return false;
-  const { message, focus } = notReady;
+  tried = true;
+  const { message, focus, checks } = notReady;
+  markFields(checks);
   $('#summary').textContent = '';
   $('#err').textContent = message;
   const el = typeof focus === 'function' ? focus() : $(focus);
@@ -381,10 +361,16 @@ function explainNotReady() {
   return true;
 }
 const named = (occasion) => !!($('#title').value.trim() || occasion()?.label);
-/** The usual last checks: a name, then the organizer's email when it's needed. */
+/** The form's own checks: the poll's name, then the organizer's name and (when it's needed) email. */
 const nameAndEmail = (occasion) => [
-  [!named(occasion), 'Give your poll a name to create the poll', '#title'],
-  [!!emailMissing(), emailMissing(), '#notify'],
+  [!named(occasion), 'Give your poll a name to create the poll', '#title', 'Give your poll a name'],
+  [!$('#organizer').value.trim(), 'Add your name to create the poll', '#organizer', 'Add your name'],
+  [
+    !!emailMissing(),
+    `${emailMissing()}${emailMissing() === 'Add your email' ? ' to create the poll' : ''}`,
+    '#notify',
+    emailMissing(),
+  ],
 ];
 
 const createBar = (label) => `
@@ -398,16 +384,23 @@ const createBar = (label) => `
 
 // ---------- "Vote on a few dates" ----------
 
+// How long an option is: minutes (30 min, 1 hour, or any other length), 'half' for a morning,
+// afternoon or evening, 'allday', or 'days' for a trip.
 const LENGTHS = [
   [30, '30 min'],
   [60, '1 hour'],
-  [90, '1½ hours'],
-  [120, '2 hours'],
-  [180, '3 hours'],
+  ['half', 'Half day'],
   ['allday', 'All day'],
   ['days', 'Several days'],
   ['custom', 'Other'],
 ];
+// The lengths "Other" offers: 15-minute steps up to 4 hours, then half hours up to 12.
+const OTHER_LENGTHS = Array.from({ length: 32 }, (_, i) => (i < 16 ? 15 + i * 15 : 270 + (i - 16) * 30));
+const otherOptions = (v) =>
+  [...new Set([...OTHER_LENGTHS, v])]
+    .sort((a, b) => a - b)
+    .map((m) => `<option value="${m}"${m === v ? ' selected' : ''}>${lengthLabel(m)}</option>`)
+    .join('');
 const timeRange = shortRange;
 // Where the calendar opens for a kind of plan, by its usual part of the day.
 const PART_OPENS = { morning: 480, afternoon: 720, evening: 1020 };
@@ -431,23 +424,17 @@ export function renderPick() {
   let view = null; // the week / day picker, for options with times
   let month = null; // the month, for all-day options and trips
   let lastFrom = null; // the start of the option added or moved last, where other days open
+  let half = null; // the mornings, afternoons and evenings, for half-day options
+  let mounts = 0; // the half-day picker loads on demand: only the latest calendar shows when it arrives
 
   app.innerHTML = `
     <form id="create" class="create" novalidate>
       <a class="back" href="/new" data-link>‹ Both kinds of poll</a>
       <h1>Vote on a few dates</h1>
-      <div class="ai-draft sheet" id="ai-draft" hidden>
-        <label for="ai-prompt">Describe it, and AI fills in the form</label>
-        <div class="ai-row">
-          <textarea id="ai-prompt" rows="2" maxlength="600" placeholder="Dinner for 6, any evening next week except Monday"></textarea>
-          <button type="button" class="btn" id="ai-go">Fill it in</button>
-        </div>
-        <p class="hint">Your description is sent to Anthropic's Claude. Check everything before you create the poll.</p>
-      </div>
       ${planFields('pick')}
       <section class="sheet" aria-labelledby="length-h">
         <h2 id="length-h">How long is it?</h2>
-        <div class="pills" role="group" aria-label="How long">
+        <div class="pills" role="group" aria-labelledby="length-h">
           ${LENGTHS.map(([v, l]) => `<button type="button" class="pill" data-length="${v}" aria-pressed="false">${l}</button>`).join('')}
         </div>
         <div class="inline-field" id="span-field" hidden>
@@ -459,8 +446,8 @@ export function renderPick() {
           </div>
         </div>
         <div class="inline-field" id="custom-field" hidden>
-          <label for="custom">Length in minutes</label>
-          <input id="custom" type="number" min="15" max="1440" step="15" value="90" inputmode="numeric">
+          <label for="custom">Length</label>
+          <select id="custom">${otherOptions(90)}</select>
         </div>
       </section>
       <section class="sheet" aria-labelledby="when-h">
@@ -496,10 +483,13 @@ export function renderPick() {
     if (lastFrom == null && PART_OPENS[o.part] && $('#at-time')) $('#at-time').value = PART_OPENS[o.part];
   });
 
-  const timed = () => typeof length === 'number' || length === 'custom';
+  // Options with times of their own (any length in minutes), parts of the day, or whole days.
+  const kindOf = (v) => (typeof v === 'number' ? 'time' : v === 'half' ? 'half' : 'day');
+  const timed = () => kindOf(length) === 'time';
   // Where to go when Create is pressed with no options: the calendar.
-  const calendarFocus = () => $('#at-day:not([disabled])') || $('#picker .cal-day:not(:disabled)');
-  const minutes = () => (length === 'custom' ? Math.max(15, Math.min(1440, +$('#custom').value || 60)) : length);
+  const calendarFocus = () =>
+    $('#at-day:not([disabled])') || $('#picker .pg-cell[tabindex="0"]') || $('#picker .cal-day:not(:disabled)');
+  const minutes = () => length;
   const onDate = (d) => [...items.values()].filter((it) => it.date === d);
   const mark = (d) => (onDate(d).length ? String(onDate(d).length) : '');
   const ifNeeded = (it) => it.v === IF_NEEDED;
@@ -533,6 +523,7 @@ export function renderPick() {
   function changed() {
     view?.render();
     month?.render();
+    half?.render();
     renderList();
   }
 
@@ -540,9 +531,12 @@ export function renderPick() {
   function mountPicker() {
     view?.cleanup();
     month?.cleanup();
-    view = month = null;
+    half?.cleanup();
+    view = month = half = null;
+    mounts++;
     const root = $('#picker');
     $('#add-time').hidden = !timed();
+    if (length === 'half') return mountHalf(root);
     if (timed()) {
       buildAddTime();
       $('#when-hint').textContent = isPhone()
@@ -600,6 +594,18 @@ export function renderPick() {
     }
   }
 
+  // ----- half days: a morning, an afternoon or an evening, on a week of days -----
+  // The "parts of the day" picker from the other create page, loaded when it's first needed.
+  async function mountHalf(root) {
+    const at = mounts;
+    root.innerHTML = '';
+    $('#when-hint').textContent =
+      `${isPhone() ? 'Tap a day, then' : 'Click'} the mornings, afternoons and evenings you could do, or drag across several. Tap an option below to switch between available and if needed.`;
+    const { halfView } = await import('./half-day.js');
+    if (at !== mounts || !root.isConnected) return;
+    half = halfView(root, { items, brush: () => brush, onChange: renderList, startAt: sorted()[0]?.[1].date });
+  }
+
   // ----- adding a time without a pointer: a day, a start time and Add -----
   function buildAddTime() {
     const at = lastFrom ?? PART_OPENS[occasion()?.part] ?? 1080;
@@ -630,9 +636,10 @@ export function renderPick() {
   }
 
   // ----- the options in the poll, by day -----
+  const partOfItem = (it) => length === 'half' && DAY_PARTS.find((p) => p.start === it.from && p.end === it.to);
   const itemLabel = (it) =>
     it.from != null
-      ? timeRange(it.from, it.to)
+      ? `${partOfItem(it) ? `${partOfItem(it).label} ` : ''}${timeRange(it.from, it.to)}`
       : length === 'days'
         ? `${dayLabel(it.date)} – ${dayLabel(addDays(it.date, tripDays(it) - 1))}`
         : 'All day';
@@ -643,7 +650,7 @@ export function renderPick() {
     const box = $('#options-list');
     updateReady();
     if (!list.length) {
-      box.innerHTML = `<p class="hint">Nothing yet. ${timed() ? 'Add times on the calendar above.' : 'Tap days on the calendar above.'} Everyone will say yes, if needed or no to each option you add.</p>`;
+      box.innerHTML = `<p class="hint">Nothing yet. ${timed() ? 'Add times on the calendar above.' : length === 'half' ? 'Pick mornings, afternoons or evenings above.' : 'Tap days on the calendar above.'} Everyone will say yes, if needed or no to each option you add.</p>`;
       return;
     }
     const removeBtn = (k, label) => `<button type="button" data-remove="${esc(k)}" aria-label="Remove ${esc(label)}">×</button>`;
@@ -655,7 +662,7 @@ export function renderPick() {
       rows = list
         .map(
           ([k, it]) => `<li class="od-row">
-            <span class="chip trip${ifNeeded(it) ? ' maybe' : ''}">${flipBtn(k, it, itemLabel(it))}${removeBtn(k, itemLabel(it))}</span>
+            <span class="chip trip ${ifNeeded(it) ? 'maybe' : 'yes'}">${flipBtn(k, it, itemLabel(it))}${removeBtn(k, itemLabel(it))}</span>
             <span class="od-len">
               <button type="button" class="icon-btn" data-trip="${esc(k)}" data-d="-1" aria-label="One day shorter, ${esc(itemLabel(it))}"${tripDays(it) <= 2 ? ' disabled' : ''}>−</button>
               <span>${plural(tripDays(it), 'day')}</span>
@@ -677,7 +684,7 @@ export function renderPick() {
             <span class="chips">${its
               .map(
                 ([k, it]) =>
-                  `<span class="chip${ifNeeded(it) ? ' maybe' : ''}">${flipBtn(k, it, `${dayLabel(d)}, ${itemLabel(it)}`)}${removeBtn(k, `${dayLabel(d)}, ${itemLabel(it)}`)}</span>`,
+                  `<span class="chip ${ifNeeded(it) ? 'maybe' : 'yes'}">${flipBtn(k, it, `${dayLabel(d)}, ${itemLabel(it)}`)}${removeBtn(k, `${dayLabel(d)}, ${itemLabel(it)}`)}</span>`,
               )
               .join('')}</span>
           </li>`,
@@ -707,7 +714,7 @@ export function renderPick() {
       items.clear();
       changed();
     }
-    if (!timed() && (rm || e.target.closest('#clear-options'))) mountPicker();
+    if (kindOf(length) === 'day' && (rm || e.target.closest('#clear-options'))) mountPicker();
   });
 
   const renderBrush = () => {
@@ -722,32 +729,44 @@ export function renderPick() {
   renderBrush();
 
   // ----- length -----
-  /** Returns false when the organizer chose to keep their options rather than switch. */
+  /**
+   * Change how long the options are: minutes, 'half', 'allday', 'days', or 'custom' for "Other" at
+   * the length it shows. Returns false when the organizer chose to keep their options rather than switch.
+   */
   function setLength(v, { ask = true } = {}) {
-    const wasTimed = timed();
-    // Options in hours and whole-day options don't mix: switching between them starts over, so ask.
-    const clears = items.size && wasTimed !== (typeof v === 'number' || v === 'custom');
-    const name = LENGTHS.find(([x]) => x === v)?.[1].toLowerCase();
+    if (v === 'custom') v = +$('#custom').value;
+    const was = kindOf(length);
+    // Options of different kinds don't mix: switching between them starts over, so ask.
+    const clears = items.size && was !== kindOf(v);
+    const name = LENGTHS.find(([x]) => x === lengthChip(v))?.[1].toLowerCase();
     if (
       clears &&
       ask &&
       !confirm(`Switching to ${name} removes the ${plural(items.size, 'option')} you've added. Switch anyway?`)
     ) {
-      for (const b of $$('[data-length]')) b.setAttribute('aria-pressed', b.dataset.length === String(length));
+      showLength();
       return false;
     }
     length = v;
-    for (const b of $$('[data-length]')) b.setAttribute('aria-pressed', b.dataset.length === String(v));
-    $('#span-field').hidden = v !== 'days';
-    $('#custom-field').hidden = v !== 'custom';
+    showLength();
     if (clears) items.clear();
     // A new length applies to the options already added.
     if (timed()) for (const it of items.values()) it.to = Math.min(it.from + minutes(), 1440);
-    else for (const it of items.values()) it.days = v === 'days' ? spanDays : 1;
+    else if (length !== 'half') for (const it of items.values()) it.days = v === 'days' ? spanDays : 1;
     // Keep the calendar (and the week it shows) when only the number of hours changes.
-    if (wasTimed !== timed() || !timed() || (!view && !month)) mountPicker();
+    if (was !== kindOf(length) || kindOf(length) === 'day' || (!view && !month && !half)) mountPicker();
     else changed();
     renderList();
+  }
+  /** The chip for the length, and "Other" with its length when it's another number of minutes. */
+  function showLength() {
+    const chip = lengthChip(length);
+    for (const b of $$('[data-length]')) b.setAttribute('aria-pressed', b.dataset.length === chip);
+    const other = chip === 'custom';
+    $('[data-length="custom"]').textContent = other ? `Other · ${lengthLabel(length)}` : 'Other';
+    if (other) $('#custom').innerHTML = otherOptions(length);
+    $('#span-field').hidden = length !== 'days';
+    $('#custom-field').hidden = !other;
   }
   $('#create').addEventListener('click', (e) => {
     const b = e.target.closest('[data-length]');
@@ -769,10 +788,7 @@ export function renderPick() {
   $('#span').onchange = () => {
     $('#span').value = spanDays;
   };
-  $('#custom').oninput = () => {
-    for (const it of items.values()) if (it.from != null) it.to = Math.min(it.from + minutes(), 1440);
-    changed();
-  };
+  $('#custom').onchange = () => setLength('custom');
 
   function options() {
     const tz = $('#tz').value;
@@ -796,42 +812,6 @@ export function renderPick() {
     submit({ mode: 'options', options: options() }, occasion, answer);
   };
 
-  // AI: describe the plan in words.
-  $('#ai-go').onclick = async () => {
-    const prompt = $('#ai-prompt').value.trim();
-    if (!prompt) return $('#ai-prompt').focus();
-    const btn = $('#ai-go');
-    btn.disabled = true;
-    btn.textContent = 'Filling in…';
-    try {
-      const tz = $('#tz').value;
-      const draft = await api('ai/draft-poll', { method: 'POST', body: { prompt, timezone: tz } });
-      if (!$('#title').value.trim()) $('#title').value = draft.title;
-      if (!$('#desc').value.trim() && draft.description) {
-        $('#desc').value = draft.description;
-        $('#desc-box').open = true;
-      }
-      const preset = LENGTHS.some(([v]) => v === draft.durationMinutes);
-      if (!preset) $('#custom').value = draft.durationMinutes;
-      items.clear(); // the draft's options replace any already added
-      setLength(preset ? draft.durationMinutes : 'custom');
-      for (const o of draft.options) {
-        const z = utcToZoned(o.start, tz);
-        items.set(`${z.date}|${z.minutes}`, { date: z.date, from: z.minutes, to: Math.min(z.minutes + minutes(), 1440) });
-      }
-      const first = sorted()[0]?.[1].date;
-      if (first) (view || month)?.show(first);
-      changed();
-      $('#preview-h').scrollIntoView({ behavior: 'smooth', block: 'start' });
-      toast(`Filled in ${plural(draft.options.length, 'option')}. Check them, then create the poll.`);
-    } catch (ex) {
-      toast(ex.message);
-    } finally {
-      btn.disabled = false;
-      btn.textContent = 'Fill it in';
-    }
-  };
-
   function updateReady() {
     const n = items.size;
     setReady(
@@ -842,55 +822,48 @@ export function renderPick() {
   }
   $('#title').addEventListener('input', updateReady);
 
-  /** Start from an existing poll's options. */
-  async function prefill() {
-    const ev = await loadSource(src);
-    if (!ev || ev.mode !== 'options' || !$('#create')) return;
-    fillCommon(ev, src);
-    const tz = ev.timezone;
-    const spans = ev.options.map((o) => allDaySpan(o.start, o.end, tz));
-    // Each option keeps the organizer's mark: available, or only if needed.
-    const host = ev.participants.find((p) => p.id === ev.hostId);
-    const mark = (start) => (host?.availability[start] === IF_NEEDED ? IF_NEEDED : YES);
-    items.clear();
-    if (spans.every(Boolean)) {
-      const n = spans.map((sp) => Math.round((Date.parse(sp.endDate) - Date.parse(sp.startDate)) / 86_400_000));
-      const trips = n.some((x) => x > 1);
-      if (trips) $('#span').value = spanDays = n[0];
-      setLength(trips ? 'days' : 'allday');
-      spans.forEach((sp, i) =>
-        items.set(`${sp.startDate}|day`, { date: sp.startDate, days: trips ? n[i] : 1, v: mark(ev.options[i].start) }),
-      );
-      mountPicker();
-    } else {
-      const preset = LENGTHS.some(([v]) => v === ev.durationMinutes);
-      if (!preset) $('#custom').value = ev.durationMinutes;
-      setLength(preset ? ev.durationMinutes : 'custom');
-      for (const o of ev.options) {
-        const z = utcToZoned(o.start, tz);
-        items.set(`${z.date}|${z.minutes}`, {
-          date: z.date,
-          from: z.minutes,
-          to: Math.min(z.minutes + (o.end - o.start) / MINUTE, 1440),
-          v: mark(o.start),
-        });
-      }
-      changed();
-    }
+  /**
+   * Fill in these options ({ start, end }), with the length that fits them: all day, several days,
+   * half days or a number of minutes. Each keeps the organizer's mark: available, or only if needed.
+   */
+  async function load(opts, tz, mark = () => YES) {
+    const { length: len, days: n } = (await import('./lengths.js')).optionsLength(opts, tz);
+    items.clear(); // they replace any already added
+    if (len === 'days') $('#span').value = spanDays = n[0];
+    setLength(len, { ask: false });
+    opts.forEach((o, i) => {
+      const { date, minutes: from } = utcToZoned(o.start, tz);
+      const v = mark(o.start);
+      if (n) items.set(`${date}|day`, { date, days: len === 'days' ? n[i] : 1, v });
+      else items.set(`${date}|${from}`, { date, from, to: Math.min(from + (o.end - o.start) / MINUTE, 1440), v });
+    });
+    mountPicker();
     const first = sorted()[0]?.[1].date;
     if (first) (view || month)?.show(first);
     renderList();
   }
 
+  /** Start from an existing poll's options. */
+  async function prefill() {
+    const ev = await loadSource(src);
+    if (!ev || ev.mode !== 'options' || !$('#create')) return;
+    fillCommon(ev, src);
+    const host = ev.participants.find((p) => p.id === ev.hostId);
+    load(ev.options, ev.timezone, (start) => (host?.availability[start] === IF_NEEDED ? IF_NEEDED : YES));
+  }
+
   setLength(120);
   showConfig(updateReady);
-  getConfig().then((c) => $('#ai-draft') && ($('#ai-draft').hidden = !c.ai || !!src));
+  // Describing the plan in words, when this server has AI.
+  getConfig().then((c) => c.ai && !src && import('./ai-draft.js').then((m) => $('#create') && m.aiDraft($('#create'), load)));
   if (src) prefill();
   else prefillTitle();
   $('#title').focus();
   return () => {
+    mounts++;
     view?.cleanup();
     month?.cleanup();
+    half?.cleanup();
   };
 }
 

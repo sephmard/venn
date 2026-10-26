@@ -193,6 +193,7 @@ async function stills(dark) {
   await desktop.addStyleTag({ content: HIDE_TOAST });
   await desktop.click('[data-occasion="0"]');
   await desktop.fill('#title', 'Dinner at Finn’s');
+  await desktop.click('#more-box summary'); // Where is under More details
   await desktop.fill('#location', 'Finn’s Trattoria, 14 Elm St');
   // Tap 7 PM on two Fridays and Saturdays on the week calendar, then come back to the first week.
   for (const d of [0, 1, 7, 8]) await tapAt(desktop, addDays(fri, d), 19 * 60);

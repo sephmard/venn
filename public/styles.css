@@ -435,6 +435,10 @@ select:focus {
   color: var(--muted);
   opacity: 0.8;
 }
+/* Placeholders make way as soon as you start typing in a field; its label stays. */
+:focus::placeholder {
+  color: transparent;
+}
 .check {
   display: flex;
   gap: 8px;

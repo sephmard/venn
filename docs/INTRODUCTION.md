@@ -43,6 +43,10 @@ public/            the whole front end, served as-is
   picker.js        the calendar views: week, day and month, for organizers and guests
   block-edit.js    dragging and removing options on the week, loaded only on the create pages
   paint.js         the organizer's painter for hours and parts of the day, loaded only on the create pages
+  half-day.js      half-day options (mornings, afternoons, evenings) on "vote on a few dates", loaded when picked
+  lengths.js       how long a poll's options are, for editing, duplicating and the AI draft
+  edit-poll.js     editing or duplicating a poll on the create pages, loaded only for those links
+  ai-draft.js      "describe it, and AI fills in the form", loaded only when AI is switched on
   ui.js            shared UI helpers: formatting, avatars, storage, API calls
   core.js          shared logic: time zones, ranking, calendar import/export
   calendars.js     Google / Outlook free-busy, in the browser
