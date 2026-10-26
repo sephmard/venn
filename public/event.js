@@ -148,7 +148,8 @@ export async function renderEvent(id, navigate) {
         ? 'Only the organizer sees who answered.'
         : '';
   const me = () => ev().participants.find((p) => p.id === saved(id).participantId);
-  st.tab = me() || (ev().isAdmin && ev().participants.length) ? 'group' : 'mine';
+  // A new poll opens on the organizer's own answer, ready to adjust; after that, on the group.
+  st.tab = !st.fresh && (me() || (ev().isAdmin && ev().participants.length)) ? 'group' : 'mine';
 
   // Reading busy times from Google, Outlook or a calendar file comes back later.
   const calMenu = `<button type="button" class="pill soon" id="cal-btn" disabled aria-describedby="cal-soon">Check my calendar <span class="badge-soon" id="cal-soon">Coming soon</span></button>`;
@@ -177,16 +178,6 @@ export async function renderEvent(id, navigate) {
       <div class="panels">
         <section class="panel sheet" id="panel-mine" role="tabpanel" aria-labelledby="tab-mine">
           <h2 class="panel-title">${listMode ? (daysMode ? 'Which days are you free?' : 'Which of these work for you?') : 'When are you free?'}</h2>
-          <div>
-            <label for="name">Your name</label>
-            <input id="name" type="text" maxlength="80" autocomplete="name">
-          </div>
-          <div id="copy-field"${ev().requireEmail ? '' : ' hidden'}>
-            <label for="copy-to">Your email <span class="muted">(${ev().requireEmail ? 'the organizer asks for it, and only they see it' : 'optional'})</span></label>
-            <input id="copy-to" type="email" inputmode="email" autocomplete="email" maxlength="254" placeholder="you@example.com">
-            <label class="check" hidden><input type="checkbox" id="copy-me" checked> Email me a copy of my answer and a link to change it</label>
-          </div>
-          ${privacy && `<p class="hint">🔒 ${privacy}</p>`}
           <div class="quick-actions">
             ${calMenu}
             ${optionsMode ? '<button type="button" class="pill" id="ai-answer-btn" hidden aria-expanded="false" aria-controls="ai-answer">Answer for me</button>' : ''}
@@ -234,6 +225,16 @@ export async function renderEvent(id, navigate) {
             <p class="hint" id="edit-link" hidden></p>
             <button type="button" class="link-btn danger" id="leave" hidden>Remove my answer</button>
           </div>
+          <div>
+            <label for="name">Your name</label>
+            <input id="name" type="text" maxlength="80" autocomplete="name">
+          </div>
+          <div id="copy-field"${ev().requireEmail ? '' : ' hidden'}>
+            <label for="copy-to">Your email <span class="muted">(${ev().requireEmail ? 'the organizer asks for it, and only they see it' : 'optional'})</span></label>
+            <input id="copy-to" type="email" inputmode="email" autocomplete="email" maxlength="254" placeholder="you@example.com">
+            <label class="check" hidden><input type="checkbox" id="copy-me" checked> Email me a copy of my answer and a link to change it</label>
+          </div>
+          ${privacy && `<p class="hint">🔒 ${privacy}</p>`}
           <div class="save-bar">
             <div>
               <span id="save-state" class="hint"></span>
@@ -908,11 +909,14 @@ export async function renderEvent(id, navigate) {
       await load();
       setDirty(false);
       renderAll();
+      // After the first save of a visit, show the group: that's what people want to see next. An
+      // organizer's answer already exists when the poll is new, so their first save counts too.
+      const first = created || !st.saved;
+      st.saved = true;
       toast(
-        `${created ? "Saved. Here's how everyone's answers line up." : 'Saved.'}${copyTo ? ` A copy is on its way to ${copyTo}.` : ''}`,
+        `${first ? "Saved. Here's how everyone's answers line up." : 'Saved.'}${copyTo ? ` A copy is on its way to ${copyTo}.` : ''}`,
       );
-      // After the first save, show the group: that's what people want to see next.
-      if (created) {
+      if (first) {
         showTab('group');
         $('#panel-group').scrollIntoView({ behavior: reducedMotion() ? 'auto' : 'smooth', block: 'start' });
       }
@@ -1381,6 +1385,12 @@ export async function renderEvent(id, navigate) {
           <button class="btn btn-sm${fresh ? ' btn-primary' : ''}" id="notify-open" aria-expanded="${!!panels.notify}" aria-controls="notify-box">${fresh ? 'Get notified when people answer' : 'Notifications'}</button>
           ${aiOn ? '<button class="btn btn-sm" id="ai-write-open" aria-controls="ai-box">Write a message</button>' : ''}
           <button class="btn btn-sm" id="privacy-open" aria-expanded="${!!panels.privacy}" aria-controls="privacy-box">Privacy</button>
+          ${
+            // Edit until someone else answers; after that, start a new poll from this one.
+            ev().participants.some((p) => p.id !== ev().hostId)
+              ? `<a class="btn btn-sm" href="/new/${optionsMode && !partsMode ? 'pick' : 'free'}?copy=${id}" data-link>Duplicate poll</a>`
+              : `<a class="btn btn-sm" href="/new/${optionsMode && !partsMode ? 'pick' : 'free'}?edit=${id}" data-link>Edit poll</a>`
+          }
           <button class="btn btn-sm" id="copy-admin">Copy organizer link</button>
           <button class="link-btn danger" id="delete-poll">Delete poll</button>
         </div>

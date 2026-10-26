@@ -2,7 +2,7 @@
 //   /new/pick  You suggest some dates (and times). Everyone votes on each one.
 //   /new/free  You pick a range of days. Everyone marks when they're free; Venn finds the overlap.
 
-import { DAY_PARTS, MINUTE, MAX_SPAN_DAYS, addDays, utcToZoned, zonedToUtc } from './core.js';
+import { DAY_PARTS, MINUTE, MAX_SPAN_DAYS, addDays, allDaySpan, utcToZoned, zonedToUtc } from './core.js';
 import { isPhone, monthView, paintView, timeView } from './picker.js';
 import {
   $,
@@ -23,11 +23,19 @@ import {
   shortRange,
   shortTime,
   save,
+  saved,
   toast,
   todayStr,
   tzName,
   tzOptions,
 } from './ui.js';
+
+// The organizer's privacy choices, and their switches in "Privacy options".
+const PRIVACY = [
+  ['requireEmail', '#p-email'],
+  ['hideNames', '#p-names'],
+  ['hideResults', '#p-results'],
+];
 
 // Kinds of plans, with sensible defaults. `length` is minutes, or 'days' for a trip; `part` is the
 // part of the day it usually happens in, for "ask when people are free" polls.
@@ -51,6 +59,55 @@ function prefillTitle() {
   if (!title) return;
   $('#title').value = title;
   history.replaceState(null, '', location.pathname);
+}
+
+// ---------- editing or duplicating a poll ----------
+
+// ?edit=<id> changes that poll (only while nobody else has answered); ?copy=<id> starts a new poll
+// from it. The organizer tools on the poll page link here.
+let editing = null; // the poll being changed, or null when creating one
+
+function source() {
+  const q = new URLSearchParams(location.search);
+  const id = q.get('edit') || q.get('copy');
+  return id && { id, edit: q.has('edit') };
+}
+
+/** The poll to start from, with the organizer's view of it when this device has their link. */
+async function loadSource(src) {
+  const token = saved(src.id).adminToken;
+  try {
+    return await api(`events/${src.id}`, { headers: token ? { 'x-admin-token': token } : {} });
+  } catch (ex) {
+    toast(ex.message);
+    return null;
+  }
+}
+
+/** Fill in everything both kinds of poll share: the plan, the organizer and the privacy options. */
+function fillCommon(ev, src) {
+  const i = OCCASIONS.findIndex((o) => o.emoji === ev.emoji);
+  if (i >= 0) $(`[data-occasion="${i}"]`).click();
+  $('#title').value = ev.title;
+  $('#location').value = ev.location || '';
+  $('#desc').value = ev.description || '';
+  $('#desc-box').open = !!ev.description;
+  $('#organizer').value = ev.organizer || '';
+  if ([...$('#tz').options].some((o) => o.value === ev.timezone)) {
+    $('#tz').value = ev.timezone;
+    $('#tz-name').textContent = tzName(ev.timezone);
+  }
+  for (const [key, el] of PRIVACY) $(el).checked = !!ev[key];
+  $('#privacy-opts').open = PRIVACY.some(([key]) => ev[key]);
+  if (src.edit) {
+    editing = src.id;
+    $('#create h1').textContent = 'Edit your poll';
+    $('#create .back').textContent = '‹ Back to the poll';
+    $('#create .back').setAttribute('href', `/e/${src.id}`);
+    $('#submit').textContent = 'Save changes';
+    $('#notify-field').remove(); // notifications have their own panel on the poll
+    $('#notify-off').remove();
+  } else toast('Copied. Change anything you like, then create the new poll.');
 }
 
 // ---------- chooser ----------
@@ -173,23 +230,25 @@ async function submit(body, occasion) {
     timezone: $('#tz').value,
   });
   if (occasion()) body.emoji = occasion().emoji;
-  // Privacy options: only the ones switched on are sent.
-  for (const [key, el] of [
-    ['requireEmail', '#p-email'],
-    ['hideNames', '#p-names'],
-    ['hideResults', '#p-results'],
-  ])
-    if ($(el).checked) body[key] = true;
-  const notifyEmail = $('#notify-field').hidden ? '' : $('#notify').value.trim();
+  for (const [key, el] of PRIVACY) body[key] = $(el).checked;
+  const notifyEmail = !$('#notify-field') || $('#notify-field').hidden ? '' : $('#notify').value.trim();
   if (notifyEmail) body.notifyEmail = notifyEmail;
   if (body.organizer) rememberName(body.organizer);
   if (notifyEmail) rememberEmail(notifyEmail);
   $('#submit').disabled = true;
+  if (editing) return saveEdit(body);
+  // The times offered count as the organizer's own answer.
+  body.hostAnswers = true;
   // The celebration (and its picture) load while the poll is saved.
   const celebration = import('./celebrate.js').catch(() => null);
   try {
-    const { id, adminToken } = await api('events', { method: 'POST', body });
-    save(id, { adminToken, justCreated: true, notifyPending: !!notifyEmail });
+    const { id, adminToken, participant } = await api('events', { method: 'POST', body });
+    save(id, {
+      adminToken,
+      justCreated: true,
+      notifyPending: !!notifyEmail,
+      ...(participant && { participantId: participant.id, editToken: participant.editToken }),
+    });
     // A little party, while the poll page loads behind it.
     import('./event.js').catch(() => {});
     const party = (await celebration)?.celebrate({ emoji: body.emoji, title });
@@ -200,6 +259,21 @@ async function submit(body, occasion) {
     party?.finish();
   } catch (ex) {
     err.textContent = ex.message;
+    $('#submit').disabled = false;
+  }
+}
+
+/** Save the changes to a poll nobody else has answered yet, and go back to it. */
+async function saveEdit(body) {
+  const id = editing;
+  try {
+    await api(`events/${id}`, { method: 'PUT', body, headers: { 'x-admin-token': saved(id).adminToken || '' } });
+    history.pushState(null, '', `/e/${id}`);
+    dispatchEvent(new PopStateEvent('popstate'));
+    scrollTo(0, 0);
+    toast('Poll updated');
+  } catch (ex) {
+    $('#err').textContent = ex.message;
     $('#submit').disabled = false;
   }
 }
@@ -251,6 +325,8 @@ const timeRange = shortRange;
 
 export function renderPick() {
   document.title = 'Vote on a few dates · Venn';
+  const src = source();
+  editing = null;
   // The options so far, in local time: { date, from, to } in minutes, or { date, days } for all day or longer.
   const items = new Map();
   let length = 120;
@@ -515,7 +591,7 @@ export function renderPick() {
     const box = $('#options-list');
     updateReady();
     if (!list.length) {
-      box.innerHTML = `<p class="hint">Nothing yet. ${timed() ? 'Pick days and start times above, then press Add.' : 'Tap days on the calendar above.'} Everyone will say yes, if needed or no to each option you add.</p>`;
+      box.innerHTML = `<p class="hint">Nothing yet. ${timed() ? 'Pick days and start times above.' : 'Tap days on the calendar above.'} Everyone will say yes, if needed or no to each option you add.</p>`;
       return;
     }
     const removeBtn = (k, label) => `<button type="button" data-remove="${esc(k)}" aria-label="Remove ${esc(label)}">×</button>`;
@@ -548,7 +624,6 @@ export function renderPick() {
                 ([k, it]) => `<span class="chip">${esc(itemLabel(it))}${removeBtn(k, `${dayLabel(d)}, ${itemLabel(it)}`)}</span>`,
               )
               .join('')}</span>
-            ${timed() ? `<button type="button" class="pill pill-quiet od-add" data-add-to="${d}" aria-label="Add a time on ${esc(dayLabel(d))}">+ Time</button>` : ''}
           </li>`,
         )
         .join('');
@@ -566,16 +641,6 @@ export function renderPick() {
       it.days = Math.max(2, Math.min(MAX_SPAN_DAYS, tripDays(it) + +trip.dataset.d));
       changed();
       $(`[data-trip="${trip.dataset.trip}"][data-d="${trip.dataset.d}"]`)?.focus();
-    }
-    const add = e.target.closest('[data-add-to]');
-    if (add) {
-      // Change the times on this day only.
-      if (mode !== 'compose') setMode('compose');
-      focus = add.dataset.addTo;
-      month?.show(focus);
-      renderComposer();
-      $('#times')?.scrollIntoView({ behavior: 'smooth', block: 'center' });
-      $('#times .pill')?.focus({ preventScroll: true });
     }
     if (e.target.closest('#clear-options') && confirm('Remove all the options?')) {
       items.clear();
@@ -702,10 +767,47 @@ export function renderPick() {
   }
   $('#title').addEventListener('input', updateReady);
 
+  /** Start from an existing poll's options. */
+  async function prefill() {
+    const ev = await loadSource(src);
+    if (!ev || ev.mode !== 'options' || !$('#create')) return;
+    fillCommon(ev, src);
+    const tz = ev.timezone;
+    const spans = ev.options.map((o) => allDaySpan(o.start, o.end, tz));
+    items.clear();
+    days.clear();
+    times.clear();
+    if (spans.every(Boolean)) {
+      const n = spans.map((sp) => Math.round((Date.parse(sp.endDate) - Date.parse(sp.startDate)) / 86_400_000));
+      const trips = n.some((x) => x > 1);
+      if (trips) $('#span').value = spanDays = n[0];
+      setLength(trips ? 'days' : 'allday');
+      spans.forEach((sp, i) => items.set(`${sp.startDate}|day`, { date: sp.startDate, days: trips ? n[i] : 1 }));
+      mountPicker();
+    } else {
+      const preset = LENGTHS.some(([v]) => v === ev.durationMinutes);
+      if (!preset) $('#custom').value = ev.durationMinutes;
+      setLength(preset ? ev.durationMinutes : 'custom');
+      for (const o of ev.options) {
+        const z = utcToZoned(o.start, tz);
+        items.set(`${z.date}|${z.minutes}`, {
+          date: z.date,
+          from: z.minutes,
+          to: Math.min(z.minutes + (o.end - o.start) / MINUTE, 1440),
+        });
+      }
+      changed();
+    }
+    const first = sorted()[0]?.[1].date;
+    if (first) (view || month)?.show(first);
+    renderList();
+  }
+
   setLength(120);
   showConfig();
-  getConfig().then((c) => $('#ai-draft') && ($('#ai-draft').hidden = !c.ai));
-  prefillTitle();
+  getConfig().then((c) => $('#ai-draft') && ($('#ai-draft').hidden = !c.ai || !!src));
+  if (src) prefill();
+  else prefillTitle();
   $('#title').focus();
   return () => {
     view?.cleanup();
@@ -751,6 +853,8 @@ function toWindows(painted) {
 
 export function renderFree() {
   document.title = 'Ask when people are free · Venn';
+  const src = source();
+  editing = null;
   const selected = new Set(); // days, for whole days and parts of the day
   const parts = new Set(DAY_PARTS.map((p) => p.key));
   const painted = new Set(); // "YYYY-MM-DD|minutes", for hours
@@ -1035,10 +1139,42 @@ export function renderFree() {
     submit({ dates, startMinute: 0, endMinute: 1440, slotMinutes: 1440, durationMinutes: span() * 1440 }, occasion);
   };
 
+  /** Start from an existing poll's days, parts of the day or painted times. */
+  async function prefill() {
+    const ev = await loadSource(src);
+    if (!ev || (ev.mode === 'options' && ev.layout !== 'parts') || !$('#create')) return;
+    fillCommon(ev, src);
+    painted.clear();
+    selected.clear();
+    let next = 'days';
+    if (ev.layout === 'parts') {
+      next = 'parts';
+      parts.clear();
+      for (const o of ev.options) {
+        const z = utcToZoned(o.start, ev.timezone);
+        selected.add(z.date);
+        const part = DAY_PARTS.find((x) => x.start === z.minutes);
+        if (part) parts.add(part.key);
+      }
+      for (const b of $$('[data-ask]')) b.setAttribute('aria-pressed', parts.has(b.dataset.ask));
+    } else if (ev.slotMinutes === 1440) {
+      $('#span').value = ev.durationMinutes / 1440;
+      for (const d of ev.dates) selected.add(d);
+    } else {
+      next = 'hours';
+      setLength(ev.durationMinutes);
+      const ranges = ev.windows || ev.dates.map((date) => ({ date, start: ev.startMinute, end: ev.endMinute }));
+      for (const w of ranges) for (let m = w.start - (w.start % 30); m < w.end; m += 30) painted.add(`${w.date}|${m}`);
+    }
+    level = null; // show the level again, from the poll's days or times
+    setLevel(next);
+  }
+
   setLength(120);
   setLevel('days');
   showConfig();
-  prefillTitle();
+  if (src) prefill();
+  else prefillTitle();
   $('#title').focus();
   return () => {
     painter?.cleanup();

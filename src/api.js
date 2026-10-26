@@ -1,6 +1,6 @@
 // HTTP API built on web-standard Request/Response, shared by the Worker and the Node server.
 
-import { LIMITS, ValidationError, allDaySpan, buildIcs, isValidTimeZone, buildSlots, meetingEnd } from '../public/core.js';
+import { LIMITS, ValidationError, YES, allDaySpan, buildIcs, isValidTimeZone, buildSlots, meetingEnd } from '../public/core.js';
 import { normalizeAvailability, normalizeEventInput, normalizeName } from './validate.js';
 import { SECURITY_HEADERS } from './security-headers.js';
 import {
@@ -85,7 +85,7 @@ function applyPrivacy(event, body) {
  * organizer hides names, and other people's answers are left out when the organizer hides them.
  */
 function publicEvent(ev, participants, { isAdmin, ownHash = null, emails = new Map() }) {
-  const { adminHash, ...rest } = ev;
+  const { adminHash, hostId, ...rest } = ev;
   const own = (p) => ownHash !== null && p.editHash === ownHash;
   const visible = isAdmin || !ev.hideResults ? participants : participants.filter(own);
   let guest = 0;
@@ -98,10 +98,14 @@ function publicEvent(ev, participants, { isAdmin, ownHash = null, emails = new M
     ...rest,
     slots: buildSlots(ev),
     isAdmin,
+    ...(isAdmin && hostId && { hostId }),
     participants: list,
     ...(visible !== participants && { responses: participants.length }),
   };
 }
+
+/** The organizer's own answer: yes to every time they offered. */
+const hostAvailability = (ev) => Object.fromEntries(buildSlots(ev).map((s) => [s, YES]));
 
 /** The email someone answers with, when the organizer asks everyone for one. */
 function participantEmail(ev, body) {
@@ -216,7 +220,19 @@ export async function handleApi(
       if (notifyEmail && !emailEnabled(env)) throw new ValidationError("Email notifications aren't set up on this server");
       const id = randomId(10);
       const adminToken = randomId(24);
+      // `hostAnswers`: the times the organizer offers count as their own answer (yes to all).
+      const host = body.hostAnswers === true && { id: randomId(10), editToken: randomId(24) };
+      if (host) event.hostId = host.id;
       await store.createEvent({ id, event, adminHash: await sha256(adminToken), now: now() });
+      if (host)
+        await store.insertParticipant({
+          id: host.id,
+          eventId: id,
+          name: event.organizer || 'Organizer',
+          availability: hostAvailability(event),
+          editHash: await sha256(host.editToken),
+          now: now(),
+        });
       if (notifyEmail) {
         // No confirmation step: the organizer gets their poll's link straight away, then an email per answer.
         const settings = { emailsSent: 1 };
@@ -229,7 +245,7 @@ export async function handleApi(
         });
         waitUntil(sendEmail(env, { to: notifyEmail, ...msg }, { fetchImpl }).catch((e) => console.error('poll email failed', e)));
       }
-      return json({ id, adminToken }, 201);
+      return json({ id, adminToken, ...(host && { participant: host }) }, 201);
     }
 
     if (parts[0] !== 'events' || !parts[1]) return error(404, 'Not found');
@@ -245,6 +261,29 @@ export async function handleApi(
         const ownHash = editToken ? await sha256(editToken) : null;
         const emails = isAdmin || ownHash ? await store.listEmails(ev.id) : undefined;
         return json(publicEvent(ev, await store.listParticipants(ev.id), { isAdmin, ownHash, emails }));
+      }
+      // PUT: the organizer changes the poll, only while nobody else has answered.
+      if (method === 'PUT') {
+        if (!isAdmin) return error(403, 'Only the organizer can change this poll');
+        const participants = await store.listParticipants(ev.id);
+        if (participants.some((p) => p.id !== ev.hostId))
+          return error(409, "People have already answered, so this poll can't be changed. Duplicate it instead.");
+        const body = await readJson(request);
+        const next = applyPrivacy(normalizeEventInput(body), body);
+        if (ev.hostId) next.hostId = ev.hostId;
+        await store.updateEvent(ev.id, next);
+        await store.setFinal(ev.id, null);
+        // The organizer's own answer follows the new times.
+        const host = participants.find((p) => p.id === ev.hostId);
+        if (host)
+          await store.updateParticipant({
+            id: host.id,
+            eventId: ev.id,
+            name: next.organizer || host.name,
+            availability: hostAvailability(next),
+            now: now(),
+          });
+        return json({ ok: true });
       }
       if (method === 'DELETE') {
         if (!isAdmin) return error(403, 'Only the organizer can delete this poll');
