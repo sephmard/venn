@@ -148,11 +148,18 @@ export function renderChooser() {
 // ---------- shared form parts ----------
 
 function planFields(kind) {
+  // Asking when people are free suits trips best, so the trip comes first there.
+  const order = kind === 'free' ? [...OCCASIONS.filter((o) => o.days), ...OCCASIONS.filter((o) => !o.days)] : OCCASIONS;
   return `
     <section class="sheet" aria-labelledby="plan-h">
       <h2 id="plan-h">What's the plan?</h2>
       <div class="occasions" role="group" aria-label="Kind of plan">
-        ${OCCASIONS.map((o, i) => `<button type="button" class="pill" data-occasion="${i}" aria-pressed="false"><span aria-hidden="true">${o.emoji}</span> ${esc(o.label)}</button>`).join('')}
+        ${order
+          .map(
+            (o) =>
+              `<button type="button" class="pill" data-occasion="${OCCASIONS.indexOf(o)}" aria-pressed="false"><span aria-hidden="true">${o.emoji}</span> ${esc(o.label)}</button>`,
+          )
+          .join('')}
       </div>
       <div class="title-row">
         <span class="emoji-tile" id="emoji-tile" aria-hidden="true">🗓️</span>
@@ -160,6 +167,10 @@ function planFields(kind) {
           <label for="title">Name of your poll</label>
           <input id="title" type="text" maxlength="120" placeholder="${kind === 'free' ? 'Summer cabin trip' : "Dinner at Finn's"}" required>
         </div>
+      </div>
+      <div>
+        <label for="organizer">Your name</label>
+        <input id="organizer" type="text" maxlength="80" autocomplete="name" value="${esc(lastName())}" placeholder="So people know who's asking">
       </div>
       <div>
         <label for="location">Where <span class="muted">(optional)</span></label>
@@ -177,10 +188,6 @@ function youFields() {
   return `
     <section class="sheet" aria-labelledby="you-h">
       <h2 id="you-h">About you</h2>
-      <div>
-        <label for="organizer">Your name</label>
-        <input id="organizer" type="text" maxlength="80" autocomplete="name" value="${esc(lastName())}" placeholder="So people know who's asking">
-      </div>
       <div id="notify-field" hidden>
         <label for="notify">Your email</label>
         <input id="notify" type="email" inputmode="email" autocomplete="email" maxlength="254" placeholder="you@example.com" value="${esc(lastEmail())}" aria-describedby="notify-hint">
@@ -966,7 +973,7 @@ export function renderFree() {
     for (const b of $$('[data-level]')) b.setAttribute('aria-checked', b.dataset.level === level);
     for (const el of $$('[data-for]')) el.hidden = el.dataset.for !== level;
     $('#level-hint').textContent = {
-      days: 'Guests tap the days they’re free. Start here: you can zoom in to parts of the day or hours.',
+      days: 'Guests tap the days they’re free. Start broad. Switch to parts of the day or hours if timing matters; we’ll keep what you’ve picked.',
       parts: 'Guests tap the mornings, afternoons and evenings they’re free. Pick which ones to ask about on each day.',
       hours: 'Guests mark the hours they’re free, in 30-minute steps, within the times you paint.',
     }[level];
@@ -1123,7 +1130,7 @@ export function renderFree() {
       const windows = toWindows(painted);
       const dates = paintedDates();
       box.innerHTML = windows.length
-        ? `<p class="preview-lede">Guests will mark when they’re free in these times. Venn looks for <b>${esc(lengthLabel(length))}</b> that works for the most people.</p>
+        ? `<p class="preview-lede">Guests will mark when they’re free in these times. Venn looks for <b>${esc(lengthLabel(length))}</b> that work${length === 60 ? 's' : ''} for the most people.</p>
           ${windowList(windows, shortRange)}`
         : '<p class="hint">Nothing yet. Paint some times on the calendar above, or use a quick fill.</p>';
       return setReady(
