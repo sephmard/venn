@@ -176,6 +176,13 @@ export function allDaySpan(start, end, tz) {
   return { startDate: a.date, endDate: b.date };
 }
 
+/** The create page's length chip for a length: 30 min and 1 hour have their own, other minutes are "Other". */
+export const lengthChip = (length) => (typeof length !== 'number' || length === 30 || length === 60 ? String(length) : 'custom');
+
+// The email rule the server uses, so the create page catches the same mistakes before sending.
+const EMAIL_RE = /^[^\s@<>"',;]+@[^\s@<>"',;]+\.[^\s@<>"',;]+$/;
+export const isEmail = (v) => v.length <= 254 && EMAIL_RE.test(v);
+
 /** All slot start instants (UTC ms), sorted, for an event. For option polls, one per option. */
 export function buildSlots(ev) {
   if (isOptionsPoll(ev)) return ev.options.map((o) => o.start);
