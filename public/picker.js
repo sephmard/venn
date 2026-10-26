@@ -67,7 +67,7 @@ export function monthView(root, { selected, onChange, onDay, active = () => null
       const off = ds < today;
       // The number is the visible name; the weekday, month and note are read out with it.
       const dt = dateParts(ds);
-      h += `<button type="button" class="cal-day${ds === today ? ' today' : ''}${mark ? ' marked' : ''} ${dayClass(ds)}" data-date="${ds}" ${state}${off ? ' disabled' : ''}><span class="sr-only">${esc(fmtDow.format(dt))} </span>${d}<span class="sr-only"> ${esc(fmtMonth.format(dt))}${mark ? `, ${esc(mark)} marked` : ''}</span>${mark ? `<small aria-hidden="true">${esc(mark)}</small>` : ''}</button>`;
+      h += `<button type="button" class="cal-day${ds === today ? ' today' : ''}${mark ? ' marked' : ''} ${dayClass(ds)}" data-date="${ds}" ${state}${off ? ' disabled' : ''}><span class="sr-only">${esc(fmtDow.format(dt))} </span>${d}<span class="sr-only"> ${esc(fmtMonth.format(dt))}${mark ? `, ${esc(mark)}` : ''}</span>${mark ? `<small aria-hidden="true">${esc(mark)}</small>` : ''}</button>`;
     }
     grid.innerHTML = h;
     $('[data-nav="-1"]', root).disabled = y === new Date().getFullYear() && m === new Date().getMonth();
@@ -131,7 +131,7 @@ export function monthView(root, { selected, onChange, onDay, active = () => null
  * A grid of 30-minute rows for one or more days, with blocks drawn on it.
  *   dates()    the columns (YYYY-MM-DD)
  *   range()    [from, to] minutes after midnight shown
- *   blocks()   [{ key, date, from, to, cls, label, short, tiny, title }] positioned in local minutes;
+ *   blocks()   [{ key, date, from, to, cls, label, short, tiny, tag, title }] positioned in local minutes;
  *              `short` replaces `label` when blocks share the width, and `tiny` ("7p") is used in a
  *              phone's narrow week columns
  *   busy()     [{ date, from, to }] shown behind the blocks
@@ -172,7 +172,8 @@ function timeGrid(
     if (prev && scrollTop !== null) scrollTop = prev.scrollTop;
     const head = ds
       .map(
-        (d) => `<span class="tg-day"><b>${esc(fmtDow.format(dateParts(d)))}</b> ${esc(fmtMonthDay.format(dateParts(d)))}</span>`,
+        (d) =>
+          `<button type="button" class="tg-day" data-open-day="${d}" aria-label="Show ${esc(dayLabel(d))} on its own"><b>${esc(fmtDow.format(dateParts(d)))}</b> ${esc(fmtMonthDay.format(dateParts(d)))}</button>`,
       )
       .join('');
     let times = '';
@@ -208,7 +209,7 @@ function timeGrid(
               _,
               style = `${pos(b.from, b.to)};left:calc(3px + (100% - 6px) * ${lane[i]} / ${n});width:calc((100% - 6px) / ${n} - 2px)`,
             ) =>
-              `<button type="button" class="tg-block ${b.cls || ''}" data-key="${esc(b.key)}" style="${style}" aria-label="${esc(b.title || b.label)}">${editor?.top || ''}<span>${esc(text(b, n))}</span>${editor?.bottom || ''}</button>${editor ? editor.after(b, style) : ''}`,
+              `<button type="button" class="tg-block ${b.cls || ''}" data-key="${esc(b.key)}" style="${style}" aria-label="${esc(b.title || b.label)}">${editor?.top || ''}<span>${esc(text(b, n))}</span>${b.tag ? ` <small>${esc(b.tag)}</small>` : ''}${editor?.bottom || ''}</button>${editor ? editor.after(b, style) : ''}`,
           )
           .join('');
         // Organizers can't add options on days that have gone by.
@@ -218,7 +219,7 @@ function timeGrid(
       .join('');
     root.innerHTML = `
       <div class="tg${narrow ? ' tg-narrow' : ''}" style="--cols:${ds.length};--rows:${rows}">
-        ${ds.length > 1 ? `<div class="tg-head" aria-hidden="true"><span></span>${head}</div>` : ''}
+        ${ds.length > 1 ? `<div class="tg-head"><span></span>${head}</div>` : ''}
         <div class="tg-scroll" tabindex="0" role="region" aria-label="Calendar times">
           <div class="tg-body"><div class="tg-times" aria-hidden="true">${times}</div>${cols}</div>
         </div>
@@ -378,6 +379,13 @@ export function timeView(root, opts) {
       const n = (view === 'week' || !days ? 7 : 1) * +st.dataset.step;
       anchor = days ? Math.max(0, Math.min(days.length - 1, anchor + n)) : addDays(anchor, n);
       if (!days && anchor < todayStr()) anchor = todayStr();
+      return render();
+    }
+    // A day's name at the top of the week opens that day.
+    const open = e.target.closest('[data-open-day]');
+    if (open && views.includes('day')) {
+      view = 'day';
+      anchor = days ? days.indexOf(open.dataset.openDay) : open.dataset.openDay;
       return render();
     }
     const chip = e.target.closest('[data-day]');

@@ -165,7 +165,7 @@
 }
 .cal-grid {
   display: grid;
-  grid-template-columns: repeat(7, 1fr);
+  grid-template-columns: repeat(7, minmax(0, 1fr));
   gap: 4px;
   user-select: none;
   -webkit-user-select: none;
@@ -218,6 +218,30 @@
 .cal-day.in-trip {
   background: var(--accent-soft);
   border-color: var(--accent-soft);
+}
+/* A trip that's only if needed is amber all the way through, not just on its first day. */
+.cal-day.in-trip.trip-maybe {
+  background: var(--maybe-soft);
+  border-color: var(--maybe);
+}
+/* Picked days say what they are for the organizer, not only by their colour. */
+.create .cal-day {
+  height: clamp(52px, 13vw, 58px);
+}
+.create .cal-day.marked {
+  padding: 0 1px;
+  font-size: 0.95rem;
+  line-height: 1;
+  gap: 2px;
+}
+.create .cal-day.marked small {
+  margin: 0;
+  font-family: var(--display);
+  font-size: 0.56rem;
+  letter-spacing: -0.01em;
+  line-height: 1;
+  color: inherit;
+  overflow: hidden;
 }
 .cal-day.day-maybe[aria-pressed='true'] {
   background: var(--maybe);
@@ -357,6 +381,13 @@
 .pg-cell.part.on small {
   color: var(--accent-ink);
 }
+.pg-cell.part {
+  align-content: center;
+  gap: 2px;
+}
+.pg-cell.part .pg-tag {
+  font-weight: 700;
+}
 .pg-time.part {
   transform: none;
   align-self: center;
@@ -484,17 +515,63 @@
   margin-bottom: 0;
 }
 /* "Or add a time", for keyboards */
+/* "Or add a time": its own panel, the day and start side by side and Add under them on phones. */
 .add-time {
-  margin-top: 12px;
+  margin-top: 16px;
+  padding: 14px;
+  border-radius: 16px;
+  background: var(--surface-2);
+}
+.add-time .scope-label {
+  display: block;
+  margin-bottom: 10px;
 }
 .add-time-row {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: flex-end;
-  gap: 8px;
+  display: grid;
+  grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr);
+  align-items: end;
+  gap: 10px 8px;
 }
-.add-time-row > div {
-  flex: 1 1 130px;
+.add-time-row label {
+  margin: 0 0 4px;
+  font-size: 0.875rem;
+}
+.add-time-row input,
+.add-time-row select {
+  width: 100%;
+  height: 48px;
+  margin: 0;
+  box-sizing: border-box;
+  background-color: var(--surface);
+}
+/* Phones draw date fields their own way: keep it a plain field, its text on the left. */
+#at-day {
+  -webkit-appearance: none;
+  appearance: none;
+  display: block;
+  min-width: 0;
+  text-align: left;
+  line-height: normal;
+}
+#at-day::-webkit-date-and-time-value {
+  text-align: left;
+}
+#at-add {
+  grid-column: 1 / -1;
+  width: 100%;
+}
+@media (min-width: 641px) {
+  .add-time-row {
+    grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr) auto;
+  }
+  #at-add {
+    grid-column: auto;
+    width: auto;
+  }
+}
+/* "Other length", under the length chips */
+#other-box select {
+  margin-top: 4px;
 }
 .tg-past {
   background-color: var(--surface-2);
@@ -502,8 +579,11 @@
 /* Narrow week columns on phones: a short start time ("7p"), at the bottom, clear of the × */
 .tg-narrow .tg-block {
   padding: 2px;
-  align-items: flex-end;
-  justify-content: center;
+  align-items: center;
+  justify-content: flex-end;
+}
+.tg-narrow .tg-block small {
+  display: none;
 }
 .tg-narrow .tg-block span {
   white-space: nowrap;

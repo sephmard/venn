@@ -193,7 +193,8 @@ export function renderFree() {
     $('#when-help').hidden = level === 'days';
     const clear = '<button type="button" class="pill pill-quiet" id="q-clear">Clear all</button>';
     if (level === 'days') {
-      cal = monthView(root, { selected, onChange: tapped, dayClass: band });
+      const said = (d) => (selected.has(d) ? (maybe.days.has(d) ? 'If needed' : 'Available') : '');
+      cal = monthView(root, { selected, onChange: tapped, dayClass: band, marks: said });
       const first = [...selected].sort()[0];
       if (first) cal.show(first);
       $('#quick').innerHTML = `

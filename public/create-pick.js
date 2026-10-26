@@ -79,7 +79,9 @@ export function renderPick() {
       <section class="sheet" aria-labelledby="length-h">
         <h2 id="length-h">How long is it?</h2>
         <div class="pills" role="group" aria-labelledby="length-h">
-          ${LENGTHS.map(([v, l]) => `<button type="button" class="pill" data-length="${v}" aria-pressed="false">${l}</button>`).join('')}
+          ${LENGTHS.filter(([v]) => v !== 'custom')
+            .map(([v, l]) => `<button type="button" class="pill" data-length="${v}" aria-pressed="false">${l}</button>`)
+            .join('')}
         </div>
         <div class="inline-field" id="span-field" hidden>
           <label for="span">How many days is the trip?</label>
@@ -89,10 +91,11 @@ export function renderPick() {
             <button type="button" class="icon-btn" data-step="1" aria-label="One day more">+</button>
           </div>
         </div>
-        <div class="inline-field" id="custom-field" hidden>
+        <details class="reveal" id="other-box">
+          <summary>Other length</summary>
           <label for="custom">Length</label>
           <select id="custom">${otherOptions(90)}</select>
-        </div>
+        </details>
       </section>
       <section class="sheet" aria-labelledby="when-h">
         <h2 id="when-h">When could it be?</h2>
@@ -203,10 +206,12 @@ export function renderPick() {
               from: it.from,
               to: Math.min(it.to, 1440),
               cls: ifNeeded(it) ? 'opt opt-maybe' : 'opt',
-              label: `${ifNeeded(it) ? '~ ' : ''}${timeRange(it.from, it.to)}`,
+              label: timeRange(it.from, it.to),
               short: shortTime(it.from),
-              tiny: tinyTime(it.from), // amber, and named "if needed", when it is: no room for "~"
-              title: `${timeRange(it.from, it.to)}, ${dayLabel(it.date)}, ${ifNeeded(it) ? 'if needed' : 'available'} for you. Tap to make it ${ifNeeded(it) ? 'available' : 'if needed'}`,
+              tiny: tinyTime(it.from), // amber, and named "if needed", when it is: no room for the tag
+              tag: ifNeeded(it) ? 'If needed' : 'Available',
+              // Starts with what the block shows, so it's what a voice user would say to tap it.
+              title: `${timeRange(it.from, it.to)} ${ifNeeded(it) ? 'If needed' : 'Available'}, ${dayLabel(it.date)}. Tap to make it ${ifNeeded(it) ? 'available' : 'if needed'}`,
               remove: `Remove ${timeRange(it.from, it.to)}, ${dayLabel(it.date)}`,
             })),
         onCreate: (date, from, to) => add({ date, from, to }),
@@ -232,12 +237,17 @@ export function renderPick() {
           ? 'Tap the first day of each trip you could take. The highlighted days show how long each one lasts. Tap an option below to switch between available and if needed.'
           : 'Tap each day you want to suggest. Tap an option below to switch between available and if needed.';
       const starts = new Set([...items.values()].filter((it) => it.from == null).map((it) => it.date));
-      const covered = (d) =>
+      // The trip a day is part of after its first day, if any.
+      const tripOf = (d) =>
         length === 'days' &&
-        [...items.values()].some((it) => it.from == null && d > it.date && d < addDays(it.date, tripDays(it)));
+        [...items.values()].find((it) => it.from == null && d > it.date && d < addDays(it.date, tripDays(it)));
+      // What each picked day is for the organizer, said on the calendar as well as in its colour.
+      const stateOf = (d) => items.get(`${d}|day`) || (!starts.has(d) && tripOf(d));
       month = monthView(root, {
         selected: starts,
-        dayClass: (d) => `${covered(d) ? 'in-trip' : ''}${items.get(`${d}|day`)?.v === IF_NEEDED ? ' day-maybe' : ''}`,
+        marks: (d) => (stateOf(d) ? (ifNeeded(stateOf(d)) ? 'If needed' : 'Available') : ''),
+        dayClass: (d) =>
+          `${tripOf(d) ? `in-trip${ifNeeded(tripOf(d)) ? ' trip-maybe' : ''}` : ''}${items.get(`${d}|day`)?.v === IF_NEEDED ? ' day-maybe' : ''}`,
         onChange: () => {
           for (const [k, it] of items) if (it.from == null && !starts.has(it.date)) items.delete(k);
           for (const d of starts)
@@ -272,7 +282,7 @@ export function renderPick() {
       <div class="add-time-row">
         <div><label for="at-day">Day</label><input id="at-day" type="date" min="${todayStr()}"></div>
         <div><label for="at-time">Starts at</label><select id="at-time">${times.join('')}</select></div>
-        <button type="button" class="btn" id="at-add">Add</button>
+        <button type="button" class="btn" id="at-add">Add this time</button>
       </div>`;
     // Any day from today on; the calendar goes to the day picked.
     const day = () => ($('#at-day').value >= todayStr() ? $('#at-day').value : '');
@@ -418,12 +428,17 @@ export function renderPick() {
   function showLength() {
     const chip = lengthChip(length);
     for (const b of $$('[data-length]')) b.setAttribute('aria-pressed', b.dataset.length === chip);
+    // Any other length is under "Other length", open while it's the one in use.
     const other = chip === 'custom';
-    $('[data-length="custom"]').textContent = other ? `Other · ${lengthLabel(length)}` : 'Other';
+    $('#other-box summary').textContent = other ? `Other length · ${lengthLabel(length)}` : 'Other length';
     if (other) $('#custom').innerHTML = otherOptions(length);
+    $('#other-box').open = other;
     $('#span-field').hidden = length !== 'days';
-    $('#custom-field').hidden = !other;
   }
+  // Opening "Other length" uses the length it shows.
+  $('#other-box').addEventListener('toggle', (e) => {
+    if (e.target.open && lengthChip(length) !== 'custom' && setLength('custom') === false) e.target.open = false;
+  });
   $('#create').addEventListener('click', (e) => {
     const b = e.target.closest('[data-length]');
     if (b) setLength(Number.isNaN(+b.dataset.length) ? b.dataset.length : +b.dataset.length);
