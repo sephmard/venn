@@ -127,6 +127,23 @@ test('ask when people are free: days, looking for a run of days', async ({ page 
   await expect(page.locator('.best-hero')).toContainText('1 of 1 can make it, 1 if needed');
 });
 
+test('ask when people are free: days that never make the run asked for can’t be created', async ({ page }) => {
+  await page.goto('/new/free');
+  await page.fill('#title', 'Cabin weekend');
+  await page.click('#q-weekends'); // Fri – Sun, four times: 3 days in a row at most
+  await page.fill('#span', '4');
+  await expect(page.locator('#summary')).toHaveText('None of your days make 4 in a row. Pick days next to each other');
+  await page.fill('#span', '3');
+  await expect(page.locator('#summary')).toHaveText('12 days to choose from');
+  // A number out of range is shown as the nearest one that works.
+  await page.fill('#span', '99');
+  await page.locator('#span').blur();
+  await expect(page.locator('#span')).toHaveValue('14');
+  await page.fill('#span', '0');
+  await page.locator('#span').blur();
+  await expect(page.locator('#span')).toHaveValue('1');
+});
+
 test('ask when people are free: paint hours and see the best time', async ({ page, isMobile }) => {
   await page.goto('/new/free');
   await page.fill('#title', 'Book club');

@@ -2,7 +2,18 @@
 //   /new/pick  You suggest some dates (and times). Everyone votes on each one.
 //   /new/free  You pick a range of days. Everyone marks when they're free; Venn finds the overlap.
 
-import { DAY_PARTS, IF_NEEDED, MINUTE, MAX_SPAN_DAYS, YES, addDays, allDaySpan, utcToZoned, zonedToUtc } from './core.js';
+import {
+  DAY_PARTS,
+  IF_NEEDED,
+  MINUTE,
+  MAX_SPAN_DAYS,
+  YES,
+  addDays,
+  allDaySpan,
+  longestRun,
+  utcToZoned,
+  zonedToUtc,
+} from './core.js';
 import { editBlocks } from './block-edit.js';
 import { paintView } from './paint.js';
 import { isPhone, monthView, timeView } from './picker.js';
@@ -641,6 +652,9 @@ export function renderPick() {
     renderList();
   }
   $('#span').oninput = setSpan;
+  $('#span').onchange = () => {
+    $('#span').value = spanDays;
+  };
   $('#custom').oninput = () => {
     for (const it of items.values()) if (it.from != null) it.to = Math.min(it.from + minutes(), 1440);
     changed();
@@ -1030,6 +1044,11 @@ export function renderFree() {
     }
   });
   $('#span').oninput = update;
+  // Typing 0 or 99 counts as the nearest number that works; show it.
+  $('#span').onchange = () => {
+    $('#span').value = span();
+    update();
+  };
   $('#title').addEventListener('input', update);
 
   /** Days in a row with the same hours, together: [{ dates, ranges: [[start, end]] }]. */
@@ -1119,9 +1138,11 @@ export function renderFree() {
         ? 'Pick at least one day to create the poll'
         : k > dates.length
           ? `Pick at least ${k} days, for ${k} in a row`
-          : !named(occasion)
-            ? 'Give your plan a name to create the poll'
-            : emailMissing(),
+          : longestRun(dates) < k
+            ? `None of your days make ${k} in a row. Pick days next to each other`
+            : !named(occasion)
+              ? 'Give your plan a name to create the poll'
+              : emailMissing(),
       `${plural(dates.length, 'day')} to choose from`,
     );
   }

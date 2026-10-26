@@ -10,6 +10,7 @@ import {
   eventWindows,
   googleCalendarUrl,
   isDaysPoll,
+  longestRun,
   meetingEnd,
   outlookCalendarUrl,
   rankTimes,
@@ -193,4 +194,13 @@ test('free-time polls can have different hours on different days', () => {
       }),
     /shorter than the meeting/,
   );
+});
+
+test('longestRun counts the most days in a row, across months and in any order', () => {
+  assert.equal(longestRun([]), 0);
+  assert.equal(longestRun(['2026-11-03', '2026-11-05']), 1); // Tue and Thu
+  // Four weekends of Fri–Sun never make 4 days in a row.
+  const weekends = [6, 13, 20, 27].flatMap((d) => [0, 1, 2].map((i) => `2026-11-${String(d + i).padStart(2, '0')}`));
+  assert.equal(longestRun(weekends), 3);
+  assert.equal(longestRun(['2026-12-01', '2026-11-30', '2026-11-29', '2026-11-29']), 3);
 });
