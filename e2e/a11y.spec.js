@@ -58,8 +58,7 @@ for (const scheme of ['light', 'dark']) {
 
     test('privacy options, the Privacy panel, and a guest with answers hidden', async ({ page, browser }) => {
       await page.goto('/new/free');
-      await page.fill('#title', 'Privacy check');
-      await page.click('[data-flength="allday"]');
+      await page.fill('#title', 'Privacy check'); // whole days is where it starts
       await page.click('#q-2w');
       await page.locator('#privacy-opts summary').click();
       for (const name of ['Ask everyone for their email', "Hide everyone's answers from guests"])
