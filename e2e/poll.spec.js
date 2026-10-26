@@ -154,8 +154,10 @@ test('ask when people are free: paint hours and see the best time', async ({ pag
   await page.click('[data-level="hours"]');
   await page.click('[data-flength="60"]');
   await expect(page.locator('#submit')).toHaveAttribute('aria-disabled', 'true');
-  await page.click('[data-fill="0"]'); // mornings, 8 AM – 12 PM, all week
-  await expect(page.locator('#free-list')).toContainText('8 AM – 12 PM');
+  // The quick fills are the same mornings, afternoons and evenings as the parts of the day.
+  await expect(page.locator('[data-fill="2"]')).toContainText('Evenings 6 – 10 PM');
+  await page.click('[data-fill="0"]'); // mornings, all week
+  await expect(page.locator('#free-list')).toContainText('9 AM – 12 PM');
   await page.click('#submit');
   // Guests start with mornings, afternoons and evenings; exact times are one tap away.
   await expect(page.locator('#quick-hours .part-vote').first()).toBeVisible();
@@ -549,7 +551,7 @@ test('"when are you free" polls come back to edit at their level: hours, or part
   await page.getByRole('link', { name: 'Edit poll' }).click();
   await expect(page.locator('#title')).toHaveValue('Book club');
   await expect(page.locator('[data-level="hours"]')).toHaveAttribute('aria-checked', 'true');
-  await expect(page.locator('#free-list')).toContainText('8 AM – 12 PM');
+  await expect(page.locator('#free-list')).toContainText('9 AM – 12 PM');
   await expect(page.locator('#submit')).toHaveAttribute('aria-disabled', 'false');
 
   await page.goto('/new/free');

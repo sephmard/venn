@@ -822,13 +822,10 @@ const LEVELS = [
   ['parts', 'Parts of the day'],
   ['hours', 'Hours'],
 ];
-// Quick fills for the painter: parts of the day, painted on every day of the week shown.
-const FILLS = [
-  ['Mornings', 480, 720],
-  ['Afternoons', 720, 1020],
-  ['Evenings', 1020, 1380],
-  ['All day', 480, 1380],
-];
+// Quick fills for the painter: parts of the day, painted on every day of the week shown. They're
+// the same mornings, afternoons and evenings as "Parts of the day", so the levels agree.
+const ALL_DAY = [DAY_PARTS[0].start, DAY_PARTS.at(-1).end];
+const FILLS = [...DAY_PARTS.map((p) => [`${p.label}s`, p.start, p.end]), ['All day', ...ALL_DAY]];
 
 /** Painted "date|minutes" keys as windows: [{ date, start, end }], 30-minute steps merged. */
 function toWindows(painted) {
@@ -958,7 +955,7 @@ export function renderFree() {
             const p = DAY_PARTS.find((x) => x.start === +m);
             return [d, p.start, p.end];
           })
-        : [...selected].map((d) => [d, 480, 1380]);
+        : [...selected].map((d) => [d, ...ALL_DAY]);
     for (const [d, a, b] of want) {
       const ks = slots(a, b).map((m) => `${d}|${m}`);
       if (!ks.some((k) => painted.has(k))) for (const k of ks) painted.add(k);
