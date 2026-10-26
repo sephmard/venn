@@ -2199,3 +2199,13 @@ pre.code {
     display: inline;
   }
 }
+.hview {
+  margin-bottom: 4px;
+}
+.quick-votes {
+  grid-template-columns: repeat(auto-fit, minmax(96px, 1fr));
+}
+.part-vote[data-v='some'] {
+  border-style: dashed;
+  border-color: var(--accent);
+}

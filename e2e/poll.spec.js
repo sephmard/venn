@@ -142,6 +142,9 @@ test('ask when people are free: paint hours and see the best time', async ({ pag
   await page.click('[data-duration="60"]');
   await expect(page.locator('#guest-preview')).toContainText("when they're free between 9 AM – 12 PM");
   await page.click('#submit');
+  // Guests start with mornings, afternoons and evenings; exact times are one tap away.
+  await expect(page.locator('#quick-hours .part-vote').first()).toBeVisible();
+  await page.click('[data-hview="exact"]');
   await expect(page.locator('#mine .cell[data-slot]').first()).toBeVisible();
   // Phones show one day at a time, and the page still fits the screen.
   if (isMobile) await expect(page.locator('#hour-days .tv-chip')).toHaveCount(14);
@@ -524,4 +527,51 @@ test('guests can see the options on a calendar and answer there', async ({ page,
   await page.click('[data-mine-view="list"]');
   await expect(page.locator('#mine .row').nth(0)).toHaveAttribute('data-v', '2');
   await expect(page.locator('#mine .row').nth(1)).toHaveAttribute('data-v', '1');
+});
+
+test.describe('in UTC', () => {
+  test.use({ timezoneId: 'UTC' });
+  test('guests answer an hours poll with mornings, afternoons and evenings, then celebrate', async ({
+    page,
+    request,
+    isMobile,
+  }) => {
+    const { id } = await (
+      await request.post('/api/events', {
+        data: {
+          title: 'Brunch',
+          timezone: 'UTC',
+          organizer: 'Sam',
+          dates: ['2030-01-08', '2030-01-09'],
+          startMinute: 540,
+          endMinute: 1260,
+          slotMinutes: 30,
+          durationMinutes: 60,
+        },
+      })
+    ).json();
+    await page.goto(`/e/${id}`);
+    const quick = (d, k) => page.locator(`[data-quick="${d}|${k}"]`);
+    await expect(quick('2030-01-08', 'all')).toBeVisible();
+    await quick('2030-01-08', 'morning').click(); // free all morning
+    await quick('2030-01-09', 'all').click();
+    await quick('2030-01-09', 'all').click(); // if needed all day
+    await expect(quick('2030-01-08', 'morning')).toHaveAttribute('data-v', '2');
+    await expect(quick('2030-01-08', 'all')).toHaveAttribute('data-v', 'some');
+    await expect(quick('2030-01-09', 'evening')).toHaveAttribute('data-v', '1');
+    // The exact grid shows the same answers.
+    await page.click('[data-hview="exact"]');
+    await expect(page.locator('#mine .cell.yes')).toHaveCount(6);
+    // Phones show one day of the grid at a time.
+    if (!isMobile) await expect(page.locator('#mine .cell.maybe')).toHaveCount(24);
+
+    await page.fill('#name', 'Ana');
+    await expect(page.locator('#save')).toHaveText('Submit');
+    await page.click('#save');
+    await expect(page.locator('.party [role=status]')).toContainText('Answer sent!');
+    await expect(page.locator('.party [role=status]')).toContainText('Sam can see it now');
+    await page.click('.party-go');
+    await expect(page.locator('.party')).toHaveCount(0);
+    await expect(page.locator('#save')).toHaveText('Save changes');
+  });
 });
