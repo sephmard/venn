@@ -112,11 +112,12 @@ test('a trip: options that last several days become all-day calendar events', as
 test('ask when people are free: days, looking for a run of days', async ({ page }) => {
   await page.goto('/new/free');
   await page.fill('#title', 'Cabin weekend');
-  await page.click('[data-flength="days"]');
+  // Whole days is where it starts.
+  await expect(page.locator('[data-level="days"]')).toHaveAttribute('aria-checked', 'true');
   await page.click('#q-2w');
   await expect(page.locator('#summary')).toHaveText('14 days to choose from');
-  await expect(page.locator('#span')).toHaveValue('3');
-  await page.click('#span-field [data-step="-1"]');
+  await page.click('[data-step="1"]');
+  await expect(page.locator('#span')).toHaveValue('2');
   await expect(page.locator('#free-list')).toContainText('2 days in a row');
   await page.click('#submit');
 
@@ -133,6 +134,7 @@ test('ask when people are free: days, looking for a run of days', async ({ page 
 test('ask when people are free: paint hours and see the best time', async ({ page, isMobile }) => {
   await page.goto('/new/free');
   await page.fill('#title', 'Book club');
+  await page.click('[data-level="hours"]');
   await page.click('[data-flength="60"]');
   await expect(page.locator('#submit')).toBeDisabled();
   await page.click('[data-fill="0"]'); // mornings, 8 AM – 12 PM, all week
@@ -584,6 +586,7 @@ test('organizers paint different hours on different days, and guests mark within
   test.skip(isMobile, 'drag to paint with a mouse; phones are covered by the quick fills');
   await page.goto('/new/free');
   await page.fill('#title', 'Drinks');
+  await page.click('[data-level="hours"]');
   await page.click('[data-flength="60"]');
   await page.click('[data-pstep="1"]'); // next week, so every day is in the future
   const cell = (r, c) => page.locator(`.pg-cell[data-r="${r}"][data-c="${c}"]`);
@@ -612,4 +615,28 @@ test('organizers paint different hours on different days, and guests mark within
   // Guests get a grid with just those hours: 3 + 3 + 2 half hours.
   await expect(page.locator('#mine .cell[data-slot]')).toHaveCount(8);
   await expect(page.locator('#ev-details')).toContainText('Looking for 1 hour');
+});
+
+test('ask when people are free: zoom from whole days to parts of the day to hours', async ({ page }) => {
+  await page.goto('/new/free');
+  await page.fill('#title', 'Picnic');
+  await page.click('[data-nav="1"]');
+  for (const i of [0, 1]) await page.locator('.cal-day').nth(i).click();
+  await expect(page.locator('#summary')).toHaveText('2 days to choose from');
+
+  // Parts of the day keeps the days.
+  await page.click('[data-level="parts"]');
+  await page.click('[data-ask="morning"]');
+  await expect(page.locator('#summary')).toHaveText('4 times to choose from');
+
+  // Hours starts with those days painted morning to night, and zooming out keeps them.
+  await page.click('[data-level="hours"]');
+  await expect(page.locator('#free-list .od-row')).toHaveCount(1);
+  await expect(page.locator('#free-list')).toContainText('8 AM – 11 PM');
+  await page.click('[data-level="days"]');
+  await expect(page.locator('#summary')).toHaveText('2 days to choose from');
+
+  await page.click('[data-level="parts"]');
+  await page.click('#submit');
+  await expect(page.locator('.part-vote')).toHaveCount(4);
 });
