@@ -21,8 +21,10 @@ const icsDate = (d) => d.replace(/-/g, '');
 /**
  * Pass `allDay` ({startDate, endDate} from allDaySpan) to make an all-day event, and `attendees`
  * ([{ name, email }]) to invite people: the organizer's copy, when the poll asked everyone's email.
+ * `image` ({ url, type }) is the poll's own picture, which calendars that support it (RFC 7986) show
+ * as the event's badge; the description keeps the poll's link either way.
  */
-export function buildIcs({ id, title, description, start, end, url, allDay, location, attendees = [] }) {
+export function buildIcs({ id, title, description, start, end, url, allDay, location, attendees = [], image = null }) {
   const lines = [
     'BEGIN:VCALENDAR',
     'VERSION:2.0',
@@ -41,6 +43,7 @@ export function buildIcs({ id, title, description, start, end, url, allDay, loca
   if (desc) lines.push(`DESCRIPTION:${icsEscape(desc)}`);
   if (location) lines.push(`LOCATION:${icsEscape(location)}`);
   if (url) lines.push(`URL:${url}`);
+  if (image?.url) lines.push(`IMAGE;VALUE=URI;DISPLAY=BADGE;FMTTYPE=${image.type || 'image/jpeg'}:${image.url}`);
   // A name goes in quotes, so it can't carry its own quotes or line breaks.
   for (const a of attendees)
     lines.push(

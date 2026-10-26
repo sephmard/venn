@@ -4,6 +4,7 @@ import { LIMITS, ValidationError, YES, allDaySpan, isValidTimeZone, buildSlots, 
 import { buildIcs } from '../public/calendar-export.js';
 import { normalizeAvailability, normalizeEventInput, normalizeName } from './validate.js';
 import { SECURITY_HEADERS } from './security-headers.js';
+import { IMAGE_FILES, MAX_IMAGE_BODY, imagePath, imageResponse, parseImage } from './images.js';
 import {
   MAX_COPIES_PER_ANSWER,
   MAX_COPIES_PER_POLL,
@@ -55,12 +56,12 @@ const json = (data, status = 200) =>
 
 const error = (status, message) => json({ error: message }, status);
 
-async function readJson(request) {
+async function readJson(request, max = MAX_BODY) {
   // Only accept real JSON requests. Browsers can't send these cross-site without CORS, which we don't allow.
   if (!(request.headers.get('content-type') || '').toLowerCase().startsWith('application/json'))
     throw new ValidationError('Requests must be sent as JSON');
   const text = await request.text();
-  if (text.length > MAX_BODY) throw new ValidationError('Request is too large');
+  if (text.length > max) throw new ValidationError('Request is too large');
   try {
     return JSON.parse(text || '{}');
   } catch {
@@ -288,6 +289,14 @@ export async function handleApi(
     }
 
     if (parts[0] !== 'events' || !parts[1]) return error(404, 'Not found');
+
+    // GET /api/events/:id/icon.jpg and card.jpg: the poll's own picture, for anyone with the link.
+    if (parts.length === 3 && IMAGE_FILES[parts[2]] && (method === 'GET' || method === 'HEAD')) {
+      const img = await store.getImage(parts[1], IMAGE_FILES[parts[2]]);
+      if (!img) return error(404, 'This poll has no picture');
+      return imageResponse(img, { versioned: url.searchParams.get('v') === String(img.v), head: method === 'HEAD' });
+    }
+
     const ev = await store.getEvent(parts[1]);
     if (!ev) return error(404, 'This poll does not exist or was deleted');
     const isAdmin = await tokenMatches(request.headers.get('x-admin-token'), ev.adminHash);
@@ -356,6 +365,7 @@ export async function handleApi(
         end,
         allDay: allDaySpan(ev.finalStart, end, ev.timezone),
         url: `${url.origin}/e/${ev.id}`,
+        ...(ev.image && { image: { url: url.origin + imagePath(ev.id, ev.image), type: ev.image.type } }),
       });
       count('calendar.ics', {});
       return new Response(body, {
@@ -444,6 +454,22 @@ export async function handleApi(
       const next = applyPrivacy(data, await readJson(request));
       await store.updateEvent(ev.id, next);
       return json(Object.fromEntries(PRIVACY.map((k) => [k, !!next[k]])));
+    }
+
+    // PUT /api/events/:id/image  { icon, card? }: the poll's own picture, in base64 (src/images.js).
+    // DELETE /api/events/:id/image: back to the emoji.
+    if (parts.length === 3 && parts[2] === 'image') {
+      if (method !== 'PUT' && method !== 'DELETE') return error(405, 'Method not allowed');
+      if (!isAdmin) return error(403, "Only the organizer can change the poll's picture");
+      if (method === 'DELETE') {
+        await store.deleteImage(ev.id);
+        return json({ image: null });
+      }
+      const body = await readJson(request, MAX_IMAGE_BODY);
+      const icon = parseImage(body.icon, 'icon');
+      const card = body.card == null ? null : parseImage(body.card, 'card');
+      const v = await store.setImage(ev.id, { icon, card, now: now() });
+      return json({ image: { v, card: !!card, type: icon.type } });
     }
 
     // POST /api/events/:id/finalize  { start: number | null }

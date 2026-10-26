@@ -17,10 +17,13 @@ export async function loadSource(src) {
 /**
  * Fill in everything both kinds of poll share: the plan, the organizer and the privacy options.
  * `occasions` are the kinds of plan, `privacy` the [setting, switch] pairs, `showTz` shows the time zone.
+ * `icon` (poll-image.js) takes the poll's own emoji and picture: an edit keeps them, and a copy gets
+ * the same picture uploaded again, with a link-preview card for its own name.
  */
-export function fillCommon(ev, src, { occasions, privacy, showTz }) {
+export function fillCommon(ev, src, { occasions, privacy, showTz, icon }) {
   const i = occasions.findIndex((o) => o.emoji === ev.emoji);
   if (i >= 0) $(`[data-occasion="${i}"]`).click();
+  icon?.restore(ev, src, i < 0);
   $('#title').value = ev.title;
   $('#location').value = ev.location || '';
   $('#desc').value = ev.description || '';
@@ -43,10 +46,14 @@ export function fillCommon(ev, src, { occasions, privacy, showTz }) {
   } else toast('Copied. Change anything you like, then create the new poll.');
 }
 
-/** Save the changes to a poll nobody else has answered yet, and go back to it. */
-export async function saveEdit(id, body) {
+/**
+ * Save the changes to a poll nobody else has answered yet, and go back to it. Its picture is saved
+ * again too (`icon`, poll-image.js), so the link-preview card has the poll's new name.
+ */
+export async function saveEdit(id, body, icon) {
   try {
     await api(`events/${id}`, { method: 'PUT', body, headers: { 'x-admin-token': saved(id).adminToken || '' } });
+    await icon?.upload(id, saved(id).adminToken || '', body.title);
     history.pushState(null, '', `/e/${id}`);
     dispatchEvent(new PopStateEvent('popstate'));
     scrollTo(0, 0);

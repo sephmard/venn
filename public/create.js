@@ -82,15 +82,16 @@ export function source() {
 }
 
 let editPoll = null; // the code for editing and duplicating, loaded with the poll to start from
+let icon = null; // the poll's own emoji or picture (poll-image.js), once the icon tile is tapped
 
 /** The poll to start from (see edit-poll.js), or null. */
 export async function loadSource(src) {
-  editPoll = await import('./edit-poll.js').catch(() => null);
+  [editPoll, icon] = await Promise.all([import('./edit-poll.js'), import('./poll-image.js')]).catch(() => []);
   return editPoll?.loadSource(src) ?? null;
 }
 /** Fill in everything both kinds of poll share: the plan, the organizer and the privacy options. */
 export function fillCommon(ev, src) {
-  editPoll.fillCommon(ev, src, { occasions: OCCASIONS, privacy: PRIVACY, showTz });
+  editPoll.fillCommon(ev, src, { occasions: OCCASIONS, privacy: PRIVACY, showTz, icon });
   if (src.edit) editing = src.id;
 }
 
@@ -143,7 +144,7 @@ export function planFields(kind) {
           .join('')}
       </div>
       <div class="title-row">
-        <span class="emoji-tile" id="emoji-tile" aria-hidden="true">🗓️</span>
+        <button type="button" class="emoji-tile" id="emoji-tile" aria-label="Change the icon" aria-expanded="false">🗓️</button>
         <div class="grow">
           <label for="title">Name of your poll${REQ}</label>
           <input id="title" type="text" maxlength="120" placeholder="${kind === 'free' ? 'Summer cabin trip' : "Dinner at Rosa's"}" aria-required="true">
@@ -200,12 +201,18 @@ export function wirePlan(onOccasion) {
   let current = null;
   $('#tz').addEventListener('change', showTz);
   $('#create').addEventListener('click', (e) => {
+    if (e.target.closest('#emoji-tile'))
+      return void import('./poll-image.js').then(
+        (m) => (icon = m).toggle(),
+        () => toast("Couldn't load that. Try again."),
+      );
     const b = e.target.closest('[data-occasion]');
     if (!b) return;
     const o = OCCASIONS[+b.dataset.occasion];
     current = current === o ? null : o;
     for (const x of $$('[data-occasion]')) x.setAttribute('aria-pressed', x === b && !!current);
-    $('#emoji-tile').textContent = current?.emoji || '🗓️';
+    if (icon) icon.setOccasion(current);
+    else $('#emoji-tile').textContent = current?.emoji || '🗓️';
     if (current) $('#title').placeholder = current.label;
     onOccasion(current);
     $('#title').dispatchEvent(new Event('input')); // a kind of plan also names it
@@ -227,7 +234,8 @@ export async function submit(body, occasion, answer = null) {
     organizer: $('#organizer').value.trim(),
     timezone: $('#tz').value,
   });
-  if (occasion()) body.emoji = occasion().emoji;
+  const emoji = icon?.emoji() || occasion()?.emoji;
+  if (emoji) body.emoji = emoji;
   for (const [key, el] of PRIVACY) body[key] = $(el).checked;
   const notifyEmail = !$('#notify-field') || $('#notify-field').hidden ? '' : $('#notify').value.trim();
   if (notifyEmail) body.notifyEmail = notifyEmail;
@@ -236,13 +244,14 @@ export async function submit(body, occasion, answer = null) {
   $('#submit').disabled = true;
   // The organizer's own answer: what they marked for each option, or yes to all the times offered.
   if (answer && Object.keys(answer).length) body.hostAvailability = answer;
-  if (editing) return editPoll.saveEdit(editing, body);
+  if (editing) return editPoll.saveEdit(editing, body, icon);
   body.hostAnswers = true;
   if (source()) body.copied = true;
   // The celebration (and its picture) load while the poll is saved.
   const celebration = import('./celebrate.js').catch(() => null);
   try {
     const { id, adminToken, participant } = await api('events', { method: 'POST', body });
+    const picture = icon?.upload(id, adminToken, title); // the poll's own picture, while the party plays
     save(id, {
       adminToken,
       justCreated: true,
@@ -262,8 +271,9 @@ export async function submit(body, occasion, answer = null) {
           () => false,
         );
     };
-    const party = (await celebration)?.celebrate({ emoji: body.emoji, title, share });
+    const party = (await celebration)?.celebrate({ emoji: body.emoji, picture: icon?.picture(), title, share });
     await party?.shown;
+    await picture;
     history.pushState(null, '', `/e/${id}`);
     dispatchEvent(new PopStateEvent('popstate'));
     scrollTo(0, 0);

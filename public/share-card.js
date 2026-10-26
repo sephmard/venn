@@ -1,5 +1,5 @@
 // "It's set": a picture of the picked date to post in the group chat or an Instagram story. Finn the dog
-// in front of the Venn circles, the poll's emoji and title, the date, and (when the poll shows who
+// in front of the Venn circles, the poll's emoji (or its own picture) and title, the date, and (when the poll shows who
 // answered) the initials of who can make it. Drawn on a <canvas>, so it needs nothing from anyone else.
 // The poll page loads this only when someone presses "Share as a picture".
 
@@ -164,7 +164,7 @@ export function whoCanMakeIt(ev) {
  * Where everything goes. `measure(text, font)` is the width of `text` in a CSS font. `people` is a
  * list of names, or null to leave the faces out. Pure, so it's tested without a browser.
  */
-export function layoutCard(measure, { size = 'story', title, when, emoji = '', people = null }) {
+export function layoutCard(measure, { size = 'story', title, when, emoji = '', picture = false, people = null }) {
   const S = SIZES[size] || SIZES.story;
   const { width: W, height: H, pad, gap } = S;
   const maxWidth = W - 2 * pad;
@@ -198,7 +198,11 @@ export function layoutCard(measure, { size = 'story', title, when, emoji = '', p
     width: W,
     height: H,
     hero,
-    sticker: emoji ? { emoji, x: hero.x + 172 * s, y: hero.y + 10 * s, size: 62 * s } : null,
+    // The poll's own picture is a bigger sticker than an emoji: it's theirs.
+    sticker:
+      emoji || picture
+        ? { emoji, picture: !!picture, x: hero.x + (picture ? 160 : 172) * s, y: hero.y + 4 * s, size: (picture ? 84 : 62) * s }
+        : null,
     pill: { ...pill, x: (W - pill.w) / 2, y },
   };
   y += pill.h + gap;
@@ -240,12 +244,12 @@ export function layoutCard(measure, { size = 'story', title, when, emoji = '', p
 
 // ---------- drawing ----------
 
-const circle = (ctx, x, y, r) => {
+export const circle = (ctx, x, y, r) => {
   ctx.beginPath();
   ctx.arc(x, y, r, 0, Math.PI * 2);
 };
 
-function roundRect(ctx, x, y, w, h, r) {
+export function roundRect(ctx, x, y, w, h, r) {
   ctx.beginPath();
   ctx.moveTo(x + r, y);
   ctx.arcTo(x + w, y, x + w, y + h, r);
@@ -256,7 +260,7 @@ function roundRect(ctx, x, y, w, h, r) {
 }
 
 /** Three circles like the logo: one shade where one covers, deeper where two overlap, deepest in the middle. */
-function venn(ctx, centers, r) {
+export function venn(ctx, centers, r) {
   const xs = centers.map((c) => c[0]);
   const ys = centers.map((c) => c[1]);
   const shade = ([from, to]) => {
@@ -325,8 +329,11 @@ function text(ctx, { text: t, x, y }, font, color, align = 'center') {
   ctx.fillText(t, x, y);
 }
 
-/** Draw a layout (from layoutCard) on a 2D context. `dog` is Finn's picture, or null to leave him out. */
-export function drawCard(ctx, L, { theme = 'light', dog = null, seed = 1 } = {}) {
+/**
+ * Draw a layout (from layoutCard) on a 2D context. `dog` is Finn's picture, or null to leave him out;
+ * `picture` is the poll's own picture, for the sticker.
+ */
+export function drawCard(ctx, L, { theme = 'light', dog = null, picture = null, seed = 1 } = {}) {
   const T = THEMES[theme] || THEMES.light;
   const { width: W, height: H, hero } = L;
   ctx.fillStyle = T.bg;
@@ -363,7 +370,7 @@ export function drawCard(ctx, L, { theme = 'light', dog = null, seed = 1 } = {})
     ctx.drawImage(dog, hx + 69 * s, hy + 4 * s, 92 * s, 200 * s);
     ctx.restore();
   }
-  // The poll's emoji on a tile, stuck on at an angle.
+  // The poll's emoji (or picture) on a tile, stuck on at an angle.
   if (L.sticker) {
     const { emoji, x, y, size } = L.sticker;
     ctx.save();
@@ -376,7 +383,12 @@ export function drawCard(ctx, L, { theme = 'light', dog = null, seed = 1 } = {})
     roundRect(ctx, -size / 2, -size / 2, size, size, size * 0.24);
     ctx.fill();
     ctx.shadowColor = 'transparent';
-    text(ctx, { text: emoji, x: 0, y: size * 0.04 }, `${Math.round(size * 0.6)}px ${EMOJI}`, T.ink);
+    if (picture) {
+      const inset = size * 0.07;
+      roundRect(ctx, -size / 2 + inset, -size / 2 + inset, size - 2 * inset, size - 2 * inset, size * 0.18);
+      ctx.clip();
+      ctx.drawImage(picture, -size / 2 + inset, -size / 2 + inset, size - 2 * inset, size - 2 * inset);
+    } else text(ctx, { text: emoji, x: 0, y: size * 0.04 }, `${Math.round(size * 0.6)}px ${EMOJI}`, T.ink);
     ctx.restore();
   }
 
@@ -426,11 +438,12 @@ export function drawCard(ctx, L, { theme = 'light', dog = null, seed = 1 } = {})
 
 const DOG = '/img/dog.webp';
 
-/** Finn, or null if his picture can't load (the card still works without him). */
-async function loadDog() {
+/** A picture from `src` (Finn, or the poll's own), or null if it can't load (the card still works without it). */
+async function loadImage(src) {
+  if (!src) return null;
   try {
     const img = new Image();
-    img.src = DOG;
+    img.src = src;
     await img.decode();
     return img;
   } catch {
@@ -439,7 +452,7 @@ async function loadDog() {
 }
 
 /** The page's serif, if it can load in a moment; otherwise the card uses the system fallbacks. */
-async function loadFonts() {
+export async function loadFonts() {
   if (!document.fonts?.load) return;
   if (document.fonts.check(`400 100px "Instrument Serif"`)) return;
   await Promise.race([
@@ -454,23 +467,23 @@ const seedOf = (s) => [...String(s)].reduce((h, c) => (h * 31 + c.codePointAt(0)
  * Draw the card and return it as a PNG: { blob, summary }. `summary` says what's on it ({ width, height,
  * faces }), so tests can check it without reading pixels.
  */
-export async function makeCard({ title, when, emoji, people, size = 'story', theme }) {
+export async function makeCard({ title, when, emoji, picture: src = null, people, size = 'story', theme }) {
   theme ??= matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
-  const [dog] = await Promise.all([loadDog(), loadFonts()]);
+  const [dog, picture] = await Promise.all([loadImage(DOG), loadImage(src), loadFonts()]);
   const canvas = document.createElement('canvas');
   const ctx = canvas.getContext('2d');
   const measure = (t, font) => {
     ctx.font = font;
     return ctx.measureText(t).width;
   };
-  const L = layoutCard(measure, { size, title, when, emoji, people });
+  const L = layoutCard(measure, { size, title, when, emoji, picture: !!picture, people });
   canvas.width = L.width;
   canvas.height = L.height;
-  drawCard(ctx, L, { theme, dog, seed: seedOf(title) });
+  drawCard(ctx, L, { theme, dog, picture, seed: seedOf(title) });
   const blob = await new Promise((resolve, reject) =>
     canvas.toBlob((b) => (b ? resolve(b) : reject(new Error('No picture'))), 'image/png'),
   );
-  return { blob, summary: { width: L.width, height: L.height, faces: L.faces.length, theme } };
+  return { blob, summary: { width: L.width, height: L.height, faces: L.faces.length, theme, picture: !!picture } };
 }
 
 function download(file) {
@@ -493,16 +506,19 @@ export async function shareCard({ ev, when, button }) {
   if (button.getAttribute('aria-busy') === 'true') return;
   const people = whoCanMakeIt(ev);
   const theme = matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
-  const key = JSON.stringify([ev.title, ev.emoji, when, people, theme]);
+  // The poll's own picture (src/images.js), from the same site, so the canvas can still be saved.
+  const picture = ev.image ? `/api/events/${encodeURIComponent(ev.id)}/icon.jpg?v=${ev.image.v}` : null;
+  const key = JSON.stringify([ev.title, ev.emoji, picture, when, people, theme]);
   let file = last?.key === key ? last.file : null;
   if (!file) {
     button.setAttribute('aria-busy', 'true');
     try {
-      const { blob, summary } = await makeCard({ title: ev.title, when, emoji: ev.emoji, people, theme });
+      const { blob, summary } = await makeCard({ title: ev.title, when, emoji: ev.emoji, picture, people, theme });
       file = new File([blob], fileName(ev.title), { type: 'image/png' });
       last = { key, file };
       button.dataset.cardSize = `${summary.width}x${summary.height}`;
       button.dataset.cardFaces = String(summary.faces);
+      button.dataset.cardPicture = String(summary.picture);
     } catch {
       return toast("Couldn't make the picture. Try again.");
     } finally {
