@@ -42,6 +42,8 @@ Only the events and values listed in `USAGE_EVENTS` in [`src/usage.js`](../src/u
 
 3. Open `/stats` on your server and enter the token. It's kept in that browser until you choose "Forget the token on this device".
 
+   The page shows the last 7, 30, 90 or 365 days: totals with the change on the period before, a trend chart a day (a week over a year) for polls, guest answers, poll views or shares, which days of the week are busiest, and what happened to the polls. It refreshes itself every few minutes while it's open.
+
 `GET /api/config` reports `"usage": true` once stats are on. Browsers only send their counts then.
 
 ## Reading the stats from code
