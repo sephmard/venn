@@ -90,7 +90,8 @@ let editing = null; // the poll being changed, or null when creating one
 function source() {
   const q = new URLSearchParams(location.search);
   const id = q.get('edit') || q.get('copy');
-  return id && { id, edit: q.has('edit') };
+  // Poll ids are letters and digits; anything else isn't a poll and must not reach the API path.
+  return /^[A-Za-z0-9]+$/.test(id ?? '') && { id, edit: q.has('edit') };
 }
 
 /** The poll to start from, with the organizer's view of it when this device has their link. */
