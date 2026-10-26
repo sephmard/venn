@@ -431,6 +431,8 @@ export function renderPick() {
   let view = null; // the week / day picker, for options with times
   let month = null; // the month, for all-day options and trips
   let lastFrom = null; // the start of the option added or moved last, where other days open
+  let nav = null; // more ways around the calendar (day-nav.js), loaded after the page
+  let shown = []; // the days the calendar shows
 
   app.innerHTML = `
     <form id="create" class="create" novalidate>
@@ -539,6 +541,8 @@ export function renderPick() {
   // ----- the pickers -----
   function mountPicker() {
     view?.cleanup();
+    nav?.cleanup();
+    nav = null;
     month?.cleanup();
     view = month = null;
     const root = $('#picker');
@@ -575,7 +579,16 @@ export function renderPick() {
         onMove: reshape,
         editBlocks: (el, o) => editBlocks(el, { ...o, onRemove: remove }),
         marks: mark,
-        onRender: showAddDays,
+        strip: (d) => nav?.strip(d),
+        onRender: (ds) => (showAddDays((shown = ds)), nav?.update(ds)),
+      });
+      const v = view;
+      import('./day-nav.js').then(({ dayNav }) => {
+        if (view !== v) return; // the calendar changed meanwhile
+        nav = dayNav(root, v, mark);
+        // The day view's strip gets its months ahead; a week only needs « set.
+        if (shown.length === 1) v.render();
+        else nav.update(shown);
       });
     } else {
       $('#when-hint').textContent =
@@ -609,24 +622,25 @@ export function renderPick() {
     $('#add-time').innerHTML = `
       <span class="scope-label" id="at-l">Or add a time</span>
       <div class="add-time-row">
-        <div><label for="at-day">Day</label><select id="at-day"></select></div>
+        <div><label for="at-day">Day</label><input id="at-day" type="date" min="${todayStr()}"></div>
         <div><label for="at-time">Starts at</label><select id="at-time">${times.join('')}</select></div>
         <button type="button" class="btn" id="at-add">Add</button>
       </div>`;
+    // Any day from today on; the calendar goes to the day picked.
+    const day = () => ($('#at-day').value >= todayStr() ? $('#at-day').value : '');
+    $('#at-day').onchange = () => day() && view.show(day());
     $('#at-add').onclick = () => {
-      const date = $('#at-day').value;
+      const date = day();
       const from = +$('#at-time').value;
-      if (date) add({ date, from, to: Math.min(from + minutes(), 1440) }); // the same as a tap
+      if (!date) return $('#at-day').focus();
+      view.show(date);
+      add({ date, from, to: Math.min(from + minutes(), 1440) }); // the same as a tap
     };
   }
-  /** The day select offers the days the calendar shows (from today on). */
+  /** The day follows the calendar: the day it shows, or the first one to come in the week shown. */
   function showAddDays(ds) {
-    const sel = $('#at-day');
-    const days = ds.filter((d) => d >= todayStr());
-    if (!sel || sel.dataset.days === days.join()) return;
-    const keep = days.includes(sel.value) ? sel.value : days[0];
-    sel.dataset.days = days.join();
-    sel.innerHTML = days.map((d) => `<option value="${d}"${d === keep ? ' selected' : ''}>${esc(dayLabel(d))}</option>`).join('');
+    const el = $('#at-day');
+    if (el && !ds.includes(el.value)) el.value = ds.find((d) => d >= todayStr()) || todayStr();
   }
 
   // ----- the options in the poll, by day -----

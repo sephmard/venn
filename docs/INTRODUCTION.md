@@ -40,6 +40,8 @@ public/            the whole front end, served as-is
   picker.js        the calendar views: week, day and month, for organizers and guests
   block-edit.js    dragging and removing options on the week, loaded only on the create pages
   paint.js         the organizer's painter for hours and parts of the day, loaded only on the create pages
+  day-nav.js       the organizer's day strip, « » and jump-to-a-day month, loaded after the create page
+  day-window.js    the days that strip offers
   ui.js            shared UI helpers: formatting, avatars, storage, API calls
   core.js          shared logic: time zones, ranking, calendar import/export
   calendars.js     Google / Outlook free-busy, in the browser

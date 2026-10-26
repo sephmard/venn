@@ -1,6 +1,6 @@
 // Calendar views shared by organizers and guests.
 //   monthView  a month of days: pick several (tap or drag), or open one day at a time
-//   timeView   a week (desktop) or one day (phones) of 30-minute rows, with a Week / Day / Month switch.
+//   timeView   a week (desktop) or one day (phones and tablets) of 30-minute rows, with a Week / Day switch.
 //              Organizers draw options on it; guests see the options next to their busy times.
 
 import { addDays } from './core.js';
@@ -8,6 +8,8 @@ import { $, $$, dateParts, dayLabel, esc, fmtDow, fmtMonthDay, shortRange, short
 
 const STEP = 30;
 export const isPhone = () => matchMedia('(max-width: 640px)').matches;
+/** Phones, and touch screens up to a tablet's width: the calendars open on one day. */
+const touchFirst = () => matchMedia('(max-width: 640px), (pointer: coarse) and (max-width: 1024px)').matches;
 
 /** A day chip's content: "Sat 7" on screen, "Sat 7 Nov, 2" for screen readers. */
 export const dayChip = (d, mark = '') =>
@@ -23,19 +25,7 @@ const ymd = (y, m, d) => `${y}-${String(m + 1).padStart(2, '0')}-${String(d).pad
  * `marks(date)` returns a short note shown under the day number (and read out with it).
  * `dayClass(date)` adds classes to a day, for ranges such as the days a trip covers.
  */
-export function monthView(
-  root,
-  {
-    selected,
-    onChange,
-    onDay,
-    active = () => null,
-    marks = () => '',
-    markLabel = 'marked',
-    allowed = () => true,
-    dayClass = () => '',
-  },
-) {
+export function monthView(root, { selected, onChange, onDay, active = () => null, marks = () => '', dayClass = () => '' }) {
   const today = todayStr();
   const toggle = !!selected;
   // Open on this month, or on next month when fewer than 7 days of this one are left.
@@ -64,10 +54,10 @@ export function monthView(
       const ds = ymd(y, m, d);
       const mark = marks(ds);
       const state = toggle ? `aria-pressed="${selected.has(ds)}"` : ds === active() ? 'aria-current="date"' : '';
-      const off = ds < today || !allowed(ds);
+      const off = ds < today;
       // The number is the visible name; the weekday, month and note are read out with it.
       const dt = dateParts(ds);
-      h += `<button type="button" class="cal-day${ds === today ? ' today' : ''}${mark ? ' marked' : ''} ${dayClass(ds)}" data-date="${ds}" ${state}${off ? ' disabled' : ''}><span class="sr-only">${esc(fmtDow.format(dt))} </span>${d}<span class="sr-only"> ${esc(fmtMonth.format(dt))}${mark ? `, ${esc(mark)} ${esc(markLabel)}` : ''}</span>${mark ? `<small aria-hidden="true">${esc(mark)}</small>` : ''}</button>`;
+      h += `<button type="button" class="cal-day${ds === today ? ' today' : ''}${mark ? ' marked' : ''} ${dayClass(ds)}" data-date="${ds}" ${state}${off ? ' disabled' : ''}><span class="sr-only">${esc(fmtDow.format(dt))} </span>${d}<span class="sr-only"> ${esc(fmtMonth.format(dt))}${mark ? `, ${esc(mark)} marked` : ''}</span>${mark ? `<small aria-hidden="true">${esc(mark)}</small>` : ''}</button>`;
     }
     grid.innerHTML = h;
     $('[data-nav="-1"]', root).disabled = y === new Date().getFullYear() && m === new Date().getMonth();
@@ -304,20 +294,18 @@ function timeGrid(
 }
 
 /**
- * Week / Day (and optionally Month) views with navigation.
+ * Week and Day views with navigation.
  *   days       fixed list of days to page through (guests), or null to roam freely from today (organizers)
- *   month      optional (container) => cleanup: renders the month view
  *   marks(d)   short note for a day in the day strip ("2", "Eve")
  *   onRender(dates)  after each render, with the days shown
+ *   strip(day) organizers: the days in the day view's strip (day-nav.js), else the week of `day`
  * Plus the timeGrid options. Organizers (no `days`) page a week at a time in both views: the week
  * runs Sunday to Saturday, and the day view's strip picks the day.
  */
 export function timeView(root, opts) {
-  const { days = null, month = null, marks = () => '', label = 'Calendar' } = opts;
-  const views = opts.views || ['week', 'day', ...(month ? ['month'] : [])];
-  let view = opts.view || (isPhone() && views.includes('day') ? 'day' : views[0]);
+  const { days = null, marks = () => '', label = 'Calendar', views = ['week', 'day'] } = opts;
+  let view = touchFirst() && views.includes('day') ? 'day' : views[0];
   let anchor = days ? 0 : todayStr(); // index into days, or a date
-  let monthCleanup = null;
 
   root.innerHTML = `
     <div class="tv-bar">
@@ -331,10 +319,7 @@ export function timeView(root, opts) {
       </div>
     </div>
     <div class="tv-strip" role="group" aria-label="Days"></div>
-    <div class="tv-grid"></div>
-    <div class="tv-month"></div>`;
-  const gridEl = $('.tv-grid', root);
-  const monthEl = $('.tv-month', root);
+    <div class="tv-grid"></div>`;
   const strip = $('.tv-strip', root);
 
   const weekOf = (d) => addDays(d, -dateParts(d).getUTCDay());
@@ -343,23 +328,10 @@ export function timeView(root, opts) {
     if (view === 'day') return [anchor];
     return Array.from({ length: 7 }, (_, i) => addDays(weekOf(anchor), i));
   };
-  const grid = timeGrid(gridEl, { ...opts, dates: shown });
+  const grid = timeGrid($('.tv-grid', root), { ...opts, dates: shown });
 
   function render() {
     for (const b of $$('[data-view]', root)) b.setAttribute('aria-checked', b.dataset.view === view);
-    $('.tv-nav', root).hidden = view === 'month';
-    monthCleanup?.();
-    monthCleanup = null;
-    gridEl.hidden = view === 'month';
-    monthEl.hidden = view !== 'month';
-    if (view === 'month') {
-      strip.hidden = true;
-      // A fresh element each time, so the month view's listeners go away with it.
-      const fresh = document.createElement('div');
-      monthEl.replaceChildren(fresh);
-      monthCleanup = month(fresh);
-      return;
-    }
     const ds = shown();
     $('.tv-label', root).textContent =
       ds.length > 1 ? `${fmtMonthDay.format(dateParts(ds[0]))} – ${fmtMonthDay.format(dateParts(ds.at(-1)))}` : dayLabel(ds[0]);
@@ -373,7 +345,7 @@ export function timeView(root, opts) {
     // On the day view, a strip of nearby days to jump between.
     strip.hidden = view !== 'day';
     if (view === 'day') {
-      const near = days || Array.from({ length: 7 }, (_, i) => addDays(weekOf(anchor), i));
+      const near = days || opts.strip?.(anchor) || Array.from({ length: 7 }, (_, i) => addDays(weekOf(anchor), i));
       strip.innerHTML = near
         .map((d) => {
           const m = marks(d);
@@ -407,20 +379,13 @@ export function timeView(root, opts) {
   render();
   return {
     render,
-    /** Show a given day (organizers jumping from the month view to an exact time). */
-    show(date, as = view) {
-      view = as;
+    /** Show a given day (organizers jumping to one). */
+    show(date) {
       anchor = days ? Math.max(0, days.indexOf(date)) : date < todayStr() ? todayStr() : date;
       render();
     },
-    get view() {
-      return view;
-    },
     /** Scroll the times back to where they start (after the kind of plan changes, say). */
     home: () => grid.home(),
-    cleanup() {
-      grid.cleanup();
-      monthCleanup?.();
-    },
+    cleanup: () => grid.cleanup(),
   };
 }
