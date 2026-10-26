@@ -35,7 +35,10 @@ public/            the whole front end, served as-is
   app.js           router
   create.js        the create pages: "vote on a few dates" and "ask when people are free"
   event.js         the poll page: answering, the group's results, organizer tools
-  organizer.js     the organizer's Notifications and Privacy panels, loaded only for organizers
+  organizer.js     the organizer's tools, Notifications and Privacy panels and AI summary, loaded only for organizers
+  add-to-calendar.js  "Add to your calendar", loaded once a date is picked
+  ai-answer.js     "Answer for me" with AI, loaded when a guest opens it
+  day-parts.js     answering hours polls by mornings, afternoons and evenings, and "All day"
   celebrate.js     the "Poll created!" celebration
   picker.js        the calendar views: week, day and month, for organizers and guests
   block-edit.js    dragging and removing options on the week, loaded only on the create pages

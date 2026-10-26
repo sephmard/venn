@@ -136,7 +136,8 @@ for (const scheme of ['light', 'dark']) {
       await page.click('[data-level="hours"]');
       await page.click('[data-fill="3"]');
       await page.click('#submit');
-      await expect(page.locator('#quick-hours .part-vote').first()).toBeVisible({ timeout: 10_000 }); // after the celebration
+      await expect(page.locator('[data-hview="quick"]')).toBeVisible({ timeout: 10_000 }); // after the celebration
+      await page.click('[data-hview="quick"]');
       await page.locator('#quick-hours .part-vote').first().click();
       await audit(page, 'hours poll (quick answers)');
       await page.click('[data-hview="exact"]');
@@ -245,8 +246,23 @@ for (const width of [375, 412]) {
         return at === node || node.contains(at);
       });
       expect(hit, await el.innerText()).toBe(true);
+      // Big enough to tap, and inside the screen.
+      const box = await el.boundingBox();
+      expect(box.height, await el.innerText()).toBeGreaterThanOrEqual(44);
+      expect(box.x + box.width).toBeLessThanOrEqual(width);
     }
+    expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(width);
     await banner.getByRole('button', { name: 'Clear the date' }).click();
     await expect(banner).toHaveCount(0);
+  });
+}
+
+for (const scheme of ['light', 'dark']) {
+  test(`"Add to your calendar" passes the checks at 375px (${scheme})`, async ({ page }) => {
+    await page.emulateMedia({ colorScheme: scheme });
+    await page.setViewportSize({ width: 375, height: 900 });
+    await openPoll(page, { picked: true });
+    await expect(page.getByRole('group', { name: 'Add to your calendar' })).toBeVisible();
+    await audit(page, `picked date (${scheme})`);
   });
 }
