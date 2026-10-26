@@ -7,6 +7,14 @@ Organizers can be told whenever someone responds to a poll, changes their answer
 
 Organizers set these up from the **Notifications** button on their poll. Email can also be turned on when creating a poll.
 
+## Copies for people who answer
+
+When email is on, the poll page asks people who answer for their email, as an optional field. "Email me a copy of my answer" is ticked by default, so anyone who gives an address gets an email listing their answers, with a link to the poll and their personal link to change their answer. They can untick it, or leave the address out.
+
+- The address is used for that email only. It isn't stored with the poll, shown to anyone, or used again.
+- Because anyone could type someone else's address, each answer gets at most 3 copies, and each poll at most 300.
+- With the API, send `copyTo` with `POST` or `PUT /api/events/:id/participants`.
+
 ## Turning on email
 
 Every provider needs the address emails come from. It must be on a domain the provider has verified, and doesn't need to be a real inbox:
@@ -62,6 +70,17 @@ Providers live in [`src/email.js`](../src/email.js). Each one is a small object:
 
 Add it to `EMAIL_PROVIDERS`, add a test next to the others in `test/email.test.js`, and document its settings here. Outbound requests run on the server, so the browser's Content Security Policy doesn't change.
 
+Every email shows Venn's dog (`public/img/venn-dog.png`), loaded from your own instance's address. To use another picture, replace that file.
+
+### If emails land in spam
+
+A new sending domain has no reputation yet, so the first emails can land in spam. To help:
+
+- Mark the email **Not spam** and add the sender to your contacts. Mail apps learn from this.
+- Check that the domain passes SPF, DKIM and DMARC: in Gmail, open the email, then **⋮ → Show original**. Each should say `PASS`.
+- Keep a DMARC record on the domain, for example `v=DMARC1; p=quarantine; rua=mailto:dmarc@example.com`, to get reports on what's failing.
+- Send from a stable address, such as `notifications@`, with a clear name in `EMAIL_FROM`.
+
 ### How email stays safe
 
 - **Double opt-in.** Entering an address only sends a confirmation email. Nothing else is sent until someone opens that link, so a poll can't be used to put someone on a mailing list.
@@ -98,7 +117,7 @@ Paste any `https://` URL. Venn sends a `POST` with a JSON body each time someone
 
 `event` is one of `response.created`, `response.updated`, `response.deleted`, or `test` (from the **Send test** button).
 
-**Slack** (`hooks.slack.com`) and **Discord** (`discord.com/api/webhooks/…`) URLs are recognized and receive a readable message instead, such as:
+**Slack** (`hooks.slack.com`) and **Discord** (`discord.com/api/webhooks/…`) URLs are recognized and receive a readable message instead, with Venn's dog beside it, such as:
 
 > Ana responded to “Design review”. Best time so far: Wed, Nov 4, 3:00 PM – 4:00 PM EST (6 of 6 can make it). https://venn.example.com/e/kz4d48daet
 

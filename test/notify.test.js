@@ -2,9 +2,31 @@ import { test, before, after, beforeEach } from 'node:test';
 import assert from 'node:assert/strict';
 import { createHmac } from 'node:crypto';
 import { createApp } from '../server.js';
-import { validateWebhookUrl, webhookBody, summaryText, isPrivateAddress } from '../src/notify.js';
+import { existsSync } from 'node:fs';
+import {
+  MASCOT_PATH,
+  confirmationEmail,
+  isPrivateAddress,
+  responseEmail,
+  summaryText,
+  validateWebhookUrl,
+  webhookBody,
+} from '../src/notify.js';
 
 // ---------- unit ----------
+
+test("every notification email shows Venn's dog, from the instance's own site", () => {
+  assert.ok(existsSync(new URL(`../public${MASCOT_PATH}`, import.meta.url)));
+  const confirm = confirmationEmail('Dinner', 'https://venn.example/e/abc#confirm-email=t');
+  assert.match(confirm.html, /<img src="https:\/\/venn\.example\/img\/venn-dog\.png"/);
+  const s = {
+    event: 'test',
+    poll: { title: 'Dinner', url: 'https://venn.example/e/abc', responses: 0 },
+    response: null,
+    bestTime: null,
+  };
+  assert.match(responseEmail(s, 'https://venn.example/e/abc#unsubscribe=u').html, /venn\.example\/img\/venn-dog\.png/);
+});
 
 test('webhook URLs must be public https endpoints', async () => {
   const bad = [
@@ -46,8 +68,12 @@ test('Slack and Discord get messages in their own format', () => {
     summaryText(summary),
     /^Ana responded to “Design review”\. Best time so far: Wed, Nov 4.*\(3 of 3 can make it\)\.$/,
   );
-  assert.deepEqual(Object.keys(webhookBody('https://hooks.slack.com/services/T/B/x', summary)), ['text']);
-  assert.deepEqual(Object.keys(webhookBody('https://discord.com/api/webhooks/1/abc', summary)), ['content']);
+  const slack = webhookBody('https://hooks.slack.com/services/T/B/x', summary);
+  assert.deepEqual(Object.keys(slack), ['text', 'blocks']);
+  assert.match(slack.blocks[0].accessory.image_url, /\/img\/venn-dog\.png$/);
+  const discord = webhookBody('https://discord.com/api/webhooks/1/abc', summary);
+  assert.deepEqual(Object.keys(discord), ['content', 'embeds']);
+  assert.match(discord.embeds[0].thumbnail.url, /\/img\/venn-dog\.png$/);
   assert.equal(webhookBody('https://example.com/hook', summary), summary);
 });
 
@@ -219,4 +245,45 @@ test('calendar client IDs are published when configured', async (t) => {
     microsoft: 'ms-id',
     microsoftTenant: 'consumers',
   });
+});
+
+test('people who answer can get a copy of their answer, with their edit link', async () => {
+  const { data } = await call('/api/events', { method: 'POST', body: poll });
+  const slot = poll.options[0].start;
+  const path = `/api/events/${data.id}/participants`;
+
+  // A bad address is refused before anything is saved.
+  const bad = await call(path, { method: 'POST', body: { name: 'Ana', availability: { [slot]: 2 }, copyTo: 'nope' } });
+  assert.equal(bad.status, 400);
+  assert.equal((await call(`/api/events/${data.id}`)).data.participants.length, 0);
+
+  sent = [];
+  const ana = await call(path, {
+    method: 'POST',
+    body: { name: 'Ana Lima', availability: { [slot]: 2 }, copyTo: 'Ana@Example.com' },
+  });
+  assert.equal(ana.status, 201);
+  const copy = emails().find((e) => e.body.subject === 'Your answer to “Design review”');
+  assert.deepEqual(copy.body.to, ['ana@example.com']);
+  assert.match(copy.body.text, /Wed, Nov 4, 3:00 PM – 4:00 PM EST: yes/);
+  assert.ok(copy.body.text.includes(`#edit=${ana.data.id}.${ana.data.editToken}`));
+
+  // Saving again sends a fresh copy, up to a limit per answer.
+  const edit = (availability) =>
+    call(`${path}/${ana.data.id}`, {
+      method: 'PUT',
+      body: { name: 'Ana Lima', availability, copyTo: 'ana@example.com' },
+      headers: { 'x-edit-token': ana.data.editToken },
+    });
+  sent = [];
+  await edit({});
+  assert.match(emails()[0].body.text, /None of the times work for you/);
+  for (let i = 0; i < 3; i++) await edit({ [slot]: 1 });
+  sent = [];
+  await edit({ [slot]: 1 });
+  assert.equal(emails().length, 0);
+
+  // No address, no copy; and the address is never kept with the poll.
+  await call(path, { method: 'POST', body: { name: 'Lee', availability: { [slot]: 2 } } });
+  assert.ok(!JSON.stringify((await call(`/api/events/${data.id}`)).data).includes('ana@example.com'));
 });

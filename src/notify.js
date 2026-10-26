@@ -1,7 +1,16 @@
 // Notifications when people respond to a poll: email (through a provider in email.js) and webhooks.
 // Everything here runs after the response is saved, so failures never affect the person answering.
 
-import { ValidationError, buildSlots, rankTimes } from '../public/core.js';
+import {
+  IF_NEEDED,
+  ValidationError,
+  YES,
+  allDaySpan,
+  buildSlots,
+  eventWindows,
+  isOptionsPoll,
+  rankTimes,
+} from '../public/core.js';
 import { emailProvider, sendEmail } from './email.js';
 
 export { sendEmail };
@@ -11,6 +20,10 @@ const TIMEOUT_MS = 5000;
 const EDIT_EMAIL_COOLDOWN_MS = 10 * 60_000;
 // Confirmation emails per poll, so a poll can't be used to spam someone's inbox.
 export const MAX_CONFIRMATIONS = 3;
+// Copies of an answer emailed to the person who gave it. Someone could type another person's
+// address, so each answer gets a few copies at most, and each poll a bounded number.
+export const MAX_COPIES_PER_ANSWER = 3;
+export const MAX_COPIES_PER_POLL = 300;
 const EMAIL_RE = /^[^\s@<>"',;]+@[^\s@<>"',;]+\.[^\s@<>"',;]+$/;
 
 export const emailEnabled = (env) => emailProvider(env) != null;
@@ -136,9 +149,15 @@ export function summaryText(s) {
 const escHtml = (s) =>
   String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
 
-function emailLayout(bodyHtml, footerHtml) {
+// Venn's dog, shown in every notification. Served from the instance's own public/ folder, so it
+// works for anyone hosting Venn; links in emails need the absolute URL.
+export const MASCOT_PATH = '/img/venn-dog.png';
+const mascotUrl = (pageUrl) => new URL(MASCOT_PATH, pageUrl).href;
+
+function emailLayout(bodyHtml, footerHtml, pageUrl) {
   return `<!doctype html><html><body style="margin:0;padding:24px;background:#f7f7f5;font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;color:#1c1d1f">
 <div style="max-width:520px;margin:0 auto;background:#fff;border:1px solid #e2e2dc;border-radius:10px;padding:24px">
+<div style="text-align:center;margin-bottom:12px"><img src="${escHtml(mascotUrl(pageUrl))}" width="80" height="174" alt="" style="display:inline-block;border:0"></div>
 <div style="font-weight:700;font-size:18px;margin-bottom:16px">Venn</div>${bodyHtml}</div>
 <p style="max-width:520px;margin:12px auto 0;color:#6b6d70;font-size:12px;line-height:1.5">${footerHtml}</p></body></html>`;
 }
@@ -154,6 +173,53 @@ export function responseEmail(s, unsubscribeUrl) {
   const html = emailLayout(
     `<p style="margin:0;line-height:1.5">${escHtml(summaryText(s))}</p>${button(s.poll.url, 'See all responses')}`,
     `You get these emails because you asked to be notified about this poll. <a href="${escHtml(unsubscribeUrl)}" style="color:#6b6d70">Stop these emails</a>.`,
+    s.poll.url,
+  );
+  return { subject, text, html };
+}
+
+/** "Sat, Nov 7, 7:00 PM – 9:00 PM EST" or "Fri, Nov 6 – Sun, Nov 8", for one window of a poll. */
+function windowLabel(start, end, tz) {
+  const span = allDaySpan(start, end, tz);
+  if (!span) return fmtWhen(start, end, tz);
+  const day = new Intl.DateTimeFormat('en-US', { weekday: 'short', month: 'short', day: 'numeric', timeZone: 'UTC' });
+  const first = Date.parse(`${span.startDate}T00:00:00Z`);
+  const last = Date.parse(`${span.endDate}T00:00:00Z`) - 86_400_000;
+  return first === last ? `${day.format(first)}, all day` : `${day.format(first)} – ${day.format(last)}`;
+}
+
+/** Someone's answers in words, grouped: [{ label, answer: 'yes' | 'if needed' }]. Hours next to each other merge. */
+export function answerLines(ev, availability) {
+  const out = [];
+  let run = null;
+  for (const w of eventWindows(ev)) {
+    const v = availability[w.start];
+    if (v !== YES && v !== IF_NEEDED) {
+      run = null;
+      continue;
+    }
+    if (run && run.v === v && run.end === w.start && !isOptionsPoll(ev)) run.end = w.end;
+    else out.push((run = { v, start: w.start, end: w.end }));
+  }
+  return out.map((r) => ({ label: windowLabel(r.start, r.end, ev.timezone), answer: r.v === YES ? 'yes' : 'if needed' }));
+}
+
+/** A copy of someone's answer, for them: what they said, and the links to see the poll and change it. */
+export function answerCopyEmail({ title, name, lines, pollUrl, editUrl }) {
+  const subject = `Your answer to “${title}”`;
+  const list = lines.length ? lines : null;
+  const text = `Hi ${name}, here's what you told Venn for “${title}”:\n\n${
+    list ? list.map((l) => `- ${l.label}: ${l.answer}`).join('\n') : 'None of the times work for you.'
+  }\n\nSee everyone's answers: ${pollUrl}\nChange your answer: ${editUrl}\n\nYou asked for this copy when you answered. If that wasn't you, ignore this email.\n`;
+  const items = list
+    ? `<ul style="margin:12px 0;padding-left:20px;line-height:1.6">${list
+        .map((l) => `<li>${escHtml(l.label)}: <strong>${escHtml(l.answer)}</strong></li>`)
+        .join('')}</ul>`
+    : '<p style="margin:12px 0;line-height:1.5">None of the times work for you.</p>';
+  const html = emailLayout(
+    `<p style="margin:0;line-height:1.5">Hi ${escHtml(name)}, here's what you told Venn for <strong>${escHtml(title)}</strong>:</p>${items}${button(pollUrl, "See everyone's answers")}<p style="margin:0;line-height:1.5"><a href="${escHtml(editUrl)}" style="color:#0f9d76">Change your answer</a>. This link is just for you, so don't share it.</p>`,
+    "You asked for this copy when you answered the poll. If that wasn't you, ignore this email and nothing more will be sent.",
+    pollUrl,
   );
   return { subject, text, html };
 }
@@ -164,6 +230,7 @@ export function confirmationEmail(title, confirmUrl) {
   const html = emailLayout(
     `<p style="margin:0;line-height:1.5">Someone (hopefully you) asked Venn to email this address when people respond to the poll <strong>${escHtml(title)}</strong>.</p>${button(confirmUrl, 'Confirm notifications')}`,
     "If this wasn't you, ignore this email and nothing more will be sent.",
+    confirmUrl,
   );
   return { subject, text, html };
 }
@@ -178,12 +245,26 @@ async function hmacHex(secret, message) {
   return [...new Uint8Array(sig)].map((b) => b.toString(16).padStart(2, '0')).join('');
 }
 
-/** Slack and Discord incoming webhooks expect their own simple formats. */
+/** Slack and Discord incoming webhooks expect their own formats: a message, with the dog beside it. */
 export function webhookBody(url, s) {
   const host = new URL(url).hostname;
   const text = `${summaryText(s)} ${s.poll.url}`;
-  if (host === 'hooks.slack.com') return { text };
-  if (/(^|\.)discord(app)?\.com$/.test(host) && new URL(url).pathname.startsWith('/api/webhooks')) return { content: text };
+  const image = mascotUrl(s.poll.url);
+  if (host === 'hooks.slack.com') {
+    const mrkdwn = text.replace(/[&<>]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' })[c]);
+    return {
+      text,
+      blocks: [
+        {
+          type: 'section',
+          text: { type: 'mrkdwn', text: mrkdwn },
+          accessory: { type: 'image', image_url: image, alt_text: 'Venn' },
+        },
+      ],
+    };
+  }
+  if (/(^|\.)discord(app)?\.com$/.test(host) && new URL(url).pathname.startsWith('/api/webhooks'))
+    return { content: text, embeds: [{ title: s.poll.title, url: s.poll.url, thumbnail: { url: image } }] };
   return s;
 }
 
