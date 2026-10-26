@@ -25,7 +25,6 @@ async function addOptions(page, days, times = [1140]) {
     await page.click(`[data-tgroup="${GROUP(t)}"]`);
     await page.click(`[data-time="${t}"]`);
   }
-  await page.click('#add-draft');
 }
 
 /** Start a "vote on a few dates" poll: 7 days, at the given start times. */
@@ -262,19 +261,32 @@ test('guests need a name and an answer to save, and can say none of these work',
 
 test('organizers add different times on different days, and see the whole poll before creating it', async ({ page }) => {
   await page.goto('/new/pick');
-  await page.fill('#title', 'Dinner');
+  // Create stays greyed out until the poll has a name and an option.
+  await expect(page.locator('#submit')).toBeDisabled();
+  await expect(page.locator('#summary')).toHaveText('Add at least one option to create the poll');
   await expect(page.locator('#options-list')).toContainText('Nothing yet');
+
+  // Options appear as soon as there's a day and a time: no Add button.
   await addOptions(page, 2, [1140]);
+  await expect(page.locator('#options-list .chip')).toHaveCount(2);
+  await expect(page.locator('#summary')).toHaveText('Give your plan a name to create the poll');
+  await page.fill('#title', 'Dinner');
+  await expect(page.locator('#submit')).toBeEnabled();
+
   // Another time on the first day only.
   await page.locator('[data-add-to]').first().click();
-  await page.click('[data-tgroup="evening"]');
-  await page.click('[data-time="1140"]'); // unpick 7 PM
+  await expect(page.locator('[data-scope]').nth(1)).toHaveAttribute('aria-pressed', 'true');
   await page.click('[data-time="1230"]');
-  await expect(page.locator('#add-draft')).toHaveText('Add 1 option');
-  await page.click('#add-draft');
-  await expect(page.locator('#options-list .od-row')).toHaveCount(2);
   await expect(page.locator('#options-list .od-row').first().locator('.chip')).toHaveCount(2);
-  await expect(page.locator('#options-list')).toContainText('Guests will choose from 3 options');
+  await expect(page.locator('#options-list .od-row').nth(1).locator('.chip')).toHaveCount(1);
+  // Back to all days: a new time goes on both.
+  await page.click('[data-scope=""]');
+  await page.click('[data-time="1110"]');
+  await expect(page.locator('#options-list')).toContainText('Guests will choose from 5 options');
+
+  // Unpicking a day takes its options away.
+  await page.locator('#draft-cal .cal-day[aria-pressed="true"]').nth(1).click();
+  await expect(page.locator('#options-list .od-row')).toHaveCount(1);
   await page.click('#submit');
   await expect(page.locator('#mine .row')).toHaveCount(3);
 });
