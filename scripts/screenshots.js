@@ -1,4 +1,5 @@
-// Regenerates the README images (docs/screenshots/*.png, docs/demo.gif): `npm run screenshots`.
+// Regenerates the README images (docs/screenshots/*.png, docs/demo.gif) and the phone screens on the
+// home page (public/img/shots/*.webp): `npm run screenshots`.
 // Needs Playwright's Chromium (`npx playwright install chromium`) and ffmpeg (for the GIF).
 
 import { execFileSync } from 'node:child_process';
@@ -11,8 +12,29 @@ import { zonedToUtc, addDays, weekdayOf } from '../public/core.js';
 
 const root = join(dirname(fileURLToPath(import.meta.url)), '..');
 const out = join(root, 'docs', 'screenshots');
+const shots = join(root, 'public', 'img', 'shots');
 const TZ = 'America/New_York';
 mkdirSync(out, { recursive: true });
+mkdirSync(shots, { recursive: true });
+
+// A phone screen for the home page: the viewport as a small WebP (ffmpeg), 600px wide for 300px on screen.
+async function homeShot(page, name) {
+  const png = join(shots, `${name}.png`);
+  await page.screenshot({ path: png });
+  execFileSync('ffmpeg', [
+    '-y',
+    '-loglevel',
+    'error',
+    '-i',
+    png,
+    '-vf',
+    'scale=600:-1:flags=lanczos',
+    '-quality',
+    '78',
+    join(shots, `${name}.webp`),
+  ]);
+  rmSync(png);
+}
 
 const server = createApp({ dbPath: ':memory:' });
 await new Promise((r) => server.listen(0, r));
@@ -73,6 +95,38 @@ async function seedPoll() {
 
 const HIDE_TOAST = '#toast { display: none !important; }';
 
+// The create page's week calendar: go forward a week at a time until `date` shows (as e2e/helpers.js does).
+async function showDate(page, date, step = (sel) => page.click(sel)) {
+  const col = page.locator(`#picker .tg-col[data-date="${date}"]`);
+  for (let i = 0; i < 60 && !(await col.count()); i++) {
+    // On a phone it shows one day; the strip's chips pick a day in the week shown.
+    const chip = page.locator(`#picker .tv-chip[data-day="${date}"]`);
+    if (await chip.isVisible()) {
+      await step(`#picker .tv-chip[data-day="${date}"]`);
+      continue;
+    }
+    const shown = await page.locator('#picker .tg-col').first().getAttribute('data-date');
+    await step(`#picker .tv-nav [data-step="${date < shown ? -1 : 1}"]`);
+  }
+  return col;
+}
+
+// Scroll a day's column so `minutes` shows, and return its y offset in the column.
+const rowY = (col, minutes) =>
+  col.evaluate((el, m) => {
+    const row = parseFloat(getComputedStyle(el.closest('.tg')).getPropertyValue('--row')) || 24;
+    const y = ((m - 420) / 30) * row + row / 2;
+    el.closest('.tg-scroll').scrollTop = y - 2 * row;
+    return y;
+  }, minutes);
+
+async function tapAt(page, date, minutes) {
+  const col = await showDate(page, date);
+  const y = await rowY(col, minutes);
+  const b = await col.boundingBox();
+  await page.mouse.click(b.x + 6, b.y + y);
+}
+
 // Screenshot `selector` from the top of `from` (default: the page, so the header shows) to its bottom,
 // cropped to the width of `crop` (default: the whole page).
 async function shoot(page, selector, path, { from, crop, pad = 24 } = {}) {
@@ -118,6 +172,9 @@ async function answerAsSam(page, id) {
   for (const [i, v] of SAM.entries()) await page.locator('#mine .row').nth(i).locator(`[data-vote="${v}"]`).click();
   await page.fill('#name', 'Sam');
   await page.click('#save');
+  // Skip the "Answer sent!" celebration.
+  await page.click('.party-go');
+  await page.waitForSelector('.party', { state: 'detached' });
   await page.waitForSelector('.matrix');
   await page.evaluate(() => scrollTo(0, 0));
 }
@@ -128,7 +185,8 @@ async function stills(dark) {
 
   const desktop = await newPage({ dark });
   await answerAsSam(desktop, id);
-  await desktop.addStyleTag({ content: HIDE_TOAST });
+  // The save bar sticks to the bottom of the window; in a full-page shot it would float mid-page.
+  await desktop.addStyleTag({ content: `${HIDE_TOAST} .save-bar { position: static !important; }` });
   await shoot(desktop, '#panel-group', join(out, `results-${suffix}.png`), { crop: '#event-root' });
 
   await desktop.goto(`${base}/new/pick`);
@@ -136,19 +194,13 @@ async function stills(dark) {
   await desktop.click('[data-occasion="0"]');
   await desktop.fill('#title', 'Dinner at Finn’s');
   await desktop.fill('#location', 'Finn’s Trattoria, 14 Elm St');
-  // Add 7 and 7:30 PM on two Fridays and Saturdays from the month view, then show them on the week.
-  await desktop.click('[data-view="month"]');
-  for (const d of [0, 1, 7, 8]) {
-    const date = addDays(fri, d);
-    if (!(await desktop.locator(`.month-cal [data-date="${date}"]`).count())) await desktop.click('.month-cal [data-nav="1"]');
-    await desktop.click(`.month-cal [data-date="${date}"]`);
-    for (const t of ['19:00', '19:30']) {
-      await desktop.fill('#exact', t);
-      await desktop.click('#add-exact');
-    }
-  }
-  await desktop.click('[data-view="week"]');
-  while (!(await desktop.locator(`.tg-col[data-date="${fri}"]`).count())) await desktop.click('.tv-nav [data-step="1"]');
+  // Tap 7 PM on two Fridays and Saturdays on the week calendar, then come back to the first week.
+  for (const d of [0, 1, 7, 8]) await tapAt(desktop, addDays(fri, d), 19 * 60);
+  await showDate(desktop, fri);
+  await desktop.locator(`#picker .tg-col[data-date="${fri}"]`).evaluate((el) => {
+    const s = el.closest('.tg-scroll');
+    s.scrollTop = s.scrollHeight;
+  });
   await desktop.locator('#title').blur();
   await desktop.addStyleTag({ content: '.create-bar { position: static; }' });
   await shoot(desktop, '.sheet:has(#when-h)', join(out, `create-${suffix}.png`), {
@@ -160,14 +212,49 @@ async function stills(dark) {
   const phone = await newPage({ dark, mobile: true });
   await phone.goto(`${base}/e/${id}`);
   await phone.waitForSelector('#mine .row');
-  for (const [i, v] of [2, 1, 0].entries()) await phone.locator('#mine .row').nth(i).locator(`[data-vote="${v}"]`).tap();
+  for (const [i, v] of [2, 1, 0, 2, 2].entries()) await phone.locator('#mine .row').nth(i).locator(`[data-vote="${v}"]`).tap();
   await phone.fill('#name', 'Jamie');
   await phone.locator('#name').blur();
-  await phone.evaluate(() =>
-    window.scrollTo(0, document.querySelector('.tabs').getBoundingClientRect().top + window.scrollY - 12),
-  );
+  // The tabs stick to the top, so line the first answer up just below them.
+  await phone.evaluate(() => {
+    const tabs = document.querySelector('.tabs').getBoundingClientRect().height;
+    const row = document.querySelector('#mine .row').getBoundingClientRect().top + window.scrollY;
+    window.scrollTo(0, row - tabs - 24);
+  });
+  await phone.waitForTimeout(500); // let Submit finish turning ready
   await phone.screenshot({ path: join(out, `mobile-${suffix}.png`) });
+  await homeShot(phone, `answer-${suffix}`);
+
+  // Then send it and see the group's best options.
+  await phone.click('#save');
+  await phone.click('.party-go');
+  await phone.waitForSelector('.party', { state: 'detached' });
+  await phone.addStyleTag({ content: HIDE_TOAST });
+  await phone.evaluate(() => {
+    const tabs = document.querySelector('.tabs').getBoundingClientRect().height;
+    const best = document.querySelector('#panel-group').getBoundingClientRect().top + window.scrollY;
+    window.scrollTo({ top: best - tabs - 16, behavior: 'instant' });
+  });
+  await phone.waitForTimeout(500);
+  await homeShot(phone, `results-${suffix}`);
   await phone.context().close();
+
+  // Creating a poll on a phone: the plan, then two evenings tapped on the calendar.
+  const maker = await newPage({ dark, mobile: true });
+  await maker.goto(`${base}/new/pick`);
+  await maker.addStyleTag({ content: HIDE_TOAST });
+  await maker.click('[data-occasion="0"]');
+  await maker.fill('#title', 'Dinner at Finn’s');
+  await maker.fill('#organizer', 'Priya');
+  for (const d of [0, 1]) await tapAt(maker, addDays(fri, d), 19 * 60);
+  await maker.locator('#organizer').blur();
+  await maker.evaluate(() => {
+    const top = document.querySelector('.sheet:has(#when-h)').getBoundingClientRect().top + window.scrollY;
+    window.scrollTo({ top: top - 12, behavior: 'instant' });
+  });
+  await maker.waitForTimeout(500);
+  await homeShot(maker, `create-${suffix}`);
+  await maker.context().close();
 }
 
 // ---------- animated demo ----------
@@ -216,30 +303,27 @@ async function recordDemo() {
   await click('a[href="/new/pick"]', 600);
   await click('[data-occasion="0"]', 300);
   await type('#title', 'Dinner at Finn’s');
-  await click('[data-view="month"]', 400);
   for (const d of [0, 1, 7, 8]) {
-    const date = addDays(fri, d);
-    if (!(await page.locator(`.month-cal [data-date="${date}"]`).count())) await click('.month-cal [data-nav="1"]', 300);
-    await click(`.month-cal [data-date="${date}"]`, 250);
-    await click('[data-part="evening"]', 250);
+    const col = await showDate(page, addDays(fri, d), (sel) => click(sel, 300));
+    const y = await rowY(col, 19 * 60);
+    const b = await col.boundingBox();
+    await page.mouse.move(b.x + 8, b.y + y, { steps: 12 });
+    mouse = { x: b.x + 8, y: b.y + y };
+    await page.mouse.down();
+    await page.mouse.up();
+    await page.waitForTimeout(300);
   }
-  await click('[data-view="week"]', 300);
-  while (!(await page.locator(`.tg-col[data-date="${fri}"]`).count())) await click('.tv-nav [data-step="1"]', 300);
+  await showDate(page, fri, (sel) => click(sel, 300));
   await page.waitForTimeout(600);
   await type('#organizer', 'Priya');
-  await click('#submit', 1200);
+  // Creating celebrates, then opens the poll with the organizer's own answer already in.
+  await click('#submit', 5000);
+  await page.waitForSelector('#mine .row');
 
-  // 2. Answer.
-  await page.evaluate(() => window.scrollTo({ top: 0 }));
-  const votes = [2, 1, 2, 0];
-  for (const [i, v] of votes.entries()) await click(page.locator('#mine .row').nth(i).locator(`[data-vote="${v}"]`), 120);
-  await type('#name', 'Priya');
-  await click('#save', 900);
-
-  // 3. Others answer (behind the scenes), then pick the winner.
+  // 2. Others answer (behind the scenes), then pick the winner.
   const id = page.url().split('/e/')[1];
   const ev = await api(`/api/events/${id}`);
-  const others = { Marcus: [0, 2, 2, 1], Ana: [2, 1, 2, 0], Jordan: [1, 0, 2, 2], Lee: [2, 2, 2, 0] };
+  const others = { Marcus: [0, 2, 2, 1], Ana: [2, 1, 2, 0], Jordan: [1, 0, 2, 2], Lee: [2, 2, 1, 0] };
   for (const [name, v] of Object.entries(others)) {
     const availability = Object.fromEntries(ev.slots.map((s, i) => [s, v[i]]).filter(([, x]) => x));
     await api(`/api/events/${id}/participants`, { name, availability });
@@ -267,7 +351,7 @@ async function recordDemo() {
 try {
   await stills(false);
   await stills(true);
-  console.log('wrote docs/screenshots/*.png');
+  console.log('wrote docs/screenshots/*.png and public/img/shots/*.webp');
   try {
     execFileSync('ffmpeg', ['-version'], { stdio: 'ignore' });
     await recordDemo();
