@@ -58,7 +58,7 @@ export const USAGE_EVENTS = {
   'ai.used': { feature: ['draft', 'answer', 'summary', 'message'] },
   // Browser
   view: { client: true, page: ['chooser', 'pick', 'free', 'poll'], as: ['guest', 'organizer', 'answered'] },
-  share: { client: true, how: ['sheet', 'copy'], from: ['created', 'poll'] },
+  share: { client: true, how: ['sheet', 'copy', 'download'], from: ['created', 'poll', 'card'] }, // card: the "It's set" picture
 };
 
 export const usageEnabled = (env) => Boolean(env.STATS_TOKEN);

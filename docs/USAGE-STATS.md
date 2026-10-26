@@ -25,7 +25,7 @@ Only the events and values listed in `USAGE_EVENTS` in [`src/usage.js`](../src/u
 | `calendar.ics`                                  | Server     | none                                                                                                                                                  |
 | `ai.used`                                       | Server     | `feature` (draft, answer, summary, message)                                                                                                           |
 | `view`                                          | Browser    | `page` (chooser, pick, free, poll), `as` on polls (guest, answered, organizer)                                                                        |
-| `share`                                         | Browser    | `from` (created, poll), `how` (sheet, copy)                                                                                                           |
+| `share`                                         | Browser    | `from` (created, poll, card: the "It's set" picture), `how` (sheet, copy, download)                                                                   |
 
 **Poll outcomes aren't counted.** "Got answers", "date picked" and "guests per poll" are worked out when the stats are read, from the polls themselves.
 

@@ -42,6 +42,12 @@ test('only known events with known values are counted', () => {
   assert.equal(cleanUsage('poll.created', {}, { client: true }), null); // the browser can't fake server events
   assert.equal(cleanUsage('view', { page: 'poll' }), null);
   assert.equal(cleanUsage('toString', {}, { client: true }), null);
+  // The "It's set" picture, shared from the share sheet or downloaded.
+  assert.deepEqual(cleanUsage('share', { from: 'card', how: 'download' }, { client: true }), {
+    name: 'share',
+    props: '{"from":"card","how":"download"}',
+  });
+  assert.equal(cleanUsage('share', { from: 'card', how: 'print' }, { client: true }), null);
 });
 
 test('polls are sorted into kinds', () => {
