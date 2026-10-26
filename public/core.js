@@ -13,6 +13,7 @@ export const LIMITS = {
   slots: 2500,
   participants: 300,
   options: 100,
+  windows: 300,
 };
 
 const MINUTE = 60_000;
@@ -119,119 +120,7 @@ export function weekdayOf(dateStr) {
 
 // ---------- events ----------
 
-const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
-
-function isRealDate(s) {
-  if (!DATE_RE.test(s)) return false;
-  const [y, m, d] = s.split('-').map(Number);
-  const t = new Date(Date.UTC(y, m - 1, d));
-  return t.getUTCFullYear() === y && t.getUTCMonth() === m - 1 && t.getUTCDate() === d;
-}
-
-function cleanText(v, max, field, required = false) {
-  if (v == null) v = '';
-  if (typeof v !== 'string') throw new ValidationError(`${field} must be text`);
-  v = v.trim();
-  if (required && !v) throw new ValidationError(`${field} is required`);
-  if (v.length > max) throw new ValidationError(`${field} must be at most ${max} characters`);
-  return v;
-}
-
 export class ValidationError extends Error {}
-
-/** Validate and normalise the organiser's input for a new event. */
-export function normalizeEventInput(input) {
-  if (!input || typeof input !== 'object') throw new ValidationError('Invalid request');
-  const title = cleanText(input.title, LIMITS.title, 'Title', true);
-  const description = cleanText(input.description, LIMITS.description, 'Description');
-  const organizer = cleanText(input.organizer, LIMITS.name, 'Organizer name');
-  const location = cleanText(input.location, LIMITS.location, 'Location');
-  const emoji = cleanEmoji(input.emoji);
-
-  const timezone = input.timezone;
-  if (!isValidTimeZone(timezone)) throw new ValidationError('Unknown time zone');
-
-  const base = { title, description, organizer, timezone };
-  if (location) base.location = location;
-  if (emoji) base.emoji = emoji;
-  if (input.mode === 'options') return normalizeOptionsEvent(input, base);
-
-  if (!Array.isArray(input.dates) || input.dates.length === 0) throw new ValidationError('Pick at least one date');
-  const dates = [...new Set(input.dates)].sort();
-  if (dates.length > LIMITS.dates) throw new ValidationError(`Pick at most ${LIMITS.dates} dates`);
-  if (!dates.every((d) => typeof d === 'string' && isRealDate(d))) throw new ValidationError('Invalid date');
-
-  const slotMinutes = Number(input.slotMinutes);
-  if (![15, 30, 60, DAY_MINUTES].includes(slotMinutes))
-    throw new ValidationError('Slot size must be 15, 30 or 60 minutes, or whole days');
-
-  const startMinute = Number(input.startMinute);
-  const endMinute = Number(input.endMinute);
-  if (
-    !Number.isInteger(startMinute) ||
-    !Number.isInteger(endMinute) ||
-    startMinute < 0 ||
-    endMinute > 1440 ||
-    startMinute >= endMinute
-  )
-    throw new ValidationError('The end time must be after the start time');
-  if (startMinute % slotMinutes || endMinute % slotMinutes)
-    throw new ValidationError('Start and end times must line up with the slot size');
-
-  const durationMinutes = Number(input.durationMinutes ?? slotMinutes);
-  if (!Number.isInteger(durationMinutes) || durationMinutes < slotMinutes || durationMinutes % slotMinutes)
-    throw new ValidationError('Meeting length must be a multiple of the slot size');
-  // Whole-day polls can look for several days in a row (a trip); others fit inside one day's window.
-  if (slotMinutes === DAY_MINUTES) {
-    if (durationMinutes > MAX_SPAN_DAYS * DAY_MINUTES)
-      throw new ValidationError(`Look for at most ${MAX_SPAN_DAYS} days in a row`);
-  } else if (durationMinutes > endMinute - startMinute)
-    throw new ValidationError('Meeting length is longer than the daily time window');
-
-  const ev = { ...base, dates, startMinute, endMinute, slotMinutes, durationMinutes };
-  if (buildSlots(ev).length > LIMITS.slots)
-    throw new ValidationError('Too many time slots: pick fewer dates, a shorter window or a larger slot size');
-  return ev;
-}
-
-// "Specific times" poll: the organizer proposes exact options and people vote on each.
-const MIN_TIME = Date.UTC(2000, 0, 1);
-const MAX_TIME = Date.UTC(2100, 0, 1);
-
-function normalizeOptionsEvent(input, base) {
-  if (!Array.isArray(input.options) || input.options.length === 0) throw new ValidationError('Propose at least one time');
-  if (input.options.length > LIMITS.options) throw new ValidationError(`Propose at most ${LIMITS.options} times`);
-  const seen = new Set();
-  const options = [];
-  for (const o of input.options) {
-    const start = Number(o?.start),
-      end = Number(o?.end);
-    if (
-      !Number.isInteger(start) ||
-      !Number.isInteger(end) ||
-      start < MIN_TIME ||
-      end > MAX_TIME ||
-      start % MINUTE ||
-      end % MINUTE
-    )
-      throw new ValidationError('Invalid proposed time');
-    // A few hours over the limit allows for daylight saving changes inside a multi-day option.
-    if (end <= start || end - start > MAX_SPAN_DAYS * DAY + 2 * 60 * MINUTE)
-      throw new ValidationError(`Each proposed time must last between 1 minute and ${MAX_SPAN_DAYS} days`);
-    if (seen.has(start)) throw new ValidationError('Two proposed times start at the same moment');
-    seen.add(start);
-    options.push({ start, end });
-  }
-  options.sort((a, b) => a.start - b.start);
-  const ev = { ...base, mode: 'options', options, durationMinutes: (options[0].end - options[0].start) / MINUTE };
-  // "Parts of the day": people mark the mornings, afternoons and evenings they're free.
-  if (input.layout === 'parts') {
-    if (!options.every((o) => partOf(o.start, o.end, base.timezone)))
-      throw new ValidationError('Each option must be a morning, an afternoon or an evening');
-    ev.layout = 'parts';
-  } else if (input.layout != null) throw new ValidationError('Unknown layout');
-  return ev;
-}
 
 /** The part of the day (from DAY_PARTS) that `start`–`end` covers exactly in `tz`, or null. */
 export function partOf(start, end, tz) {
@@ -247,16 +136,6 @@ export const isOptionsPoll = (ev) => ev.mode === 'options';
 /** Polls where people mark whole days rather than times of day. */
 export const isDaysPoll = (ev) => !isOptionsPoll(ev) && ev.slotMinutes === DAY_MINUTES;
 
-// Optional emoji for the kind of plan (🍝, ✈️…). Up to a few emoji, nothing else.
-const EMOJI_RE = /^(?:\p{Extended_Pictographic}|\p{Emoji_Component}|\u200d|\ufe0f)+$/u;
-function cleanEmoji(v) {
-  if (v == null || v === '') return '';
-  if (typeof v !== 'string' || v.length > 16 || !EMOJI_RE.test(v) || /[0-9#*]/.test(v))
-    throw new ValidationError('Invalid emoji');
-  return v;
-}
-
-/** Midnight that starts the day `n` days after the one containing `ms`, in `tz`. */
 function midnightAfter(ms, n, tz) {
   return zonedToUtc(addDays(utcToZoned(ms, tz).date, n), 0, tz);
 }
@@ -288,8 +167,10 @@ export function allDaySpan(start, end, tz) {
 export function buildSlots(ev) {
   if (isOptionsPoll(ev)) return ev.options.map((o) => o.start);
   const set = new Set();
-  for (const date of ev.dates) {
-    for (let m = ev.startMinute; m < ev.endMinute; m += ev.slotMinutes) {
+  // Hours that differ by day, or the same hours every day.
+  const ranges = ev.windows || ev.dates.map((date) => ({ date, start: ev.startMinute, end: ev.endMinute }));
+  for (const { date, start, end } of ranges) {
+    for (let m = start; m < end; m += ev.slotMinutes) {
       const t = zonedToUtc(date, m, ev.timezone);
       // Skip wall-clock times that don't exist (spring-forward gap).
       const back = utcToZoned(t, ev.timezone);
@@ -300,23 +181,6 @@ export function buildSlots(ev) {
 }
 
 /** Validate a participant's availability map against the event's slots. */
-export function normalizeAvailability(av, slots) {
-  if (av == null) return {};
-  if (typeof av !== 'object' || Array.isArray(av)) throw new ValidationError('Invalid availability');
-  const valid = new Set(slots.map(String));
-  const out = {};
-  for (const [k, v] of Object.entries(av)) {
-    if (!valid.has(k)) continue; // ignore stale slots rather than failing the whole save
-    if (v === YES || v === IF_NEEDED) out[k] = v;
-    else if (v !== 0 && v != null) throw new ValidationError('Invalid availability value');
-  }
-  return out;
-}
-
-export function normalizeName(name) {
-  return cleanText(name, LIMITS.name, 'Name', true);
-}
-
 /**
  * Rank every possible meeting start by how many people can make the whole meeting.
  * Returns [{start, end, yes:[names], ifNeeded:[names], no:[names]}], best first.

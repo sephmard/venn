@@ -8,13 +8,12 @@ import {
   buildSlots,
   eventWindows,
   meetingEnd,
-  normalizeAvailability,
-  normalizeEventInput,
   parseIcsBusy,
   rankTimes,
   utcToZoned,
   zonedToUtc,
 } from '../public/core.js';
+import { normalizeAvailability, normalizeEventInput } from '../src/validate.js';
 
 const base = {
   title: 'Sync',
