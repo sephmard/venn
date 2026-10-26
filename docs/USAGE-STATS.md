@@ -15,17 +15,17 @@ Each count is a number for one day. For example, "3 polls created on 2026-10-26 
 
 Only the events and values listed in `USAGE_EVENTS` in [`src/usage.js`](../src/usage.js) are kept. The server drops anything else. The browser can't send the events the server counts itself (polls created, answers and so on).
 
-| Event                                           | Counted by | Properties                                                                                                                                                        |
-| ----------------------------------------------- | ---------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `poll.created`                                  | Server     | `kind` (pick, free), `detail` (times, allday, trips, days, parts, hours), `plan` (dinner, trip…), `options` (1, 2-3, 4-7, 8-15, 16+), `ifNeeded`, `email`, `copy` |
-| `poll.edited`, `poll.deleted`, `poll.finalized` | Server     | `kind`                                                                                                                                                            |
-| `answer.created`                                | Server     | `kind`, `copy` (asked for an email copy)                                                                                                                          |
-| `answer.updated`, `answer.deleted`              | Server     | `kind`                                                                                                                                                            |
-| `notify.email`, `notify.webhook`                | Server     | none                                                                                                                                                              |
-| `calendar.ics`                                  | Server     | none                                                                                                                                                              |
-| `ai.used`                                       | Server     | `feature` (draft, answer, summary, message)                                                                                                                       |
-| `view`                                          | Browser    | `page` (chooser, pick, free, poll), `as` on polls (guest, answered, organizer)                                                                                    |
-| `share`                                         | Browser    | `from` (created, poll), `how` (sheet, copy)                                                                                                                       |
+| Event                                           | Counted by | Properties                                                                                                                                            |
+| ----------------------------------------------- | ---------- | ----------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `poll.created`                                  | Server     | `kind` (pick, free), `detail` (times, allday, trips, days, parts, hours), `plan` (dinner, trip…), `options` (1, 2-3, 4-7, 8-15, 16+), `email`, `copy` |
+| `poll.edited`, `poll.deleted`, `poll.finalized` | Server     | `kind`                                                                                                                                                |
+| `answer.created`                                | Server     | `kind`, `copy` (asked for an email copy)                                                                                                              |
+| `answer.updated`, `answer.deleted`              | Server     | `kind`                                                                                                                                                |
+| `notify.email`, `notify.webhook`                | Server     | none                                                                                                                                                  |
+| `calendar.ics`                                  | Server     | none                                                                                                                                                  |
+| `ai.used`                                       | Server     | `feature` (draft, answer, summary, message)                                                                                                           |
+| `view`                                          | Browser    | `page` (chooser, pick, free, poll), `as` on polls (guest, answered, organizer)                                                                        |
+| `share`                                         | Browser    | `from` (created, poll), `how` (sheet, copy)                                                                                                           |
 
 **Poll outcomes aren't counted.** "Got answers", "date picked" and "guests per poll" are worked out when the stats are read, from the polls themselves.
 
@@ -53,7 +53,7 @@ curl -H "authorization: Bearer $STATS_TOKEN" "https://venn.example/api/stats?day
 It returns:
 
 - `counts`: `[{ day, name, props, count }]`.
-- `outcomes`: for each kind of poll (`all`, `pick`, `pick/times`, `free/parts` and so on), `{ polls, answered, finalized, medianGuests, guests }`. These cover polls created in the period. `guests` is a histogram of guest answers per poll.
+- `outcomes`: for each kind of poll (`all`, `pick`, `pick/times`, `free/parts` and so on), `{ polls, hostAnswered, answered, finalized, medianGuests, guests }`. These cover polls created in the period. `guests` is a histogram of guest answers per poll.
 
 `days` is 1 to 365, and 30 if left out.
 

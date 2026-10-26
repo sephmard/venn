@@ -43,7 +43,6 @@ export const USAGE_EVENTS = {
     detail: DETAILS,
     plan: [...Object.values(PLANS), 'other'],
     options: BUCKETS,
-    ifNeeded: YN, // the organizer marked some of their own options "if needed"
     email: YN, // the organizer gave an email for notifications
     copy: YN, // started from an existing poll
   },
@@ -135,8 +134,9 @@ export async function usageReport(store, { days, now }) {
     const { kind, detail } = pollKind(ev);
     const guests = p.answers - (ev.hostId ? 1 : 0); // the organizer's own answer isn't a guest's
     for (const key of [kind, `${kind}/${detail}`, 'all']) {
-      const g = (byKind[key] ??= { polls: 0, answered: 0, finalized: 0, guests: [] });
+      const g = (byKind[key] ??= { polls: 0, hostAnswered: 0, answered: 0, finalized: 0, guests: [] });
       g.polls++;
+      if (ev.hostId) g.hostAnswered++;
       if (guests > 0) g.answered++;
       if (p.final_start != null) g.finalized++;
       g.guests.push(guests);
@@ -147,6 +147,7 @@ export async function usageReport(store, { days, now }) {
       k,
       {
         polls: g.polls,
+        hostAnswered: g.hostAnswered, // the organizer answered their own poll
         answered: g.answered, // at least one guest answered (the organizer's own answer doesn't count)
         finalized: g.finalized, // the organizer picked the date
         medianGuests: median(g.guests),

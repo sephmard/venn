@@ -1,21 +1,7 @@
 // "Ask when people are available" (/new/free): you pick a range of days, everyone marks when
 // they're available, and Venn finds the overlap. Loaded only on that page.
 
-import {
-  DAY_PARTS,
-  IF_NEEDED,
-  LIMITS,
-  MAX_SPAN_DAYS,
-  YES,
-  addDays,
-  dayRuns,
-  hostAnswer,
-  keySlot,
-  longestRun,
-  weekdayOf,
-  utcToZoned,
-  zonedToUtc,
-} from './core.js';
+import { DAY_PARTS, LIMITS, MAX_SPAN_DAYS, addDays, dayRuns, longestRun, weekdayOf, utcToZoned, zonedToUtc } from './core.js';
 import { isPhone, monthView, timeView } from './picker.js';
 import * as ui from './ui.js';
 import { $, $$, app, dateParts, dayLabel, esc, fmtDay, lengthLabel, plural, shortRange, shortTime, todayStr } from './ui.js';
@@ -64,7 +50,6 @@ export function renderFree() {
   // What's only "if needed" for the organizer, at each level; the rest of what's picked works for them.
   const maybe = { days: new Set(), parts: new Set(), hours: new Set() };
   const st = { days: selected, parts: partsSel, hours: painted, maybe, defaultParts: new Set(DAY_PARTS.map((p) => p.key)) };
-  let brush = YES; // what new picks are for the organizer
   let before = new Set(); // what the level had at the last update, to see what's new
   let level = 'days';
   let length = 120; // minutes, for hours
@@ -98,13 +83,6 @@ export function renderFree() {
           <h3 class="sub-h" id="len-h">How long is it?</h3>
           <div class="pills" role="group" aria-labelledby="len-h">
             ${HOUR_LENGTHS.map((m) => `<button type="button" class="pill" data-flength="${m}" aria-pressed="false">${lengthLabel(m)}</button>`).join('')}
-          </div>
-        </div>
-        <div class="pick-brush">
-          <span class="scope-label" id="fbrush-l">For you, new days and times are</span>
-          <div class="seg brush" role="radiogroup" aria-labelledby="fbrush-l">
-            <button type="button" role="radio" data-fbrush="${YES}"><span class="swatch swatch-yes"></span>Available</button>
-            <button type="button" role="radio" data-fbrush="${IF_NEEDED}"><span class="swatch swatch-maybe"></span>If needed</button>
           </div>
         </div>
         <p class="hint" id="when-help" hidden></p>
@@ -146,9 +124,9 @@ export function renderFree() {
     for (const b of $$('[data-level]')) b.setAttribute('aria-checked', b.dataset.level === level);
     for (const el of $$('[data-for]')) el.hidden = el.dataset.for !== level;
     $('#level-hint').textContent = {
-      days: 'Guests tap the days they’re available. Start broad. Switch to parts of the day or hours if timing matters; we’ll keep what you’ve picked.',
-      parts: 'Guests tap the mornings, afternoons and evenings they’re available. Pick which ones to ask about on each day.',
-      hours: 'Guests mark the hours they’re available, in 30-minute steps, within the times you add.',
+      days: 'Start broad. Zoom in any time; what you pick carries over.',
+      parts: 'Pick the mornings, afternoons and evenings to ask about.',
+      hours: 'Guests mark the hours they’re available within these times.',
     }[level];
     mount();
     update();
@@ -163,16 +141,6 @@ export function renderFree() {
    * just that day away. */
   function tapped() {
     const added = [...selected].filter((d) => !before.has(d));
-    const removed = [...before].filter((d) => !selected.has(d));
-    // A tap on a picked day goes round: available, then if needed, then taken away.
-    if (!added.length && removed.length === 1) {
-      const [d] = removed;
-      if (maybe.days.has(d)) maybe.days.delete(d);
-      else {
-        selected.add(d);
-        maybe.days.add(d);
-      }
-    }
     if (added.length === 1)
       for (let i = 1, d = added[0]; i < span() && selected.size < LIMITS.dates; i++) selected.add((d = addDays(d, 1)));
     const focused = document.activeElement?.dataset?.date;
@@ -205,8 +173,7 @@ export function renderFree() {
     $('#when-help').hidden = false;
     const clear = '<button type="button" class="pill pill-quiet" id="q-clear">Clear all</button>';
     if (level === 'days') {
-      const said = (d) => (selected.has(d) ? (maybe.days.has(d) ? 'If needed' : 'Available') : '');
-      cal = monthView(root, { selected, onChange: tapped, dayClass: band, marks: said });
+      cal = monthView(root, { selected, onChange: tapped, dayClass: band });
       const first = [...selected].sort()[0];
       if (first) cal.show(first);
       $('#quick').innerHTML = `
@@ -231,7 +198,6 @@ export function renderFree() {
       startAt: datesOf(set)[0],
       parts: parts && DAY_PARTS,
       maybe: maybe[level],
-      marking: () => brush === IF_NEEDED,
     });
     $('#when-help').textContent = paintHelp();
     $('#quick').innerHTML = fillPills(parts) + clear;
@@ -239,8 +205,7 @@ export function renderFree() {
 
   /**
    * Hours: the same week / day calendar as "vote on a few dates". Drag (or tap) to add a stretch of
-   * time, drag it or its edges to move or change it, tap it to switch between available and if
-   * needed, or × to remove it. What's picked stays as half hours, so the levels still carry over.
+   * time, drag it or its edges to move or change it, or × to remove it. What's picked stays as half hours, so the levels still carry over.
    */
   function mountHours(root, first, fillPills, editBlocks) {
     const slots = (from, to) => Array.from({ length: Math.max(0, (to - from) / 30) }, (_, i) => from + i * 30);
@@ -280,17 +245,11 @@ export function renderFree() {
           label: shortRange(w.start, w.end),
           short: shortTime(w.start),
           tiny: shortTime(w.start),
-          tag: w.maybe ? 'If needed' : 'Available',
-          title: `${shortRange(w.start, w.end)} ${w.maybe ? 'If needed' : 'Available'}, ${dayLabel(w.date)}. Tap to make it ${w.maybe ? 'available' : 'if needed'}`,
+          title: `${shortRange(w.start, w.end)}, ${dayLabel(w.date)}`,
           remove: `Remove ${shortRange(w.start, w.end)}, ${dayLabel(w.date)}`,
         })),
       onCreate: (date, from, to) => {
-        put(date, from, to, brush === IF_NEEDED);
-        changed();
-      },
-      onBlock: (k) => {
-        const w = find(k);
-        if (w) put(w.date, w.start, w.end, !w.maybe);
+        put(date, from, to);
         changed();
       },
       onResize: (k, from, to) => {
@@ -331,8 +290,8 @@ export function renderFree() {
     };
     painter = { render: view.render, week, cleanup: view.cleanup };
     $('#when-help').textContent = isPhone()
-      ? 'Tap the calendar to add a time of the length above, or drag down it for longer. Drag a time’s top or bottom edge to change it, or drag it to move it. Tap a time to switch between available and if needed, or × to remove it.'
-      : 'Drag on the calendar to add a time, or click to add one of the length above. Drag a time’s edges to change it, or drag it to move it. Click a time to switch between available and if needed, or × to remove it.';
+      ? 'Tap the calendar to add a time. Drag its edges to change it.'
+      : 'Drag on the calendar to add a time. Drag it or its edges to change it.';
     $('#quick').innerHTML = fillPills(false) + '<button type="button" class="pill pill-quiet" id="q-clear">Clear all</button>';
   }
 
@@ -392,27 +351,7 @@ export function renderFree() {
       for (const d of rd) selected.delete(d);
       redraw();
     }
-    // A day, or times, in the list switch between available and if needed for the organizer.
-    const fl = e.target.closest('[data-flip-days], [data-flip-window]');
-    if (fl) {
-      const { flipDays: fd, flipWindow: fw } = fl.dataset;
-      const keys = fd ? fd.split(',') : pt.windowKeys(level, fw);
-      const may = maybe[level];
-      const all = keys.every((k) => may.has(k));
-      for (const k of keys) all ? may.delete(k) : may.add(k);
-      redraw();
-      ($(`#free-list [${fd ? `data-flip-days="${fd}"` : `data-flip-window="${fw}"`}]`) || $('#free-list .chip-flip'))?.focus();
-    }
-    const b = e.target.closest('[data-fbrush]');
-    if (b) {
-      brush = +b.dataset.fbrush;
-      renderBrush();
-    }
   });
-  const renderBrush = () => {
-    for (const b of $$('[data-fbrush]')) b.setAttribute('aria-checked', +b.dataset.fbrush === brush);
-  };
-  renderBrush();
   $('#span').oninput = update;
   // Typing 0 or 99 counts as the nearest number that works; show it.
   $('#span').onchange = () => {
@@ -425,9 +364,8 @@ export function renderFree() {
   const dayRange = (dates) =>
     dates.length === 1 ? dayLabel(dates[0]) : fmtDay.formatRange(dateParts(dates[0]), dateParts(dates.at(-1)));
   /** A chip in the list: tap it to switch between available and if needed for you, × to remove it. */
-  const chip = (flip, rm, text, label, m) =>
-    `<span class="chip ${m ? 'maybe' : 'yes'}"><button type="button" class="chip-flip" ${flip} aria-label="${esc(`${label}, ${m ? 'if needed' : 'available'} for you. Switch to ${m ? 'available' : 'if needed'}`)}">${esc(text)}${m ? ' <small class="chip-tag">If needed</small>' : ''}</button><button type="button" ${rm} aria-label="Remove ${esc(label)}">×</button></span>`;
-  const flipHint = '<span class="muted">Tap one to switch it between available and if needed for you.</span>';
+  const chip = (_flip, rm, text, label) =>
+    `<span class="chip">${esc(text)}<button type="button" ${rm} aria-label="Remove ${esc(label)}">×</button></span>`;
 
   /** Days in a row, each run as a range with its length: is it long enough for the days in a row
    * asked for? Inside a run, the days that are if needed for the organizer are a chip of their own. */
@@ -454,17 +392,13 @@ export function renderFree() {
 
   // What guests will be able to mark, and whether the poll can be created yet.
   function update() {
-    // What's new takes the brush: available or if needed for the organizer.
-    const may = maybe[level];
-    for (const k of st[level]) if (!before.has(k)) brush === IF_NEEDED ? may.add(k) : may.delete(k);
-    for (const l in maybe) for (const k of [...maybe[l]]) if (!st[l].has(k)) maybe[l].delete(k);
     before = new Set(st[level]);
     const box = $('#free-list');
     if (level === 'hours') {
       const windows = pt.toWindows(painted);
       const dates = pt.datesOf(painted);
       box.innerHTML = windows.length
-        ? `<p class="preview-lede">Guests will mark when they’re available in these times. Venn looks for <b>${esc(lengthLabel(length))}</b> that work${length === 60 ? 's' : ''} for the most people. ${flipHint}</p>
+        ? `<p class="preview-lede">Looking for <b>${esc(lengthLabel(length))}</b> that work${length === 60 ? 's' : ''} for the most people.</p>
           ${pt.windowList(pt.windowsAt(st, level), level, chip, dayRange)}`
         : '<p class="hint">Nothing yet. Paint some times on the calendar above, or use a quick fill.</p>';
       return setReady(
@@ -481,7 +415,7 @@ export function renderFree() {
     if (level === 'parts') {
       const windows = pt.windowsAt(st, level);
       box.innerHTML = windows.length
-        ? `<p class="preview-lede">Guests will tap which of these they’re available. ${flipHint}</p>${pt.windowList(windows, level, chip, dayRange)}`
+        ? pt.windowList(windows, level, chip, dayRange)
         : '<p class="hint">Nothing yet. Tap mornings, afternoons and evenings on the calendar above, or use a quick fill.</p>';
       return setReady(
         `${plural(windows.length, 'time')} to choose from`,
@@ -491,13 +425,11 @@ export function renderFree() {
     }
     const dates = [...selected].sort();
     const k = span();
-    $('#when-help').hidden = false;
-    $('#when-help').textContent =
-      k > 1
-        ? `Tap a day to pick ${k} days in a row from it. Tap a picked day to make it if needed, and again to take just that day away.`
-        : 'Tap a day to pick it. Tap it again to make it if needed, and once more to take it away.';
+    // Only worth saying when a tap picks several days.
+    $('#when-help').hidden = k < 2;
+    $('#when-help').textContent = `Tap a day to pick ${k} days in a row from it.`;
     box.innerHTML = dates.length
-      ? `<p class="preview-lede">On ${plural(dates.length, 'day')} (${esc(dayRange([dates[0], dates.at(-1)]))}), guests will mark the whole days they’re available. ${k > 1 ? `Venn looks for <b>${k} days in a row</b> that work for the most people.` : 'Venn finds the days the most people are available.'} ${flipHint}</p>${runList(dates, k)}`
+      ? `${k > 1 ? `<p class="preview-lede">Looking for <b>${k} days in a row</b>.</p>` : ''}${runList(dates, k)}`
       : '<p class="hint">Nothing yet. Pick some days on the calendar above.</p>';
     setReady(
       `${plural(dates.length, 'day')} to choose from`,
@@ -512,18 +444,15 @@ export function renderFree() {
     e.preventDefault();
     if (explainNotReady()) return;
     const tz = $('#tz').value;
-    // The organizer's own answer: what they picked, available or if needed.
-    const answer = hostAnswer(st[level], maybe[level], tz);
-    if (level === 'hours')
-      return submit({ windows: pt.toWindows(painted), slotMinutes: 30, durationMinutes: length }, occasion, answer);
+    if (level === 'hours') return submit({ windows: pt.toWindows(painted), slotMinutes: 30, durationMinutes: length }, occasion);
     if (level === 'parts') {
       const options = pt
         .windowsAt(st, level)
         .map((w) => ({ start: zonedToUtc(w.date, w.start, tz), end: zonedToUtc(w.date, w.end, tz) }));
-      return submit({ mode: 'options', layout: 'parts', options }, occasion, answer);
+      return submit({ mode: 'options', layout: 'parts', options }, occasion);
     }
     const dates = [...selected].sort();
-    submit({ dates, startMinute: 0, endMinute: 1440, slotMinutes: 1440, durationMinutes: span() * 1440 }, occasion, answer);
+    submit({ dates, startMinute: 0, endMinute: 1440, slotMinutes: 1440, durationMinutes: span() * 1440 }, occasion);
   };
 
   /** Start from an existing poll's days, parts of the day or painted times. */
@@ -550,9 +479,6 @@ export function renderFree() {
       const ranges = ev.windows || ev.dates.map((date) => ({ date, start: ev.startMinute, end: ev.endMinute }));
       for (const w of ranges) for (let m = w.start - (w.start % 30); m < w.end; m += 30) painted.add(`${w.date}|${m}`);
     }
-    // What the organizer answered: the times that are only if needed for them.
-    const mine = ev.participants?.find((p) => p.id === ev.hostId)?.availability || {};
-    for (const k of st[next]) if (mine[keySlot(k, ev.timezone)] === IF_NEEDED) maybe[next].add(k);
     level = null; // show the level again, from the poll's days or times
     setLevel(next);
   }

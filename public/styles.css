@@ -1793,8 +1793,14 @@ details.organizer summary b {
   border-color: var(--maybe);
   color: var(--maybe-ink);
 }
+.part-vote[data-v='no'] {
+  background: var(--no);
+  border-color: var(--no);
+  color: var(--surface);
+}
 .part-vote[data-v='2'] small,
-.part-vote[data-v='1'] small {
+.part-vote[data-v='1'] small,
+.part-vote[data-v='no'] small {
   color: inherit;
 }
 .part-vote.final {
@@ -1826,6 +1832,38 @@ details.organizer summary b {
 }
 .heat-btn.active {
   border-color: var(--text);
+}
+/* Available, if needed and unavailable, in proportion, under each count. */
+.heat-bar {
+  display: flex;
+  gap: 2px;
+  height: 6px;
+  margin: 4px 6px 0;
+  border-radius: 3px;
+  overflow: hidden;
+}
+.heat-bar i,
+.legend .sw {
+  background: var(--yes);
+}
+.heat-bar .m,
+.legend .sw-m {
+  background: var(--maybe);
+}
+.heat-bar .n,
+.legend .sw-n {
+  background: var(--no);
+}
+.legend .sw {
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  border-radius: 3px;
+  margin: 0 4px 0 6px;
+  vertical-align: -1px;
+}
+.legend .sw:first-child {
+  margin-left: 0;
 }
 .heat-btn.final {
   outline: 2.5px solid var(--final);
@@ -1890,8 +1928,14 @@ details.organizer summary b {
   border-color: var(--maybe);
   color: var(--maybe-ink);
 }
+.all-day[data-v='no'] {
+  background: var(--no);
+  border-color: var(--no);
+  color: var(--surface);
+}
 .all-day[data-v='2'] .ad-mark,
-.all-day[data-v='1'] .ad-mark {
+.all-day[data-v='1'] .ad-mark,
+.all-day[data-v='no'] .ad-mark {
   border-color: currentColor;
 }
 .all-day[data-v='some'] {

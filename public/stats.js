@@ -101,12 +101,12 @@ function render({ days, since, counts, outcomes }) {
       <p class="hint">Polls created in this period, and how they're doing now.</p>
       ${scroller(
         'What happens to polls',
-        `        <tr><th>Kind</th><th class="n">Polls</th><th class="n">Got answers</th><th class="n">Date picked</th><th class="n">Median guests</th></tr>
+        `        <tr><th>Kind</th><th class="n">Polls</th><th class="n">Organizer answered</th><th class="n">Got answers</th><th class="n">Date picked</th><th class="n">Median guests</th></tr>
         ${Object.keys(KINDS)
           .filter((k) => outcomes[k])
           .map((k) => {
             const o = outcomes[k];
-            return `<tr><td>${esc(KINDS[k])}</td><td class="n">${o.polls}</td><td class="n">${pct(o.answered, o.polls)}</td><td class="n">${pct(o.finalized, o.polls)}</td><td class="n">${o.medianGuests}</td></tr>`;
+            return `<tr><td>${esc(KINDS[k])}</td><td class="n">${o.polls}</td><td class="n">${pct(o.hostAnswered, o.polls)}</td><td class="n">${pct(o.answered, o.polls)}</td><td class="n">${pct(o.finalized, o.polls)}</td><td class="n">${o.medianGuests}</td></tr>`;
           })
           .join('')}
         `,
@@ -137,7 +137,6 @@ function render({ days, since, counts, outcomes }) {
     ${breakdown(
       'Organizer choices',
       [
-        { label: 'Marked some options "if needed"', n: of('poll.created', { ifNeeded: 'yes' }) },
         { label: 'Gave an email for notifications', n: of('poll.created', { email: 'yes' }) },
         { label: 'Started from another poll', n: of('poll.created', { copy: 'yes' }) },
         { label: 'Edited a poll', n: of('poll.edited') },

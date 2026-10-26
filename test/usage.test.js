@@ -110,7 +110,6 @@ test('counts what happens, and works out what happened to each poll', async () =
       detail: 'times',
       plan: 'dinner',
       options: '2-3',
-      ifNeeded: 'yes',
       email: 'no',
     }),
     1,
@@ -124,8 +123,22 @@ test('counts what happens, and works out what happened to each poll', async () =
   for (const secret of [id, 'Ann', 'Dinner', adminToken]) assert.ok(!raw.includes(secret), secret);
 
   // Outcomes come from the polls themselves; the organizer's own answer doesn't count as a guest.
-  assert.deepEqual(data.outcomes.pick, { polls: 1, answered: 1, finalized: 1, medianGuests: 1, guests: { 1: 1 } });
-  assert.deepEqual(data.outcomes.free, { polls: 1, answered: 0, finalized: 0, medianGuests: 0, guests: { 0: 1 } });
+  assert.deepEqual(data.outcomes.pick, {
+    polls: 1,
+    hostAnswered: 1,
+    answered: 1,
+    finalized: 1,
+    medianGuests: 1,
+    guests: { 1: 1 },
+  });
+  assert.deepEqual(data.outcomes.free, {
+    polls: 1,
+    hostAnswered: 0,
+    answered: 0,
+    finalized: 0,
+    medianGuests: 0,
+    guests: { 0: 1 },
+  });
   assert.equal(data.outcomes.all.polls, 2);
   assert.equal(data.outcomes['pick/times'].polls, 1);
 });

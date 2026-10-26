@@ -31,7 +31,7 @@ export function groupState(availability, slots) {
 
 /**
  * Tapping a part of the day, or "All day", answers all of its times at once: all yes → all if
- * needed → cleared, and from anything else, all yes. Changes `availability` in place.
+ * needed → none (unavailable, once answered), and from anything else, all yes. Changes `availability` in place.
  */
 export function cycleGroup(availability, slots) {
   const v = groupState(availability, slots);

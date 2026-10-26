@@ -220,7 +220,7 @@ export async function renderEvent(id, navigate) {
                       </div>`
                     : ''
                 }
-                ${partsMode ? '<p class="hint">Tap each time you\'re available. Tap again for "if needed", and once more to clear it.</p>' : ''}
+                ${partsMode ? '<p class="hint">Tap to switch: available, if needed, unavailable.</p>' : ''}
                 <div id="mine" class="rows"></div>
                 <div id="mine-cal" hidden></div>`
               : `<p class="hview-h" id="hview-h">Answer with</p>
@@ -509,14 +509,8 @@ export async function renderEvent(id, navigate) {
     refreshMineParts();
   }
   function refreshMineParts() {
-    for (const b of $$('.part-vote', mineEl)) {
-      const v = st.mine[b.dataset.opt] || 0;
-      b.dataset.v = v;
-      // Pressed: true = available, mixed = if needed. The state is also written out for screen readers.
-      b.setAttribute('aria-pressed', v === YES ? 'true' : v === IF_NEEDED ? 'mixed' : 'false');
-      $('.pv-state', b).innerHTML =
-        v === YES ? '✓ Available' : v === IF_NEEDED ? '~ If needed' : '<span class="sr-only">Not marked</span>';
-    }
+    // Pressed: true = available, mixed = if needed. The state is also written out for screen readers.
+    for (const b of $$('.part-vote', mineEl)) $('.pv-state', b).innerHTML = showState(b, allState([b.dataset.opt]));
     for (const b of $$('[data-all-day]', mineEl)) showAllDay(b, partsOfDay(b.dataset.allDay));
   }
   const partsOfDay = (d) =>
@@ -528,21 +522,37 @@ export async function renderEvent(id, navigate) {
   /** The button, after a row's date. `attrs` says which day it's for. */
   const allDayBtn = (attrs, d) =>
     `<button type="button" class="all-day" ${attrs}><span class="ad-mark" aria-hidden="true"></span>All day<span class="sr-only">, ${esc(fmtDay.format(dateParts(d)))}</span></button>`;
-  const allState = (slots) => groupState(st.mine, slots);
+  /** Like groupState, plus 'no' once every one of `slots` has been answered and none is marked:
+   * unavailable, which isn't the same as not answered yet. */
+  const allState = (slots) => {
+    const v = groupState(st.mine, slots);
+    return v === 0 && slots.every((s) => st.touched.has(String(s))) ? 'no' : v;
+  };
+  /** A part of the day's state, shown on its button and said by screen readers. */
+  const STATE = {
+    [YES]: ['true', '✓ Available'],
+    [IF_NEEDED]: ['mixed', '~ If needed'],
+    no: ['false', '✕ Unavailable'],
+  };
+  function showState(b, v) {
+    b.dataset.v = v;
+    const [pressed, text] = STATE[v] || ['false', '<span class="sr-only">Not answered</span>'];
+    b.setAttribute('aria-pressed', pressed);
+    return text;
+  }
   function showAllDay(b, slots) {
     const v = allState(slots);
-    b.dataset.v = v;
-    b.setAttribute('aria-pressed', v === YES ? 'true' : v === IF_NEEDED ? 'mixed' : 'false');
-    $('.ad-mark', b).textContent = v === YES ? '✓' : v === IF_NEEDED ? '~' : '';
+    showState(b, v);
+    $('.ad-mark', b).textContent = v === YES ? '✓' : v === IF_NEEDED ? '~' : v === 'no' ? '✕' : '';
   }
-  /** All available → all if needed → cleared; from anything else, all available. */
+  /** All available → all if needed → all unavailable → all available. */
   function cycleAll(slots) {
     cycleGroup(st.mine, slots);
     for (const s of slots) st.touched.add(String(s));
     refreshMine();
     changed();
   }
-  /** Not marked or no → yes → if needed → no. */
+  /** Not answered or unavailable → available → if needed → unavailable. */
   function cycle(s) {
     const v = st.mine[s] || 0;
     if (v === YES) st.mine[s] = IF_NEEDED;
@@ -687,12 +697,10 @@ export async function renderEvent(id, navigate) {
     box.hidden = st.hview !== 'quick';
     $('#exact-hours').hidden = st.hview === 'quick';
     if (box.hidden) return;
-    box.innerHTML =
-      '<p class="hint">Tap each part of the day you\'re available. Tap again for "if needed", and once more to clear it.</p>' +
-      LG.dates
-        .map((d) => {
-          const keys = BUCKETS.filter((b) => quickSlots(d, b[0]).length);
-          return `<div class="row parts-row">${dateBlock(d)}
+    box.innerHTML = LG.dates
+      .map((d) => {
+        const keys = BUCKETS.filter((b) => quickSlots(d, b[0]).length);
+        return `<div class="row parts-row">${dateBlock(d)}
           <div class="row-main"><div class="row-when">${esc(fmtDowLong.format(dateParts(d)))}</div>${keys.length > 1 ? allDayBtn(`data-quick="${d}|all"`, d) : ''}</div>
           <div class="part-votes quick-votes">${keys
             .map(([k, l]) => {
@@ -702,19 +710,14 @@ export async function renderEvent(id, navigate) {
               return `<button type="button" class="part-vote" data-quick="${d}|${k}"><b>${l}</b><small>${esc(shortRange(a, z.date === d ? z.minutes : 1440))}</small><span class="pv-state"></span></button>`;
             })
             .join('')}</div></div>`;
-        })
-        .join('');
+      })
+      .join('');
     refreshQuick();
   }
   function refreshQuick() {
     for (const b of $$('.all-day[data-quick]')) showAllDay(b, quickSlots(...b.dataset.quick.split('|')));
-    for (const b of $$('.part-vote[data-quick]')) {
-      const v = allState(quickSlots(...b.dataset.quick.split('|')));
-      b.dataset.v = v;
-      b.setAttribute('aria-pressed', v === YES ? 'true' : v === IF_NEEDED ? 'mixed' : 'false');
-      $('.pv-state', b).innerHTML =
-        v === YES ? '✓ Available' : v === IF_NEEDED ? '~ If needed' : '<span class="sr-only">Not marked</span>';
-    }
+    for (const b of $$('.part-vote[data-quick]'))
+      $('.pv-state', b).innerHTML = showState(b, allState(quickSlots(...b.dataset.quick.split('|'))));
   }
 
   function renderMine() {
@@ -1043,7 +1046,8 @@ export async function renderEvent(id, navigate) {
       // Every answer sent gets a little party; it loads while the answer is sent.
       const party = import('./celebrate.js').catch(() => null);
       if (!saved(id).participantId) {
-        const r = await api(`events/${id}/participants`, { method: 'POST', body });
+        // With the organizer link, this is the organizer's own answer.
+        const r = await api(`events/${id}/participants`, { method: 'POST', body, headers: authHeaders() });
         save(id, { participantId: r.id, editToken: r.editToken });
         created = true;
       }
@@ -1167,8 +1171,18 @@ export async function renderEvent(id, navigate) {
             if (!w) return '<td></td>';
             const yes = people.filter((x) => x.availability[w.start] === YES).length;
             const maybe = people.filter((x) => x.availability[w.start] === IF_NEEDED).length;
-            const label = `${when(w.start, w.end)}: ${yes} of ${n} available${maybe ? `, ${maybe} if needed` : ''}`;
-            return `<td><button type="button" class="heat-btn${String(w.start) === String(st.inspect) ? ' active' : ''}${w.start === ev().finalStart ? ' final' : ''}" data-inspect="${w.start}" style="--a:${((yes + maybe / 2) / n).toFixed(2)}" aria-label="${esc(label)}">${yes + maybe}</button></td>`;
+            const no = n - yes - maybe;
+            const label = `${when(w.start, w.end)}: ${yes} of ${n} available${maybe ? `, ${maybe} if needed` : ''}${no ? `, ${no} unavailable` : ''}`;
+            // The bar under the number: available, if needed and unavailable, in their colours.
+            const bar = [
+              ['y', yes],
+              ['m', maybe],
+              ['n', no],
+            ]
+              .filter(([, k]) => k)
+              .map(([c, k]) => `<i class="${c}" style="flex:${k}"></i>`)
+              .join('');
+            return `<td><button type="button" class="heat-btn${String(w.start) === String(st.inspect) ? ' active' : ''}${w.start === ev().finalStart ? ' final' : ''}" data-inspect="${w.start}" style="--a:${((yes + maybe / 2) / n).toFixed(2)}" aria-label="${esc(label)}">${yes + maybe}<span class="heat-bar" aria-hidden="true">${bar}</span></button></td>`;
           })
           .join('');
         return `<tr><th scope="row">${esc(fmtDay.format(dateParts(d)))}</th>${cells}</tr>`;
@@ -1178,7 +1192,7 @@ export async function renderEvent(id, navigate) {
         <thead><tr><th></th>${parts.map((p) => `<th scope="col">${esc(p.label)}</th>`).join('')}</tr></thead>
         <tbody>${rows}</tbody>
       </table></div>
-      <p class="hint">How many people are available. Darker means more. Tap one to see who.</p>
+      <p class="hint legend"><span class="sw sw-y"></span>Available <span class="sw sw-m"></span>If needed <span class="sw sw-n"></span>Unavailable. Tap one to see who.</p>
       <div class="hover-info" id="parts-inspect"></div>`;
     renderPartsInspect();
   }

@@ -1,6 +1,6 @@
 // HTTP API built on web-standard Request/Response, shared by the Worker and the Node server.
 
-import { IF_NEEDED, LIMITS, ValidationError, YES, allDaySpan, isValidTimeZone, buildSlots, meetingEnd } from '../public/core.js';
+import { LIMITS, ValidationError, YES, allDaySpan, isValidTimeZone, buildSlots, meetingEnd } from '../public/core.js';
 import { buildIcs } from '../public/calendar-export.js';
 import { normalizeAvailability, normalizeEventInput, normalizeName } from './validate.js';
 import { SECURITY_HEADERS } from './security-headers.js';
@@ -281,7 +281,6 @@ export async function handleApi(
         ...pollKind(event),
         plan: planOf(event),
         options: sizeOf(event),
-        ifNeeded: hostAnswer && Object.values(hostAnswer).includes(IF_NEEDED) ? 'yes' : 'no',
         email: notifyEmail ? 'yes' : 'no',
         copy: body.copied === true ? 'yes' : 'no',
       });
@@ -311,9 +310,17 @@ export async function handleApi(
         const body = await readJson(request);
         const next = applyPrivacy(normalizeEventInput(body), body);
         if (ev.hostId) next.hostId = ev.hostId;
-        // The organizer's own answer follows the new times. It's checked before the poll changes.
+        // The organizer's own answer follows the new times: what they sent, or what they'd already
+        // answered for the times that are still there. It's checked before the poll changes.
         const host = participants.find((p) => p.id === ev.hostId);
-        const hostAnswer = host && hostAvailability(next, body.hostAvailability);
+        const hostAnswer =
+          host &&
+          (body.hostAvailability != null
+            ? hostAvailability(next, body.hostAvailability)
+            : normalizeAvailability(
+                Object.fromEntries(Object.entries(host.availability).filter(([s]) => buildSlots(next).includes(+s))),
+                buildSlots(next),
+              ));
         await store.updateEvent(ev.id, next);
         await store.setFinal(ev.id, null);
         if (host)
@@ -473,8 +480,15 @@ export async function handleApi(
       });
       if (email) await store.setParticipantEmail(ev.id, id, email);
       await sendCopy(ev, copyTo, { participantId: id, editToken, name, availability });
-      notify(ev, 'response.created', id, name);
-      count('answer.created', { ...kindOf(ev), copy: copyTo ? 'yes' : 'no' });
+      // The organizer's first answer (sent with their link) is theirs: they aren't told about it, and
+      // the poll can still be changed until someone else answers.
+      if (isAdmin && !ev.hostId) {
+        const { id: _id, adminHash, finalStart, createdAt, ...data } = ev;
+        await store.updateEvent(ev.id, { ...data, hostId: id });
+      } else {
+        notify(ev, 'response.created', id, name);
+        count('answer.created', { ...kindOf(ev), copy: copyTo ? 'yes' : 'no' });
+      }
       return json({ id, editToken }, 201);
     }
 
