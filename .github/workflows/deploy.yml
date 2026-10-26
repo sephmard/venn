@@ -2,7 +2,8 @@
 # To enable, set in the repo's Settings → Secrets and variables → Actions:
 #   variables: CLOUDFLARE_DEPLOY=true, D1_DATABASE_ID=<from `npx wrangler d1 create venn`>,
 #              CUSTOM_DOMAIN=<optional, e.g. venn.day; the domain must be a zone on the same Cloudflare account>
-#              CLOUDFLARE_EMAIL=<optional, true to send notification emails with Cloudflare Email Sending>
+#              CLOUDFLARE_EMAIL=<optional, true to send notification emails with Cloudflare Email Sending;
+#                               a secret works too>
 #   secrets:   CLOUDFLARE_API_TOKEN (Workers + D1 edit), CLOUDFLARE_ACCOUNT_ID
 name: Deploy
 
@@ -45,8 +46,21 @@ jobs:
           CUSTOM_DOMAIN: ${{ vars.CUSTOM_DOMAIN }}
         run: printf '\n[[routes]]\npattern = "%s"\ncustom_domain = true\n' "$CUSTOM_DOMAIN" >> wrangler.toml
       - name: Send email with Cloudflare
-        if: vars.CLOUDFLARE_EMAIL == 'true'
-        run: printf '\n[[send_email]]\nname = "EMAIL"\n' >> wrangler.toml
+        env:
+          # Accepted as a variable or a secret, in any case, so a slip in the settings doesn't
+          # silently leave email off.
+          FROM_VAR: ${{ vars.CLOUDFLARE_EMAIL }}
+          FROM_SECRET: ${{ secrets.CLOUDFLARE_EMAIL }}
+        run: |
+          flag=$(printf '%s' "${FROM_VAR:-$FROM_SECRET}" | tr -d '[:space:]' | tr '[:upper:]' '[:lower:]')
+          if [ "$flag" = "true" ]; then
+            printf '\n[[send_email]]\nname = "EMAIL"\n' >> wrangler.toml
+            echo "CLOUDFLARE_EMAIL is on: the Worker gets the EMAIL binding for Cloudflare Email Sending."
+          elif [ -n "$FROM_VAR$FROM_SECRET" ]; then
+            echo "::warning::CLOUDFLARE_EMAIL is set but isn't \"true\", so Cloudflare email stays off."
+          else
+            echo "CLOUDFLARE_EMAIL isn't set (as a variable or a secret), so Cloudflare email stays off."
+          fi
       - name: Deploy
         env:
           RAW_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
