@@ -13,7 +13,7 @@
 <p align="center">
   <a href="https://github.com/sephmard/venn/actions/workflows/ci.yml"><img src="https://github.com/sephmard/venn/actions/workflows/ci.yml/badge.svg" alt="CI"></a>
   <a href="https://scorecard.dev/viewer/?uri=github.com/sephmard/venn"><img src="https://api.scorecard.dev/projects/github.com/sephmard/venn/badge" alt="OpenSSF Scorecard"></a>
-  <img src="https://img.shields.io/badge/page_weight-%E2%89%A445_KB-0b7a5c" alt="Under 45 KB per page">
+  <img src="https://img.shields.io/badge/poll_page-%E2%89%A445_KB-0b7a5c" alt="The poll page is under 45 KB">
   <img src="https://img.shields.io/badge/build_step-none-0b7a5c" alt="No build step">
   <a href="https://workers.cloudflare.com"><img src="https://img.shields.io/badge/runs_on-Cloudflare_Workers-0b7a5c?logo=cloudflare&logoColor=white" alt="Runs on Cloudflare Workers"></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-0b7a5c" alt="MIT license"></a>
@@ -38,7 +38,7 @@
 | --------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------- |
 | **No framework, no build**  | Plain HTML, CSS and ES modules in `public/`, served as-is. Clone it and read it; there's nothing to compile.                                 |
 | **One codebase, two hosts** | The API is web-standard `Request` → `Response`. It runs as a Cloudflare Worker with D1, or as a Node server with `node:sqlite`.              |
-| **Small on purpose**        | Every page stays under 45 KB gzipped. A test fails the build if it grows, and each page loads only the code it needs.                        |
+| **Small on purpose**        | A poll opens in under 45 KB gzipped, and the create pages stay under 47 KB. A test fails the build if they grow.                             |
 | **An API and webhooks**     | Create polls, collect answers and pick the date over JSON. Every answer can post a signed webhook to Slack, Discord or your endpoint.        |
 | **Private by design**       | No accounts or cookies. Edit links carry secrets the server stores only as SHA-256 hashes. Calendar checks (coming soon) run in the browser. |
 | **Checked on every change** | Unit and API tests with a coverage floor, browser tests on desktop and phone, axe accessibility audits in light and dark, CodeQL.            |
@@ -120,6 +120,7 @@ Time zones, ranking and calendar files live in `public/core.js`, shared by the b
 
 - **Two kinds of poll.** Vote on a few dates, or ask when people are free: paint the hours on a calendar, or pick whole days, or days in a row for a trip.
 - **Nobody signs up.** Open the link, type a name, tap _Yes_, _If needed_ or _No_. It's built for phones first.
+- **The organizer's poll is their answer:** the times they offer count as theirs. They can edit the poll until someone answers, then duplicate it.
 - **The best date rises to the top,** with everyone who can make it. Pick it and everyone adds it to Google, Apple or Outlook Calendar.
 - **Privacy controls for organizers:** ask everyone for their email, hide names, or hide everyone's answers so only you see them.
 - **Time zones handled,** and **notifications** by email, Slack, Discord or your own webhook. Checking your calendar is coming soon.
@@ -130,7 +131,7 @@ Time zones, ranking and calendar files live in `public/core.js`, shared by the b
 
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="docs/screenshots/create-dark.png">
-  <img src="docs/screenshots/create-light.png" alt="Creating a dinner poll: picking dates on a calendar">
+  <img src="docs/screenshots/create-light.png" alt="Creating a dinner poll: evenings tapped on a week calendar">
 </picture>
 
 <p align="center">

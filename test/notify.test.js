@@ -68,6 +68,20 @@ test("the emails: a proud poll-ready email, an excited one per answer, and the g
     answerCopyEmail({ title: 'Dinner', name: 'Ana', lines: [], pollUrl, editUrl, seeAnswers: false }).html,
     /Open the poll/,
   );
+  assert.match(copy.text, /None of these work\./); // the same words as the poll page
+});
+
+test('email buttons and links use the app green, which is readable with white text (WCAG AA)', () => {
+  const pollUrl = 'https://venn.example/e/abc';
+  const emails = [
+    pollReadyEmail({ title: 'Dinner', pollUrl, unsubscribeUrl: pollUrl }),
+    answerCopyEmail({ title: 'Dinner', name: 'Ana', lines: [], pollUrl, editUrl: pollUrl }),
+  ];
+  for (const { html } of emails) {
+    assert.doesNotMatch(html, /#0f9d76/i); // 3.4:1 with white, too faint
+    assert.match(html, /background:#0b7a5c;color:#fff;[^"]*border-radius:999px/); // a pill, like the app's buttons
+    assert.match(html, /<a href="[^"]+" style="color:#0b7a5c">/);
+  }
 });
 
 test("a poll can only send so many emails to the organizer, since addresses aren't confirmed", async () => {
@@ -349,7 +363,7 @@ test('people who answer can get a copy of their answer, with their edit link', a
     });
   sent = [];
   await edit({});
-  assert.match(emails()[0].body.text, /None of the times work for you/);
+  assert.match(emails()[0].body.text, /None of these work\./);
   for (let i = 0; i < 3; i++) await edit({ [slot]: 1 });
   sent = [];
   await edit({ [slot]: 1 });

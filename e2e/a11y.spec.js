@@ -1,12 +1,15 @@
 import { test, expect } from '@playwright/test';
-import { addOptions } from './helpers.js';
+import { addOptions, showNextMonth } from './helpers.js';
 import AxeBuilder from '@axe-core/playwright';
 
 // Automated accessibility checks (WCAG 2.2 A/AA rules from axe) on every main screen, in light and
 // dark mode, on desktop and phone. Serious and critical problems fail the build.
 async function audit(page, label, { party = false } = {}) {
   // A passing toast can sit over the page for a moment; it isn't part of what's being checked.
-  await page.evaluate(() => document.getElementById('toast')?.setAttribute('hidden', ''));
+  await page.evaluate(() => {
+    const t = document.getElementById('toast');
+    if (t) t.textContent = '';
+  });
   // Nor is the "poll created" celebration while it fades away (it has its own audit).
   if (!party) await expect(page.locator('.party')).toHaveCount(0, { timeout: 10_000 });
   const results = await new AxeBuilder({ page }).withTags(['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa', 'wcag22aa']).analyze();
@@ -29,6 +32,7 @@ for (const scheme of ['light', 'dark']) {
     });
 
     test('create pages', async ({ page }) => {
+      page.on('dialog', (d) => d.accept()); // switching to trips clears the options with times, after asking
       await page.goto('/new');
       await audit(page, 'chooser');
       await page.goto('/new/pick');
@@ -36,7 +40,7 @@ for (const scheme of ['light', 'dark']) {
       await addOptions(page, 2);
       await audit(page, 'vote on a few dates (week or day)');
       await page.click('[data-length="days"]');
-      await page.click('[data-nav="1"]');
+      await showNextMonth(page);
       await page.locator('.cal-day').first().click();
       await page.locator('.cal-grid').evaluate((el) => el.scrollIntoView({ block: 'center' })); // clear of the sticky bar
       await audit(page, 'vote on a few dates (trips)');
@@ -79,6 +83,18 @@ for (const scheme of ['light', 'dark']) {
       await page.click('#q-2w');
       await page.click('#submit');
       await expect(page.locator('.party [role=status]')).toContainText('Poll created!');
+      // A modal dialog, named by its heading, with everything behind it out of reach.
+      await expect(page.getByRole('dialog', { name: 'Poll created!' })).toBeVisible();
+      await expect(page.locator('.party')).toHaveAttribute('aria-modal', 'true');
+      expect(await page.evaluate(() => [...document.body.children].filter((n) => n.inert).map((n) => n.tagName))).toEqual(
+        expect.arrayContaining(['HEADER', 'MAIN', 'FOOTER']),
+      );
+      for (let i = 0; i < 4; i++) {
+        await page.keyboard.press('Tab');
+        expect(await page.evaluate(() => !!document.activeElement.closest('.party'))).toBe(true);
+      }
+      for (const b of await page.locator('.party button:visible').all())
+        expect((await b.boundingBox()).height).toBeGreaterThanOrEqual(44);
       await audit(page, 'poll created', { party: true });
     });
 
@@ -142,5 +158,95 @@ for (const scheme of ['light', 'dark']) {
       await page.locator('.heat-btn').first().click();
       await audit(page, 'parts of the day poll');
     });
+  });
+}
+
+// A poll made through the API, opened as its organizer, optionally with answers and the date picked.
+async function openPoll(page, { picked = false, names = [], ...fields } = {}) {
+  const options = [8, 9, 10].map((d) => ({ start: Date.UTC(2030, 0, d, 18), end: Date.UTC(2030, 0, d, 20) }));
+  const res = await page.request.post('/api/events', {
+    data: { title: 'Dinner at Finn’s', timezone: 'UTC', mode: 'options', options, ...fields },
+  });
+  const { id, adminToken } = await res.json();
+  for (const name of names)
+    await page.request.post(`/api/events/${id}/participants`, {
+      data: { name, availability: { [options[0].start]: 2 } },
+    });
+  if (picked)
+    await page.request.post(`/api/events/${id}/finalize`, {
+      data: { start: options[0].start },
+      headers: { 'x-admin-token': adminToken },
+    });
+  await page.goto(`/e/${id}#admin=${adminToken}`);
+  await expect(page.locator('#ev-title')).toBeVisible();
+}
+
+for (const scheme of ['light', 'dark']) {
+  test(`the selected tab shows the focus ring (${scheme})`, async ({ page }) => {
+    await page.emulateMedia({ colorScheme: scheme });
+    await page.setViewportSize({ width: 375, height: 740 }); // the tabs are for narrow screens
+    await openPoll(page);
+    const tab = page.locator('[role=tab][aria-selected=true]');
+    await page.locator('#copy').focus();
+    // Tab through to the selected tab, so the browser treats it as keyboard focus.
+    for (let i = 0; i < 20 && !(await tab.evaluate((el) => el === document.activeElement)); i++) await page.keyboard.press('Tab');
+    await expect(tab).toBeFocused();
+    const ring = await tab.evaluate((el) => {
+      const cs = getComputedStyle(el);
+      const accent = getComputedStyle(document.documentElement).getPropertyValue('--accent').trim();
+      const probe = document.createElement('i');
+      probe.style.color = accent;
+      document.body.append(probe);
+      const color = getComputedStyle(probe).color;
+      probe.remove();
+      return { width: cs.outlineWidth, style: cs.outlineStyle, offset: cs.outlineOffset, color: cs.outlineColor, accent: color };
+    });
+    expect(ring).toMatchObject({ width: '3px', style: 'solid', color: ring.accent });
+    expect(parseFloat(ring.offset)).toBeGreaterThan(0);
+  });
+}
+
+test('a long link in the note, or a long name, never makes the poll page scroll sideways at 375px', async ({ page }) => {
+  await page.setViewportSize({ width: 375, height: 740 });
+  const url = `https://example.com/menu?ref=${'abcdefghij'.repeat(15)}`;
+  await openPoll(page, {
+    title: `Supercalifragilisticexpialidocious${'x'.repeat(30)}`,
+    description: `Menu and directions: ${url}`,
+    location: url,
+    names: [`Maximiliana${'w'.repeat(60)}`, 'Ana'],
+  });
+  await expect(page.locator('.note')).toContainText('Menu and directions');
+  expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(375);
+  const share = await page.locator('#copy').boundingBox();
+  expect(share.x + share.width).toBeLessThanOrEqual(375);
+  const title = await page.locator('#ev-title').boundingBox();
+  expect(title.x + title.width).toBeLessThanOrEqual(375);
+  // The group: names wrap in their chips, and the results keep a narrow name column with "…".
+  await page.click('#tab-group');
+  await expect(page.locator('.matrix')).toBeVisible();
+  expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(375);
+  const name = page.locator('.matrix tbody th').first();
+  expect((await name.boundingBox()).width).toBeLessThanOrEqual(110);
+  expect(await name.locator('> :last-child').evaluate((el) => el.scrollWidth > el.clientWidth)).toBe(true);
+});
+
+for (const width of [375, 412]) {
+  test(`the picked date's buttons can be tapped on a phone (${width}px)`, async ({ page }) => {
+    await page.setViewportSize({ width, height: 900 });
+    await openPoll(page, { picked: true });
+    const banner = page.locator('.banner-final');
+    await expect(banner).toBeVisible();
+    // Whatever is under the middle of each button is the button itself, not the decorative circles.
+    for (const el of await banner.locator('a, button').all()) {
+      await el.scrollIntoViewIfNeeded();
+      const hit = await el.evaluate((node) => {
+        const r = node.getBoundingClientRect();
+        const at = document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2);
+        return at === node || node.contains(at);
+      });
+      expect(hit, await el.innerText()).toBe(true);
+    }
+    await banner.getByRole('button', { name: 'Clear the date' }).click();
+    await expect(banner).toHaveCount(0);
   });
 }

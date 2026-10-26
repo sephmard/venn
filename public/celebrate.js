@@ -54,6 +54,10 @@ export function celebrate({
   }
   const el = document.createElement('div');
   el.className = 'party';
+  // A modal dialog: everything behind it is inert while it's up, so focus and taps stay inside.
+  el.setAttribute('role', 'dialog');
+  el.setAttribute('aria-modal', 'true');
+  el.setAttribute('aria-labelledby', 'party-h');
   el.innerHTML = `
     <div class="party-stage">
       <div class="party-hero" aria-hidden="true"><i></i><i></i><i></i><img src="${DOG}" alt="" width="92" height="200" /></div>
@@ -61,11 +65,15 @@ export function celebrate({
       <button type="button" class="party-go"></button>
       <button type="button" class="party-skip" hidden>View poll</button>
     </div>`;
+  // The toast stays live, so "Link copied" is still heard after sharing.
+  const behind = [...document.body.children].filter((n) => !n.inert && n.id !== 'toast');
+  for (const n of behind) n.inert = true;
   document.body.append(el);
   // Filled in after it's on the page, so screen readers announce it.
   const status = el.querySelector('[role=status]');
   const h2 = document.createElement('h2');
   const p = document.createElement('p');
+  h2.id = 'party-h';
   h2.textContent = heading;
   p.textContent = message;
   status.append(h2, p);
@@ -208,7 +216,15 @@ export function celebrate({
     skip = resolve;
     setTimeout(resolve, SHOW_MS);
   });
-  const onKey = (e) => e.key === 'Escape' && skip();
+  const onKey = (e) => {
+    if (e.key === 'Escape') skip();
+    if (e.key !== 'Tab') return;
+    // Tab and Shift+Tab go round the dialog's buttons.
+    e.preventDefault();
+    const buttons = [...el.querySelectorAll('button:not([hidden])')];
+    const i = buttons.indexOf(document.activeElement);
+    buttons[i < 0 ? 0 : (i + (e.shiftKey ? buttons.length - 1 : 1)) % buttons.length].focus();
+  };
   go.addEventListener('click', () => {
     share?.();
     skip();
@@ -221,6 +237,7 @@ export function celebrate({
     /** Fade the overlay out, revealing the poll underneath. */
     finish() {
       removeEventListener('keydown', onKey);
+      for (const n of behind) n.inert = false;
       const out = anim(el, [{ opacity: 1 }, { opacity: 0 }], { duration: 300, easing: 'ease-in' });
       if (out) out.onfinish = () => el.remove();
       else el.remove();

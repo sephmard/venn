@@ -514,6 +514,35 @@ h2 em {
   line-height: 1;
 }
 
+/* How it works: three phone screens, side by side; on a phone, a row to swipe through. */
+.shots {
+  list-style: none;
+  margin: 48px 0 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 40px;
+}
+.shots li {
+  min-width: 0;
+}
+.shots img {
+  display: block;
+  width: 100%;
+  max-width: 300px;
+  height: auto;
+  margin: 0 0 24px;
+  border: 1px solid var(--line);
+  border-radius: 28px;
+  background: var(--card);
+  box-shadow: var(--shot-shadow);
+}
+.shots:focus-visible {
+  outline: 3px solid var(--green);
+  outline-offset: 8px;
+  border-radius: 12px;
+}
+
 /* For groups */
 .groups {
   display: grid;
@@ -838,6 +867,19 @@ h3 {
   }
   .story {
     max-width: 560px;
+  }
+  .shots {
+    display: flex;
+    gap: 20px;
+    overflow-x: auto;
+    scroll-snap-type: x mandatory;
+    margin-inline: calc(-1 * var(--gutter));
+    padding: 0 var(--gutter) 24px;
+    scroll-padding-inline: var(--gutter);
+  }
+  .shots li {
+    flex: 0 0 min(260px, 72vw);
+    scroll-snap-align: start;
   }
 }
 @media (max-width: 640px) {

@@ -437,23 +437,22 @@ export async function handleApi(
     if (parts.length === 4) {
       const p = await store.getParticipant(ev.id, parts[3]);
       if (!p) return error(404, 'Response not found');
-      const isOwner = await tokenMatches(request.headers.get('x-edit-token'), p.editHash);
+      const isHost = p.id === ev.hostId;
+      // The organizer link also covers the organizer's own answer, so it can be changed from any device.
+      const isOwner = (await tokenMatches(request.headers.get('x-edit-token'), p.editHash)) || (isAdmin && isHost);
       if (method === 'PUT') {
         if (!isOwner) return error(403, 'You can only edit your own response');
         const body = await readJson(request);
         const name = normalizeName(body.name);
         const availability = normalizeAvailability(body.availability, slots);
         const copyTo = normalizeEmail(body.copyTo);
-        const email = participantEmail(ev, body);
+        const email = isHost ? null : participantEmail(ev, body);
         await store.updateParticipant({ id: p.id, eventId: ev.id, name, availability, now: now() });
         if (email) await store.setParticipantEmail(ev.id, p.id, email);
-        await sendCopy(ev, copyTo, {
-          participantId: p.id,
-          editToken: request.headers.get('x-edit-token'),
-          name,
-          availability,
-        });
-        notify(ev, 'response.updated', p.id, name);
+        const editToken = request.headers.get('x-edit-token');
+        if (editToken) await sendCopy(ev, copyTo, { participantId: p.id, editToken, name, availability });
+        // The organizer isn't told about their own answer.
+        if (!isHost) notify(ev, 'response.updated', p.id, name);
         return json({ ok: true });
       }
       if (method === 'DELETE') {

@@ -113,6 +113,19 @@ export function addDays(dateStr, n) {
   return `${t.getUTCFullYear()}-${pad(t.getUTCMonth() + 1)}-${pad(t.getUTCDate())}`;
 }
 
+/** The most days in a row among `dates` (YYYY-MM-DD, any order), e.g. 1 for Tue and Thu. */
+export function longestRun(dates) {
+  const set = new Set(dates);
+  let best = 0;
+  for (const d of set) {
+    if (set.has(addDays(d, -1))) continue; // count each run once, from its first day
+    let n = 1;
+    while (set.has(addDays(d, n))) n++;
+    best = Math.max(best, n);
+  }
+  return best;
+}
+
 export function weekdayOf(dateStr) {
   const [y, m, d] = dateStr.split('-').map(Number);
   return new Date(Date.UTC(y, m - 1, d)).getUTCDay();

@@ -29,6 +29,7 @@
   --no-soft: #fbe6e2;
   --danger: #b42318;
   --cell-empty: #ece8df;
+  --cell-line: #8f8a80;
   --heat: 11, 122, 92;
   --final: #4a63d9;
   --final-ink: #ffffff;
@@ -62,6 +63,7 @@
     --no-soft: #3a1f1c;
     --danger: #ff8577;
     --cell-empty: #23272a;
+    --cell-line: #6e7378;
     --heat: 47, 196, 151;
     --final: #7c95ff;
     --final-ink: #0f1112;
@@ -81,6 +83,10 @@ html,
 body {
   margin: 0;
 }
+/* clear of the sticky tabs and Save bar */
+html {
+  scroll-padding: 72px 0 96px;
+}
 body {
   background: var(--bg);
   color: var(--text);
@@ -93,6 +99,7 @@ body {
   min-height: 100vh;
   display: flex;
   flex-direction: column;
+  overflow-wrap: break-word;
   -webkit-text-size-adjust: 100%;
 }
 button {
@@ -136,7 +143,11 @@ p {
 a {
   color: var(--accent);
 }
-:focus-visible {
+:focus-visible,
+/* these draw outlines of their own */
+.tabs [role='tab']:focus-visible,
+.seg button:focus-visible,
+button.final:focus-visible {
   outline: 3px solid var(--accent);
   outline-offset: 2px;
 }
@@ -209,6 +220,7 @@ a {
   font-size: 1.3rem;
   color: var(--text);
   text-decoration: none;
+  min-height: 44px;
 }
 .footer {
   text-align: center;
@@ -244,7 +256,9 @@ a {
   transform: scale(0.98);
 }
 .btn:disabled {
-  opacity: 0.55;
+  background: var(--surface-2);
+  border-color: var(--border);
+  color: var(--muted);
   cursor: default;
 }
 .btn-primary {
@@ -377,7 +391,7 @@ a {
 .seg [aria-pressed='true'] {
   background: var(--surface);
   box-shadow: var(--lift);
-  outline: 1.5px solid var(--border);
+  outline: 1.5px solid var(--accent);
 }
 .seg button:disabled {
   opacity: 0.5;
@@ -427,11 +441,6 @@ select:focus {
   align-items: center;
   font-weight: 500;
   margin-top: 8px;
-}
-.row {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 12px;
 }
 .stack,
 .stack-sm {
@@ -509,13 +518,15 @@ details summary::-webkit-details-marker {
   display: none;
 }
 details.reveal summary::before,
-details.tz-line summary::before {
+details.tz-line summary::before,
+details.organizer summary::before {
   content: '+';
   font-family: var(--display);
   font-weight: 800;
 }
 details.reveal[open] summary::before,
-details.tz-line[open] summary::before {
+details.tz-line[open] summary::before,
+details.organizer[open] summary::before {
   content: '−';
 }
 
@@ -552,132 +563,6 @@ details.tz-line[open] summary::before {
   padding: 20px;
 }
 
-/* ---------- chooser ---------- */
-.chooser {
-  max-width: 880px;
-  margin: 24px auto 0;
-}
-.choices {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
-  gap: 16px;
-  margin-top: 24px;
-}
-.choice {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  padding: 24px;
-  border-radius: 28px;
-  background: var(--surface);
-  border: 1.5px solid var(--border);
-  color: var(--text);
-  text-decoration: none;
-  transition:
-    border-color 0.15s,
-    transform 0.15s;
-}
-.choice:hover {
-  border-color: var(--accent);
-  transform: translateY(-2px);
-}
-.choice-title {
-  font-family: var(--serif);
-  font-size: 1.9rem;
-  font-weight: 400;
-  line-height: 1.15;
-}
-.choice-text {
-  color: var(--muted);
-}
-.choice-fit {
-  margin-top: auto;
-  padding-top: 8px;
-  font-size: 0.875rem;
-  font-weight: 650;
-  color: var(--accent);
-}
-.choice-art {
-  height: 84px;
-  display: flex;
-  align-items: center;
-  margin-bottom: 8px;
-}
-/* Three date tiles, one voted for */
-.art-pick {
-  gap: 8px;
-}
-.art-pick i {
-  font-style: normal;
-  font-family: var(--display);
-  font-weight: 800;
-  width: 62px;
-  height: 70px;
-  border-radius: 16px;
-  display: grid;
-  place-items: center;
-  background: var(--surface-2);
-  color: var(--muted);
-  border: 1.5px solid var(--border);
-}
-.art-pick i.on {
-  background: var(--yes);
-  color: var(--yes-ink);
-  border-color: var(--yes);
-  transform: rotate(-4deg);
-}
-/* Two overlapping circles: the Venn */
-.art-free i {
-  width: 76px;
-  height: 76px;
-  border-radius: 50%;
-  background: var(--accent);
-  opacity: 0.55;
-}
-.art-free i + i {
-  margin-left: -30px;
-  background: var(--maybe);
-  opacity: 0.75;
-  mix-blend-mode: multiply;
-}
-@media (prefers-color-scheme: dark) {
-  .art-free i + i {
-    mix-blend-mode: screen;
-  }
-}
-
-/* ---------- create pages ---------- */
-.create {
-  max-width: 720px;
-  margin: 0 auto;
-}
-.create > h1 {
-  margin-bottom: 20px;
-}
-.back {
-  display: inline-flex;
-  align-items: center;
-  min-height: 44px;
-  font-weight: 600;
-  text-decoration: none;
-  color: var(--muted);
-}
-.occasions {
-  display: flex;
-  gap: 8px;
-  overflow-x: auto;
-  scrollbar-width: none;
-  margin: 0 -20px;
-  padding: 2px 20px 4px;
-}
-.occasions .pill {
-  flex: none;
-}
-.title-row {
-  display: flex;
-  gap: 12px;
-  align-items: flex-end;
-}
 .emoji-tile {
   flex: none;
   width: 52px;
@@ -694,91 +579,6 @@ details.tz-line[open] summary::before {
   font-size: 2.4rem;
   border-radius: 22px;
 }
-.date-times + .date-times {
-  margin-top: 16px;
-}
-.date-times h3 {
-  margin-bottom: 8px;
-}
-.ai-row {
-  display: flex;
-  gap: 8px;
-  align-items: flex-start;
-}
-.create-bar {
-  position: sticky;
-  bottom: 0;
-  z-index: 5;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  padding: 12px 16px calc(12px + env(safe-area-inset-bottom));
-  margin: 8px -16px 0;
-  background: color-mix(in srgb, var(--bg) 92%, transparent);
-  backdrop-filter: blur(8px);
-  border-top: 1.5px solid var(--border);
-}
-.create-sum {
-  display: grid;
-  font-weight: 650;
-  font-size: 0.95rem;
-}
-
-/* ---------- calendar ---------- */
-.cal-head {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  margin-bottom: 8px;
-}
-.cal-month {
-  margin: 0;
-  font-size: 1.1rem;
-}
-.cal-grid {
-  display: grid;
-  grid-template-columns: repeat(7, 1fr);
-  gap: 4px;
-  user-select: none;
-  -webkit-user-select: none;
-}
-.cal-dow {
-  text-align: center;
-  font-size: 0.8rem;
-  font-weight: 600;
-  color: var(--muted);
-  padding: 4px 0;
-}
-.cal-day {
-  position: relative;
-  height: clamp(44px, 11vw, 58px);
-  border-radius: 14px;
-  border: 1.5px solid transparent;
-  background: var(--surface-2);
-  font-family: var(--display);
-  font-weight: 700;
-  font-size: 1rem;
-  cursor: pointer;
-}
-.cal-day:hover:not(:disabled) {
-  border-color: var(--accent);
-}
-.cal-day.today {
-  border-color: var(--muted);
-}
-.cal-day[aria-pressed='true'] {
-  background: var(--accent);
-  color: var(--accent-ink);
-  border-color: var(--accent);
-}
-.cal-day:disabled {
-  background: transparent;
-  color: var(--muted);
-  opacity: 0.45;
-  cursor: default;
-}
-
 /* ---------- avatars ---------- */
 .av {
   --size: 32px;
@@ -821,13 +621,15 @@ details.tz-line[open] summary::before {
 }
 .poll-head {
   display: grid;
-  grid-template-columns: auto 1fr;
+  grid-template-columns: auto minmax(0, 1fr);
   gap: 16px;
   align-items: start;
   padding: 12px 0 20px;
 }
 .poll-head h1 {
   margin-bottom: 6px;
+}
+.poll-head-text {
   overflow-wrap: anywhere;
 }
 .poll-meta {
@@ -861,7 +663,7 @@ details.tz-line[open] summary::before {
 }
 @media (min-width: 700px) {
   .poll-head {
-    grid-template-columns: auto 1fr auto;
+    grid-template-columns: auto minmax(0, 1fr) auto;
   }
   .poll-share {
     grid-column: auto;
@@ -892,7 +694,7 @@ details.tz-line[open] summary::before {
 .tabs [aria-selected='true'] {
   background: var(--surface);
   box-shadow: var(--lift);
-  outline: 1.5px solid var(--border);
+  outline: 1.5px solid var(--accent);
 }
 .count {
   display: inline-grid;
@@ -1188,6 +990,8 @@ ol.best .when {
   background: var(--surface-2);
   font-size: 0.9rem;
   font-weight: 600;
+  max-width: 100%;
+  overflow-wrap: anywhere;
 }
 .chip.person {
   cursor: pointer;
@@ -1195,9 +999,27 @@ ol.best .when {
   padding-right: 14px;
   border: 1.5px solid transparent;
 }
-.chip.person[aria-pressed='true'] {
+.chip.person:has([aria-pressed='true']) {
   border-color: var(--accent);
   background: var(--accent-soft);
+}
+/* The name is its own button, with the remove button beside it. */
+.chip.person .person-btn {
+  margin: 0;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font: inherit;
+  color: inherit;
+  font-size: inherit;
+  min-height: 36px;
+  min-width: 0;
+  text-align: left;
+}
+.badge-final {
+  font-size: 0.85rem;
+  font-weight: 700;
+  white-space: nowrap;
 }
 .chip button {
   border: 0;
@@ -1223,6 +1045,11 @@ ol.best .when {
   overflow-x: auto;
   margin: 0 -20px;
   padding: 0 20px 4px;
+  /* fades at the edge: there's more */
+  mask-image: linear-gradient(to left, transparent, #000 20px);
+}
+.matrix-scroll:focus-visible {
+  mask-image: none;
 }
 .matrix {
   border-collapse: separate;
@@ -1319,7 +1146,7 @@ ol.best .when {
 }
 .swatch-no {
   background: var(--cell-empty);
-  border: 1px solid var(--border);
+  border: 1px solid var(--cell-line);
 }
 .grid-scroll {
   position: relative;
@@ -1332,12 +1159,18 @@ ol.best .when {
   gap: 2px;
   user-select: none;
   -webkit-user-select: none;
-  touch-action: none;
   width: max-content;
   min-width: 100%;
 }
-.grid.readonly {
-  touch-action: auto;
+/* A mouse drags across cells to paint. On touch screens a swipe scrolls and a tap marks one time. */
+.grid:not(.readonly) .cell {
+  touch-action: none;
+}
+@media (pointer: coarse) {
+  .grid:not(.readonly),
+  .grid:not(.readonly) .cell {
+    touch-action: pan-y;
+  }
 }
 .grid .day-label {
   font-size: 0.75rem;
@@ -1379,10 +1212,16 @@ ol.best .when {
   min-width: 38px;
   border-radius: 5px;
   background: var(--cell-empty);
+  border: 1px solid var(--cell-line);
   cursor: pointer;
 }
 .cell.hour {
   box-shadow: inset 0 1px 0 rgba(127, 127, 127, 0.25);
+}
+.cell.void,
+.cell.yes,
+.cell.maybe {
+  border-color: transparent;
 }
 .cell.void {
   background: transparent;
@@ -1440,20 +1279,19 @@ ol.best .when {
   background: var(--yes);
   color: var(--yes-ink);
 }
+.banner-final > * {
+  position: relative;
+  z-index: 1;
+}
 .banner-final h2 {
   font-family: var(--serif);
   font-size: clamp(2rem, 6vw, 2.8rem);
   font-weight: 400;
   margin: 0;
-  position: relative;
 }
 .banner-final .kicker {
   font-weight: 700;
   margin: 0 0 4px;
-  position: relative;
-}
-.banner-final .btn-row {
-  position: relative;
 }
 .banner-final .link-btn {
   color: inherit;
@@ -1468,6 +1306,7 @@ ol.best .when {
   height: 160px;
   border-radius: 50%;
   background: rgba(255, 255, 255, 0.14);
+  pointer-events: none;
 }
 .banner-final::after {
   right: 60px;
@@ -1508,6 +1347,9 @@ details.organizer summary {
   display: block;
   padding: 10px 0 2px;
 }
+details.organizer summary::before {
+  margin-right: 6px;
+}
 details.organizer summary b {
   font-weight: 750;
 }
@@ -1522,48 +1364,7 @@ details.organizer summary b {
   max-width: 360px;
 }
 
-/* Menus and AI */
-.cal-connect {
-  position: relative;
-}
-.menu {
-  position: absolute;
-  top: calc(100% + 6px);
-  left: 0;
-  z-index: 6;
-  width: min(300px, calc(100vw - 48px));
-  padding: 8px;
-  border-radius: var(--radius);
-  background: var(--surface);
-  border: 1.5px solid var(--border);
-  box-shadow: 0 12px 40px -12px rgb(22 24 26 / 0.35);
-}
-.menu-item {
-  display: flex;
-  align-items: center;
-  width: 100%;
-  min-height: 44px;
-  padding: 8px 12px;
-  border: 0;
-  border-radius: 10px;
-  background: none;
-  text-align: left;
-  font-weight: 600;
-  cursor: pointer;
-  margin: 0;
-}
-.menu-item:hover {
-  background: var(--surface-2);
-}
-.file-item input {
-  position: absolute;
-  opacity: 0;
-  width: 1px;
-  height: 1px;
-}
-.menu .hint {
-  padding: 4px 12px 6px;
-}
+/* AI */
 .ai-panel,
 .ai-card {
   border-radius: var(--radius);
@@ -1624,6 +1425,9 @@ details.organizer summary b {
   width: max-content;
   text-align: center;
 }
+#toast:empty {
+  padding: 0;
+}
 
 @media (max-width: 520px) {
   .sheet {
@@ -1636,6 +1440,13 @@ details.organizer summary b {
   .matrix-scroll {
     margin: 0 -16px;
     padding: 0 16px 4px;
+  }
+  .matrix tbody th {
+    max-width: 104px;
+  }
+  .matrix tbody th > :last-child {
+    overflow: hidden;
+    text-overflow: ellipsis;
   }
   .save-bar {
     margin: 16px -16px -18px;
@@ -1981,115 +1792,6 @@ details.organizer summary b {
   outline: 2.5px solid var(--final);
 }
 
-/* ---------- organizer: days, then start times, then the options in the poll ---------- */
-.pick-mode {
-  margin-bottom: 12px;
-}
-.composer {
-  display: grid;
-  gap: 20px;
-}
-.step h3 {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  margin-bottom: 6px;
-}
-.step-n {
-  display: inline-grid;
-  place-items: center;
-  width: 26px;
-  height: 26px;
-  border-radius: 50%;
-  background: var(--accent);
-  color: var(--accent-ink);
-  font-size: 0.85rem;
-}
-.time-groups {
-  margin: 8px 0 12px;
-}
-.pills.times .pill {
-  min-width: 84px;
-  justify-content: center;
-}
-.composer-sum {
-  margin: 0;
-  padding: 12px 14px;
-  border-radius: var(--radius);
-  background: var(--surface-2);
-}
-.day-scope {
-  align-items: center;
-  margin-bottom: 10px;
-}
-.scope-label {
-  font-weight: 650;
-  margin-right: 2px;
-}
-#summary.missing {
-  color: var(--muted);
-  font-weight: 500;
-}
-.cal-day.in-trip {
-  background: var(--accent-soft);
-  border-color: var(--accent-soft);
-}
-.cal-day.day-maybe[aria-pressed='true'] {
-  background: var(--maybe);
-  border-color: var(--maybe);
-  color: var(--maybe-ink);
-}
-.chip .chip-flip {
-  font: inherit;
-  color: inherit;
-  min-height: 32px;
-  padding: 0 2px;
-}
-.chip .chip-flip:hover {
-  color: inherit;
-  text-decoration: underline;
-}
-.poll-preview .preview-lede {
-  margin-bottom: 10px;
-}
-.od-list {
-  list-style: none;
-  margin: 0 0 4px;
-  padding: 0;
-  display: grid;
-  gap: 8px;
-}
-.od-row {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 8px 12px;
-  padding: 10px 12px;
-  border-radius: var(--radius);
-  background: var(--surface-2);
-}
-.od-row .chip {
-  background: var(--surface);
-}
-.od-date {
-  font-weight: 750;
-  min-width: 112px;
-}
-.od-add {
-  margin-left: auto;
-}
-.od-len {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  margin-left: auto;
-  font-weight: 600;
-}
-
-.pill small {
-  font-weight: 500;
-}
-
 /* ---------- guests: what I've picked, and calendar coming soon ---------- */
 .my-picks {
   margin-top: 14px;
@@ -2102,19 +1804,6 @@ details.organizer summary b {
 }
 .my-picks p:last-child {
   margin: 0;
-}
-.pill.soon:disabled {
-  opacity: 1;
-  color: var(--muted);
-  cursor: default;
-}
-.badge-soon {
-  font-size: 0.75rem;
-  font-weight: 700;
-  padding: 2px 8px;
-  border-radius: 999px;
-  background: var(--surface-2);
-  color: var(--muted);
 }
 /* Not ready to save yet (no name, or nothing picked): an outline, so it reads as not done. */
 #save[data-ready='false'] {
@@ -2174,6 +1863,30 @@ details.organizer summary b {
   color: var(--accent);
   min-height: 32px;
 }
+
+/* Touch: 44px tap targets */
+@media (pointer: coarse) {
+  .btn-sm,
+  .seg button,
+  .all-day,
+  .footer a,
+  .notify-way > summary,
+  .dev summary {
+    min-height: 44px;
+  }
+  .footer a {
+    display: inline-flex;
+    align-items: center;
+  }
+  .chip button:not(.chip-flip) {
+    min-width: 44px;
+    min-height: 44px;
+    margin: -4px;
+  }
+  .cell {
+    height: 32px;
+  }
+}
 pre.code {
   overflow-x: auto;
   max-width: 100%;
@@ -2188,17 +1901,6 @@ pre.code {
 .btn-new {
   border-color: var(--accent);
   color: var(--accent);
-}
-.btn-new .short {
-  display: none;
-}
-@media (max-width: 520px) {
-  .btn-new .long {
-    display: none;
-  }
-  .btn-new .short {
-    display: inline;
-  }
 }
 .hview {
   margin-bottom: 4px;
@@ -2291,108 +1993,4 @@ pre.code {
   display: grid;
   gap: 6px;
   margin-bottom: 10px;
-}
-/* ---------- organizer: paint the times guests can mark ---------- */
-.pg-scroll {
-  position: relative;
-  max-height: min(70vh, 640px);
-  overflow-y: auto;
-  border: 1.5px solid var(--border);
-  border-radius: var(--radius);
-  background: var(--surface);
-}
-.pg {
-  display: grid;
-  user-select: none;
-}
-.pg-corner,
-.pg-day {
-  position: sticky;
-  top: 0;
-  z-index: 2;
-  background: var(--surface);
-  border-bottom: 1px solid var(--border);
-}
-.pg-day {
-  min-height: 44px;
-  border: 0;
-  border-bottom: 1px solid var(--border);
-  font: inherit;
-  font-size: 0.8rem;
-  color: var(--text);
-  cursor: pointer;
-  line-height: 1.2;
-}
-.pg-day b {
-  display: block;
-}
-.pg-day:hover {
-  background: var(--surface-2);
-}
-.pg-time {
-  font-size: 0.7rem;
-  color: var(--muted);
-  text-align: right;
-  padding-right: 6px;
-  transform: translateY(-0.5em);
-  touch-action: pan-y; /* phones scroll by dragging the times */
-}
-.pg-cell {
-  height: 24px;
-  border-left: 1px solid var(--border);
-  border-top: 1px dashed var(--cell-empty);
-  touch-action: none;
-  cursor: crosshair;
-}
-.pg-cell.hour {
-  border-top: 1px solid var(--border);
-}
-.pg-cell.on {
-  background: var(--accent);
-  border-top-color: transparent;
-}
-.pg-cell.on + .pg-cell.on {
-  border-left-color: rgb(255 255 255 / 0.35);
-}
-.pg-cell:focus-visible {
-  outline: 2px solid var(--text);
-  outline-offset: -2px;
-}
-@media (max-width: 640px) {
-  .pg-cell {
-    height: 28px;
-  }
-}
-.pg-cell.part {
-  height: 64px;
-  border-top: 1px solid var(--border);
-  display: grid;
-  place-items: center;
-  cursor: pointer;
-}
-.pg-cell.part small {
-  font-size: 0.7rem;
-  color: var(--muted);
-}
-.pg-cell.part.on small {
-  color: var(--accent-ink);
-}
-.pg-time.part {
-  transform: none;
-  align-self: center;
-  font-size: 0.8rem;
-  font-weight: 600;
-}
-.zoom {
-  display: grid;
-  gap: 6px;
-  margin-bottom: 4px;
-}
-.sub-h {
-  font-size: 1rem;
-  margin: 0 0 8px;
-}
-.pg-help {
-  flex-basis: 100%;
-  margin: 0;
 }

@@ -38,8 +38,10 @@ export function monthView(
 ) {
   const today = todayStr();
   const toggle = !!selected;
-  let cursor = new Date();
-  cursor = new Date(cursor.getFullYear(), cursor.getMonth(), 1);
+  // Open on this month, or on next month when fewer than 7 days of this one are left.
+  const now = new Date();
+  const left = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate() - now.getDate() + 1;
+  let cursor = new Date(now.getFullYear(), now.getMonth() + (left < 7 ? 1 : 0), 1);
   root.innerHTML = `
     <div class="cal-head">
       <button type="button" class="icon-btn" data-nav="-1" aria-label="Previous month">‹</button>
@@ -129,17 +131,32 @@ export function monthView(
  * A grid of 30-minute rows for one or more days, with blocks drawn on it.
  *   dates()    the columns (YYYY-MM-DD)
  *   range()    [from, to] minutes after midnight shown
- *   blocks()   [{ key, date, from, to, cls, label, short, title }] positioned in local minutes;
- *              `short` replaces `label` when blocks share the width
+ *   blocks()   [{ key, date, from, to, cls, label, short, tiny, title }] positioned in local minutes;
+ *              `short` replaces `label` when blocks share the width, and `tiny` ("7p") is used in a
+ *              phone's narrow week columns
  *   busy()     [{ date, from, to }] shown behind the blocks
  *   onCreate(date, from, to)  drag (mouse) or tap (touch, keyboard-free) on an empty spot; omit for read-only
  *   onBlock(key)              tap a block
  *   editBlocks, onResize(key, from, to), onMove(key, date, from, to)  dragging blocks (block-edit.js)
  *   tapLength()               minutes for a tap
+ *   startAt()                 minutes to open at when the days shown have no blocks (null: 5 PM)
+ * Returns { render, home() (scroll back to the start), cleanup }.
  */
 function timeGrid(
   root,
-  { dates, range, blocks, busy = () => [], onCreate, onBlock, onResize, onMove, editBlocks, tapLength = () => 60 },
+  {
+    dates,
+    range,
+    blocks,
+    busy = () => [],
+    onCreate,
+    onBlock,
+    onResize,
+    onMove,
+    editBlocks,
+    tapLength = () => 60,
+    startAt = () => null,
+  },
 ) {
   let scrollTop = null;
   let shownDates = '';
@@ -163,6 +180,10 @@ function timeGrid(
     const pos = (a, b) =>
       `top:calc(${at(Math.max(a, from))} * var(--row));height:calc(${(Math.min(b, to) - Math.max(a, from)) / STEP} * var(--row))`;
     const all = blocks();
+    // A phone's week has narrow columns: "7p" fits where "7 – 9 PM" breaks into "9 / P / M".
+    const narrow = ds.length > 1 && isPhone();
+    const text = (b, n) => (narrow && b.tiny != null ? b.tiny : n > 1 && b.short ? b.short : b.label);
+    const today = todayStr();
     const cols = ds
       .map((d) => {
         const bz = busy()
@@ -187,14 +208,16 @@ function timeGrid(
               _,
               style = `${pos(b.from, b.to)};left:calc(3px + (100% - 6px) * ${lane[i]} / ${n});width:calc((100% - 6px) / ${n} - 2px)`,
             ) =>
-              `<button type="button" class="tg-block ${b.cls || ''}" data-key="${esc(b.key)}" style="${style}" aria-label="${esc(b.title || b.label)}">${editor?.top || ''}<span>${esc(n > 1 && b.short ? b.short : b.label)}</span>${editor?.bottom || ''}</button>${editor ? editor.after(b, style) : ''}`,
+              `<button type="button" class="tg-block ${b.cls || ''}" data-key="${esc(b.key)}" style="${style}" aria-label="${esc(b.title || b.label)}">${editor?.top || ''}<span>${esc(text(b, n))}</span>${editor?.bottom || ''}</button>${editor ? editor.after(b, style) : ''}`,
           )
           .join('');
-        return `<div class="tg-col${onCreate ? ' tg-draw' : ''}" data-date="${d}">${bz}${bl}</div>`;
+        // Organizers can't add options on days that have gone by.
+        const draw = onCreate && d >= today;
+        return `<div class="tg-col${draw ? ' tg-draw' : onCreate ? ' tg-past' : ''}" data-date="${d}">${bz}${bl}</div>`;
       })
       .join('');
     root.innerHTML = `
-      <div class="tg" style="--cols:${ds.length};--rows:${rows}">
+      <div class="tg${narrow ? ' tg-narrow' : ''}" style="--cols:${ds.length};--rows:${rows}">
         ${ds.length > 1 ? `<div class="tg-head" aria-hidden="true"><span></span>${head}</div>` : ''}
         <div class="tg-scroll" tabindex="0" role="region" aria-label="Calendar times">
           <div class="tg-body"><div class="tg-times" aria-hidden="true">${times}</div>${cols}</div>
@@ -203,9 +226,9 @@ function timeGrid(
     const sc = $('.tg-scroll', root);
     if (scrollTop != null) sc.scrollTop = scrollTop;
     else {
-      // Start at the first block, or the early evening when there's none.
+      // Start at the first block, or where the plan usually happens (the early evening by default).
       const first = all.filter((b) => ds.includes(b.date)).sort((a, b) => a.from - b.from)[0];
-      sc.scrollTop = Math.max(0, at(first ? first.from - 60 : 1020)) * rowPx(root);
+      sc.scrollTop = Math.max(0, at(first ? first.from - 60 : (startAt() ?? 1020))) * rowPx(root);
     }
   }
 
@@ -269,6 +292,10 @@ function timeGrid(
   });
   return {
     render,
+    home() {
+      shownDates = '';
+      render();
+    },
     cleanup() {
       window.removeEventListener('pointerup', up);
       editor?.cleanup();
@@ -281,7 +308,9 @@ function timeGrid(
  *   days       fixed list of days to page through (guests), or null to roam freely from today (organizers)
  *   month      optional (container) => cleanup: renders the month view
  *   marks(d)   short note for a day in the day strip ("2", "Eve")
- * Plus the timeGrid options.
+ *   onRender(dates)  after each render, with the days shown
+ * Plus the timeGrid options. Organizers (no `days`) page a week at a time in both views: the week
+ * runs Sunday to Saturday, and the day view's strip picks the day.
  */
 export function timeView(root, opts) {
   const { days = null, month = null, marks = () => '', label = 'Calendar' } = opts;
@@ -308,10 +337,11 @@ export function timeView(root, opts) {
   const monthEl = $('.tv-month', root);
   const strip = $('.tv-strip', root);
 
+  const weekOf = (d) => addDays(d, -dateParts(d).getUTCDay());
   const shown = () => {
     if (days) return view === 'week' ? days.slice(anchor, anchor + 7) : [days[anchor]];
     if (view === 'day') return [anchor];
-    return Array.from({ length: 7 }, (_, i) => addDays(anchor, i));
+    return Array.from({ length: 7 }, (_, i) => addDays(weekOf(anchor), i));
   };
   const grid = timeGrid(gridEl, { ...opts, dates: shown });
 
@@ -333,13 +363,17 @@ export function timeView(root, opts) {
     const ds = shown();
     $('.tv-label', root).textContent =
       ds.length > 1 ? `${fmtMonthDay.format(dateParts(ds[0]))} – ${fmtMonthDay.format(dateParts(ds.at(-1)))}` : dayLabel(ds[0]);
-    const first = days ? anchor === 0 : ds[0] <= todayStr();
+    const first = days ? anchor === 0 : weekOf(anchor) <= todayStr();
     $('[data-step="-1"]', root).disabled = first;
+    if (!days) {
+      $('[data-step="-1"]', root).setAttribute('aria-label', 'Previous week');
+      $('[data-step="1"]', root).setAttribute('aria-label', 'Next week');
+    }
     $('[data-step="1"]', root).disabled = days ? anchor + (view === 'week' ? 7 : 1) >= days.length : false;
     // On the day view, a strip of nearby days to jump between.
     strip.hidden = view !== 'day';
     if (view === 'day') {
-      const near = days || Array.from({ length: 7 }, (_, i) => addDays(anchor, i - ((dateParts(anchor).getUTCDay() + 7) % 7)));
+      const near = days || Array.from({ length: 7 }, (_, i) => addDays(weekOf(anchor), i));
       strip.innerHTML = near
         .map((d) => {
           const m = marks(d);
@@ -348,6 +382,7 @@ export function timeView(root, opts) {
         .join('');
     }
     grid.render();
+    opts.onRender?.(ds);
   }
 
   root.addEventListener('click', (e) => {
@@ -358,7 +393,7 @@ export function timeView(root, opts) {
     }
     const st = e.target.closest('.tv-nav [data-step]');
     if (st) {
-      const n = (view === 'week' ? 7 : 1) * +st.dataset.step;
+      const n = (view === 'week' || !days ? 7 : 1) * +st.dataset.step;
       anchor = days ? Math.max(0, Math.min(days.length - 1, anchor + n)) : addDays(anchor, n);
       if (!days && anchor < todayStr()) anchor = todayStr();
       return render();
@@ -381,6 +416,8 @@ export function timeView(root, opts) {
     get view() {
       return view;
     },
+    /** Scroll the times back to where they start (after the kind of plan changes, say). */
+    home: () => grid.home(),
     cleanup() {
       grid.cleanup();
       monthCleanup?.();
