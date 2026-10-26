@@ -49,17 +49,17 @@ for (const scheme of ['light', 'dark']) {
       await page.locator('.cal-grid').evaluate((el) => el.scrollIntoView({ block: 'center' })); // clear of the sticky bar
       await audit(page, 'vote on a few dates (trips)');
       await page.goto('/new/free');
-      await page.click('[data-fill="2"]');
-      await audit(page, 'ask when people are free (painting hours)');
-      await page.click('[data-flength="days"]');
       await page.click('#q-2w');
       await audit(page, 'ask when people are free (whole days)');
+      await page.click('[data-level="parts"]');
+      await audit(page, 'ask when people are free (parts of the day)');
+      await page.click('[data-level="hours"]');
+      await audit(page, 'ask when people are free (painting hours)');
     });
 
     test('privacy options, the Privacy panel, and a guest with answers hidden', async ({ page, browser }) => {
       await page.goto('/new/free');
-      await page.fill('#title', 'Privacy check');
-      await page.click('[data-flength="allday"]');
+      await page.fill('#title', 'Privacy check'); // whole days is where it starts
       await page.click('#q-2w');
       await page.locator('#privacy-opts summary').click();
       for (const name of ['Ask everyone for their email', "Hide everyone's answers from guests"])
@@ -84,7 +84,7 @@ for (const scheme of ['light', 'dark']) {
       await page.emulateMedia({ reducedMotion: 'reduce' }); // no confetti over the text
       await page.goto('/new/free');
       await page.fill('#title', 'Celebration check');
-      await page.click('[data-fill="2"]');
+      await page.click('#q-2w');
       await page.click('#submit');
       await expect(page.locator('.party [role=status]')).toContainText('Poll created!');
       await audit(page, 'poll created', { party: true });
@@ -118,19 +118,25 @@ for (const scheme of ['light', 'dark']) {
     });
 
     test('days and hours polls', async ({ page }) => {
+      test.setTimeout(60_000); // three polls, each with its celebration, and five scans
+      page.on('dialog', (d) => d.accept()); // leaving a poll with unsaved answers asks first
       await page.goto('/new/free');
       await page.fill('#title', 'Days check');
-      await page.click('[data-flength="allday"]');
       await page.click('#q-2w');
       await page.click('#submit');
       await expect(page.locator('#mine .row').first()).toBeVisible();
       await audit(page, 'days poll');
       await page.goto('/new/free');
       await page.fill('#title', 'Grid check');
+      await page.click('[data-level="hours"]');
       await page.click('[data-fill="3"]');
       await page.click('#submit');
+      await expect(page.locator('#quick-hours .part-vote').first()).toBeVisible({ timeout: 10_000 }); // after the celebration
+      await page.locator('#quick-hours .part-vote').first().click();
+      await audit(page, 'hours poll (quick answers)');
+      await page.click('[data-hview="exact"]');
       await expect(page.locator('#mine .cell[data-slot]').first()).toBeVisible();
-      await audit(page, 'hours poll');
+      await audit(page, 'hours poll (exact times)');
       // Older polls ask about mornings, afternoons and evenings.
       const day = (d, h) => Date.UTC(2030, 0, d, h);
       const options = [8, 9].flatMap((d) => [

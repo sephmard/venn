@@ -2185,6 +2185,16 @@ pre.code {
     display: inline;
   }
 }
+.hview {
+  margin-bottom: 4px;
+}
+.quick-votes {
+  grid-template-columns: repeat(auto-fit, minmax(96px, 1fr));
+}
+.part-vote[data-v='some'] {
+  border-style: dashed;
+  border-color: var(--accent);
+}
 
 /* Blocks on the week: drag an edge to change the length; "if needed" options are amber. */
 .tg-handle {
@@ -2198,10 +2208,10 @@ pre.code {
 .tg-handle::after {
   content: '';
   position: absolute;
-  left: 50%;
+  top: 4px;
+  left: calc(50% - 9px);
   width: 18px;
   height: 3px;
-  margin-left: -9px;
   border-radius: 2px;
   background: currentColor;
   opacity: 0.55;
@@ -2209,14 +2219,8 @@ pre.code {
 .tg-top {
   top: -2px;
 }
-.tg-top::after {
-  top: 3px;
-}
 .tg-bottom {
   bottom: -2px;
-}
-.tg-bottom::after {
-  bottom: 3px;
 }
 .tg-block.opt-maybe {
   background: var(--maybe);
@@ -2298,4 +2302,17 @@ pre.code {
   .pg-cell {
     height: 28px;
   }
+}
+.zoom {
+  display: grid;
+  gap: 6px;
+  margin-bottom: 4px;
+}
+.sub-h {
+  font-size: 1rem;
+  margin: 0 0 8px;
+}
+.pg-help {
+  flex-basis: 100%;
+  margin: 0;
 }

@@ -1,5 +1,5 @@
-// The moment a poll is created: a happy dog bounces in over the Venn circles, confetti flies, and
-// a little note says well done. A few seconds later the poll opens. Loaded only when a poll is made.
+// The moment a poll is created, or an answer is sent: a happy dog bounces in over the Venn circles,
+// confetti flies, and a little note says well done. Loaded only when it's needed.
 
 import { reducedMotion } from './ui.js';
 
@@ -31,11 +31,17 @@ const rand = (min, max) => min + Math.random() * (max - min);
 const SHOW_MS = 3600;
 
 /**
- * Celebrate a new poll. `shown` resolves when it's time to open the poll: after a few seconds, or
+ * Celebrate a new poll (or, with `heading`, `message` and `button`, an answer). `shown` resolves when it's time to open the poll: after a few seconds, or
  * straight away if the person presses the button or Escape. Then call `finish()` to fade the
  * overlay out over the poll.
  */
-export function celebrate({ emoji = '🎉', title = '' } = {}) {
+export function celebrate({
+  emoji = '🎉',
+  title = '',
+  heading = 'Poll created!',
+  message = 'So proud of you for bringing people together.',
+  button = title ? `Open ${title} →` : 'Open my poll →',
+} = {}) {
   if (!document.getElementById('party-css')) {
     const style = document.createElement('style');
     style.id = 'party-css';
@@ -55,11 +61,11 @@ export function celebrate({ emoji = '🎉', title = '' } = {}) {
   const status = el.querySelector('[role=status]');
   const h2 = document.createElement('h2');
   const p = document.createElement('p');
-  h2.textContent = 'Poll created!';
-  p.textContent = 'So proud of you for bringing people together.';
+  h2.textContent = heading;
+  p.textContent = message;
   status.append(h2, p);
   const go = el.querySelector('.party-go');
-  go.textContent = title ? `Open ${title} →` : 'Open my poll →';
+  go.textContent = button;
   go.focus({ preventScroll: true });
 
   const still = reducedMotion();

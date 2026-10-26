@@ -113,11 +113,12 @@ test('a trip: options that last several days become all-day calendar events', as
 test('ask when people are free: days, looking for a run of days', async ({ page }) => {
   await page.goto('/new/free');
   await page.fill('#title', 'Cabin weekend');
-  await page.click('[data-flength="days"]');
+  // Whole days is where it starts.
+  await expect(page.locator('[data-level="days"]')).toHaveAttribute('aria-checked', 'true');
   await page.click('#q-2w');
   await expect(page.locator('#summary')).toHaveText('14 days to choose from');
-  await expect(page.locator('#span')).toHaveValue('3');
-  await page.click('#span-field [data-step="-1"]');
+  await page.click('[data-step="1"]');
+  await expect(page.locator('#span')).toHaveValue('2');
   await expect(page.locator('#free-list')).toContainText('2 days in a row');
   await page.click('#submit');
 
@@ -134,11 +135,15 @@ test('ask when people are free: days, looking for a run of days', async ({ page 
 test('ask when people are free: paint hours and see the best time', async ({ page, isMobile }) => {
   await page.goto('/new/free');
   await page.fill('#title', 'Book club');
+  await page.click('[data-level="hours"]');
   await page.click('[data-flength="60"]');
   await expect(page.locator('#submit')).toBeDisabled();
   await page.click('[data-fill="0"]'); // mornings, 8 AM – 12 PM, all week
   await expect(page.locator('#free-list')).toContainText('8 AM – 12 PM');
   await page.click('#submit');
+  // Guests start with mornings, afternoons and evenings; exact times are one tap away.
+  await expect(page.locator('#quick-hours .part-vote').first()).toBeVisible();
+  await page.click('[data-hview="exact"]');
   await expect(page.locator('#mine .cell[data-slot]').first()).toBeVisible();
   // Phones show one day at a time, and the page still fits the screen.
   if (isMobile) await expect(page.locator('#hour-days .tv-chip')).toHaveCount(7);
@@ -622,10 +627,58 @@ test('organizers mark options as available or if needed, drag edges to resize, a
   await expect(page.locator('#mine .row').nth(0)).toContainText(/3 hours|– \d/);
 });
 
+test.describe('in UTC', () => {
+  test.use({ timezoneId: 'UTC' });
+  test('guests answer an hours poll with mornings, afternoons and evenings, then celebrate', async ({
+    page,
+    request,
+    isMobile,
+  }) => {
+    const { id } = await (
+      await request.post('/api/events', {
+        data: {
+          title: 'Brunch',
+          timezone: 'UTC',
+          organizer: 'Sam',
+          dates: ['2030-01-08', '2030-01-09'],
+          startMinute: 540,
+          endMinute: 1260,
+          slotMinutes: 30,
+          durationMinutes: 60,
+        },
+      })
+    ).json();
+    await page.goto(`/e/${id}`);
+    const quick = (d, k) => page.locator(`[data-quick="${d}|${k}"]`);
+    await expect(quick('2030-01-08', 'all')).toBeVisible();
+    await quick('2030-01-08', 'morning').click(); // free all morning
+    await quick('2030-01-09', 'all').click();
+    await quick('2030-01-09', 'all').click(); // if needed all day
+    await expect(quick('2030-01-08', 'morning')).toHaveAttribute('data-v', '2');
+    await expect(quick('2030-01-08', 'all')).toHaveAttribute('data-v', 'some');
+    await expect(quick('2030-01-09', 'evening')).toHaveAttribute('data-v', '1');
+    // The exact grid shows the same answers.
+    await page.click('[data-hview="exact"]');
+    await expect(page.locator('#mine .cell.yes')).toHaveCount(6);
+    // Phones show one day of the grid at a time.
+    if (!isMobile) await expect(page.locator('#mine .cell.maybe')).toHaveCount(24);
+
+    await page.fill('#name', 'Ana');
+    await expect(page.locator('#save')).toHaveText('Submit');
+    await page.click('#save');
+    await expect(page.locator('.party [role=status]')).toContainText('Answer sent!');
+    await expect(page.locator('.party [role=status]')).toContainText('Sam can see it now');
+    await page.click('.party-go');
+    await expect(page.locator('.party')).toHaveCount(0);
+    await expect(page.locator('#save')).toHaveText('Save changes');
+  });
+});
+
 test('organizers paint different hours on different days, and guests mark within them', async ({ page, isMobile }) => {
   test.skip(isMobile, 'drag to paint with a mouse; phones are covered by the quick fills');
   await page.goto('/new/free');
   await page.fill('#title', 'Drinks');
+  await page.click('[data-level="hours"]');
   await page.click('[data-flength="60"]');
   await page.click('[data-pstep="1"]'); // next week, so every day is in the future
   const cell = (r, c) => page.locator(`.pg-cell[data-r="${r}"][data-c="${c}"]`);
@@ -654,4 +707,28 @@ test('organizers paint different hours on different days, and guests mark within
   // Guests get a grid with just those hours: 3 + 3 + 2 half hours.
   await expect(page.locator('#mine .cell[data-slot]')).toHaveCount(8);
   await expect(page.locator('#ev-details')).toContainText('Looking for 1 hour');
+});
+
+test('ask when people are free: zoom from whole days to parts of the day to hours', async ({ page }) => {
+  await page.goto('/new/free');
+  await page.fill('#title', 'Picnic');
+  await page.click('[data-nav="1"]');
+  for (const i of [0, 1]) await page.locator('.cal-day').nth(i).click();
+  await expect(page.locator('#summary')).toHaveText('2 days to choose from');
+
+  // Parts of the day keeps the days.
+  await page.click('[data-level="parts"]');
+  await page.click('[data-ask="morning"]');
+  await expect(page.locator('#summary')).toHaveText('4 times to choose from');
+
+  // Hours starts with those days painted morning to night, and zooming out keeps them.
+  await page.click('[data-level="hours"]');
+  await expect(page.locator('#free-list .od-row')).toHaveCount(1);
+  await expect(page.locator('#free-list')).toContainText('8 AM – 11 PM');
+  await page.click('[data-level="days"]');
+  await expect(page.locator('#summary')).toHaveText('2 days to choose from');
+
+  await page.click('[data-level="parts"]');
+  await page.click('#submit');
+  await expect(page.locator('.part-vote')).toHaveCount(4);
 });
