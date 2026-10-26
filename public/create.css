@@ -111,21 +111,75 @@
   text-decoration: none;
   color: var(--muted);
 }
+/* Templates: a row of cards to scroll, snapping to each. The far edge fades out, so it's clear
+   there's more, and a thin scrollbar shows where you are. */
 .occasions {
   display: flex;
   gap: 8px;
   overflow-x: auto;
-  scrollbar-width: none;
+  scroll-snap-type: x proximity;
+  scroll-padding-inline: 20px;
+  scrollbar-width: thin;
   margin: 0 -20px;
-  padding: 2px 20px 4px;
+  padding: 6px 20px 8px;
+  mask-image: linear-gradient(to right, #000 calc(100% - 28px), transparent);
 }
-.occasions .pill {
+.tpl {
   flex: none;
+  flex-direction: column;
+  justify-content: center;
+  gap: 2px;
+  min-width: 88px;
+  min-height: 76px;
+  padding: 8px 12px;
+  border-radius: var(--radius);
+  font-size: 0.875rem;
+  line-height: 1.2;
+  text-align: center;
+  scroll-snap-align: start;
+}
+.tpl-emoji {
+  font-size: 1.5rem;
+}
+@media (max-width: 520px) {
+  .occasions {
+    margin: 0 -16px;
+    padding: 6px 16px 8px;
+    scroll-padding-inline: 16px;
+  }
 }
 .title-row {
   display: flex;
   gap: 12px;
   align-items: flex-end;
+}
+/* The icon tile opens the icon panel (poll-image.js): any emoji, or a picture. */
+button.emoji-tile {
+  position: relative;
+  border: 0;
+  padding: 0;
+  color: inherit;
+  font-family: inherit;
+  cursor: pointer;
+}
+button.emoji-tile::after {
+  content: '✎';
+  position: absolute;
+  right: -6px;
+  bottom: -6px;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  font-size: 0.8rem;
+  background: var(--surface);
+  color: var(--accent);
+  box-shadow: 0 0 0 1.5px var(--border);
+}
+button.emoji-tile:focus-visible {
+  outline: 3px solid var(--accent);
+  outline-offset: 2px;
 }
 .ai-row {
   display: flex;

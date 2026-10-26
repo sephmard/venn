@@ -38,7 +38,30 @@ const SCHEMA = [
      count INTEGER NOT NULL,
      PRIMARY KEY (day, name, props)
    )`,
+  // A poll's own picture (src/images.js), in base64 so D1 and node:sqlite store it the same way: the
+  // square icon, and the link-preview card. `updated_at` is its version, for the URLs that serve it.
+  `CREATE TABLE IF NOT EXISTS event_images (
+     event_id TEXT PRIMARY KEY,
+     icon TEXT NOT NULL,
+     icon_type TEXT NOT NULL,
+     card TEXT,
+     card_type TEXT,
+     updated_at INTEGER NOT NULL
+   )`,
+  // Plans that repeat (src/reminders.js): each poll whose date has passed is handled once, by an
+  // email to the organizer ('email'), or not ('skipped'), or because the next one was planned
+  // ('continued').
+  `CREATE TABLE IF NOT EXISTS series_reminders (
+     event_id TEXT PRIMARY KEY,
+     at INTEGER NOT NULL,
+     how TEXT NOT NULL
+   )`,
+  `CREATE INDEX IF NOT EXISTS events_final_start ON events(final_start)`,
 ];
+
+/** The picture's details for a poll's JSON (or nothing, when it has none), from a joined row. */
+const imageOf = (row) => (row.image_v != null ? { image: { v: row.image_v, card: !!row.image_card, type: row.image_type } } : {});
+const IMAGE_COLUMNS = 'i.updated_at AS image_v, i.icon_type AS image_type, i.card IS NOT NULL AS image_card';
 
 export function createStore(db) {
   let ready = null;
@@ -60,7 +83,10 @@ export function createStore(db) {
 
     async getEvent(id) {
       await init();
-      const row = await db.first('SELECT * FROM events WHERE id = ?', [id]);
+      const row = await db.first(
+        `SELECT e.*, ${IMAGE_COLUMNS} FROM events e LEFT JOIN event_images i ON i.event_id = e.id WHERE e.id = ?`,
+        [id],
+      );
       if (!row) return null;
       return {
         id: row.id,
@@ -68,6 +94,7 @@ export function createStore(db) {
         adminHash: row.admin_hash,
         finalStart: row.final_start ?? null,
         createdAt: row.created_at,
+        ...imageOf(row),
       };
     },
 
@@ -78,15 +105,18 @@ export function createStore(db) {
     async getPreview(id) {
       await init();
       const rows = await db.all(
-        `SELECT e.data, e.final_start, p.availability FROM events e
+        `SELECT e.data, e.final_start, p.availability, ${IMAGE_COLUMNS} FROM events e
          LEFT JOIN participants p ON p.event_id = e.id AND e.final_start IS NOT NULL
            AND NOT COALESCE(json_extract(e.data, '$.hideResults'), 0) AND NOT COALESCE(json_extract(e.data, '$.hideNames'), 0)
+         LEFT JOIN event_images i ON i.event_id = e.id
          WHERE e.id = ?`,
         [id],
       );
       if (!rows.length) return null;
       return {
+        id,
         ...JSON.parse(rows[0].data),
+        ...imageOf(rows[0]),
         finalStart: rows[0].final_start ?? null,
         answers: rows.filter((r) => r.availability != null).map((r) => JSON.parse(r.availability)),
       };
@@ -97,13 +127,47 @@ export function createStore(db) {
       await db.run('DELETE FROM participants WHERE event_id = ?', [id]);
       await db.run('DELETE FROM participant_emails WHERE event_id = ?', [id]);
       await db.run('DELETE FROM notifications WHERE event_id = ?', [id]);
+      await db.run('DELETE FROM event_images WHERE event_id = ?', [id]);
+      await db.run('DELETE FROM series_reminders WHERE event_id = ?', [id]);
       await db.run('DELETE FROM events WHERE id = ?', [id]);
     },
 
-    /** Replace the poll's settings (everything stored in `data`). */
-    async updateEvent(id, event) {
+    /** Replace the poll's settings (everything stored in `data`). Its picture is kept apart. */
+    async updateEvent(id, { image: _image, ...event }) {
       await init();
       await db.run('UPDATE events SET data = ? WHERE id = ?', [JSON.stringify(event), id]);
+    },
+
+    /**
+     * Save the poll's picture: `icon` and (optionally) `card`, each { data (base64), type }. Returns
+     * its new version, always later than the one it replaces so links to the old one don't serve it.
+     */
+    async setImage(eventId, { icon, card = null, now }) {
+      await init();
+      const prev = await db.first('SELECT updated_at FROM event_images WHERE event_id = ?', [eventId]);
+      const v = Math.max(now, (prev?.updated_at ?? 0) + 1);
+      await db.run(
+        `INSERT INTO event_images (event_id, icon, icon_type, card, card_type, updated_at) VALUES (?, ?, ?, ?, ?, ?)
+         ON CONFLICT(event_id) DO UPDATE SET icon = excluded.icon, icon_type = excluded.icon_type,
+           card = excluded.card, card_type = excluded.card_type, updated_at = excluded.updated_at`,
+        [eventId, icon.data, icon.type, card?.data ?? null, card?.type ?? null, v],
+      );
+      return v;
+    },
+
+    /** One of the poll's pictures ('icon' or 'card'): { data, type, v }, or null. */
+    async getImage(eventId, which) {
+      await init();
+      const col = which === 'card' ? 'card' : 'icon';
+      const row = await db.first(`SELECT ${col} AS data, ${col}_type AS type, updated_at FROM event_images WHERE event_id = ?`, [
+        eventId,
+      ]);
+      return row?.data ? { data: row.data, type: row.type, v: row.updated_at } : null;
+    },
+
+    async deleteImage(eventId) {
+      await init();
+      await db.run('DELETE FROM event_images WHERE event_id = ?', [eventId]);
     },
 
     async setFinal(id, finalStart) {
@@ -207,6 +271,33 @@ export function createStore(db) {
         [since],
       );
       return rows.map((r) => ({ data: r.data, final_start: r.final_start ?? null, answers: Number(r.answers) }));
+    },
+
+    /**
+     * Polls that repeat, whose date was between `since` and `before` (ms) and that haven't been
+     * handled yet (markReminded): their ids, oldest date first.
+     */
+    async dueReminders(before, since, limit = 200) {
+      await init();
+      const rows = await db.all(
+        `SELECT e.id FROM events e LEFT JOIN series_reminders r ON r.event_id = e.id
+         WHERE r.event_id IS NULL AND e.final_start IS NOT NULL AND e.final_start < ? AND e.final_start >= ?
+           AND json_extract(e.data, '$.repeat') IS NOT NULL
+         ORDER BY e.final_start LIMIT ?`,
+        [before, since, limit],
+      );
+      return rows.map((r) => r.id);
+    },
+
+    /** Mark a poll's "time to plan the next one?" as handled. True only for the first call, so it happens once. */
+    async markReminded(eventId, at, how) {
+      await init();
+      const r = await db.run(
+        'INSERT INTO series_reminders (event_id, at, how) VALUES (?, ?, ?) ON CONFLICT(event_id) DO NOTHING',
+        [eventId, at, how],
+      );
+      // node:sqlite says how many rows changed as `changes`; D1 as `meta.changes`.
+      return Number(r?.changes ?? r?.meta?.changes ?? 0) > 0;
     },
 
     /** Participant id → email, for one poll. */

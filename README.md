@@ -120,9 +120,11 @@ Time zones, ranking and calendar files live in `public/core.js`, shared by the b
 
 - **Two kinds of poll.** Vote on a few dates, or ask when people are free: paint the hours on a calendar, or pick whole days, or days in a row for a trip.
 - **Links that look like the plan.** Pasted into iMessage, WhatsApp, Slack or Discord, a poll shows its own title, and once it's set, the date.
+- **Any emoji, or your own picture,** as the poll's icon: on the poll, in its link preview and on its calendar event.
 - **Nobody signs up.** Open the link, type a name, tap _Yes_, _If needed_ or _No_. It's built for phones first.
 - **The organizer's poll is their answer:** the times they offer count as theirs. They can edit the poll until someone answers, then duplicate it.
 - **The best date rises to the top,** with everyone who can make it. Pick it and everyone adds it to Google, Apple or Outlook Calendar.
+- **Plans that repeat.** Book club, run club, game night: "Plan next month's" copies the poll with its dates moved on (the 2nd Tuesday stays the 2nd Tuesday), then one tap emails last time's group. With email on, the organizer gets a nudge when it's time.
 - **Privacy controls for organizers:** ask everyone for their email, hide names, or hide everyone's answers so only you see them.
 - **Time zones handled,** and **notifications** by email, Slack, Discord or your own webhook. Checking your calendar is coming soon.
 - **Accessible:** keyboard and screen-reader friendly, with WCAG AA contrast in light and dark mode.

@@ -173,6 +173,7 @@ test('organizer privacy: required emails, hidden names, hidden answers', async (
     requireEmail: true,
     hideNames: false,
     hideResults: true,
+    repeat: null,
   });
 
   // Hidden answers: guests see only their own answer and how many people answered.
@@ -431,4 +432,49 @@ test("the organizer's first answer, sent with their link, is theirs: the poll ca
   await call(`/api/events/${id}/participants`, { method: 'POST', body: { name: 'Ann', availability: { [s0]: 2 } } });
   const locked = await call(`/api/events/${id}`, { method: 'PUT', body: newEvent, headers: admin });
   assert.equal(locked.status, 409);
+});
+
+test('plans that repeat: how often is checked, kept through edits, and the next one follows on from the last', async () => {
+  const t = Date.UTC(2030, 0, 8, 18);
+  const body = { title: 'Book club', timezone: 'UTC', mode: 'options', options: [{ start: t, end: t + 7_200_000 }] };
+  // Only weekly, every 2 weeks or monthly; the previous poll's id is letters and digits.
+  assert.equal((await call('/api/events', { method: 'POST', body: { ...body, repeat: 'yearly' } })).status, 400);
+  assert.equal((await call('/api/events', { method: 'POST', body: { ...body, repeat: 7 } })).status, 400);
+  assert.equal((await call('/api/events', { method: 'POST', body: { ...body, seriesOf: '../x' } })).status, 400);
+  assert.equal((await call('/api/events', { method: 'POST', body: { ...body, seriesOf: { id: 1 } } })).status, 400);
+
+  const first = (await call('/api/events', { method: 'POST', body: { ...body, repeat: 'monthly', hostAnswers: true } })).data;
+  const admin = { 'x-admin-token': first.adminToken };
+  assert.equal((await call(`/api/events/${first.id}`)).data.repeat, 'monthly');
+  const second = (await call('/api/events', { method: 'POST', body: { ...body, repeat: 'monthly', seriesOf: first.id } })).data;
+  const ev = (await call(`/api/events/${second.id}`)).data;
+  assert.equal(ev.seriesOf, first.id);
+  assert.equal(ev.repeat, 'monthly');
+  // A previous poll that's gone (or never was) is dropped, not an error.
+  const orphan = (await call('/api/events', { method: 'POST', body: { ...body, seriesOf: 'nope123' } })).data;
+  assert.equal((await call(`/api/events/${orphan.id}`)).data.seriesOf, undefined);
+
+  // Editing the poll keeps its repeat and its place in the series, unless the repeat is changed.
+  assert.equal((await call(`/api/events/${second.id}`, { method: 'PUT', body: { ...body, title: 'Books' } })).status, 403);
+  const secondAdmin = { 'x-admin-token': second.adminToken };
+  assert.equal(
+    (await call(`/api/events/${second.id}`, { method: 'PUT', body: { ...body, title: 'Books' }, headers: secondAdmin })).status,
+    200,
+  );
+  let edited = (await call(`/api/events/${second.id}`)).data;
+  assert.deepEqual([edited.title, edited.repeat, edited.seriesOf], ['Books', 'monthly', first.id]);
+  await call(`/api/events/${second.id}`, { method: 'PUT', body: { ...body, repeat: 'weekly' }, headers: secondAdmin });
+  edited = (await call(`/api/events/${second.id}`)).data;
+  assert.deepEqual([edited.repeat, edited.seriesOf], ['weekly', first.id]);
+
+  // The organizer changes how often it repeats from the poll; only them, and only known values.
+  const settings = (repeat, headers = admin) =>
+    call(`/api/events/${first.id}/settings`, { method: 'PUT', body: { repeat }, headers });
+  assert.equal((await settings('weekly', {})).status, 403);
+  assert.equal((await settings('daily')).status, 400);
+  assert.equal((await settings('biweekly')).data.repeat, 'biweekly');
+  assert.equal((await call(`/api/events/${first.id}`)).data.repeat, 'biweekly');
+  assert.equal((await settings(null)).data.repeat, null);
+  assert.equal((await call(`/api/events/${first.id}`)).data.repeat, undefined);
+  assert.equal((await settings('')).data.repeat, null);
 });

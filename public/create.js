@@ -3,6 +3,7 @@
 //   /new/free  You pick a range of days. Everyone marks when they're available; Venn finds the overlap.
 
 import { isEmail } from './core.js';
+import { TEMPLATES, orderTemplates, templateIndex } from './templates.js';
 import {
   $,
   $$,
@@ -38,32 +39,19 @@ const PRIVACY = [
   ['hideResults', '#p-results'],
 ];
 
-// Kinds of plans, with sensible defaults. `length` is minutes, or 'days' for a trip; `part` is the
-// part of the day it usually happens in, for "ask when people are available" polls.
-export const OCCASIONS = [
-  { emoji: '🍝', label: 'Dinner', length: 120, part: 'evening' },
-  { emoji: '🍻', label: 'Drinks', length: 120, part: 'evening' },
-  { emoji: '☕', label: 'Coffee', length: 60, part: 'morning' },
-  { emoji: '📚', label: 'Book club', length: 120, part: 'evening' },
-  { emoji: '🥞', label: 'Brunch', length: 120, part: 'morning' },
-  { emoji: '🎲', label: 'Game night', length: 180, part: 'evening' },
-  { emoji: '🥾', label: 'Hike', length: 'allday', part: 'morning' },
-  { emoji: '🎉', label: 'Party', length: 240, part: 'evening' },
-  { emoji: '🏋️', label: 'Gym', length: 60, part: 'morning' },
-  { emoji: '🏃', label: 'Run', length: 60, part: 'morning' },
-  { emoji: '🚴', label: 'Bike', length: 120, part: 'morning' },
-  { emoji: '⛳', label: 'Golf', length: 240, part: 'morning' },
-  { emoji: '✈️', label: 'Trip', length: 'days', days: 3 },
-];
+// Kinds of plans (templates), with sensible defaults: see templates.js.
+export const OCCASIONS = TEMPLATES;
 
-// The landing page's "What are you planning?" box sends its text as ?title=. The chooser passes
-// it on, and the form puts it in the Name field.
+// The landing page's "What are you planning?" box sends its text as ?title=, and a template page
+// (/templates/friendsgiving) its template as ?template=. The chooser passes them on; the form uses them.
 const titleFromUrl = () => (new URLSearchParams(location.search).get('title') || '').trim().slice(0, 120);
+const templateFromUrl = () => templateIndex(new URLSearchParams(location.search).get('template'));
 export function prefillTitle() {
   const title = titleFromUrl();
-  if (!title) return;
-  $('#title').value = title;
-  history.replaceState(null, '', location.pathname);
+  const t = templateFromUrl();
+  if (t >= 0) $(`[data-occasion="${t}"]`).click();
+  if (title) $('#title').value = title;
+  if (title || t >= 0) history.replaceState(null, '', location.pathname);
 }
 
 // ---------- editing or duplicating a poll ----------
@@ -82,15 +70,16 @@ export function source() {
 }
 
 let editPoll = null; // the code for editing and duplicating, loaded with the poll to start from
+let icon = null; // the poll's own emoji or picture (poll-image.js), once the icon tile is tapped
 
 /** The poll to start from (see edit-poll.js), or null. */
 export async function loadSource(src) {
-  editPoll = await import('./edit-poll.js').catch(() => null);
+  [editPoll, icon] = await Promise.all([import('./edit-poll.js'), import('./poll-image.js')]).catch(() => []);
   return editPoll?.loadSource(src) ?? null;
 }
 /** Fill in everything both kinds of poll share: the plan, the organizer and the privacy options. */
 export function fillCommon(ev, src) {
-  editPoll.fillCommon(ev, src, { occasions: OCCASIONS, privacy: PRIVACY, showTz });
+  editPoll.fillCommon(ev, src, { occasions: OCCASIONS, privacy: PRIVACY, showTz, icon });
   if (src.edit) editing = src.id;
 }
 
@@ -101,19 +90,20 @@ export function renderChooser() {
   // Where they came from: answering someone's poll, or a poll whose date was picked.
   const from = new URLSearchParams(location.search).get('from');
   track('view', { page: 'chooser', ...(['guest', 'set'].includes(from) && { from }) });
-  const carry = titleFromUrl() ? `?title=${encodeURIComponent(titleFromUrl())}` : '';
+  const q = new URLSearchParams([...new URLSearchParams(location.search)].filter(([k]) => /^(title|template)$/.test(k)));
+  const carry = q.size ? `?${q}` : '';
   app.innerHTML = `
     <section class="chooser">
       <h1>What kind of poll?</h1>
       <p class="lede">Two ways to find a date. Pick the one that fits your plans.</p>
       <div class="choices">
-        <a class="choice" href="/new/pick${carry}" data-link>
+        <a class="choice" href="/new/pick${esc(carry)}" data-link>
           <span class="choice-art art-pick" aria-hidden="true"><i>Fri</i><i class="on">Sat</i><i>Sun</i></span>
           <span class="choice-title">Vote on a few dates</span>
           <span class="choice-text">You suggest some dates or times. Everyone says yes, if needed or no to each one.</span>
           <span class="choice-fit">Good for dinners, book clubs and parties</span>
         </a>
-        <a class="choice" href="/new/free${carry}" data-link>
+        <a class="choice" href="/new/free${esc(carry)}" data-link>
           <span class="choice-art art-free" aria-hidden="true"><i></i><i></i></span>
           <span class="choice-title">Ask when people are available</span>
           <span class="choice-text">You pick a range of days. Everyone marks when they're available, and Venn finds the overlap.</span>
@@ -129,21 +119,20 @@ export function renderChooser() {
 const REQ = ' <span class="req" aria-hidden="true">Required</span>';
 
 export function planFields(kind) {
-  // Asking when people are available suits trips best, so the trip comes first there.
-  const order = kind === 'free' ? [...OCCASIONS.filter((o) => o.days), ...OCCASIONS.filter((o) => !o.days)] : OCCASIONS;
+  // Templates as a row of cards to scroll: what's in season first (see templates.js).
   return `
     <section class="sheet" aria-labelledby="plan-h">
       <h2 id="plan-h">What's the plan?</h2>
-      <div class="occasions" role="group" aria-label="Kind of plan">
-        ${order
+      <div class="occasions templates" role="group" aria-label="Templates">
+        ${orderTemplates(kind)
           .map(
-            (o) =>
-              `<button type="button" class="pill" data-occasion="${OCCASIONS.indexOf(o)}" aria-pressed="false"><span aria-hidden="true">${o.emoji}</span> ${esc(o.label)}</button>`,
+            ([i, hidden]) =>
+              `<button type="button" class="pill tpl" data-occasion="${i}" aria-pressed="false"${hidden ? ' hidden' : ''}><span class="tpl-emoji" aria-hidden="true">${OCCASIONS[i].emoji}</span>${esc(OCCASIONS[i].label)}</button>`,
           )
           .join('')}
       </div>
       <div class="title-row">
-        <span class="emoji-tile" id="emoji-tile" aria-hidden="true">🗓️</span>
+        <button type="button" class="emoji-tile" id="emoji-tile" aria-label="Change the icon" aria-expanded="false">🗓️</button>
         <div class="grow">
           <label for="title">Name of your poll${REQ}</label>
           <input id="title" type="text" maxlength="120" placeholder="${kind === 'free' ? 'Summer cabin trip' : "Dinner at Rosa's"}" aria-required="true">
@@ -195,20 +184,51 @@ export const tzLine = () => `
   </details>`;
 const showTz = () => ($('#tz-name').textContent = tzName($('#tz').value));
 
-/** Wire up the plan fields: occasion presets fill in sensible defaults. */
+// A few little surprises (easter-eggs.js), loaded the first time someone types a name or taps a
+// template several times, never before.
+let eggs = null;
+const egg = (...args) => (eggs ??= import('./easter-eggs.js').catch(() => null)).then((m) => m?.react(toast, ...args));
+
+/** Wire up the plan fields: templates fill in sensible defaults. */
 export function wirePlan(onOccasion) {
   let current = null;
+  let noted = ''; // the note a template put in "Note for everyone", so another can take it back
+  let taps = [];
   $('#tz').addEventListener('change', showTz);
-  $('#create').addEventListener('click', (e) => {
+  $('#create').addEventListener('click', async (e) => {
+    if (e.target.closest('#emoji-tile'))
+      return void import('./poll-image.js').then(
+        (m) => (icon = m).toggle(),
+        () => toast("Couldn't load that. Try again."),
+      );
     const b = e.target.closest('[data-occasion]');
     if (!b) return;
     const o = OCCASIONS[+b.dataset.occasion];
     current = current === o ? null : o;
     for (const x of $$('[data-occasion]')) x.setAttribute('aria-pressed', x === b && !!current);
-    $('#emoji-tile').textContent = current?.emoji || '🗓️';
-    if (current) $('#title').placeholder = current.label;
+    // One out of season, from a link or a poll being edited, shows up front.
+    if (b.hidden) b.parentElement.prepend(Object.assign(b, { hidden: false }));
+    if (icon) icon.setOccasion(current);
+    else $('#emoji-tile').textContent = current?.emoji || '🗓️';
     onOccasion(current);
     $('#title').dispatchEvent(new Event('input')); // a kind of plan also names it
+    // Tapping the same template over and over gets noticed.
+    taps = taps[0] === o ? [o, taps[1] + 1] : [o, 1];
+    if (e.isTrusted && taps[1] > 4) egg('taps', o);
+    // What it fills in (template-notes.js), unless another was chosen meanwhile or a poll is being edited.
+    const notes = await import('./template-notes.js').catch(() => null);
+    if (!notes || !$('#desc') || (o !== current && current)) return; // or the page has gone
+    const fill = notes.prefill(current, $('#desc').value, noted);
+    if (current) $('#title').placeholder = fill.title;
+    $('#location').placeholder = fill.where;
+    if (source() || fill.desc === $('#desc').value) return;
+    $('#desc').value = noted = fill.desc;
+    $('#more-box').open ||= !!noted;
+  });
+  let typing;
+  $('#title').addEventListener('input', (e) => {
+    clearTimeout(typing);
+    if (e.isTrusted) typing = setTimeout(() => $('#title') && egg('title', $('#title').value), 700);
   });
   return () => current;
 }
@@ -227,7 +247,8 @@ export async function submit(body, occasion, answer = null) {
     organizer: $('#organizer').value.trim(),
     timezone: $('#tz').value,
   });
-  if (occasion()) body.emoji = occasion().emoji;
+  const emoji = icon?.emoji() || occasion()?.emoji;
+  if (emoji) body.emoji = emoji;
   for (const [key, el] of PRIVACY) body[key] = $(el).checked;
   const notifyEmail = !$('#notify-field') || $('#notify-field').hidden ? '' : $('#notify').value.trim();
   if (notifyEmail) body.notifyEmail = notifyEmail;
@@ -236,13 +257,15 @@ export async function submit(body, occasion, answer = null) {
   $('#submit').disabled = true;
   // The organizer's own answer: what they marked for each option, or yes to all the times offered.
   if (answer && Object.keys(answer).length) body.hostAvailability = answer;
-  if (editing) return editPoll.saveEdit(editing, body);
+  if (editing) return editPoll.saveEdit(editing, body, icon);
   body.hostAnswers = true;
-  if (source()) body.copied = true;
+  // A copy; the next one of a plan that repeats also says how often, and which poll it follows.
+  if (source()) Object.assign(body, { copied: true }, editPoll?.seriesFields());
   // The celebration (and its picture) load while the poll is saved.
   const celebration = import('./celebrate.js').catch(() => null);
   try {
     const { id, adminToken, participant } = await api('events', { method: 'POST', body });
+    const picture = icon?.upload(id, adminToken, title); // the poll's own picture, while the party plays
     save(id, {
       adminToken,
       justCreated: true,
@@ -262,8 +285,11 @@ export async function submit(body, occasion, answer = null) {
           () => false,
         );
     };
-    const party = (await celebration)?.celebrate({ emoji: body.emoji, title, share });
+    // The next one of a plan that repeats: also one tap to email last time's group.
+    const also = body.seriesOf ? editPoll?.inviteLast(url, title) : null;
+    const party = (await celebration)?.celebrate({ emoji: body.emoji, picture: icon?.picture(), title, share, also });
     await party?.shown;
+    await picture;
     history.pushState(null, '', `/e/${id}`);
     dispatchEvent(new PopStateEvent('popstate'));
     scrollTo(0, 0);

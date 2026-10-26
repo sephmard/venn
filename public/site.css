@@ -819,6 +819,49 @@ h3 {
   color: var(--ink);
 }
 
+/* ---------- Finn, the Venn dog ---------- */
+.meet-finn {
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  gap: 12px;
+  max-width: 30em;
+  margin: 40px auto 0;
+  text-align: left;
+  color: var(--ink-2);
+}
+.meet-finn img {
+  flex: none;
+  transform: rotate(-4deg);
+  transform-origin: 50% 100%;
+}
+.meet-finn p {
+  margin: 0 0 6px;
+  font-size: 1rem;
+  line-height: 1.5;
+}
+.meet-finn b {
+  color: var(--ink);
+}
+.finn-lost {
+  position: relative;
+  width: 70px;
+  height: 152px;
+  margin: 24px 0;
+}
+.finn-lost img {
+  display: block;
+  transform: scaleX(-1) rotate(-6deg);
+  transform-origin: 50% 100%;
+}
+.finn-lost span {
+  position: absolute;
+  left: 74px;
+  top: -30px;
+  font: 400 3.5rem/1 var(--serif);
+  color: var(--green);
+}
+
 /* ---------- text pages (privacy, 404) ---------- */
 .page {
   padding-top: 56px;
@@ -849,6 +892,211 @@ h3 {
   margin-bottom: 32px;
 }
 
+/* ---------- templates (/templates and /templates/*) ---------- */
+.crumbs {
+  margin: 0 0 24px;
+  font-size: 0.875rem;
+  color: var(--ink-2);
+}
+.crumbs a {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+  color: var(--ink-2);
+}
+.tpl-page {
+  padding-bottom: 0;
+}
+.tpl-hero {
+  display: grid;
+  grid-template-columns: minmax(0, 1.1fr) minmax(0, 0.9fr);
+  gap: 64px;
+  align-items: center;
+}
+.tpl-hero .lede {
+  margin: 0 0 32px;
+}
+.tpl-hero .result {
+  margin: 0;
+}
+.tpl-list section {
+  margin-top: 64px;
+}
+.tpl-small {
+  margin: 14px 0 0;
+  font-size: 0.875rem;
+  color: var(--ink-2);
+}
+/* The poll, drawn in HTML: a few dates and how many can make each, the best one picked. */
+.votes {
+  list-style: none;
+  margin: 0 0 18px;
+  padding: 0;
+  display: grid;
+  gap: 8px;
+}
+.votes li {
+  display: grid;
+  grid-template-columns: 7.5em minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 12px;
+  font-size: 0.875rem;
+  font-weight: 600;
+}
+.votes i {
+  height: 10px;
+  border-radius: 999px;
+  background: linear-gradient(to right, var(--green) var(--n), var(--line) var(--n));
+}
+.votes b {
+  color: var(--ink-2);
+  font-weight: 600;
+}
+.votes .best,
+.votes .best b {
+  color: var(--green);
+}
+.tpl-body {
+  display: grid;
+  gap: 80px;
+  margin-top: var(--section);
+}
+.tpl-body h2,
+.tpl-list h2 {
+  font-size: clamp(2.2rem, 4.5vw, 3.25rem);
+  line-height: 1.05;
+  margin: 0 0 24px;
+}
+.steps {
+  margin: 0;
+  padding-left: 1.4em;
+  display: grid;
+  gap: 14px;
+}
+.steps li::marker {
+  font-weight: 700;
+  color: var(--green);
+}
+.timeline {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  border-left: 2px solid var(--line);
+}
+.timeline li {
+  position: relative;
+  padding: 0 0 22px 24px;
+}
+.timeline li::before {
+  content: '';
+  position: absolute;
+  left: -7px;
+  top: 7px;
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: var(--green);
+}
+.timeline b {
+  display: block;
+}
+.faq details {
+  border-top: 1px solid var(--line);
+}
+.faq details:last-child {
+  border-bottom: 1px solid var(--line);
+}
+.faq summary {
+  display: flex;
+  align-items: center;
+  min-height: 56px;
+  padding: 12px 0;
+  font-weight: 600;
+  cursor: pointer;
+  list-style: none;
+}
+.faq summary::-webkit-details-marker {
+  display: none;
+}
+.faq summary::after {
+  content: '+';
+  margin-left: auto;
+  padding-left: 16px;
+  font-size: 1.5rem;
+  font-weight: 400;
+  color: var(--green);
+}
+.faq details[open] summary::after {
+  content: '−';
+}
+.faq details p {
+  margin: 0 0 18px;
+  color: var(--ink-2);
+}
+/* The templates, as cards: on /templates and the home page. */
+.tpl-cards {
+  list-style: none;
+  margin: 40px 0 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 20px;
+}
+.tpl-card {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  height: 100%;
+  padding: 24px;
+  background: var(--card);
+  border: 1.5px solid var(--line);
+  border-radius: 20px;
+  color: var(--ink);
+  text-decoration: none;
+  transition:
+    transform 0.18s,
+    border-color 0.18s;
+}
+.tpl-card:hover {
+  transform: translateY(-3px);
+  border-color: var(--green);
+}
+.tpl-card strong {
+  font: 400 1.75rem/1.1 var(--serif);
+}
+.tpl-card span {
+  color: var(--ink-2);
+}
+.tpl-card em {
+  margin-top: auto;
+  padding-top: 8px;
+  font-style: normal;
+  font-weight: 600;
+  color: var(--green);
+}
+.tpl-more {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 20px 0 0;
+  padding: 0;
+  list-style: none;
+}
+.tpl-more a {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+  padding: 0 16px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  color: var(--ink);
+  text-decoration: none;
+  font-weight: 500;
+}
+.tpl-more a:hover {
+  border-color: var(--green);
+}
+
 /* ---------- responsive ---------- */
 @media (max-width: 900px) {
   :root {
@@ -861,9 +1109,13 @@ h3 {
     display: block;
   }
   .groups,
-  .dev {
+  .dev,
+  .tpl-hero {
     grid-template-columns: minmax(0, 1fr);
     gap: 48px;
+  }
+  .tpl-cards {
+    grid-template-columns: minmax(0, 1fr);
   }
   .story {
     max-width: 560px;

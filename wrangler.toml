@@ -9,6 +9,11 @@ directory = "./public"
 binding = "ASSETS"
 run_worker_first = ["/api/*"]
 
+# Every hour: "time to plan the next one?" emails for plans that repeat (src/reminders.js).
+# They only go out when email is set up.
+[triggers]
+crons = ["0 * * * *"]
+
 # Optional features are configured with secrets, never in this file:
 #   npx wrangler secret put EMAIL_FROM       # email notifications (see docs/NOTIFICATIONS.md),
 #   npx wrangler secret put RESEND_API_KEY   # sent with Resend, or with Cloudflare Email Sending:

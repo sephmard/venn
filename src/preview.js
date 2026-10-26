@@ -3,6 +3,7 @@
 // description and image into <head>. Shared by the Worker and the Node server.
 
 import { allDaySpan, buildSlots, meetingEnd, rankTimes } from '../public/core.js';
+import { imagePath } from './images.js';
 
 // Static images, rendered by `npm run og` (scripts/og-image.js): one to ask, one once it's set.
 export const OG_IMAGES = {
@@ -51,13 +52,15 @@ export function setLabel(ev, start) {
  * Title, description and image for a poll's preview, from what `store.getPreview` returns.
  * Only what anyone with the link can already see: no participant names or emails, and no counts
  * when the organizer hides results or names. `answers` is empty unless the date is picked and
- * results are visible.
+ * results are visible. A poll with its own picture (src/images.js) shows its card instead of Venn's
+ * images, at a versioned URL so chat apps fetch it again when it changes.
  */
 export function pollPreview(ev) {
   const title = [ev.emoji, ev.title].filter(Boolean).join(' ');
+  const own = ev.id && ev.image?.card && { path: imagePath(ev.id, ev.image, 'card'), alt: ev.title };
   if (ev.finalStart == null) {
     const who = !ev.hideNames && ev.organizer ? `${ev.organizer} asks: when works for you?` : 'When works for you?';
-    return { title, description: `${who} Tap your answers. No sign-up.`, image: OG_IMAGES.vote };
+    return { title, description: `${who} Tap your answers. No sign-up.`, image: own || OG_IMAGES.vote };
   }
   let description = `It's set: ${setLabel(ev, ev.finalStart)}`;
   const answers = ev.answers || [];
@@ -67,7 +70,7 @@ export function pollPreview(ev) {
     const can = best ? best.yes.length + best.ifNeeded.length : 0;
     description += ` · ${can} of ${answers.length} can make it`;
   }
-  return { title, description, image: OG_IMAGES.set };
+  return { title, description, image: own || OG_IMAGES.set };
 }
 
 /** The <head> tags for a preview. Every value is escaped; `url` and image paths are made absolute against `origin`. */

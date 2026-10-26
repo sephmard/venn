@@ -14,6 +14,7 @@ import { createStore, sqliteAdapter } from './src/store.js';
 import { SECURITY_HEADERS } from './src/security-headers.js';
 import { isAppRoute } from './src/routes.js';
 import { appShell } from './src/preview.js';
+import { sendReminders } from './src/reminders.js';
 
 const root = dirname(fileURLToPath(import.meta.url));
 const publicDir = join(root, 'public');
@@ -76,6 +77,8 @@ export function createApp({ dbPath = ':memory:', env = process.env, fetchImpl = 
     }
   });
   server.settled = () => Promise.all([...pending]);
+  // "Time to plan the next one?" emails for plans that repeat; the server below runs it every hour.
+  server.reminders = (now = Date.now()) => sendReminders({ store, env, fetchImpl, now });
   return server;
 }
 
@@ -111,5 +114,7 @@ async function serveStatic(url, res, store) {
 if (import.meta.url === `file://${process.argv[1]}`) {
   const port = Number(process.env.PORT || 8787);
   const dbPath = process.env.DB_PATH || join(root, 'data', 'venn.db');
-  createApp({ dbPath }).listen(port, () => console.log(`Venn running at http://localhost:${port}`));
+  const app = createApp({ dbPath });
+  app.listen(port, () => console.log(`Venn running at http://localhost:${port}`));
+  setInterval(() => app.reminders().catch((e) => console.error(e)), 60 * 60_000).unref();
 }

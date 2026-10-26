@@ -31,6 +31,21 @@ for (const scheme of ['light', 'dark']) {
       await audit(page, 'privacy page');
     });
 
+    test('template pages', async ({ page }) => {
+      for (const path of ['/templates', '/templates/friendsgiving', '/templates/holiday-party', '/templates/secret-santa']) {
+        await page.goto(path);
+        if (path !== '/templates') await page.locator('.faq summary').first().click(); // with a question open
+        await audit(page, path);
+      }
+    });
+
+    test('create page with a seasonal template chosen', async ({ page }) => {
+      await page.clock.setFixedTime(new Date(2026, 10, 20, 12));
+      await page.goto('/new/pick?template=friendsgiving');
+      await expect(page.locator('#desc')).not.toHaveValue('');
+      await audit(page, 'templates row, Friendsgiving chosen');
+    });
+
     test('create pages', async ({ page }) => {
       test.setTimeout(60_000); // eight scans
       page.on('dialog', (d) => d.accept()); // switching to trips clears the options with times, after asking
@@ -136,6 +151,16 @@ for (const scheme of ['light', 'dark']) {
       await expect(page.locator('#notify-form')).toBeVisible();
       await page.locator('.dev summary').click();
       await audit(page, 'event page (organizer)');
+    });
+
+    test('Finn: a note on the poll, and the sticker sheet', async ({ page }) => {
+      await page.emulateMedia({ reducedMotion: 'reduce' });
+      await openPoll(page, { names: ['Ana', 'Jo'], picked: true });
+      await expect(page.locator('.finn [role=status]')).not.toBeEmpty();
+      await audit(page, 'Finn note');
+      await page.locator('.final-more [data-finn-stickers]').click();
+      await expect(page.locator('.finn-sheet [aria-busy]')).toHaveCount(0);
+      await audit(page, 'Finn stickers');
     });
 
     test('days and hours polls', async ({ page }) => {
@@ -255,8 +280,10 @@ for (const width of [375, 412]) {
     await openPoll(page, { picked: true });
     const banner = page.locator('.banner-final');
     await expect(banner).toBeVisible();
+    // The organizer's "Plan next month's" and how often it repeats, loaded just after.
+    await expect(banner.getByLabel('Repeats')).toBeVisible();
     // Whatever is under the middle of each button is the button itself, not the decorative circles.
-    for (const el of await banner.locator('a, button').all()) {
+    for (const el of await banner.locator('a, button, select').all()) {
       await el.scrollIntoViewIfNeeded();
       const hit = await el.evaluate((node) => {
         const r = node.getBoundingClientRect();
@@ -281,6 +308,38 @@ for (const scheme of ['light', 'dark']) {
     await page.setViewportSize({ width: 375, height: 900 });
     await openPoll(page, { picked: true });
     await expect(page.getByRole('group', { name: 'Add to your calendar' })).toBeVisible();
+    await expect(page.getByRole('link', { name: 'Plan next month’s' })).toBeVisible();
     await audit(page, `picked date (${scheme})`);
+  });
+}
+
+for (const scheme of ['light', 'dark']) {
+  test(`a guest's celebration, and bringing last time's group back, pass the checks at 375px (${scheme})`, async ({ page }) => {
+    await page.emulateMedia({ colorScheme: scheme });
+    await page.setViewportSize({ width: 375, height: 800 });
+    const start = Date.UTC(2030, 0, 8, 18);
+    const make = async (data) =>
+      (
+        await page.request.post('/api/events', {
+          data: { title: 'Book club', timezone: 'UTC', mode: 'options', options: [{ start, end: start + 7_200_000 }], ...data },
+        })
+      ).json();
+    const first = await make({ requireEmail: true });
+    await page.goto(`/e/${first.id}`);
+    await page.locator('#mine .row [data-vote="2"]').first().click();
+    await page.fill('#name', 'Ana');
+    await page.fill('#copy-to', 'ana@example.com');
+    await page.click('#save');
+    await page.click('#sc-yes');
+    await expect(page.getByRole('link', { name: 'Planning something? Make yours in 30 seconds' })).toBeVisible();
+    await audit(page, `guest celebration (${scheme})`, { party: true });
+
+    // The next one: its organizer can email last time's group.
+    const next = await make({ repeat: 'monthly', seriesOf: first.id });
+    await page.goto(`/e/${first.id}#admin=${first.adminToken}`);
+    await page.goto(`/e/${next.id}#admin=${next.adminToken}`);
+    await expect(page.getByRole('link', { name: 'Email last time’s group' })).toBeVisible();
+    expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(375);
+    await audit(page, `last time's group (${scheme})`);
   });
 }

@@ -1,7 +1,8 @@
 import { test, before, after } from 'node:test';
 import assert from 'node:assert/strict';
 import { createApp } from '../server.js';
-import { cleanUsage, pollKind, sizeOf } from '../src/usage.js';
+import { cleanUsage, planOf, pollKind, sizeOf } from '../src/usage.js';
+import { TEMPLATES } from '../public/templates.js';
 import { IF_NEEDED, YES } from '../public/core.js';
 
 const TOKEN = 'stats-secret';
@@ -31,6 +32,16 @@ const total = (counts, name, match = {}) =>
     .filter((c) => c.name === name && Object.entries(match).every(([k, v]) => c.props[k] === v))
     .reduce((a, c) => a + c.count, 0);
 
+test('every template on the create page is a plan the usage stats know', () => {
+  for (const t of TEMPLATES) {
+    assert.notEqual(planOf({ emoji: t.emoji }), 'other', t.label);
+    assert.ok(cleanUsage('poll.created', { plan: planOf({ emoji: t.emoji }) }), t.label);
+  }
+  assert.equal(planOf({ emoji: '🦃' }), 'friendsgiving');
+  assert.equal(planOf({ emoji: '🎁' }), 'secret-santa');
+  assert.equal(planOf({ emoji: '🐙' }), 'other');
+});
+
 test('only known events with known values are counted', () => {
   assert.deepEqual(cleanUsage('view', { page: 'poll', as: 'guest' }, { client: true }), {
     name: 'view',
@@ -40,6 +51,12 @@ test('only known events with known values are counted', () => {
   assert.equal(cleanUsage('view', { page: 'secret-page' }, { client: true }), null); // unknown value
   assert.equal(cleanUsage('nope', {}, { client: true }), null);
   assert.equal(cleanUsage('poll.created', {}, { client: true }), null); // the browser can't fake server events
+  // Plans that repeat: how often, and the reminders sent to organizers.
+  assert.notEqual(cleanUsage('poll.created', { repeat: 'monthly' }), null);
+  assert.notEqual(cleanUsage('poll.created', { repeat: 'no' }), null);
+  assert.equal(cleanUsage('poll.created', { repeat: 'yearly' }), null);
+  assert.deepEqual(cleanUsage('reminder.sent', { repeat: 'weekly' }), { name: 'reminder.sent', props: '{"repeat":"weekly"}' });
+  assert.equal(cleanUsage('reminder.sent', {}, { client: true }), null);
   assert.equal(cleanUsage('view', { page: 'poll' }), null);
   assert.equal(cleanUsage('toString', {}, { client: true }), null);
   // Where someone who goes on to make a poll came from: answering one, or a picked date.
@@ -54,6 +71,12 @@ test('only known events with known values are counted', () => {
     props: '{"from":"card","how":"download"}',
   });
   assert.equal(cleanUsage('share', { from: 'card', how: 'print' }, { client: true }), null);
+  // A Finn sticker, shared or saved.
+  assert.deepEqual(cleanUsage('share', { from: 'sticker', how: 'sheet' }, { client: true }), {
+    name: 'share',
+    props: '{"from":"sticker","how":"sheet"}',
+  });
+  assert.equal(cleanUsage('share', { from: 'stickers', how: 'sheet' }, { client: true }), null);
 });
 
 test('polls are sorted into kinds', () => {
@@ -127,6 +150,7 @@ test('counts what happens, and works out what happened to each poll', async () =
     1,
   );
   assert.equal(total(data.counts, 'poll.created', { kind: 'free', detail: 'days', plan: 'other' }), 1);
+  assert.equal(total(data.counts, 'poll.created', { repeat: 'no' }), 2);
   assert.equal(total(data.counts, 'answer.created', { kind: 'pick' }), 1);
   assert.equal(total(data.counts, 'poll.finalized'), 1);
   assert.equal(total(data.counts, 'view', { page: 'pick' }), 1);

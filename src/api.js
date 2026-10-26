@@ -2,8 +2,9 @@
 
 import { LIMITS, ValidationError, YES, allDaySpan, isValidTimeZone, buildSlots, meetingEnd } from '../public/core.js';
 import { buildIcs } from '../public/calendar-export.js';
-import { normalizeAvailability, normalizeEventInput, normalizeName } from './validate.js';
+import { cleanRepeat, normalizeAvailability, normalizeEventInput, normalizeName } from './validate.js';
 import { SECURITY_HEADERS } from './security-headers.js';
+import { IMAGE_FILES, MAX_IMAGE_BODY, imagePath, imageResponse, parseImage } from './images.js';
 import {
   MAX_COPIES_PER_ANSWER,
   MAX_COPIES_PER_POLL,
@@ -55,12 +56,12 @@ const json = (data, status = 200) =>
 
 const error = (status, message) => json({ error: message }, status);
 
-async function readJson(request) {
+async function readJson(request, max = MAX_BODY) {
   // Only accept real JSON requests. Browsers can't send these cross-site without CORS, which we don't allow.
   if (!(request.headers.get('content-type') || '').toLowerCase().startsWith('application/json'))
     throw new ValidationError('Requests must be sent as JSON');
   const text = await request.text();
-  if (text.length > MAX_BODY) throw new ValidationError('Request is too large');
+  if (text.length > max) throw new ValidationError('Request is too large');
   try {
     return JSON.parse(text || '{}');
   } catch {
@@ -134,11 +135,13 @@ function notifyView(settings, env) {
 }
 
 /** Point the organizer's notifications at an email address, or turn them off with an empty one. */
-function setNotifyEmail(settings, value, env) {
+function setNotifyEmail(settings, value, env, origin) {
   const email = normalizeEmail(value);
   if (email && !emailEnabled(env)) throw new ValidationError("Email notifications aren't set up on this server");
   settings.email = email;
   if (email) settings.unsubscribeToken ||= randomId(24);
+  // Where the poll lives, for emails sent later with no request to take it from (src/reminders.js).
+  if (email) settings.origin = origin;
   // From before emails needed no confirmation.
   delete settings.emailConfirmed;
   delete settings.confirmHash;
@@ -246,6 +249,9 @@ export async function handleApi(
     if (parts.length === 1 && parts[0] === 'events' && method === 'POST') {
       const body = await readJson(request);
       const event = applyPrivacy(normalizeEventInput(body), body);
+      // The next one in a plan that repeats: the poll it follows on from must still be there.
+      const previous = event.seriesOf && (await store.getEvent(event.seriesOf));
+      if (!previous) delete event.seriesOf;
       const notifyEmail = body.notifyEmail ? normalizeEmail(body.notifyEmail) : null;
       if (notifyEmail && !emailEnabled(env)) throw new ValidationError("Email notifications aren't set up on this server");
       const id = randomId(10);
@@ -268,7 +274,7 @@ export async function handleApi(
       if (notifyEmail) {
         // No confirmation step: the organizer gets their poll's link straight away, then an email per answer.
         const settings = { emailsSent: 1 };
-        setNotifyEmail(settings, notifyEmail, env);
+        setNotifyEmail(settings, notifyEmail, env, origin);
         await store.setNotify(id, settings);
         const msg = pollReadyEmail({
           title: event.title,
@@ -277,17 +283,28 @@ export async function handleApi(
         });
         waitUntil(sendEmail(env, { to: notifyEmail, ...msg }, { fetchImpl }).catch((e) => console.error('poll email failed', e)));
       }
+      // The next one is planned, so the last one needs no "time to plan the next one?" email.
+      if (previous) await store.markReminded(previous.id, now(), 'continued');
       count('poll.created', {
         ...pollKind(event),
         plan: planOf(event),
         options: sizeOf(event),
         email: notifyEmail ? 'yes' : 'no',
         copy: body.copied === true ? 'yes' : 'no',
+        repeat: event.repeat || 'no',
       });
       return json({ id, adminToken, ...(host && { participant: host }) }, 201);
     }
 
     if (parts[0] !== 'events' || !parts[1]) return error(404, 'Not found');
+
+    // GET /api/events/:id/icon.jpg and card.jpg: the poll's own picture, for anyone with the link.
+    if (parts.length === 3 && IMAGE_FILES[parts[2]] && (method === 'GET' || method === 'HEAD')) {
+      const img = await store.getImage(parts[1], IMAGE_FILES[parts[2]]);
+      if (!img) return error(404, 'This poll has no picture');
+      return imageResponse(img, { versioned: url.searchParams.get('v') === String(img.v), head: method === 'HEAD' });
+    }
+
     const ev = await store.getEvent(parts[1]);
     if (!ev) return error(404, 'This poll does not exist or was deleted');
     const isAdmin = await tokenMatches(request.headers.get('x-admin-token'), ev.adminHash);
@@ -310,6 +327,9 @@ export async function handleApi(
         const body = await readJson(request);
         const next = applyPrivacy(normalizeEventInput(body), body);
         if (ev.hostId) next.hostId = ev.hostId;
+        // The edit form doesn't send these, so a poll keeps its place in a plan that repeats.
+        if (!('repeat' in body) && ev.repeat) next.repeat = ev.repeat;
+        if (ev.seriesOf) next.seriesOf = ev.seriesOf;
         // The organizer's own answer follows the new times: what they sent, or what they'd already
         // answered for the times that are still there. It's checked before the poll changes.
         const host = participants.find((p) => p.id === ev.hostId);
@@ -356,6 +376,7 @@ export async function handleApi(
         end,
         allDay: allDaySpan(ev.finalStart, end, ev.timezone),
         url: `${url.origin}/e/${ev.id}`,
+        ...(ev.image && { image: { url: url.origin + imagePath(ev.id, ev.image), type: ev.image.type } }),
       });
       count('calendar.ics', {});
       return new Response(body, {
@@ -388,7 +409,7 @@ export async function handleApi(
 
       if (parts.length === 3 && method === 'PUT') {
         const body = await readJson(request);
-        if ('email' in body) setNotifyEmail(settings, body.email, env);
+        if ('email' in body) setNotifyEmail(settings, body.email, env, origin);
         if ('webhookUrl' in body) {
           const webhookUrl = await validateWebhookUrl(body.webhookUrl, { resolveHost });
           if (webhookUrl && (webhookUrl !== settings.webhookUrl || !settings.webhookSecret))
@@ -437,13 +458,36 @@ export async function handleApi(
       return error(404, 'Not found');
     }
 
-    // PUT /api/events/:id/settings  { requireEmail?, hideNames?, hideResults? }
+    // PUT /api/events/:id/settings  { requireEmail?, hideNames?, hideResults?, repeat? }
     if (parts.length === 3 && parts[2] === 'settings' && method === 'PUT') {
       if (!isAdmin) return error(403, 'Only the organizer can change these settings');
       const { id: _id, adminHash, finalStart, createdAt, ...data } = ev;
-      const next = applyPrivacy(data, await readJson(request));
+      const body = await readJson(request);
+      const next = applyPrivacy(data, body);
+      // How often the plan repeats ('' or null: it doesn't).
+      if ('repeat' in body) {
+        const repeat = cleanRepeat(body.repeat);
+        if (repeat) next.repeat = repeat;
+        else delete next.repeat;
+      }
       await store.updateEvent(ev.id, next);
-      return json(Object.fromEntries(PRIVACY.map((k) => [k, !!next[k]])));
+      return json({ ...Object.fromEntries(PRIVACY.map((k) => [k, !!next[k]])), repeat: next.repeat || null });
+    }
+
+    // PUT /api/events/:id/image  { icon, card? }: the poll's own picture, in base64 (src/images.js).
+    // DELETE /api/events/:id/image: back to the emoji.
+    if (parts.length === 3 && parts[2] === 'image') {
+      if (method !== 'PUT' && method !== 'DELETE') return error(405, 'Method not allowed');
+      if (!isAdmin) return error(403, "Only the organizer can change the poll's picture");
+      if (method === 'DELETE') {
+        await store.deleteImage(ev.id);
+        return json({ image: null });
+      }
+      const body = await readJson(request, MAX_IMAGE_BODY);
+      const icon = parseImage(body.icon, 'icon');
+      const card = body.card == null ? null : parseImage(body.card, 'card');
+      const v = await store.setImage(ev.id, { icon, card, now: now() });
+      return json({ image: { v, card: !!card, type: icon.type } });
     }
 
     // POST /api/events/:id/finalize  { start: number | null }

@@ -123,6 +123,7 @@ export async function renderEvent(id, navigate) {
       e.status === 404
         ? `<div class="sheet empty"><h1>Poll not found</h1><p class="muted">This poll may have been deleted, or the link wasn't copied in full. Check the link with whoever sent it.</p><a class="btn btn-primary" href="/new" data-link>Create a poll</a></div>`
         : `<div class="sheet empty"><h1>Can't open this poll</h1><p class="muted">${esc(e.message)}</p><button class="btn btn-primary" onclick="location.reload()">Try again</button></div>`;
+    if (e.status === 404) import('./finn.js').then((m) => m.lost(app.querySelector('.sheet'))).catch(() => {});
     return () => {};
   }
 
@@ -171,10 +172,12 @@ export async function renderEvent(id, navigate) {
   // A new poll opens on the organizer's own answer.
   st.tab = !st.fresh && (me() || (ev().isAdmin && ev().participants.length)) ? 'group' : 'mine';
 
+  // The poll's own picture (poll-image.js), in place of its emoji.
+  const picture = ev().image && `/api/events/${encodeURIComponent(id)}/icon.jpg?v=${ev().image.v}`;
   app.innerHTML = `
     <article id="event-root" class="poll">
       <header class="poll-head">
-        <span class="emoji-tile big" aria-hidden="true">${esc(ev().emoji || '🗓️')}</span>
+        <span class="emoji-tile big" aria-hidden="true">${picture ? `<img src="${esc(picture)}" alt="">` : esc(ev().emoji || '🗓️')}</span>
         <div class="poll-head-text">
           <h1 id="ev-title"></h1>
           <p class="poll-meta" id="ev-meta"></p>
@@ -1059,13 +1062,14 @@ export async function renderEvent(id, navigate) {
       const host = ev().isAdmin ? '' : ev().organizer;
       const p = (await party)?.celebrate({
         emoji: ev().emoji || '🎉',
+        picture,
         heading: created ? 'Answer submitted!' : 'Answer updated!',
         message: ev().isAdmin
           ? 'Your answer is in. Now the fun part: seeing when everyone can make it.'
           : `Finn is so glad you're in. ${host ? `${host} can see it now` : 'Everyone can see it now'}. Thanks for helping bring people together.`,
-        button: hideAll ? 'Done' : 'See everyone’s answers →',
+        button: hideAll ? 'Back to the poll' : 'See everyone’s answers',
         // Guests who enjoyed that are the next organizers: one tap to make their own.
-        also: ev().isAdmin ? null : { label: 'Planning something? Make your own poll', href: '/new?from=guest' },
+        also: ev().isAdmin ? null : { label: 'Planning something? Make yours in 30 seconds', href: '/new?from=guest' },
       });
       await p?.shown;
       p?.finish();
@@ -1501,6 +1505,7 @@ export async function renderEvent(id, navigate) {
         start,
         end,
         allDay: allDaySpan(start, end, ev().timezone),
+        image: picture && { url: location.origin + picture, type: ev().image.type },
       };
       if (!calJs) return void loadCal().then(renderBanners); // the date was just picked
       const day = utcToZoned(start, info.allDay || partsMode ? ev().timezone : st.tz).date.slice(8);
@@ -1528,12 +1533,12 @@ export async function renderEvent(id, navigate) {
           ${
             // The next plan starts here: the organizer copies this poll, a guest makes their own.
             ev().isAdmin
-              ? `<a class="link-btn" data-link href="/new/${optionsMode && !partsMode ? 'pick' : 'free'}?copy=${esc(id)}">Plan the next one</a>`
+              ? `<span id="plan-next"><a class="link-btn" data-link href="/new/${optionsMode && !partsMode ? 'pick' : 'free'}?copy=${esc(id)}">Plan the next one</a></span>`
               : '<a class="link-btn" data-link href="/new?from=set">Make your own poll</a>'
           }
         </div>
       </section>`;
-    }
+    } else if (ev().isAdmin && ev().seriesOf) h += '<div id="series-box"></div>'; // bring last time's group back
     if (org) h += '<div id="org-tools"></div>';
     $('#banners').innerHTML = h;
     // The "It's set" picture is drawn by a module that loads when it's asked for.
@@ -1544,6 +1549,11 @@ export async function renderEvent(id, navigate) {
           .then((m) => m.shareCard({ ev: ev(), when: when(ev().finalStart, meetingEnd(ev(), ev().finalStart)), button: card }))
           .catch(() => toast("Couldn't make the picture. Try again."));
     st.celebrate = false;
+    // Plans that repeat: "Plan next month's", and last time's group (plan-next.js, for organizers).
+    if ($('#plan-next, #series-box'))
+      import('./plan-next.js')
+        .then((m) => m.planNext({ id, ev: ev(), headers: authHeaders(), kind: optionsMode && !partsMode ? 'pick' : 'free' }))
+        .catch(() => {});
     org?.tools($('#org-tools'), {
       id,
       ev: ev(),
@@ -1565,6 +1575,10 @@ export async function renderEvent(id, navigate) {
         navigate('/new');
       },
     });
+    // Finn, the Venn dog, has something to say at a few moments: finn.js, loaded after the page.
+    import('./finn.js')
+      .then((m) => m.react({ id, ev: ev(), meId: saved(id).participantId, anchor: $('#banners') }))
+      .catch(() => {});
   }
 
   function renderMeState() {

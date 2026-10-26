@@ -1,7 +1,7 @@
 // The moment a poll is created, or an answer is sent: a happy dog bounces in over the Venn circles,
 // confetti flies, and a little note says well done. Loaded only when it's needed.
 
-import { reducedMotion, track } from './ui.js';
+import { esc, reducedMotion, track } from './ui.js';
 
 const DOG = '/img/dog.webp';
 new Image().src = DOG; // start loading it while the poll is being saved
@@ -16,11 +16,15 @@ const CSS = `
 .party-hero i:nth-child(2){left:0;top:86px}
 .party-hero i:nth-child(3){left:102px;top:86px}
 .party-hero img{position:absolute;left:69px;top:4px;width:92px;height:200px;transform-origin:50% 100%}
+.party-hero .party-pic{left:auto;right:-6px;top:0;width:76px;height:76px;border-radius:20px;border:4px solid var(--surface);
+  object-fit:cover;transform:rotate(8deg);box-shadow:0 6px 16px rgb(0 0 0 / .18)}
 .party h2{font-family:var(--serif);font-weight:400;font-size:44px;line-height:1.05;margin:4px 0 0}
 .party p{margin:0;font-size:19px;line-height:1.4;text-wrap:balance}
 .party .party-go{margin-top:10px;min-height:44px;padding:10px 20px;border:0;border-radius:999px;font:inherit;
   font-size:16px;font-weight:600;background:var(--accent);color:var(--accent-ink);cursor:pointer;max-width:100%;overflow-wrap:anywhere}
-.party .party-also{display:inline-flex;align-items:center}
+.party .party-also{display:inline-flex;align-items:center;justify-content:center;min-height:44px;padding:8px 20px;
+  border:2px solid var(--accent);border-radius:999px;background:var(--bg);color:var(--accent);font-size:16px;font-weight:600;
+  text-decoration:none;max-width:100%;overflow-wrap:anywhere}
 .party .party-skip{min-height:44px;padding:8px 16px;border:0;background:none;font:inherit;font-size:16px;font-weight:600;
   color:var(--accent);text-decoration:underline;text-underline-offset:3px;cursor:pointer}
 .party-bit{position:absolute;left:50%;top:50%;pointer-events:none;font-size:28px;line-height:1}
@@ -37,8 +41,9 @@ const SHOW_MS = 3600;
  * Celebrate a new poll (or, with `heading`, `message` and `button`, an answer). With `share`, the main
  * button shares the poll, and "View poll" just opens it. `shown` resolves when it's time to open the
  * poll: after a few seconds, or straight away if the person presses a button or Escape. Then call
- * `finish()` to fade the overlay out over the poll. With `also` ({ label, href }), a link to go
- * somewhere else instead, such as making your own poll; it stays up longer then, to be seen.
+ * `finish()` to fade the overlay out over the poll. With `also` ({ label, href }), a second button
+ * that goes somewhere else, such as making your own poll; it stays up longer then, to be seen.
+ * With `picture` (a URL), the poll's own picture is stuck on beside Finn.
  */
 export function celebrate({
   emoji = '🎉',
@@ -48,6 +53,7 @@ export function celebrate({
   button = title ? `Open ${title} →` : 'Open my poll →',
   share = null,
   also = null,
+  picture = null,
 } = {}) {
   if (!document.getElementById('party-css')) {
     const style = document.createElement('style');
@@ -63,11 +69,13 @@ export function celebrate({
   el.setAttribute('aria-labelledby', 'party-h');
   el.innerHTML = `
     <div class="party-stage">
-      <div class="party-hero" aria-hidden="true"><i></i><i></i><i></i><img src="${DOG}" alt="" width="92" height="200" /></div>
+      <div class="party-hero" aria-hidden="true"><i></i><i></i><i></i><img src="${DOG}" alt="" width="92" height="200" />${
+        picture ? `<img class="party-pic" src="${esc(picture)}" alt="" width="76" height="76" />` : ''
+      }</div>
       <div role="status"></div>
       <button type="button" class="party-go"></button>
+      ${also ? `<a class="party-also"${also.href.startsWith('/') ? ' data-link' : ''}></a>` : ''}
       <button type="button" class="party-skip" hidden>View poll</button>
-      ${also ? `<a class="party-skip party-also" data-link></a>` : ''}
     </div>`;
   // The toast stays live, so "Link copied" is still heard after sharing.
   const behind = [...document.body.children].filter((n) => !n.inert && n.id !== 'toast');
@@ -89,7 +97,7 @@ export function celebrate({
   go.focus({ preventScroll: true });
 
   const still = reducedMotion();
-  const anim = (node, frames, opts) => (still ? null : node.animate(frames, { fill: 'both', ...opts }));
+  const anim = (node, frames, opts) => (still || !node ? null : node.animate(frames, { fill: 'both', ...opts }));
   anim(el, [{ opacity: 0 }, { opacity: 1 }], { duration: 200 });
 
   // The three circles slide together into a Venn behind the dog.
@@ -130,6 +138,7 @@ export function celebrate({
   for (const [node, delay] of [
     [status, 520],
     [go, 700],
+    [el.querySelector('.party-also'), 800],
   ])
     anim(
       node,
