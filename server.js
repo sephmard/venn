@@ -13,6 +13,7 @@ import { handleApi } from './src/api.js';
 import { createStore, sqliteAdapter } from './src/store.js';
 import { SECURITY_HEADERS } from './src/security-headers.js';
 import { isAppRoute } from './src/routes.js';
+import { appShell } from './src/preview.js';
 
 const root = dirname(fileURLToPath(import.meta.url));
 const publicDir = join(root, 'public');
@@ -68,7 +69,7 @@ export function createApp({ dbPath = ':memory:', env = process.env, fetchImpl = 
         res.end(Buffer.from(await response.arrayBuffer()));
         return;
       }
-      await serveStatic(url.pathname, res);
+      await serveStatic(url, res, store);
     } catch (e) {
       console.error(e);
       res.writeHead(500).end('Internal error');
@@ -78,7 +79,8 @@ export function createApp({ dbPath = ':memory:', env = process.env, fetchImpl = 
   return server;
 }
 
-async function serveStatic(pathname, res) {
+async function serveStatic(url, res, store) {
+  const { pathname } = url;
   let rel = normalize(decodeURIComponent(pathname)).replace(/^(\.\.[/\\])+/, '');
   if (rel.endsWith('/')) rel += 'index';
   // Like Cloudflare: /privacy serves privacy.html. The app's own routes get the app shell.
@@ -100,6 +102,8 @@ async function serveStatic(pathname, res) {
     file = join(publicDir, '404.html');
     data = await readFile(file);
   }
+  // Poll pages carry the poll's own link preview (src/preview.js), as on Cloudflare.
+  if (status === 200 && isAppRoute(pathname)) data = await appShell(data.toString(), { pathname, origin: url.origin, store });
   res.writeHead(status, { ...SECURITY_HEADERS, 'content-type': TYPES[extname(file)] || 'application/octet-stream' });
   res.end(data);
 }
