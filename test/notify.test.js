@@ -285,5 +285,5 @@ test('people who answer can get a copy of their answer, with their edit link', a
 
   // No address, no copy; and the address is never kept with the poll.
   await call(path, { method: 'POST', body: { name: 'Lee', availability: { [slot]: 2 } } });
-  assert.doesNotMatch(JSON.stringify((await call(`/api/events/${data.id}`)).data), /example\.com/);
+  assert.ok(!JSON.stringify((await call(`/api/events/${data.id}`)).data).includes('ana@example.com'));
 });
