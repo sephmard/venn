@@ -505,6 +505,28 @@ test('the week calendar opens at the plan’s time and pages a week at a time', 
   await expect(page.locator('.tg-block')).toHaveCount(0);
 });
 
+test('keyboard: add a time to "vote on a few dates" without the pointer', async ({ page }) => {
+  await page.goto('/new/pick');
+  await page.fill('#title', 'Book club');
+  await page.click('[data-length="90"]');
+  // Pressing Create with no options goes to the day to add one.
+  await page.locator('#submit').focus();
+  await page.keyboard.press('Enter');
+  await expect(page.locator('#at-day')).toBeFocused();
+  await page.getByRole('button', { name: 'Next week' }).click();
+  const day = await page.locator('#picker .tg-col').first().getAttribute('data-date');
+  await page.selectOption('#at-day', day);
+  await page.selectOption('#at-time', '1110'); // 6:30 PM
+  await page.locator('#at-add').focus();
+  await page.keyboard.press('Enter');
+  // The same option a tap makes, of the plan's length.
+  await expect(page.locator('#options-list .chip')).toHaveCount(1);
+  await expect(page.locator('#options-list .chip')).toContainText('6:30 – 8:00 PM');
+  await expect(page.locator('.tg-block')).toHaveCount(1);
+  await expect(page.locator('#at-add')).toBeFocused();
+  await expect(page.locator('#submit')).toHaveAttribute('aria-disabled', 'false');
+});
+
 test('landing page: nav bar with GitHub, and the way to both kinds of poll', async ({ page, isMobile }) => {
   await page.goto('/');
   const nav = page.getByRole('navigation', { name: 'Main' });

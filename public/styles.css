@@ -2420,6 +2420,28 @@ pre.code {
 .tz-pick .hint {
   margin: 6px 0 0;
 }
+/* "Or add a time" under the week calendar: a day, a start time and Add, for keyboards. */
+.add-time {
+  margin-top: 12px;
+}
+.add-time-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 8px;
+  margin-top: 6px;
+}
+.add-time-field {
+  flex: 1 1 130px;
+  min-width: 0;
+}
+.add-time-field label {
+  font-size: 0.9rem;
+  font-weight: 600;
+}
+.add-time .btn {
+  min-height: 46px;
+}
 /* The week calendar: days gone by can't take options. */
 .tg-past {
   background-color: var(--surface-2);

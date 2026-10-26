@@ -466,6 +466,7 @@ export function renderPick() {
         </div>
         <p class="hint" id="when-hint"></p>
         <div id="picker"></div>
+        <div class="add-time" id="add-time" role="group" aria-labelledby="at-l" hidden></div>
         ${tzLine()}
       </section>
       <section class="sheet poll-preview" aria-labelledby="preview-h">
@@ -488,7 +489,7 @@ export function renderPick() {
 
   const timed = () => typeof length === 'number' || length === 'custom';
   // Where to go when Create is pressed with no options: the calendar.
-  const calendarFocus = () => $('#picker .tg-scroll') || $('#picker .cal-day:not(:disabled)');
+  const calendarFocus = () => $('#at-day:not([disabled])') || $('#picker .cal-day:not(:disabled)');
   const minutes = () => (length === 'custom' ? Math.max(15, Math.min(1440, +$('#custom').value || 60)) : length);
   const onDate = (d) => [...items.values()].filter((it) => it.date === d);
   const mark = (d) => (onDate(d).length ? String(onDate(d).length) : '');
@@ -532,7 +533,9 @@ export function renderPick() {
     month?.cleanup();
     view = month = null;
     const root = $('#picker');
+    $('#add-time').hidden = !timed();
     if (timed()) {
+      buildAddTime();
       $('#when-hint').textContent = isPhone()
         ? 'Tap the calendar to add an option of the length above. Drag its top or bottom edge to change the length. Tap an option to switch between available and if needed, or × to remove it.'
         : 'Drag on the calendar to add an option, or click to add one of the length above. Drag an edge to change the length, or drag it to another time. Click an option to switch between available and if needed, or × to remove it.';
@@ -563,6 +566,7 @@ export function renderPick() {
         onMove: reshape,
         editBlocks: (el, o) => editBlocks(el, { ...o, onRemove: remove }),
         marks: mark,
+        onRender: showAddDays,
       });
     } else {
       $('#when-hint').textContent =
@@ -585,6 +589,35 @@ export function renderPick() {
         },
       });
     }
+  }
+
+  // ----- adding a time without a pointer: a day, a start time and Add -----
+  function buildAddTime() {
+    const at = lastFrom ?? PART_OPENS[occasion()?.part] ?? 1080;
+    const times = [];
+    for (let m = 420; m < 1440; m += 30)
+      times.push(`<option value="${m}"${m === at ? ' selected' : ''}>${esc(shortTime(m))}</option>`);
+    $('#add-time').innerHTML = `
+      <span class="scope-label" id="at-l">Or add a time</span>
+      <div class="add-time-row">
+        <div class="add-time-field"><label for="at-day">Day</label><select id="at-day"></select></div>
+        <div class="add-time-field"><label for="at-time">Starts at</label><select id="at-time">${times.join('')}</select></div>
+        <button type="button" class="btn" id="at-add">Add</button>
+      </div>`;
+    $('#at-add').onclick = () => {
+      const date = $('#at-day').value;
+      const from = +$('#at-time').value;
+      if (date) add({ date, from, to: Math.min(from + minutes(), 1440) }); // the same as a tap
+    };
+  }
+  /** The day select offers the days the calendar shows (from today on). */
+  function showAddDays(ds) {
+    const sel = $('#at-day');
+    const days = ds.filter((d) => d >= todayStr());
+    if (!sel || sel.dataset.days === days.join()) return;
+    const keep = days.includes(sel.value) ? sel.value : days[0];
+    sel.dataset.days = days.join();
+    sel.innerHTML = days.map((d) => `<option value="${d}"${d === keep ? ' selected' : ''}>${esc(dayLabel(d))}</option>`).join('');
   }
 
   // ----- the options in the poll, by day -----
