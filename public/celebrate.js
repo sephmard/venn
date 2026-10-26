@@ -43,7 +43,7 @@ const SHOW_MS = 3600;
  * poll: after a few seconds, or straight away if the person presses a button or Escape. Then call
  * `finish()` to fade the overlay out over the poll. With `also` ({ label, href }), a second button
  * that goes somewhere else, such as making your own poll; it stays up longer then, to be seen.
-  * With `picture` (a URL), the poll's own picture is stuck on beside Finn.
+ * With `picture` (a URL), the poll's own picture is stuck on beside Finn.
  */
 export function celebrate({
   emoji = '🎉',
