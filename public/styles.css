@@ -2196,6 +2196,42 @@ pre.code {
   border-color: var(--accent);
 }
 
+/* Blocks on the week: drag an edge to change the length; "if needed" options are amber. */
+.tg-handle {
+  position: absolute;
+  left: 0;
+  right: 0;
+  height: 10px;
+  cursor: ns-resize;
+  touch-action: none;
+}
+.tg-handle::after {
+  content: '';
+  position: absolute;
+  top: 4px;
+  left: calc(50% - 9px);
+  width: 18px;
+  height: 3px;
+  border-radius: 2px;
+  background: currentColor;
+  opacity: 0.55;
+}
+.tg-top {
+  top: -2px;
+}
+.tg-bottom {
+  bottom: -2px;
+}
+.tg-block.opt-maybe {
+  background: var(--maybe);
+  border-color: var(--maybe);
+  color: var(--maybe-ink);
+}
+.pick-brush {
+  display: grid;
+  gap: 6px;
+  margin-bottom: 10px;
+}
 /* ---------- organizer: paint the times guests can mark ---------- */
 .pg-scroll {
   position: relative;

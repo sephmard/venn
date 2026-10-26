@@ -2,7 +2,8 @@
 //   /new/pick  You suggest some dates (and times). Everyone votes on each one.
 //   /new/free  You pick a range of days. Everyone marks when they're free; Venn finds the overlap.
 
-import { DAY_PARTS, MINUTE, MAX_SPAN_DAYS, addDays, utcToZoned, zonedToUtc } from './core.js';
+import { DAY_PARTS, IF_NEEDED, MINUTE, MAX_SPAN_DAYS, YES, addDays, utcToZoned, zonedToUtc } from './core.js';
+import { editBlocks } from './block-edit.js';
 import { isPhone, monthView, paintView, timeView } from './picker.js';
 import {
   $,
@@ -156,7 +157,11 @@ function wirePlan(onOccasion) {
   return () => current;
 }
 
-async function submit(body, occasion) {
+/**
+ * Create the poll. `answer` (option start → yes or if needed) is the organizer's own answer,
+ * saved straight after so they don't have to vote on their own options.
+ */
+async function submit(body, occasion, answer = null) {
   const err = $('#err');
   err.textContent = '';
   const title = $('#title').value.trim() || occasion()?.label || '';
@@ -190,6 +195,13 @@ async function submit(body, occasion) {
   try {
     const { id, adminToken } = await api('events', { method: 'POST', body });
     save(id, { adminToken, justCreated: true, notifyPending: !!notifyEmail });
+    if (answer && Object.keys(answer).length) {
+      const me = await api(`events/${id}/participants`, {
+        method: 'POST',
+        body: { name: body.organizer || 'Host', availability: answer },
+      }).catch(() => null);
+      if (me) save(id, { participantId: me.id, editToken: me.editToken });
+    }
     // A little party, while the poll page loads behind it.
     import('./event.js').catch(() => {});
     // The main button shares the poll: the phone's share sheet, or the link copied.
@@ -269,7 +281,8 @@ export function renderPick() {
   const items = new Map();
   let length = 120;
   let spanDays = 3;
-  let mode = 'compose'; // 'compose' (days, then times) or 'calendar' (draw on a week)
+  let mode = 'calendar'; // 'calendar' (draw on a week) or 'compose' (days, then times)
+  let brush = YES; // new options are marked as working for the organizer, or only if needed
   let timeGroup = 'evening';
   // The composer: options appear as soon as there's a day and a start time.
   const days = new Set(); // days picked on the composer's month
@@ -312,8 +325,15 @@ export function renderPick() {
       <section class="sheet" aria-labelledby="when-h">
         <h2 id="when-h">When could it be?</h2>
         <div class="seg pick-mode" role="radiogroup" aria-label="How to add options" id="pick-mode">
-          <button type="button" role="radio" data-pick-mode="compose">Days, then times</button>
           <button type="button" role="radio" data-pick-mode="calendar">Draw on a week</button>
+          <button type="button" role="radio" data-pick-mode="compose">Days, then times</button>
+        </div>
+        <div class="pick-brush">
+          <span class="scope-label" id="brush-l">For you, new options are</span>
+          <div class="seg brush" role="radiogroup" aria-labelledby="brush-l">
+            <button type="button" role="radio" data-pbrush="${YES}"><span class="swatch swatch-yes"></span>Available</button>
+            <button type="button" role="radio" data-pbrush="${IF_NEEDED}"><span class="swatch swatch-maybe"></span>If needed</button>
+          </div>
         </div>
         <p class="hint" id="when-hint"></p>
         <div id="picker"></div>
@@ -346,8 +366,25 @@ export function renderPick() {
   const key = (it) => `${it.date}|${it.from ?? 'day'}`;
   function toggle(it) {
     const k = key(it);
-    if (items.has(k) && items.get(k).to === it.to) return remove(k);
-    items.set(k, it); // one option per start time
+    if (items.has(k) && items.get(k).to === it.to) return tapOption(k);
+    items.set(k, { ...it, v: brush }); // one option per start time
+    changed();
+  }
+  /** Tapping an option: give it the current Available / If needed, or take it away if it has it. */
+  function tapOption(k) {
+    const it = items.get(k);
+    if ((it.v || YES) !== brush) {
+      it.v = brush;
+      return changed();
+    }
+    remove(k);
+  }
+  /** An option dragged to a new length, time or day. */
+  function reshape(k, date, from, to) {
+    const it = items.get(k);
+    items.delete(k);
+    items.set(`${date}|${from}`, { ...it, date, from, to });
+    if (!onDate(it.date).length) days.delete(it.date);
     changed();
   }
   /** Take an option away; a day left with none is no longer picked. */
@@ -377,8 +414,8 @@ export function renderPick() {
     for (const b of $$('[data-pick-mode]')) b.setAttribute('aria-checked', b.dataset.pickMode === mode);
     if (timed() && mode === 'calendar') {
       $('#when-hint').textContent = isPhone()
-        ? 'Tap the calendar to add an option of the length above. Tap an option to remove it.'
-        : 'Drag on the calendar to add an option, or click to add one of the length above. Click an option to remove it.';
+        ? 'Tap the calendar to add an option of the length above. Drag its top or bottom edge to make it longer or shorter. Tap it to switch between available and if needed, or to remove it.'
+        : 'Drag on the calendar to add an option, or click to add one of the length above. Drag an edge to make it longer or shorter, or drag it to another time. Click it to switch between available and if needed, or to remove it.';
       view = timeView(root, {
         label: 'Calendar',
         views: ['week', 'day'],
@@ -392,13 +429,16 @@ export function renderPick() {
               date: it.date,
               from: it.from,
               to: Math.min(it.to, 1440),
-              cls: 'opt',
-              label: timeRange(it.from, it.to),
+              cls: it.v === IF_NEEDED ? 'opt opt-maybe' : 'opt',
+              label: `${it.v === IF_NEEDED ? '~ ' : ''}${timeRange(it.from, it.to)}`,
               short: shortTime(it.from),
-              title: `${timeRange(it.from, it.to)}, ${dayLabel(it.date)}. Remove this option`,
+              title: `${timeRange(it.from, it.to)}, ${dayLabel(it.date)}, ${it.v === IF_NEEDED ? 'if needed' : 'available'} for you. Tap to change`,
             })),
         onCreate: (date, from, to) => toggle({ date, from, to }),
-        onBlock: remove,
+        onBlock: tapOption,
+        onResize: (k, from, to) => reshape(k, items.get(k).date, from, to),
+        onMove: reshape,
+        editBlocks,
         marks: mark,
       });
     } else if (timed()) {
@@ -453,7 +493,7 @@ export function renderPick() {
         onChange: () => {
           for (const [k, it] of items) if (it.from == null && !starts.has(it.date)) items.delete(k);
           for (const d of starts)
-            if (!items.has(`${d}|day`)) items.set(`${d}|day`, { date: d, days: length === 'days' ? spanDays : 1 });
+            if (!items.has(`${d}|day`)) items.set(`${d}|day`, { date: d, days: length === 'days' ? spanDays : 1, v: brush });
           month.render();
           renderList();
         },
@@ -462,7 +502,7 @@ export function renderPick() {
   }
 
   // ----- the composer: days × start times -----
-  const addTime = (date, from) => items.set(`${date}|${from}`, { date, from, to: Math.min(from + minutes(), 1440) });
+  const addTime = (date, from) => items.set(`${date}|${from}`, { date, from, to: Math.min(from + minutes(), 1440), v: brush });
   const timeOn = (m) => (focus ? items.has(`${focus}|${m}`) : times.has(m));
   function renderComposer() {
     if (!$('#times')) return;
@@ -559,7 +599,8 @@ export function renderPick() {
             <span class="od-date">${esc(dayLabel(d))}</span>
             <span class="chips">${its
               .map(
-                ([k, it]) => `<span class="chip">${esc(itemLabel(it))}${removeBtn(k, `${dayLabel(d)}, ${itemLabel(it)}`)}</span>`,
+                ([k, it]) =>
+                  `<span class="chip${it.v === IF_NEEDED ? ' maybe' : ''}">${it.v === IF_NEEDED ? '<span aria-hidden="true">~</span> ' : ''}${esc(itemLabel(it))}${it.v === IF_NEEDED ? '<span class="sr-only"> (if needed)</span>' : ''}${removeBtn(k, `${dayLabel(d)}, ${itemLabel(it)}`)}</span>`,
               )
               .join('')}</span>
             ${timed() ? `<button type="button" class="pill pill-quiet od-add" data-add-to="${d}" aria-label="Add a time on ${esc(dayLabel(d))}">+ Time</button>` : ''}
@@ -604,6 +645,16 @@ export function renderPick() {
     mode = m;
     mountPicker();
   }
+  const renderBrush = () => {
+    for (const b of $$('[data-pbrush]')) b.setAttribute('aria-checked', +b.dataset.pbrush === brush);
+  };
+  $('#create').addEventListener('click', (e) => {
+    const b = e.target.closest('[data-pbrush]');
+    if (!b) return;
+    brush = +b.dataset.pbrush;
+    renderBrush();
+  });
+  renderBrush();
   $('#pick-mode').addEventListener('click', (e) => {
     const b = e.target.closest('[data-pick-mode]');
     if (b) setMode(b.dataset.pickMode);
@@ -668,7 +719,10 @@ export function renderPick() {
   $('#create').onsubmit = (e) => {
     e.preventDefault();
     if (!items.size) return ($('#err').textContent = 'Add at least one option to vote on.');
-    submit({ mode: 'options', options: options() }, occasion);
+    // The organizer's own answer, from how each option was marked.
+    const answer = {};
+    options().forEach((o, i) => (answer[o.start] = sorted()[i][1].v || YES));
+    submit({ mode: 'options', options: options() }, occasion, answer);
   };
 
   // AI: describe the plan in words.
