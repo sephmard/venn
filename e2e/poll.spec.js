@@ -522,7 +522,7 @@ test('the week calendar opens at the plan’s time and pages a week at a time', 
   // Narrow week columns get a short label ("7p"), not one broken over three lines.
   await tapAt(page, addDays(first, 15), 1140);
   await page.click('[data-view="week"]');
-  await expect(page.locator('.tg-block span')).toHaveText(/^~?(7p|19)$/);
+  await expect(page.locator('.tg-block span')).toHaveText(/^(7p|19)$/);
   // The × has a 44px hit area: a near miss removes the option instead of switching it to if needed.
   const x = await page.locator('.tg-x').boundingBox();
   await page.touchscreen.tap(x.x - 7, x.y + x.height + 7);

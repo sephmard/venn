@@ -484,6 +484,7 @@ export function renderPick() {
     }
     setLength(o.length);
     view?.home(); // open at the plan's usual time: a morning for coffee, an evening for dinner
+    if (lastFrom == null && PART_OPENS[o.part] && $('#at-time')) $('#at-time').value = PART_OPENS[o.part];
   });
 
   const timed = () => typeof length === 'number' || length === 'custom';
@@ -555,7 +556,7 @@ export function renderPick() {
               cls: ifNeeded(it) ? 'opt opt-maybe' : 'opt',
               label: `${ifNeeded(it) ? '~ ' : ''}${timeRange(it.from, it.to)}`,
               short: shortTime(it.from),
-              tiny: `${ifNeeded(it) ? '~' : ''}${tinyTime(it.from)}`,
+              tiny: tinyTime(it.from), // amber, and named "if needed", when it is: no room for "~"
               title: `${timeRange(it.from, it.to)}, ${dayLabel(it.date)}, ${ifNeeded(it) ? 'if needed' : 'available'} for you. Tap to make it ${ifNeeded(it) ? 'available' : 'if needed'}`,
               remove: `Remove ${timeRange(it.from, it.to)}, ${dayLabel(it.date)}`,
             })),
