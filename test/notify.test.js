@@ -18,6 +18,9 @@ import {
 
 // ---------- unit ----------
 
+/** An email's lines, to check a link is there exactly, not just somewhere in the text. */
+const lines = (text) => text.split('\n');
+
 test("every notification email shows Venn's dog, from the instance's own site", () => {
   assert.ok(existsSync(new URL(`../public${MASCOT_PATH}`, import.meta.url)));
   const ready = pollReadyEmail({
@@ -40,7 +43,7 @@ test("the emails: a proud poll-ready email, an excited one per answer, and the g
   const ready = pollReadyEmail({ title: 'Dinner <3', pollUrl, unsubscribeUrl: `${pollUrl}#unsubscribe=u` });
   assert.equal(ready.subject, 'Your poll “Dinner <3” is ready 🎉');
   assert.match(ready.text, /proud of you for bringing people together/);
-  assert.ok(ready.text.includes(pollUrl));
+  assert.ok(lines(ready.text).includes(pollUrl));
   assert.match(ready.html, /Dinner &lt;3/);
   assert.doesNotMatch(ready.html, /Dinner <3/);
 
@@ -53,12 +56,12 @@ test("the emails: a proud poll-ready email, an excited one per answer, and the g
   const mail = responseEmail(s, `${pollUrl}#unsubscribe=u`);
   assert.equal(mail.subject, '🎉 Ana just answered “Dinner”');
   assert.match(mail.text, /Ana just answered “Dinner”\. We're fired up/);
-  assert.ok(mail.text.includes(`See everyone's answers: ${pollUrl}`));
+  assert.ok(lines(mail.text).includes(`See everyone's answers: ${pollUrl}`));
   assert.equal(responseEmail({ ...s, event: 'response.updated' }, '').subject, 'Ana updated their answers to “Dinner”');
 
   const editUrl = `${pollUrl}#edit=p1.secret`;
   const copy = answerCopyEmail({ title: 'Dinner', name: 'Ana', lines: [], pollUrl, editUrl });
-  assert.ok(copy.text.includes(`Your answer (open it to change it): ${editUrl}`));
+  assert.ok(lines(copy.text).includes(`Your answer (open it to change it): ${editUrl}`));
   assert.match(copy.html, /View or change your answer/);
   assert.match(copy.html, /See everyone's answers/);
   assert.match(
@@ -196,7 +199,7 @@ test('the organizer gets their poll link straight away, then an email per answer
   assert.equal(emails().length, 1);
   assert.deepEqual(emails()[0].body.to, ['sam@example.com']);
   assert.equal(emails()[0].body.subject, 'Your poll “Design review” is ready 🎉');
-  assert.ok(emails()[0].body.text.includes(`/e/${id}\n`));
+  assert.ok(lines(emails()[0].body.text).some((l) => l.endsWith(`/e/${id}`)));
   assert.doesNotMatch(emails()[0].body.text, /confirm/i);
 
   // Each answer triggers an email naming who answered, with an unsubscribe link.
