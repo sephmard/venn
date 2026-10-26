@@ -428,11 +428,6 @@ select:focus {
   font-weight: 500;
   margin-top: 8px;
 }
-.row {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 12px;
-}
 .stack,
 .stack-sm {
   display: grid;
@@ -693,12 +688,6 @@ details.tz-line[open] summary::before {
   height: 72px;
   font-size: 2.4rem;
   border-radius: 22px;
-}
-.date-times + .date-times {
-  margin-top: 16px;
-}
-.date-times h3 {
-  margin-bottom: 8px;
 }
 .ai-row {
   display: flex;
@@ -1522,48 +1511,7 @@ details.organizer summary b {
   max-width: 360px;
 }
 
-/* Menus and AI */
-.cal-connect {
-  position: relative;
-}
-.menu {
-  position: absolute;
-  top: calc(100% + 6px);
-  left: 0;
-  z-index: 6;
-  width: min(300px, calc(100vw - 48px));
-  padding: 8px;
-  border-radius: var(--radius);
-  background: var(--surface);
-  border: 1.5px solid var(--border);
-  box-shadow: 0 12px 40px -12px rgb(22 24 26 / 0.35);
-}
-.menu-item {
-  display: flex;
-  align-items: center;
-  width: 100%;
-  min-height: 44px;
-  padding: 8px 12px;
-  border: 0;
-  border-radius: 10px;
-  background: none;
-  text-align: left;
-  font-weight: 600;
-  cursor: pointer;
-  margin: 0;
-}
-.menu-item:hover {
-  background: var(--surface-2);
-}
-.file-item input {
-  position: absolute;
-  opacity: 0;
-  width: 1px;
-  height: 1px;
-}
-.menu .hint {
-  padding: 4px 12px 6px;
-}
+/* AI */
 .ai-panel,
 .ai-card {
   border-radius: var(--radius);
@@ -1981,47 +1929,7 @@ details.organizer summary b {
   outline: 2.5px solid var(--final);
 }
 
-/* ---------- organizer: days, then start times, then the options in the poll ---------- */
-.pick-mode {
-  margin-bottom: 12px;
-}
-.composer {
-  display: grid;
-  gap: 20px;
-}
-.step h3 {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  margin-bottom: 6px;
-}
-.step-n {
-  display: inline-grid;
-  place-items: center;
-  width: 26px;
-  height: 26px;
-  border-radius: 50%;
-  background: var(--accent);
-  color: var(--accent-ink);
-  font-size: 0.85rem;
-}
-.time-groups {
-  margin: 8px 0 12px;
-}
-.pills.times .pill {
-  min-width: 84px;
-  justify-content: center;
-}
-.composer-sum {
-  margin: 0;
-  padding: 12px 14px;
-  border-radius: var(--radius);
-  background: var(--surface-2);
-}
-.day-scope {
-  align-items: center;
-  margin-bottom: 10px;
-}
+/* ---------- organizer: the options in the poll ---------- */
 .scope-label {
   font-weight: 650;
   margin-right: 2px;
@@ -2074,9 +1982,6 @@ details.organizer summary b {
 .od-date {
   font-weight: 750;
   min-width: 112px;
-}
-.od-add {
-  margin-left: auto;
 }
 .od-len {
   display: inline-flex;
