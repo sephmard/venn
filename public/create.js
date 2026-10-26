@@ -9,7 +9,6 @@ import {
   $$,
   api,
   app,
-  copy,
   dateParts,
   dayLabel,
   esc,
@@ -195,16 +194,24 @@ async function submit(body, occasion) {
     import('./event.js').catch(() => {});
     // The main button shares the poll: the phone's share sheet, or the link copied.
     const url = `${location.origin}/e/${id}`;
-    const share = () =>
-      navigator.share && matchMedia('(pointer: coarse)').matches
-        ? navigator.share({ title, text: `When works for you? ${title}`, url }).catch(() => {})
-        : copy(url, 'Invite link copied. Paste it in your group chat.');
+    let copying = null; // the link being copied, so its toast can show once the poll is open
+    const share = () => {
+      if (navigator.share && matchMedia('(pointer: coarse)').matches)
+        navigator.share({ title, text: `When works for you? ${title}`, url }).catch(() => {});
+      else
+        copying = navigator.clipboard.writeText(url).then(
+          () => true,
+          () => false,
+        );
+    };
     const party = (await celebration)?.celebrate({ emoji: body.emoji, title, share });
     await party?.shown;
     history.pushState(null, '', `/e/${id}`);
     dispatchEvent(new PopStateEvent('popstate'));
     scrollTo(0, 0);
     party?.finish();
+    // Opening the poll clears any toast, so say the link was copied after it.
+    if (copying) (await copying) ? toast('Invite link copied. Paste it in your group chat.') : prompt('Copy this:', url);
   } catch (ex) {
     err.textContent = ex.message;
     $('#submit').disabled = false;

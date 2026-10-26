@@ -377,11 +377,7 @@ test('landing page: nav bar with GitHub, and the way to both kinds of poll', asy
   await expect(page).toHaveURL(/\/$/);
 });
 
-test('the poll created celebration shows the dog; Share poll copies the link and opens the poll', async ({
-  page,
-  context,
-  isMobile,
-}) => {
+test('the poll created celebration shows the dog; Share poll copies the link and opens the poll', async ({ page, context }) => {
   await page.emulateMedia({ reducedMotion: 'reduce' });
   await page.goto('/new/pick');
   await page.getByRole('button', { name: 'Book club' }).click();
@@ -389,7 +385,7 @@ test('the poll created celebration shows the dog; Share poll copies the link and
   await page.click('#submit');
   await expect(page.locator('.party [role=status]')).toContainText('Poll created!');
   await expect.poll(() => page.locator('.party-hero img').evaluate((img) => img.naturalWidth)).toBeGreaterThan(0);
-  if (!isMobile) await context.grantPermissions(['clipboard-read', 'clipboard-write']);
+  await context.grantPermissions(['clipboard-read', 'clipboard-write']);
   await page.evaluate(() => (navigator.share = undefined)); // no share sheet here: the link is copied
   await page.getByRole('button', { name: 'Share poll' }).click();
   await expect(page).toHaveURL(/\/e\/\w+$/);
