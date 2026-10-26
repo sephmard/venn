@@ -15,6 +15,10 @@ import {
 import { SECURITY_HEADERS } from './security-headers.js';
 import {
   MAX_CONFIRMATIONS,
+  MAX_COPIES_PER_ANSWER,
+  MAX_COPIES_PER_POLL,
+  answerCopyEmail,
+  answerLines,
   buildSummary,
   confirmationEmail,
   emailEnabled,
@@ -138,6 +142,30 @@ export async function handleApi(
   // Tell the organizer (if they asked) once the response is safely stored. Never blocks the reply.
   const notify = (ev, kind, participantId, name) =>
     waitUntil(notifyResponse({ store, env, fetchImpl, now, origin, ev, kind, participantId, name }));
+
+  /**
+   * Email someone a copy of the answer they just saved, if they gave an address. The address is
+   * used for this one email and never stored. Copies are counted, so a poll can't be used to
+   * flood an inbox.
+   */
+  async function sendCopy(ev, to, { participantId, editToken, name, availability }) {
+    if (!to || !emailEnabled(env)) return;
+    const settings = (await store.getNotify(ev.id)) || {};
+    const copies = { ...(settings.copies || {}) };
+    const total = Object.values(copies).reduce((a, b) => a + b, 0);
+    if ((copies[participantId] || 0) >= MAX_COPIES_PER_ANSWER || total >= MAX_COPIES_PER_POLL) return;
+    copies[participantId] = (copies[participantId] || 0) + 1;
+    await store.setNotify(ev.id, { ...settings, copies });
+    const pollUrl = `${origin}/e/${ev.id}`;
+    const msg = answerCopyEmail({
+      title: ev.title,
+      name,
+      lines: answerLines(ev, availability),
+      pollUrl,
+      editUrl: `${pollUrl}#edit=${participantId}.${editToken}`,
+    });
+    waitUntil(sendEmail(env, { to, ...msg }, { fetchImpl }).catch((e) => console.error('answer copy failed', e)));
+  }
 
   try {
     // GET /api/config — which optional features this server has switched on
@@ -324,6 +352,7 @@ export async function handleApi(
       const body = await readJson(request);
       const name = normalizeName(body.name);
       const availability = normalizeAvailability(body.availability, slots);
+      const copyTo = normalizeEmail(body.copyTo);
       if ((await store.countParticipants(ev.id)) >= LIMITS.participants)
         throw new ValidationError('This poll has reached the participant limit');
       const id = randomId(10);
@@ -336,6 +365,7 @@ export async function handleApi(
         editHash: await sha256(editToken),
         now: now(),
       });
+      await sendCopy(ev, copyTo, { participantId: id, editToken, name, availability });
       notify(ev, 'response.created', id, name);
       return json({ id, editToken }, 201);
     }
@@ -349,12 +379,14 @@ export async function handleApi(
         if (!isOwner) return error(403, 'You can only edit your own response');
         const body = await readJson(request);
         const name = normalizeName(body.name);
-        await store.updateParticipant({
-          id: p.id,
-          eventId: ev.id,
+        const availability = normalizeAvailability(body.availability, slots);
+        const copyTo = normalizeEmail(body.copyTo);
+        await store.updateParticipant({ id: p.id, eventId: ev.id, name, availability, now: now() });
+        await sendCopy(ev, copyTo, {
+          participantId: p.id,
+          editToken: request.headers.get('x-edit-token'),
           name,
-          availability: normalizeAvailability(body.availability, slots),
-          now: now(),
+          availability,
         });
         notify(ev, 'response.updated', p.id, name);
         return json({ ok: true });

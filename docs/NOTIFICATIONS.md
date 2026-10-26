@@ -7,6 +7,14 @@ Organizers can be told whenever someone responds to a poll, changes their answer
 
 Organizers set these up from the **Notifications** button on their poll. Email can also be turned on when creating a poll.
 
+## Copies for people who answer
+
+When email is on, the poll page asks people who answer for their email, as an optional field. "Email me a copy of my answer" is ticked by default, so anyone who gives an address gets an email listing their answers, with a link to the poll and their personal link to change their answer. They can untick it, or leave the address out.
+
+- The address is used for that email only. It isn't stored with the poll, shown to anyone, or used again.
+- Because anyone could type someone else's address, each answer gets at most 3 copies, and each poll at most 300.
+- With the API, send `copyTo` with `POST` or `PUT /api/events/:id/participants`.
+
 ## Turning on email
 
 Every provider needs the address emails come from. It must be on a domain the provider has verified, and doesn't need to be a real inbox:
