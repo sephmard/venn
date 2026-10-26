@@ -123,6 +123,7 @@ export async function renderEvent(id, navigate) {
       e.status === 404
         ? `<div class="sheet empty"><h1>Poll not found</h1><p class="muted">This poll may have been deleted, or the link wasn't copied in full. Check the link with whoever sent it.</p><a class="btn btn-primary" href="/new" data-link>Create a poll</a></div>`
         : `<div class="sheet empty"><h1>Can't open this poll</h1><p class="muted">${esc(e.message)}</p><button class="btn btn-primary" onclick="location.reload()">Try again</button></div>`;
+    if (e.status === 404) import('./finn.js').then((m) => m.lost(app.querySelector('.sheet'))).catch(() => {});
     return () => {};
   }
 
@@ -1565,6 +1566,10 @@ export async function renderEvent(id, navigate) {
         navigate('/new');
       },
     });
+    // Finn, the Venn dog, has something to say at a few moments: finn.js, loaded after the page.
+    import('./finn.js')
+      .then((m) => m.react({ id, ev: ev(), meId: saved(id).participantId, anchor: $('#banners') }))
+      .catch(() => {});
   }
 
   function renderMeState() {

@@ -63,7 +63,7 @@ export const USAGE_EVENTS = {
     as: ['guest', 'organizer', 'answered'],
     from: ['guest', 'set'],
   },
-  share: { client: true, how: ['sheet', 'copy', 'download'], from: ['created', 'poll', 'card'] }, // card: the "It's set" picture
+  share: { client: true, how: ['sheet', 'copy', 'download'], from: ['created', 'poll', 'card', 'sticker'] }, // card: the "It's set" picture; sticker: a Finn sticker
 };
 
 export const usageEnabled = (env) => Boolean(env.STATS_TOKEN);

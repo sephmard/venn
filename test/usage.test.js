@@ -54,6 +54,12 @@ test('only known events with known values are counted', () => {
     props: '{"from":"card","how":"download"}',
   });
   assert.equal(cleanUsage('share', { from: 'card', how: 'print' }, { client: true }), null);
+  // A Finn sticker, shared or saved.
+  assert.deepEqual(cleanUsage('share', { from: 'sticker', how: 'sheet' }, { client: true }), {
+    name: 'share',
+    props: '{"from":"sticker","how":"sheet"}',
+  });
+  assert.equal(cleanUsage('share', { from: 'stickers', how: 'sheet' }, { client: true }), null);
 });
 
 test('polls are sorted into kinds', () => {

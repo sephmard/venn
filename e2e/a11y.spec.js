@@ -138,6 +138,16 @@ for (const scheme of ['light', 'dark']) {
       await audit(page, 'event page (organizer)');
     });
 
+    test('Finn: a note on the poll, and the sticker sheet', async ({ page }) => {
+      await page.emulateMedia({ reducedMotion: 'reduce' });
+      await openPoll(page, { names: ['Ana', 'Jo'], picked: true });
+      await expect(page.locator('.finn [role=status]')).not.toBeEmpty();
+      await audit(page, 'Finn note');
+      await page.locator('.final-more [data-finn-stickers]').click();
+      await expect(page.locator('.finn-sheet [aria-busy]')).toHaveCount(0);
+      await audit(page, 'Finn stickers');
+    });
+
     test('days and hours polls', async ({ page }) => {
       test.setTimeout(60_000); // three polls, each with its celebration, and five scans
       page.on('dialog', (d) => d.accept()); // leaving a poll with unsaved answers asks first
