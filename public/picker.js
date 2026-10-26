@@ -103,7 +103,7 @@ export function monthView(
     const btn = e.target.closest('.cal-day');
     if (!btn || btn.disabled) return;
     if (!toggle) return onDay(btn.dataset.date);
-    if (pointer === 'mouse') return;
+    if (pointer === 'mouse' && e.detail) return; // a mouse click was the drag; Enter or Space (detail 0) still toggles
     pointer = null;
     drag = selected.has(btn.dataset.date) ? 'remove' : 'add';
     apply(btn);

@@ -407,6 +407,50 @@
   font-size: 0.75rem;
   font-weight: 700;
 }
+/* Ask when people are available: days in a row read as one band, flat where they join with the gap
+   filled in. Over a line or month break the corners stay a little square, so the band carries on. */
+.cal-day.run-r {
+  border-top-right-radius: 0;
+  border-bottom-right-radius: 0;
+}
+.cal-day.run-l {
+  border-top-left-radius: 0;
+  border-bottom-left-radius: 0;
+}
+.cal-day.run-cr {
+  border-top-right-radius: 4px;
+  border-bottom-right-radius: 4px;
+}
+.cal-day.run-cl {
+  border-top-left-radius: 4px;
+  border-bottom-left-radius: 4px;
+}
+.cal-day.run-r {
+  box-shadow: 5px 0 0 var(--run, var(--accent)); /* fills the 4px gap to the next day */
+}
+.cal-day.day-maybe {
+  --run: var(--maybe);
+}
+.cal-day[aria-pressed='true']:focus-visible {
+  outline-color: var(--text);
+  z-index: 1;
+}
+/* If needed for the organizer: amber on the painter too, and runs too short for the trip say so. */
+.pg-cell.on.maybe {
+  background: var(--maybe);
+}
+.pg-cell.part.on.maybe small {
+  color: var(--maybe-ink);
+}
+.od-len.short {
+  color: var(--no);
+}
+.chip-tag {
+  white-space: nowrap;
+}
+.od-row .chips {
+  margin-bottom: 0;
+}
 /* "Or add a time", for keyboards */
 .add-time {
   margin-top: 12px;
