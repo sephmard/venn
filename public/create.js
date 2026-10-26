@@ -42,6 +42,14 @@ import {
   tzOptions,
 } from './ui.js';
 
+// The create pages' own styles, so people answering a poll never download them. They load before
+// the page is drawn, so it never shows unstyled.
+await new Promise((done) =>
+  document.head.append(
+    Object.assign(document.createElement('link'), { rel: 'stylesheet', href: '/create.css', onload: done, onerror: done }),
+  ),
+);
+
 // The organizer's privacy choices, and their switches in "Privacy options".
 const PRIVACY = [
   ['requireEmail', '#p-email'],

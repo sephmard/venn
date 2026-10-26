@@ -21,7 +21,7 @@ Branch protection requires one check, **CI passed**. It turns green only when ev
 
 - **Coverage floor:** lines 90%, branches 80%, functions 85%, for the server and the shared logic (`npm run test:coverage`). Today it's about 95% / 85% / 90%.
 - **Accessibility:** serious or critical axe violations on the create page, a poll (as organizer) and a time-range poll, in light and dark mode, on desktop and phone (`e2e/a11y.spec.js`).
-- **Page weight:** at most 45 KB gzipped for everything the browser downloads, and 25 KB per file (`test/budget.test.js`). Today it's about 43 KB.
+- **Page weight:** everything the browser downloads for a poll is at most 45 KB gzipped, and for the create pages 47 KB, with 25 KB per file (`test/budget.test.js`). The create pages' styles are in their own `create.css`, so people answering a poll never download them.
 - **Content Security Policy:** browser tests fail on any CSP violation.
 
 ## After merging
