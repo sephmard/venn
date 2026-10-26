@@ -336,6 +336,7 @@ test('landing page: nav bar with GitHub, and the way to both kinds of poll', asy
   }
   await expect(page.locator('h1')).toHaveText(/Find the day that works/);
   // The hero's two cards are the way in: each opens its kind of poll.
+  await expect(page.locator('.topbar').getByRole('link', { name: 'Create a poll' })).toHaveCount(0);
   await page
     .locator('.start-cards')
     .getByRole('link', { name: /Ask when people are free/ })
@@ -349,7 +350,7 @@ test('landing page: nav bar with GitHub, and the way to both kinds of poll', asy
     .click();
   await expect(page).toHaveURL(/\/new\/pick$/);
   await expect(page.locator('#title')).toHaveAttribute('placeholder', "Dinner at Finn's");
-  // The nav's "Create a poll" still offers both kinds of poll.
+  // /new (linked from the privacy and 404 pages) still offers both kinds of poll.
   await page.goto('/new');
   await expect(page.getByRole('heading', { name: 'What kind of poll?' })).toBeVisible();
   await page.getByRole('link', { name: 'Venn', exact: true }).click();
