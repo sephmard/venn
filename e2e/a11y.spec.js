@@ -65,7 +65,7 @@ for (const scheme of ['light', 'dark']) {
         await page.getByRole('switch', { name }).check();
       await audit(page, 'create (privacy options)');
       await page.click('#submit');
-      await page.getByRole('button', { name: /^Open Privacy check/ }).click();
+      await page.getByRole('button', { name: 'View poll' }).click();
       await expect(page.locator('details.organizer')).toBeVisible();
       if (!(await page.locator('#privacy-open').isVisible())) await page.locator('details.organizer summary').click();
       await page.click('#privacy-open');
@@ -116,6 +116,7 @@ for (const scheme of ['light', 'dark']) {
     });
 
     test('days and hours polls', async ({ page }) => {
+      test.setTimeout(60_000); // three polls, each with its celebration, and five scans
       await page.goto('/new/free');
       await page.fill('#title', 'Days check');
       await page.click('[data-flength="allday"]');
@@ -127,7 +128,7 @@ for (const scheme of ['light', 'dark']) {
       await page.fill('#title', 'Grid check');
       await page.click('[data-fill="3"]');
       await page.click('#submit');
-      await expect(page.locator('#mine .cell[data-slot]').first()).toBeVisible();
+      await expect(page.locator('#mine .cell[data-slot]').first()).toBeVisible({ timeout: 10_000 }); // after the celebration
       await audit(page, 'hours poll');
       // Older polls ask about mornings, afternoons and evenings.
       const day = (d, h) => Date.UTC(2030, 0, d, h);

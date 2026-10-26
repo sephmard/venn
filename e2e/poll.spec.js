@@ -42,7 +42,8 @@ test('vote on a few dates: collect votes, pick the final date', async ({ page, r
   await page.click('#submit');
   // A celebration, then the new poll.
   await expect(page.locator('.party [role=status]')).toHaveText(/Poll created!.*bringing people together/);
-  await expect(page.getByRole('button', { name: 'Open Dinner →' })).toBeFocused();
+  // Sharing is the next step, so it's the main button.
+  await expect(page.getByRole('button', { name: 'Share poll' })).toBeFocused();
   await expect(page.locator('#mine .row')).toHaveCount(14);
   await expect(page.locator('.party')).toHaveCount(0);
   await expect(page.locator('details.organizer')).toHaveAttribute('open', '');
@@ -371,7 +372,11 @@ test('landing page: nav bar with GitHub, and the way to both kinds of poll', asy
   await expect(page).toHaveURL(/\/$/);
 });
 
-test('the poll created celebration shows the dog, and its button skips ahead', async ({ page }) => {
+test('the poll created celebration shows the dog; Share poll copies the link and opens the poll', async ({
+  page,
+  context,
+  isMobile,
+}) => {
   await page.emulateMedia({ reducedMotion: 'reduce' });
   await page.goto('/new/pick');
   await page.getByRole('button', { name: 'Book club' }).click();
@@ -379,8 +384,11 @@ test('the poll created celebration shows the dog, and its button skips ahead', a
   await page.click('#submit');
   await expect(page.locator('.party [role=status]')).toContainText('Poll created!');
   await expect.poll(() => page.locator('.party-hero img').evaluate((img) => img.naturalWidth)).toBeGreaterThan(0);
-  await page.getByRole('button', { name: 'Open Book club →' }).click();
+  if (!isMobile) await context.grantPermissions(['clipboard-read', 'clipboard-write']);
+  await page.evaluate(() => (navigator.share = undefined)); // no share sheet here: the link is copied
+  await page.getByRole('button', { name: 'Share poll' }).click();
   await expect(page).toHaveURL(/\/e\/\w+$/);
+  await expect(page.locator('#toast')).toContainText('Invite link copied');
   await expect(page.locator('.party')).toHaveCount(0);
 });
 
@@ -393,7 +401,7 @@ test('organizer privacy: required emails, hidden names, then hidden answers', as
   await page.getByRole('switch', { name: 'Ask everyone for their email' }).check();
   await page.getByRole('switch', { name: 'Hide names from guests' }).check();
   await page.click('#submit');
-  await page.getByRole('button', { name: /^Open Secret supper/ }).click();
+  await page.getByRole('button', { name: 'View poll' }).click();
   await expect(page.locator('#mine .row').first()).toBeVisible();
   const url = page.url();
 
