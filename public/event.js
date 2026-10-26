@@ -171,10 +171,12 @@ export async function renderEvent(id, navigate) {
   // A new poll opens on the organizer's own answer.
   st.tab = !st.fresh && (me() || (ev().isAdmin && ev().participants.length)) ? 'group' : 'mine';
 
+  // The poll's own picture (poll-image.js), in place of its emoji.
+  const picture = ev().image && `/api/events/${encodeURIComponent(id)}/icon.jpg?v=${ev().image.v}`;
   app.innerHTML = `
     <article id="event-root" class="poll">
       <header class="poll-head">
-        <span class="emoji-tile big" aria-hidden="true">${esc(ev().emoji || '🗓️')}</span>
+        <span class="emoji-tile big" aria-hidden="true">${picture ? `<img src="${esc(picture)}" alt="">` : esc(ev().emoji || '🗓️')}</span>
         <div class="poll-head-text">
           <h1 id="ev-title"></h1>
           <p class="poll-meta" id="ev-meta"></p>
@@ -1059,6 +1061,7 @@ export async function renderEvent(id, navigate) {
       const host = ev().isAdmin ? '' : ev().organizer;
       const p = (await party)?.celebrate({
         emoji: ev().emoji || '🎉',
+        picture,
         heading: created ? 'Answer submitted!' : 'Answer updated!',
         message: ev().isAdmin
           ? 'Your answer is in. Now the fun part: seeing when everyone can make it.'
@@ -1501,6 +1504,7 @@ export async function renderEvent(id, navigate) {
         start,
         end,
         allDay: allDaySpan(start, end, ev().timezone),
+        image: picture && { url: location.origin + picture, type: ev().image.type },
       };
       if (!calJs) return void loadCal().then(renderBanners); // the date was just picked
       const day = utcToZoned(start, info.allDay || partsMode ? ev().timezone : st.tz).date.slice(8);

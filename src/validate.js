@@ -12,6 +12,7 @@ import {
   YES,
   partOf,
 } from '../public/core.js';
+import { isEmoji } from '../public/emoji.js';
 
 const DAY = 86_400_000;
 const DAY_MINUTES = 1440;
@@ -177,12 +178,10 @@ function normalizeOptionsEvent(input, base) {
   return ev;
 }
 
-// Optional emoji for the kind of plan (🍝, ✈️…). Up to a few emoji, nothing else.
-const EMOJI_RE = /^(?:\p{Extended_Pictographic}|\p{Emoji_Component}|\u200d|\ufe0f)+$/u;
+// Optional emoji for the kind of plan, or any other one the organizer picks: one emoji (public/emoji.js).
 function cleanEmoji(v) {
   if (v == null || v === '') return '';
-  if (typeof v !== 'string' || v.length > 16 || !EMOJI_RE.test(v) || /[0-9#*]/.test(v))
-    throw new ValidationError('Invalid emoji');
+  if (!isEmoji(v)) throw new ValidationError('Invalid emoji');
   return v;
 }
 

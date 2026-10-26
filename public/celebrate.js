@@ -1,7 +1,7 @@
 // The moment a poll is created, or an answer is sent: a happy dog bounces in over the Venn circles,
 // confetti flies, and a little note says well done. Loaded only when it's needed.
 
-import { reducedMotion, track } from './ui.js';
+import { esc, reducedMotion, track } from './ui.js';
 
 const DOG = '/img/dog.webp';
 new Image().src = DOG; // start loading it while the poll is being saved
@@ -16,6 +16,8 @@ const CSS = `
 .party-hero i:nth-child(2){left:0;top:86px}
 .party-hero i:nth-child(3){left:102px;top:86px}
 .party-hero img{position:absolute;left:69px;top:4px;width:92px;height:200px;transform-origin:50% 100%}
+.party-hero .party-pic{left:auto;right:-6px;top:0;width:76px;height:76px;border-radius:20px;border:4px solid var(--surface);
+  object-fit:cover;transform:rotate(8deg);box-shadow:0 6px 16px rgb(0 0 0 / .18)}
 .party h2{font-family:var(--serif);font-weight:400;font-size:44px;line-height:1.05;margin:4px 0 0}
 .party p{margin:0;font-size:19px;line-height:1.4;text-wrap:balance}
 .party .party-go{margin-top:10px;min-height:44px;padding:10px 20px;border:0;border-radius:999px;font:inherit;
@@ -39,6 +41,7 @@ const SHOW_MS = 3600;
  * poll: after a few seconds, or straight away if the person presses a button or Escape. Then call
  * `finish()` to fade the overlay out over the poll. With `also` ({ label, href }), a link to go
  * somewhere else instead, such as making your own poll; it stays up longer then, to be seen.
+ * With `picture` (a URL), the poll's own picture is stuck on beside Finn.
  */
 export function celebrate({
   emoji = '🎉',
@@ -48,6 +51,7 @@ export function celebrate({
   button = title ? `Open ${title} →` : 'Open my poll →',
   share = null,
   also = null,
+  picture = null,
 } = {}) {
   if (!document.getElementById('party-css')) {
     const style = document.createElement('style');
@@ -63,7 +67,9 @@ export function celebrate({
   el.setAttribute('aria-labelledby', 'party-h');
   el.innerHTML = `
     <div class="party-stage">
-      <div class="party-hero" aria-hidden="true"><i></i><i></i><i></i><img src="${DOG}" alt="" width="92" height="200" /></div>
+      <div class="party-hero" aria-hidden="true"><i></i><i></i><i></i><img src="${DOG}" alt="" width="92" height="200" />${
+        picture ? `<img class="party-pic" src="${esc(picture)}" alt="" width="76" height="76" />` : ''
+      }</div>
       <div role="status"></div>
       <button type="button" class="party-go"></button>
       <button type="button" class="party-skip" hidden>View poll</button>
