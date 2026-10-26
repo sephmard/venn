@@ -96,7 +96,8 @@ test('preview: whole days and options polls', () => {
 test('preview tags escape everything people typed', () => {
   const p = pollPreview({ ...dinner, title: '"><script>alert(1)</script>', organizer: "<b>Mal'</b>", finalStart: null });
   const tags = previewTags(p, { origin: 'https://venn.day', url: 'https://venn.day/e/abc' });
-  assert.doesNotMatch(tags, /<script|<b>/);
+  // Nothing typed comes through as markup, in any letter case.
+  for (const raw of ['<script', '<b>']) assert.ok(!tags.toLowerCase().includes(raw), raw);
   assert.equal(titleOf(tags), '🍝 &quot;&gt;&lt;script&gt;alert(1)&lt;/script&gt; · Venn');
   assert.equal(meta(tags, 'og:title'), '🍝 &quot;&gt;&lt;script&gt;alert(1)&lt;/script&gt;');
   assert.equal(meta(tags, 'description'), '&lt;b&gt;Mal&#39;&lt;/b&gt; asks: when works for you? Tap your answers. No sign-up.');
