@@ -1,0 +1,114 @@
+// Link previews for poll pages. Chat apps (iMessage, WhatsApp, Slack, Discord) don't run
+// JavaScript, so when a server sends the app shell for /e/<id> it puts that poll's own title,
+// description and image into <head>. Shared by the Worker and the Node server.
+
+import { allDaySpan, buildSlots, meetingEnd, rankTimes } from '../public/core.js';
+
+// Static images, rendered by `npm run og` (scripts/og-image.js): one to ask, one once it's set.
+export const OG_IMAGES = {
+  vote: { path: '/og.png', alt: 'Venn: find the day that works for everyone' },
+  set: { path: '/og-set.png', alt: "Venn: it's set" },
+};
+
+// For a poll that doesn't exist (any more): the same as the home page's.
+const GENERIC = {
+  pageTitle: 'Venn: find a time that works',
+  title: 'Venn: find the day that works for everyone',
+  description: 'Free polls for dinners, book clubs and trips. Share one link and see which day works for everyone.',
+  image: OG_IMAGES.vote,
+};
+
+const POLL_PATH = /^\/e\/([A-Za-z0-9]{1,40})\/?$/;
+
+const escAttr = (s) =>
+  String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
+
+/** "Fri, Nov 13, 7:00 PM GMT", or "Fri, Nov 13" / "Fri, Nov 13 – Sun, Nov 15" for whole days, in the poll's time zone. */
+export function setLabel(ev, start) {
+  const tz = ev.timezone;
+  const span = allDaySpan(start, meetingEnd(ev, start), tz);
+  const day = { weekday: 'short', month: 'short', day: 'numeric' };
+  let label;
+  if (span) {
+    const f = new Intl.DateTimeFormat('en-US', { ...day, timeZone: 'UTC' });
+    const first = Date.parse(`${span.startDate}T00:00Z`);
+    const last = Date.parse(`${span.endDate}T00:00Z`) - 86_400_000;
+    label = last > first ? f.formatRange(first, last) : f.format(first);
+  } else {
+    label = new Intl.DateTimeFormat('en-US', {
+      ...day,
+      hour: 'numeric',
+      minute: '2-digit',
+      timeZone: tz,
+      timeZoneName: 'short',
+    }).format(start);
+  }
+  // Intl uses thin and narrow no-break spaces; chat apps show plain ones better.
+  return label.replace(/[\u2009\u202f\u00a0]/g, ' ');
+}
+
+/**
+ * Title, description and image for a poll's preview, from what `store.getPreview` returns.
+ * Only what anyone with the link can already see: no participant names or emails, and no counts
+ * when the organizer hides results or names. `answers` is empty unless the date is picked and
+ * results are visible.
+ */
+export function pollPreview(ev) {
+  const title = [ev.emoji, ev.title].filter(Boolean).join(' ');
+  if (ev.finalStart == null) {
+    const who = !ev.hideNames && ev.organizer ? `${ev.organizer} asks: when works for you?` : 'When works for you?';
+    return { title, description: `${who} Tap your answers. No sign-up.`, image: OG_IMAGES.vote };
+  }
+  let description = `It's set: ${setLabel(ev, ev.finalStart)}`;
+  const answers = ev.answers || [];
+  if (!ev.hideResults && !ev.hideNames && answers.length) {
+    const people = answers.map((availability) => ({ name: '', availability }));
+    const best = rankTimes(ev, buildSlots(ev), people, Infinity).find((r) => r.start === ev.finalStart);
+    const can = best ? best.yes.length + best.ifNeeded.length : 0;
+    description += ` · ${can} of ${answers.length} can make it`;
+  }
+  return { title, description, image: OG_IMAGES.set };
+}
+
+/** The <head> tags for a preview. Every value is escaped; `url` and image paths are made absolute against `origin`. */
+export function previewTags({ title, description, image }, { origin, url, pageTitle = `${title} · Venn` }) {
+  const meta = (attr, key, value) => `<meta ${attr}="${key}" content="${escAttr(value)}" />`;
+  return [
+    `<title>${escAttr(pageTitle)}</title>`,
+    meta('name', 'description', description),
+    meta('property', 'og:type', 'website'),
+    meta('property', 'og:site_name', 'Venn'),
+    meta('property', 'og:url', url),
+    meta('property', 'og:title', title),
+    meta('property', 'og:description', description),
+    meta('property', 'og:image', origin + image.path),
+    meta('property', 'og:image:width', '1200'),
+    meta('property', 'og:image:height', '630'),
+    meta('property', 'og:image:alt', image.alt),
+    meta('name', 'twitter:card', 'summary_large_image'),
+  ].join('\n    ');
+}
+
+/** Replace the shell's own <title> and description with `tags`. */
+export function injectTags(html, tags) {
+  return html.replace(/<meta\s+name="description"[^>]*>\s*/i, '').replace(/<title>[\s\S]*?<\/title>/i, () => tags);
+}
+
+/**
+ * The app shell (public/app.html) to send for `pathname`: for a poll page, with that poll's
+ * preview tags (or the generic ones for an unknown poll). One database read. Other app routes
+ * get the shell as it is.
+ */
+export async function appShell(html, { pathname, origin, store }) {
+  const m = POLL_PATH.exec(pathname);
+  if (!m) return html;
+  const url = `${origin}/e/${m[1]}`;
+  let ev = null;
+  try {
+    ev = await store.getPreview(m[1]);
+  } catch (e) {
+    console.error(e); // a preview is never worth failing the page over
+  }
+  if (!ev) return injectTags(html, previewTags(GENERIC, { origin, url, pageTitle: GENERIC.pageTitle }));
+  return injectTags(html, previewTags(pollPreview(ev), { origin, url }));
+}

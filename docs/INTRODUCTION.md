@@ -32,6 +32,7 @@ No framework and no build step: plain HTML, CSS and JavaScript in the browser, a
 public/            the whole front end, served as-is
   index.html       landing page (/); privacy.html and 404.html sit beside it
   app.html         app shell, served for /new and /e/:id
+  og.png, og-set.png  link-preview images: asking, and once the date is picked
   app.js           router
   create.js        the create pages' chooser and shared form parts
   create-pick.js   "vote on a few dates", loaded only on that page
@@ -63,18 +64,20 @@ src/
   notify.js        email and webhook notifications
   ai.js            AI features (Claude)
   routes.js        which paths the app handles
+  preview.js       each poll's link preview (title, date, image), put into the app shell for /e/:id
   worker.js        Cloudflare Worker entry point
 server.js          Node server entry point
 test/              unit and API tests (node:test)
 e2e/               browser tests (Playwright, desktop and mobile)
 docs/              these docs, as Markdown
-scripts/           screenshots, social image, the docs site build, link checks
+scripts/           screenshots, link-preview images, the docs site build, link checks
 ```
 
 ## How data is protected
 
 - **No accounts, cookies or analytics.** The server stores only what people type into a poll: its title and details, names and answers, plus the organizer's notification settings if they add any.
 - **Organizers can keep things private.** They can hide names or everyone's answers from guests, and ask for emails that only they see. The server enforces this: hidden data is never sent to guests.
+- **Link previews show only what the link already shows.** A poll's preview in a chat app has its title, the organizer's name and, once picked, the date and how many can make it. Hidden names or answers leave those out, and it never has anyone's name or email.
 - **Links are the keys.** The organizer link and each person's edit link carry a secret after the `#`, which browsers never send to the server. The server stores only a SHA-256 hash of each secret, so a database leak doesn't let anyone edit polls.
 - **Calendars stay in the browser.** Google and Outlook are asked only for busy/free times, the sign-in token never reaches the server, and calendar files are never uploaded. See [Calendars](CALENDARS.md).
 - **Strict headers.** Every response carries a Content Security Policy, no-referrer and no-framing headers, from `src/security-headers.js`.

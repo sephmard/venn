@@ -365,6 +365,56 @@ test('unknown poll shows a friendly error', async ({ page }) => {
   await expect(page.getByRole('heading', { name: 'Poll not found' })).toBeVisible();
 });
 
+test('poll links get their own preview in chat apps, before and after the date is picked', async ({ page, request }) => {
+  const day = await nextMonth(page);
+  const created = await request.post('/api/events', {
+    data: {
+      title: 'Dinner at <Finn’s>',
+      emoji: '🍝',
+      organizer: 'Priya',
+      timezone: 'America/New_York',
+      dates: [day],
+      startMinute: 1140,
+      endMinute: 1200,
+      slotMinutes: 30,
+      durationMinutes: 60,
+    },
+  });
+  const { id, adminToken } = await created.json();
+  // Link-preview crawlers don't run scripts: the tags are in the HTML the server sends.
+  const tags = async () => {
+    const html = await (await request.get(`/e/${id}`)).text();
+    const meta = (key) => new RegExp(`<meta (?:name|property)="${key}" content="([^"]*)"`).exec(html)?.[1];
+    return {
+      title: /<title>(.*?)<\/title>/.exec(html)[1],
+      ogTitle: meta('og:title'),
+      description: meta('og:description'),
+      image: meta('og:image'),
+    };
+  };
+  let t = await tags();
+  expect(t.title).toBe('🍝 Dinner at &lt;Finn’s&gt; · Venn');
+  expect(t.ogTitle).toBe('🍝 Dinner at &lt;Finn’s&gt;');
+  expect(t.description).toBe('Priya asks: when works for you? Tap your answers. No sign-up.');
+  expect(t.image).toMatch(/^http:\/\/localhost:\d+\/og\.png$/);
+
+  const ev = await (await request.get(`/api/events/${id}`)).json();
+  await request.post(`/api/events/${id}/participants`, {
+    data: { name: 'Lee', availability: { [ev.slots[0]]: 2, [ev.slots[1]]: 2 } },
+  });
+  await request.post(`/api/events/${id}/finalize`, { data: { start: ev.slots[0] }, headers: { 'x-admin-token': adminToken } });
+  t = await tags();
+  expect(t.description).toMatch(/^It&#39;s set: \w{3}, \w{3} \d{1,2}, 7:00 PM E[SD]T · 1 of 1 can make it$/);
+  expect(t.image).toMatch(/\/og-set\.png$/);
+  const image = await request.get(new URL(t.image).pathname);
+  expect(image.headers()['content-type']).toBe('image/png');
+
+  // The app still starts as usual on top of it.
+  await page.goto(`/e/${id}`);
+  await expect(page.locator('.banner-final')).toContainText("It's happening");
+  await expect(page).toHaveTitle('Dinner at <Finn’s> · Venn');
+});
+
 test('poll pages get their own tab icon', async ({ page }) => {
   const icon = page.locator('link[rel="icon"][type="image/svg+xml"]');
   await page.goto('/new');
