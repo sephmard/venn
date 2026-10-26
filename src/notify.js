@@ -136,9 +136,15 @@ export function summaryText(s) {
 const escHtml = (s) =>
   String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
 
-function emailLayout(bodyHtml, footerHtml) {
+// Venn's dog, shown in every notification. Served from the instance's own public/ folder, so it
+// works for anyone hosting Venn; links in emails need the absolute URL.
+export const MASCOT_PATH = '/img/venn-dog.png';
+const mascotUrl = (pageUrl) => new URL(MASCOT_PATH, pageUrl).href;
+
+function emailLayout(bodyHtml, footerHtml, pageUrl) {
   return `<!doctype html><html><body style="margin:0;padding:24px;background:#f7f7f5;font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;color:#1c1d1f">
 <div style="max-width:520px;margin:0 auto;background:#fff;border:1px solid #e2e2dc;border-radius:10px;padding:24px">
+<div style="text-align:center;margin-bottom:12px"><img src="${escHtml(mascotUrl(pageUrl))}" width="80" height="174" alt="" style="display:inline-block;border:0"></div>
 <div style="font-weight:700;font-size:18px;margin-bottom:16px">Venn</div>${bodyHtml}</div>
 <p style="max-width:520px;margin:12px auto 0;color:#6b6d70;font-size:12px;line-height:1.5">${footerHtml}</p></body></html>`;
 }
@@ -154,6 +160,7 @@ export function responseEmail(s, unsubscribeUrl) {
   const html = emailLayout(
     `<p style="margin:0;line-height:1.5">${escHtml(summaryText(s))}</p>${button(s.poll.url, 'See all responses')}`,
     `You get these emails because you asked to be notified about this poll. <a href="${escHtml(unsubscribeUrl)}" style="color:#6b6d70">Stop these emails</a>.`,
+    s.poll.url,
   );
   return { subject, text, html };
 }
@@ -164,6 +171,7 @@ export function confirmationEmail(title, confirmUrl) {
   const html = emailLayout(
     `<p style="margin:0;line-height:1.5">Someone (hopefully you) asked Venn to email this address when people respond to the poll <strong>${escHtml(title)}</strong>.</p>${button(confirmUrl, 'Confirm notifications')}`,
     "If this wasn't you, ignore this email and nothing more will be sent.",
+    confirmUrl,
   );
   return { subject, text, html };
 }
@@ -178,12 +186,26 @@ async function hmacHex(secret, message) {
   return [...new Uint8Array(sig)].map((b) => b.toString(16).padStart(2, '0')).join('');
 }
 
-/** Slack and Discord incoming webhooks expect their own simple formats. */
+/** Slack and Discord incoming webhooks expect their own formats: a message, with the dog beside it. */
 export function webhookBody(url, s) {
   const host = new URL(url).hostname;
   const text = `${summaryText(s)} ${s.poll.url}`;
-  if (host === 'hooks.slack.com') return { text };
-  if (/(^|\.)discord(app)?\.com$/.test(host) && new URL(url).pathname.startsWith('/api/webhooks')) return { content: text };
+  const image = mascotUrl(s.poll.url);
+  if (host === 'hooks.slack.com') {
+    const mrkdwn = text.replace(/[&<>]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' })[c]);
+    return {
+      text,
+      blocks: [
+        {
+          type: 'section',
+          text: { type: 'mrkdwn', text: mrkdwn },
+          accessory: { type: 'image', image_url: image, alt_text: 'Venn' },
+        },
+      ],
+    };
+  }
+  if (/(^|\.)discord(app)?\.com$/.test(host) && new URL(url).pathname.startsWith('/api/webhooks'))
+    return { content: text, embeds: [{ title: s.poll.title, url: s.poll.url, thumbnail: { url: image } }] };
   return s;
 }
 
