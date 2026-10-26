@@ -57,8 +57,13 @@ export const USAGE_EVENTS = {
   'calendar.ics': {},
   'ai.used': { feature: ['draft', 'answer', 'summary', 'message'] },
   // Browser
-  view: { client: true, page: ['chooser', 'pick', 'free', 'poll'], as: ['guest', 'organizer', 'answered'] },
-  share: { client: true, how: ['sheet', 'copy'], from: ['created', 'poll'] },
+  view: {
+    client: true,
+    page: ['chooser', 'pick', 'free', 'poll'],
+    as: ['guest', 'organizer', 'answered'],
+    from: ['guest', 'set'],
+  },
+  share: { client: true, how: ['sheet', 'copy', 'download'], from: ['created', 'poll', 'card'] }, // card: the "It's set" picture
 };
 
 export const usageEnabled = (env) => Boolean(env.STATS_TOKEN);

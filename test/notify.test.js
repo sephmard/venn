@@ -12,6 +12,7 @@ import {
   pollReadyEmail,
   responseEmail,
   shareLinks,
+  signature,
   summaryText,
   validateWebhookUrl,
   webhookBody,
@@ -49,6 +50,23 @@ test('emails offer ways to share the poll: a text message, WhatsApp and an email
   assert.doesNotMatch(odd, /"><b>x/);
 });
 
+test('every email is signed by Finn and Venn, with a way to make your own poll', () => {
+  const pollUrl = 'https://venn.example/e/abc';
+  const s = { event: 'response.created', poll: { title: 'Dinner', url: pollUrl, responses: 1 }, response: { name: 'Ana' } };
+  const mails = [
+    pollReadyEmail({ title: 'Dinner', pollUrl, unsubscribeUrl: `${pollUrl}#unsubscribe=u` }),
+    responseEmail(s, `${pollUrl}#unsubscribe=u`),
+    answerCopyEmail({ title: 'Dinner', name: 'Ana', lines: [], pollUrl, editUrl: `${pollUrl}#edit=p.t` }),
+  ];
+  assert.equal(signature(pollUrl), 'Planned with Venn. No sign-up needed: make your own at https://venn.example/new');
+  for (const m of mails) {
+    assert.ok(hasLine(m.text, signature(pollUrl)));
+    assert.match(m.html, /href="https:\/\/venn\.example\/new"/);
+    assert.match(m.html, /alt="Finn, the Venn dog"/);
+  }
+  assert.match(mails[0].text, /Finn is so proud of you/);
+});
+
 test("every notification email shows Venn's dog, from the instance's own site", () => {
   assert.ok(existsSync(new URL(`../public${MASCOT_PATH}`, import.meta.url)));
   const ready = pollReadyEmail({
@@ -83,7 +101,7 @@ test("the emails: a proud poll-ready email, an excited one per answer, and the g
   };
   const mail = responseEmail(s, `${pollUrl}#unsubscribe=u`);
   assert.equal(mail.subject, '🎉 Ana just answered “Dinner”');
-  assert.match(mail.text, /Ana just answered “Dinner”\. We're fired up/);
+  assert.match(mail.text, /Ana just answered “Dinner”\. Finn is fired up/);
   assert.ok(hasLine(mail.text, `See everyone's answers: ${pollUrl}`));
   assert.equal(responseEmail({ ...s, event: 'response.updated' }, '').subject, 'Ana updated their answers to “Dinner”');
 

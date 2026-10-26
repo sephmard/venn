@@ -365,6 +365,56 @@ test('unknown poll shows a friendly error', async ({ page }) => {
   await expect(page.getByRole('heading', { name: 'Poll not found' })).toBeVisible();
 });
 
+test('poll links get their own preview in chat apps, before and after the date is picked', async ({ page, request }) => {
+  const day = await nextMonth(page);
+  const created = await request.post('/api/events', {
+    data: {
+      title: 'Dinner at <Finn’s>',
+      emoji: '🍝',
+      organizer: 'Priya',
+      timezone: 'America/New_York',
+      dates: [day],
+      startMinute: 1140,
+      endMinute: 1200,
+      slotMinutes: 30,
+      durationMinutes: 60,
+    },
+  });
+  const { id, adminToken } = await created.json();
+  // Link-preview crawlers don't run scripts: the tags are in the HTML the server sends.
+  const tags = async () => {
+    const html = await (await request.get(`/e/${id}`)).text();
+    const meta = (key) => new RegExp(`<meta (?:name|property)="${key}" content="([^"]*)"`).exec(html)?.[1];
+    return {
+      title: /<title>(.*?)<\/title>/.exec(html)[1],
+      ogTitle: meta('og:title'),
+      description: meta('og:description'),
+      image: meta('og:image'),
+    };
+  };
+  let t = await tags();
+  expect(t.title).toBe('🍝 Dinner at &lt;Finn’s&gt; · Venn');
+  expect(t.ogTitle).toBe('🍝 Dinner at &lt;Finn’s&gt;');
+  expect(t.description).toBe('Priya asks: when works for you? Tap your answers. No sign-up.');
+  expect(t.image).toMatch(/^http:\/\/localhost:\d+\/og\.png$/);
+
+  const ev = await (await request.get(`/api/events/${id}`)).json();
+  await request.post(`/api/events/${id}/participants`, {
+    data: { name: 'Lee', availability: { [ev.slots[0]]: 2, [ev.slots[1]]: 2 } },
+  });
+  await request.post(`/api/events/${id}/finalize`, { data: { start: ev.slots[0] }, headers: { 'x-admin-token': adminToken } });
+  t = await tags();
+  expect(t.description).toMatch(/^It&#39;s set: \w{3}, \w{3} \d{1,2}, 7:00 PM E[SD]T · 1 of 1 can make it$/);
+  expect(t.image).toMatch(/\/og-set\.png$/);
+  const image = await request.get(new URL(t.image).pathname);
+  expect(image.headers()['content-type']).toBe('image/png');
+
+  // The app still starts as usual on top of it.
+  await page.goto(`/e/${id}`);
+  await expect(page.locator('.banner-final')).toContainText("It's happening");
+  await expect(page).toHaveTitle('Dinner at <Finn’s> · Venn');
+});
+
 test('poll pages get their own tab icon', async ({ page }) => {
   const icon = page.locator('link[rel="icon"][type="image/svg+xml"]');
   await page.goto('/new');
@@ -681,7 +731,7 @@ test('phone: the calendars leave room to scroll the page, and say how to use the
   expect((await hours.boundingBox()).height).toBeLessThanOrEqual(half);
   // The hint comes before the calendar, not after it.
   const help = page.locator('#when-help');
-  await expect(help).toContainText('drag it to move it');
+  await expect(help).toHaveText('Tap the calendar to add an option for your date range.');
   expect((await help.boundingBox()).y).toBeLessThan((await hours.boundingBox()).y);
 });
 
@@ -876,7 +926,7 @@ test('landing page: nav bar with GitHub, and the way to both kinds of poll', asy
     .getByRole('link', { name: /Vote on a few dates/ })
     .click();
   await expect(page).toHaveURL(/\/new\/pick$/);
-  await expect(page.locator('#title')).toHaveAttribute('placeholder', "Dinner at Finn's");
+  await expect(page.locator('#title')).toHaveAttribute('placeholder', "Dinner at Rosa's");
   // /new (linked from the privacy and 404 pages) still offers both kinds of poll.
   await page.goto('/new');
   await expect(page.getByRole('heading', { name: 'What kind of poll?' })).toBeVisible();
@@ -1199,6 +1249,7 @@ test('organizer draws options on the week view, and removes one', async ({ page,
   // Drawing on a week is where it starts.
   await expect(page.locator('[data-view="week"]')).toHaveAttribute('aria-checked', 'true');
   await page.click('.tv-nav [data-step="1"]'); // next week, so every day is in the future
+  await page.locator('.tg-scroll').evaluate((el) => el.scrollIntoView({ block: 'center' })); // clear of the sticky bar
   const grid = await page.locator('.tg-scroll').boundingBox();
   const col = await page.locator('.tg-col').nth(2).boundingBox();
   // Drag down four rows: a two-hour option.
@@ -1716,16 +1767,16 @@ test('optional details sit under More details, placeholders make way on focus, a
   expect(await placeholder('#location')).not.toBe('rgba(0, 0, 0, 0)');
   await page.focus('#location');
   expect(await placeholder('#location')).toBe('rgba(0, 0, 0, 0)');
-  await page.fill('#location', 'Finn’s Trattoria');
+  await page.fill('#location', 'Rosa’s Trattoria');
   await page.fill('#desc', 'Bring a bottle');
   await page.click('#submit');
   await openNewPoll(page);
-  await expect(page.locator('#ev-details')).toContainText('Finn’s Trattoria');
+  await expect(page.locator('#ev-details')).toContainText('Rosa’s Trattoria');
   await expect(page.locator('#ev-details')).toContainText('Bring a bottle');
   // Editing the poll shows them again, open.
   await page.getByRole('link', { name: 'Edit poll' }).click();
   await expect(page.locator('#more-box')).toHaveAttribute('open', '');
-  await expect(page.locator('#location')).toHaveValue('Finn’s Trattoria');
+  await expect(page.locator('#location')).toHaveValue('Rosa’s Trattoria');
 });
 
 test('how long: 30 min, 1 hour, half day, all day, several days, and any other length under Custom', async ({ page }) => {
@@ -1970,6 +2021,63 @@ test('when everyone gave their email, the organizer invites them all with the ca
   await guest.close();
 });
 
+test('a picked date can be saved as a picture, with who can make it unless the poll keeps that private', async ({
+  page,
+  request,
+}) => {
+  const t0 = Date.UTC(2030, 0, 8, 18);
+  /** A picked poll that Ana and Jo can make. */
+  async function picked(extra = {}) {
+    const { id, adminToken } = await (
+      await request.post('/api/events', {
+        data: {
+          title: 'Dinner at Finn’s',
+          emoji: '🍝',
+          timezone: 'UTC',
+          mode: 'options',
+          options: [{ start: t0, end: t0 + 7_200_000 }],
+          ...extra,
+        },
+      })
+    ).json();
+    for (const name of ['Ana', 'Jo'])
+      await request.post(`/api/events/${id}/participants`, { data: { name, availability: { [t0]: 2 } } });
+    await request.post(`/api/events/${id}/finalize`, { data: { start: t0 }, headers: { 'x-admin-token': adminToken } });
+    return { id, adminToken };
+  }
+  /** Press the button and read the downloaded picture from disk: its name, width and height. */
+  async function save(button) {
+    const [download] = await Promise.all([page.waitForEvent('download'), button.click()]);
+    const png = readFileSync(await download.path());
+    expect(png.subarray(1, 4).toString()).toBe('PNG');
+    return { name: download.suggestedFilename(), size: [png.readUInt32BE(16), png.readUInt32BE(20)] };
+  }
+
+  const { id } = await picked();
+  await page.goto(`/e/${id}`);
+  const button = page.locator('.final-more').getByRole('button', { name: /as a picture$/ });
+  await expect(button).toBeVisible();
+  expect((await button.boundingBox()).height).toBeGreaterThanOrEqual(44);
+  expect(await save(button)).toEqual({ name: 'dinner-at-finns-its-set.png', size: [1080, 1920] });
+  await expect(page.locator('#toast')).toContainText('Picture saved');
+  await expect(button).toHaveAttribute('data-card-faces', '2');
+  // Keyboard works too.
+  await button.focus();
+  const [again] = await Promise.all([page.waitForEvent('download'), page.keyboard.press('Enter')]);
+  expect(again.suggestedFilename()).toBe('dinner-at-finns-its-set.png');
+
+  // Answers hidden from guests: the picture has no faces.
+  const hidden = await picked({ hideResults: true });
+  await page.goto(`/e/${hidden.id}`);
+  expect((await save(button)).size).toEqual([1080, 1920]);
+  await expect(button).toHaveAttribute('data-card-faces', '0');
+  // Names hidden: not even the organizer's picture shows them.
+  const anonymous = await picked({ hideNames: true });
+  await page.goto(`/e/${anonymous.id}#admin=${anonymous.adminToken}`);
+  await save(button);
+  await expect(button).toHaveAttribute('data-card-faces', '0');
+});
+
 test('organizers mark options as available or if needed, drag edges to resize, and their answer is saved', async ({
   page,
   isMobile,
@@ -2061,4 +2169,42 @@ test('picked times and days say Available or If needed on the calendar, and if-n
     await expect(d.locator('small')).toHaveText('If needed');
     if (i) await expect(d).toHaveClass(/trip-maybe/);
   }
+});
+
+test('guests are one tap from making their own poll: from the celebration, and once the date is set', async ({
+  page,
+  request,
+}) => {
+  const t0 = Date.UTC(2030, 0, 8, 18);
+  const { id, adminToken } = await (
+    await request.post('/api/events', {
+      data: {
+        title: 'Dinner',
+        organizer: 'Sam',
+        timezone: 'UTC',
+        mode: 'options',
+        options: [{ start: t0, end: t0 + 7_200_000 }],
+      },
+    })
+  ).json();
+  await page.goto(`/e/${id}`);
+  await page.locator('#mine .row [data-vote="2"]').first().click();
+  await page.fill('#name', 'Ana');
+  await page.click('#save');
+  await page.click('#sc-yes');
+  // Finn celebrates, and offers the next step.
+  await expect(page.locator('.party [role=status]')).toContainText("Finn is so glad you're in");
+  const own = page.locator('.party-also');
+  await expect(own).toHaveText('Planning something? Make your own poll');
+  await own.click();
+  await expect(page).toHaveURL(/\/new\?from=guest$/);
+  await expect(page.locator('.party')).toHaveCount(0);
+  await expect(page.getByRole('link', { name: /Vote on a few dates/ })).toBeVisible();
+
+  // Once the date is picked: guests can make their own, the organizer can plan the next one.
+  await request.post(`/api/events/${id}/finalize`, { data: { start: t0 }, headers: { 'x-admin-token': adminToken } });
+  await page.goto(`/e/${id}`);
+  await expect(page.locator('.final-more a[href="/new?from=set"]')).toHaveText('Make your own poll');
+  await page.goto(`/e/${id}#admin=${adminToken}`);
+  await expect(page.locator(`.final-more a[href="/new/pick?copy=${id}"]`)).toHaveText('Plan the next one');
 });

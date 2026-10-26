@@ -140,7 +140,7 @@ test('config is fetched once, and an unreachable server means no optional featur
 });
 
 test('text helpers: escaping, plurals, lengths and the DOM shortcuts', () => {
-  assert.equal(ui.esc(`<a href="x">Finn's & co</a>`), '&lt;a href=&quot;x&quot;&gt;Finn&#39;s &amp; co&lt;/a&gt;');
+  assert.equal(ui.esc(`<a href="x">Rosa's & co</a>`), '&lt;a href=&quot;x&quot;&gt;Rosa&#39;s &amp; co&lt;/a&gt;');
   assert.equal(ui.esc(null), '');
   assert.equal(ui.plural(1, 'person', 'people'), '1 person');
   assert.equal(ui.plural(3, 'option'), '3 options');

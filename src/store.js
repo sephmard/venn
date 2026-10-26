@@ -71,6 +71,27 @@ export function createStore(db) {
       };
     },
 
+    /**
+     * What a link preview needs (src/preview.js), in one read: the poll, and — only once a date is
+     * picked and the organizer shows results and names — everyone's answers, without their names.
+     */
+    async getPreview(id) {
+      await init();
+      const rows = await db.all(
+        `SELECT e.data, e.final_start, p.availability FROM events e
+         LEFT JOIN participants p ON p.event_id = e.id AND e.final_start IS NOT NULL
+           AND NOT COALESCE(json_extract(e.data, '$.hideResults'), 0) AND NOT COALESCE(json_extract(e.data, '$.hideNames'), 0)
+         WHERE e.id = ?`,
+        [id],
+      );
+      if (!rows.length) return null;
+      return {
+        ...JSON.parse(rows[0].data),
+        finalStart: rows[0].final_start ?? null,
+        answers: rows.filter((r) => r.availability != null).map((r) => JSON.parse(r.availability)),
+      };
+    },
+
     async deleteEvent(id) {
       await init();
       await db.run('DELETE FROM participants WHERE event_id = ?', [id]);
