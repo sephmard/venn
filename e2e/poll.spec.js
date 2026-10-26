@@ -384,6 +384,62 @@ test('the poll created celebration shows the dog, and its button skips ahead', a
   await expect(page.locator('.party')).toHaveCount(0);
 });
 
+test('organizer privacy: required emails, hidden names, then hidden answers', async ({ page, browser }) => {
+  await page.goto('/new/pick');
+  await page.fill('#title', 'Secret supper');
+  await page.fill('#organizer', 'Sam');
+  await addOptions(page, 7, [1140]);
+  await page.locator('#privacy-opts summary').click();
+  await page.getByRole('switch', { name: 'Ask everyone for their email' }).check();
+  await page.getByRole('switch', { name: 'Hide names from guests' }).check();
+  await page.click('#submit');
+  await page.getByRole('button', { name: /^Open Secret supper/ }).click();
+  await expect(page.locator('#mine .row').first()).toBeVisible();
+  const url = page.url();
+
+  // Two guests answer. Each must give an email, and sees the others only as "Guest 1, 2…".
+  const guest = await browser.newContext();
+  const g = await guest.newPage();
+  for (const [name, email] of [
+    ['Ana', 'ana@example.com'],
+    ['Lee', 'lee@example.com'],
+  ]) {
+    await g.goto(url);
+    await expect(g.getByText('Only the organizer sees who answered.')).toBeVisible();
+    await g.fill('#name', name);
+    await g.locator('#mine .row').first().locator('[data-vote="2"]').click();
+    await g.fill('#copy-to', '');
+    await g.click('#save');
+    await expect(g.locator('#save-err')).toHaveText(/Add your email/);
+    await g.fill('#copy-to', email);
+    await g.click('#save');
+    await expect(g.locator('#save-state')).toHaveText('Saved');
+    await g.evaluate(() => localStorage.clear()); // the next guest, on the same device
+  }
+  await g.goto(url);
+  await expect(g.locator('#people')).toContainText('Guest 1');
+  await expect(g.locator('#people')).not.toContainText('Ana');
+
+  // The organizer sees everyone, with their emails, and hides the answers.
+  await page.reload();
+  await expect(page.locator('#people')).toContainText('Ana');
+  await expect(page.locator('details.organizer')).toBeVisible();
+  if (!(await page.locator('#privacy-open').isVisible())) await page.locator('details.organizer summary').click();
+  await page.click('#privacy-open');
+  await expect(page.locator('.email-list li')).toHaveText(['Ana ana@example.com', 'Lee lee@example.com']);
+  await page.getByRole('switch', { name: "Hide everyone's answers from guests" }).check();
+  await page.getByRole('button', { name: 'Save privacy settings' }).click();
+  await expect(page.locator('#toast')).toHaveText('Privacy settings saved');
+
+  // Now guests see only that answers are private, and how many people answered.
+  await g.reload();
+  if (await g.locator('#tab-group').isVisible()) await g.click('#tab-group'); // tabs are only on phones
+  await expect(g.locator('#panel-group')).toContainText("Only the organizer sees everyone's answers.");
+  await expect(g.locator('#people')).toBeHidden();
+  await expect(g.locator('#ev-meta')).toContainText('2 people answered');
+  await guest.close();
+});
+
 test('installable: manifest and icons are served', async ({ request }) => {
   const manifest = await (await request.get('/manifest.webmanifest')).json();
   expect(manifest.name).toBe('Venn');

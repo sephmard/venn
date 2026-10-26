@@ -67,14 +67,49 @@ async function readJson(request) {
   }
 }
 
-function publicEvent(ev, participants, isAdmin) {
+/** The organizer's privacy choices for a poll. Only the ones switched on are stored. */
+const PRIVACY = ['requireEmail', 'hideNames', 'hideResults'];
+
+function applyPrivacy(event, body) {
+  for (const key of PRIVACY) {
+    if (!(key in body)) continue;
+    if (typeof body[key] !== 'boolean') throw new ValidationError(`${key} must be true or false`);
+    if (body[key]) event[key] = true;
+    else delete event[key];
+  }
+  return event;
+}
+
+/**
+ * The poll as one visitor may see it. The organizer sees everything, including emails. Everyone
+ * else sees their own answer in full; other people's names are swapped for "Guest 1, 2…" when the
+ * organizer hides names, and other people's answers are left out when the organizer hides them.
+ */
+function publicEvent(ev, participants, { isAdmin, ownHash = null, emails = new Map() }) {
   const { adminHash, ...rest } = ev;
+  const own = (p) => ownHash !== null && p.editHash === ownHash;
+  const visible = isAdmin || !ev.hideResults ? participants : participants.filter(own);
+  let guest = 0;
+  const list = visible.map(({ editHash, ...p }) => {
+    if (isAdmin || own({ editHash })) return emails.has(p.id) ? { ...p, email: emails.get(p.id) } : p;
+    guest += 1;
+    return ev.hideNames ? { ...p, name: `Guest ${guest}` } : p;
+  });
   return {
     ...rest,
     slots: buildSlots(ev),
     isAdmin,
-    participants: participants.map(({ editHash, ...p }) => p),
+    participants: list,
+    ...(visible !== participants && { responses: participants.length }),
   };
+}
+
+/** The email someone answers with, when the organizer asks everyone for one. */
+function participantEmail(ev, body) {
+  if (!ev.requireEmail) return null;
+  const email = normalizeEmail(body.email);
+  if (!email) throw new ValidationError('Add your email. The organizer asked everyone for one.');
+  return email;
 }
 
 /** What the organizer sees about their notification settings. Hashes and tokens stay on the server. */
@@ -191,7 +226,7 @@ export async function handleApi(
     // POST /api/events
     if (parts.length === 1 && parts[0] === 'events' && method === 'POST') {
       const body = await readJson(request);
-      const event = normalizeEventInput(body);
+      const event = applyPrivacy(normalizeEventInput(body), body);
       const notifyEmail = body.notifyEmail ? normalizeEmail(body.notifyEmail) : null;
       if (notifyEmail && !emailEnabled(env)) throw new ValidationError("Email notifications aren't set up on this server");
       const id = randomId(10);
@@ -213,7 +248,13 @@ export async function handleApi(
 
     // GET|DELETE /api/events/:id
     if (parts.length === 2) {
-      if (method === 'GET') return json(publicEvent(ev, await store.listParticipants(ev.id), isAdmin));
+      if (method === 'GET') {
+        // Sending your edit token gets your own answer back, even when the organizer hides answers.
+        const editToken = request.headers.get('x-edit-token');
+        const ownHash = editToken ? await sha256(editToken) : null;
+        const emails = isAdmin || ownHash ? await store.listEmails(ev.id) : undefined;
+        return json(publicEvent(ev, await store.listParticipants(ev.id), { isAdmin, ownHash, emails }));
+      }
       if (method === 'DELETE') {
         if (!isAdmin) return error(403, 'Only the organizer can delete this poll');
         await store.deleteEvent(ev.id);
@@ -325,6 +366,15 @@ export async function handleApi(
       return error(404, 'Not found');
     }
 
+    // PUT /api/events/:id/settings  { requireEmail?, hideNames?, hideResults? }
+    if (parts.length === 3 && parts[2] === 'settings' && method === 'PUT') {
+      if (!isAdmin) return error(403, 'Only the organizer can change these settings');
+      const { id: _id, adminHash, finalStart, createdAt, ...data } = ev;
+      const next = applyPrivacy(data, await readJson(request));
+      await store.updateEvent(ev.id, next);
+      return json(Object.fromEntries(PRIVACY.map((k) => [k, !!next[k]])));
+    }
+
     // POST /api/events/:id/finalize  { start: number | null }
     if (parts.length === 3 && parts[2] === 'finalize' && method === 'POST') {
       if (!isAdmin) return error(403, 'Only the organizer can pick the final time');
@@ -343,6 +393,7 @@ export async function handleApi(
       const name = normalizeName(body.name);
       const availability = normalizeAvailability(body.availability, slots);
       const copyTo = normalizeEmail(body.copyTo);
+      const email = participantEmail(ev, body);
       if ((await store.countParticipants(ev.id)) >= LIMITS.participants)
         throw new ValidationError('This poll has reached the participant limit');
       const id = randomId(10);
@@ -355,6 +406,7 @@ export async function handleApi(
         editHash: await sha256(editToken),
         now: now(),
       });
+      if (email) await store.setParticipantEmail(ev.id, id, email);
       await sendCopy(ev, copyTo, { participantId: id, editToken, name, availability });
       notify(ev, 'response.created', id, name);
       return json({ id, editToken }, 201);
@@ -371,7 +423,9 @@ export async function handleApi(
         const name = normalizeName(body.name);
         const availability = normalizeAvailability(body.availability, slots);
         const copyTo = normalizeEmail(body.copyTo);
+        const email = participantEmail(ev, body);
         await store.updateParticipant({ id: p.id, eventId: ev.id, name, availability, now: now() });
+        if (email) await store.setParticipantEmail(ev.id, p.id, email);
         await sendCopy(ev, copyTo, {
           participantId: p.id,
           editToken: request.headers.get('x-edit-token'),

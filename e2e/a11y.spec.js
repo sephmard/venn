@@ -55,6 +55,30 @@ for (const scheme of ['light', 'dark']) {
       await audit(page, 'ask when people are free (whole days)');
     });
 
+    test('privacy options, the Privacy panel, and a guest with answers hidden', async ({ page, browser }) => {
+      await page.goto('/new/free');
+      await page.fill('#title', 'Privacy check');
+      await page.click('[data-flength="allday"]');
+      await page.click('#q-2w');
+      await page.locator('#privacy-opts summary').click();
+      for (const name of ['Ask everyone for their email', "Hide everyone's answers from guests"])
+        await page.getByRole('switch', { name }).check();
+      await audit(page, 'create (privacy options)');
+      await page.click('#submit');
+      await page.getByRole('button', { name: /^Open Privacy check/ }).click();
+      await expect(page.locator('details.organizer')).toBeVisible();
+      if (!(await page.locator('#privacy-open').isVisible())) await page.locator('details.organizer summary').click();
+      await page.click('#privacy-open');
+      await expect(page.locator('#privacy-form')).toBeVisible();
+      await audit(page, 'organizer privacy panel');
+      const guest = await browser.newContext({ colorScheme: scheme });
+      const g = await guest.newPage();
+      await g.goto(page.url());
+      await expect(g.locator('#copy-to')).toBeVisible();
+      await audit(g, 'guest, with email asked for and answers hidden');
+      await guest.close();
+    });
+
     test('the poll created celebration', async ({ page }) => {
       await page.emulateMedia({ reducedMotion: 'reduce' }); // no confetti over the text
       await page.goto('/new/free');
