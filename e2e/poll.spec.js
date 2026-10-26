@@ -510,7 +510,7 @@ test('organizers are asked before a change removes several options at once', asy
   let asked = answer(false);
   await page.click('[data-length="allday"]');
   expect(await asked).toBe("Switching to all day removes the 2 options you've added. Switch anyway?");
-  await expect(page.locator('[data-length="custom"]')).toHaveAttribute('aria-pressed', 'true'); // Other · 2 hours
+  await expect(page.locator('#other-box')).toHaveAttribute('open', ''); // Other length · 2 hours
   await expect(page.locator('[data-length="allday"]')).toHaveAttribute('aria-pressed', 'false');
   await expect(page.locator('#options-list .chip')).toHaveCount(2);
   asked = answer(true);
@@ -1150,9 +1150,9 @@ test('AI: describe a poll in words, then summarize and write messages as the org
   await page.click('#ai-go');
   await expect(page.locator('#toast')).toContainText('Filled in 3 options');
   await expect(page.locator('#title')).toHaveValue('Design review');
-  await expect(page.locator('[data-length="custom"]')).toHaveAttribute('aria-pressed', 'true');
+  await expect(page.locator('#other-box')).toHaveAttribute('open', '');
   await expect(page.locator('#custom')).toHaveValue('45');
-  await expect(page.locator('[data-length="custom"]')).toHaveText('Other · 45 min');
+  await expect(page.locator('#other-box summary')).toHaveText('Other length · 45 min');
   const picked = page.locator('#options-list .chip');
   await expect(picked).toHaveCount(3);
   await expect(picked.first()).toContainText('2:00 – 2:45 PM');
@@ -1667,23 +1667,27 @@ test('optional details sit under More details, placeholders make way on focus, a
   await expect(page.locator('#location')).toHaveValue('Finn’s Trattoria');
 });
 
-test('how long: 30 min, 1 hour, half day, all day, several days and Other, with each plan’s length', async ({ page }) => {
+test('how long: 30 min, 1 hour, half day, all day, several days, and any other length under Other length', async ({ page }) => {
   await page.goto('/new/pick');
   const chips = page.locator('[data-length]');
-  await expect(chips).toHaveText(['30 min', '1 hour', 'Half day', 'All day', 'Several days', 'Other · 2 hours']);
-  // Dinner is two hours: Other, at 2 hours.
+  await expect(chips).toHaveText(['30 min', '1 hour', 'Half day', 'All day', 'Several days']);
+  const other = page.locator('#other-box');
+  // Dinner is two hours: Other length opens, at 2 hours, and no chip is pressed.
   await page.click('[data-occasion="0"]');
-  await expect(page.locator('[data-length="custom"]')).toHaveAttribute('aria-pressed', 'true');
+  await expect(other).toHaveAttribute('open', '');
+  await expect(other.locator('summary')).toHaveText('Other length · 2 hours');
   await expect(page.getByLabel('Length', { exact: true })).toHaveValue('120');
-  // Coffee is an hour, which has its own chip.
+  await expect(page.locator('[data-length][aria-pressed="true"]')).toHaveCount(0);
+  // Coffee is an hour, which has its own chip, and Other length folds away.
   await page.click('[data-occasion="2"]');
   await expect(page.locator('[data-length="60"]')).toHaveAttribute('aria-pressed', 'true');
-  await expect(page.locator('[data-length="custom"]')).toHaveText('Other');
-  await expect(page.locator('#custom-field')).toBeHidden();
-  // Other reads as a length, and options take it.
-  await page.click('[data-length="custom"]');
+  await expect(other).not.toHaveAttribute('open', '');
+  await expect(other.locator('summary')).toHaveText('Other length');
+  // Opening it uses the length it shows; choosing another one changes it.
+  await other.locator('summary').click();
+  await expect(page.locator('[data-length="60"]')).toHaveAttribute('aria-pressed', 'false');
   await page.selectOption('#custom', '180');
-  await expect(page.locator('[data-length="custom"]')).toHaveText('Other · 3 hours');
+  await expect(other.locator('summary')).toHaveText('Other length · 3 hours');
   await expect(page.locator('#custom option:checked')).toHaveText('3 hours');
   await addOptions(page, 1, [1080]);
   await expect(page.locator('#options-list .chip')).toContainText('6 – 9 PM');
@@ -1806,4 +1810,44 @@ test('options in the poll are green when available and amber if needed', async (
   expect(c.bg).toBe(c.maybe);
   await page.locator('#options-list [data-flip]').first().click();
   await expect(page.locator('#options-list .chip').first()).toHaveClass(/yes/);
+});
+
+test('picked times and days say Available or If needed on the calendar, and if-needed trips are amber throughout', async ({
+  page,
+}) => {
+  await page.goto('/new/pick');
+  await page.click('[data-occasion="0"]');
+  const day = addDays(await todayIn(page), 3);
+  await page.fill('#at-day', day);
+  await page.selectOption('#at-time', '1140');
+  await page.click('#at-add');
+  await page.click('[data-pbrush="1"]');
+  await page.selectOption('#at-time', '1020');
+  await page.click('#at-add');
+  const blocks = page.locator(`#picker .tg-col[data-date="${day}"] .tg-block`);
+  await expect(blocks).toHaveCount(2);
+  await expect(blocks.locator('small')).toHaveText(['If needed', 'Available']);
+
+  // A trip that's only if needed is amber on every day, and each day says so.
+  await page.click('[data-length="days"]');
+  await showNextMonth(page);
+  const first = await nextMonth(page);
+  await page.locator(`#picker .cal-day[data-date="${first}"]`).click();
+  for (const i of [0, 1, 2]) {
+    const d = page.locator(`#picker .cal-day[data-date="${addDays(first, i)}"]`);
+    await expect(d.locator('small')).toHaveText('If needed');
+    if (i) await expect(d).toHaveClass(/trip-maybe/);
+  }
+});
+
+test('week view: a day at the top of the week opens it on its own', async ({ page }) => {
+  await page.goto('/new/pick');
+  await page.locator('#picker .tv-pick').waitFor();
+  await page.click('#picker [data-view="week"]');
+  const head = page.locator('#picker [data-open-day]').nth(3);
+  const date = await head.getAttribute('data-open-day');
+  await head.click();
+  await expect(page.locator('#picker [data-view="day"]')).toHaveAttribute('aria-checked', 'true');
+  await expect(page.locator('#picker .tg-col')).toHaveCount(1);
+  await expect(page.locator('#picker .tg-col')).toHaveAttribute('data-date', date);
 });

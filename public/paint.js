@@ -69,7 +69,9 @@ export function paintView(
       h += `<span class="pg-time${parts ? ' part' : ''}" aria-hidden="true">${parts || !(m % 60) ? esc(label(m)) : ''}</span>`;
       ds.forEach((d, c) => {
         const on = selected.has(key(d, m));
-        h += `<span class="pg-cell${parts ? ' part' : m % 60 ? '' : ' hour'}${on ? ' on' : ''}${on && maybe.has(key(d, m)) ? ' maybe' : ''}" role="button" tabindex="${r || c ? -1 : 0}" data-d="${d}" data-m="${m}" data-r="${r}" data-c="${c}" aria-pressed="${on}" aria-label="${esc(`${dayLabel(d)}, ${label(m)}${parts ? ` ${span(m)}` : ''}`)}">${parts ? `<small aria-hidden="true">${esc(span(m))}</small>` : ''}</span>`;
+        // What a picked part is for the organizer, shown on it: " If needed" or " Available".
+        const tag = parts && on ? (maybe.has(key(d, m)) ? ' If needed' : ' Available') : '';
+        h += `<span class="pg-cell${parts ? ' part' : m % 60 ? '' : ' hour'}${on ? ' on' : ''}${on && maybe.has(key(d, m)) ? ' maybe' : ''}" role="button" tabindex="${r || c ? -1 : 0}" data-d="${d}" data-m="${m}" data-r="${r}" data-c="${c}" aria-pressed="${on}" aria-label="${esc(`${dayLabel(d)}, ${label(m)}${parts ? ` ${span(m)}${tag}` : on && maybe.has(key(d, m)) ? ', if needed' : ''}`)}">${parts ? `<small aria-hidden="true">${esc(span(m))}</small>${tag ? ` <small class="pg-tag" aria-hidden="true">${tag.trim()}</small>` : ''}` : ''}</span>`;
       });
     });
     grid.style.gridTemplateColumns = `${parts ? 84 : 52}px repeat(${ds.length}, minmax(0, 1fr))`;

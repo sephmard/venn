@@ -1563,9 +1563,20 @@ details.organizer summary b {
 }
 .tg-day {
   text-align: center;
+  font: inherit;
   font-size: 0.8rem;
   padding: 6px 2px;
   line-height: 1.2;
+  border: 0;
+  background: none;
+  color: inherit;
+  cursor: pointer;
+  min-width: 0;
+}
+/* A day at the top of the week opens it on its own. */
+.tg-day:hover {
+  color: var(--accent);
+  text-decoration: underline;
 }
 .tg-day b {
   display: block;
@@ -1628,8 +1639,15 @@ details.organizer summary b {
   color: var(--accent-ink);
   cursor: pointer;
   display: flex;
+  flex-direction: column;
   align-items: flex-start;
   min-height: 0;
+}
+/* "Available" or "If needed", under the time */
+.tg-block small {
+  font-weight: 600;
+  font-size: 0.7rem;
+  opacity: 0.95;
 }
 .tg-block span {
   overflow: hidden;
