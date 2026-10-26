@@ -38,6 +38,8 @@ public/            the whole front end, served as-is
   organizer.js     the organizer's Notifications and Privacy panels, loaded only for organizers
   celebrate.js     the "Poll created!" celebration
   picker.js        the calendar views: week, day and month, for organizers and guests
+  block-edit.js    dragging and removing options on the week, loaded only on the create pages
+  paint.js         the organizer's painter for hours and parts of the day, loaded only on the create pages
   ui.js            shared UI helpers: formatting, avatars, storage, API calls
   core.js          shared logic: time zones, ranking, calendar import/export
   calendars.js     Google / Outlook free-busy, in the browser
