@@ -1,18 +1,16 @@
 // Polls for real-life plans: whole days, trips over several days, all-day options.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
+import { buildIcs, googleCalendarUrl, outlookCalendarUrl } from '../public/calendar-export.js';
 import {
   YES,
   IF_NEEDED,
   allDaySpan,
-  buildIcs,
   buildSlots,
   eventWindows,
-  googleCalendarUrl,
   isDaysPoll,
   longestRun,
   meetingEnd,
-  outlookCalendarUrl,
   rankTimes,
   zonedToUtc,
 } from '../public/core.js';

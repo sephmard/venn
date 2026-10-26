@@ -2,7 +2,7 @@
 // (the .ics file, which Apple Calendar and most other calendars open). The poll page loads this only
 // when a date is picked, so it costs nothing before then.
 
-import { googleCalendarUrl, outlookCalendarUrl } from './core.js';
+import { buildIcs, googleCalendarUrl, outlookCalendarUrl } from './calendar-export.js';
 import { esc } from './ui.js';
 
 // Its styles come with it, so guests don't download them before there's a date.
@@ -29,18 +29,33 @@ const LOGOS = {
  * location, start, end, allDay }); `day` is the picked day of the month, for the iCal logo.
  * Google and Outlook open in a new tab; iCal downloads the .ics, which opens the calendar app.
  */
-export function addToCalendar({ id, info, day }) {
+let lastIcs = null;
+
+export function addToCalendar({ id, info, day, url, guests = [] }) {
   if (!document.getElementById('cal-css'))
     document.head.append(Object.assign(document.createElement('style'), { id: 'cal-css', textContent: CSS }));
   const btn = (href, logo, name, tab = true) =>
     `<a class="cal-btn" href="${esc(href)}"${tab ? ' target="_blank" rel="noopener"' : ''}>${logo}<span>${name}</span><span class="cal-go" aria-hidden="true">${tab ? '↗' : '↓'}</span></a>`;
+  // The organizer of a poll that asked everyone's email: Google Calendar and iCal invite them all. The
+  // iCal file is made here, so the emails (which only the organizer sees) never go in a link.
+  const invite = guests.length > 0;
+  if (lastIcs) URL.revokeObjectURL(lastIcs); // the file made the last time this was drawn
+  lastIcs = invite
+    ? URL.createObjectURL(new Blob([buildIcs({ ...info, id, url, attendees: guests })], { type: 'text/calendar' }))
+    : null;
+  const ics = lastIcs || `/api/events/${encodeURIComponent(id)}/event.ics`;
+  const gcal = googleCalendarUrl({ ...info, guests: guests.map((g) => g.email) });
   return `<div class="cal-add" role="group" aria-labelledby="cal-add-h" aria-describedby="cal-add-hint">
-    <h3 id="cal-add-h">Add to your calendar</h3>
-    <p id="cal-add-hint">Opens your calendar with the event filled in. iCal works with Apple Calendar and most others.</p>
+    <h3 id="cal-add-h">${invite ? 'Add it to your calendar, with everyone invited' : 'Add to your calendar'}</h3>
+    <p id="cal-add-hint">${
+      invite
+        ? `Google Calendar and iCal add the ${guests.length === 1 ? 'person who answered' : `${guests.length} people who answered`} as guests, so your calendar can send them the invite. Outlook adds just the event.`
+        : 'Opens your calendar with the event filled in. iCal works with Apple Calendar and most others.'
+    }</p>
     <div class="cal-btns">
-      ${btn(googleCalendarUrl(info), LOGOS.google, 'Google Calendar')}
+      ${btn(gcal, LOGOS.google, 'Google Calendar')}
       ${btn(outlookCalendarUrl(info), LOGOS.outlook, 'Outlook')}
-      ${btn(`/api/events/${encodeURIComponent(id)}/event.ics`, LOGOS.ical(day), 'iCal', false)}
+      ${btn(ics, LOGOS.ical(day), 'iCal', false).replace('<a ', invite ? `<a download="${esc(id)}.ics" ` : '<a ')}
     </div>
   </div>`;
 }

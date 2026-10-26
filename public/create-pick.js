@@ -431,7 +431,11 @@ export function renderPick() {
     // Any other length is under "Custom": folded away so the chips stay uncrowded, its summary
     // saying the length when it's the one in use.
     const other = chip === 'custom';
-    $('#other-box summary').textContent = other ? `Custom · ${lengthLabel(length)}` : 'Custom';
+    // In use, it looks like a chosen chip, and says so to screen readers.
+    $('#other-box summary').innerHTML = other
+      ? `Custom · ${esc(lengthLabel(length))}<span class="sr-only">, selected</span>`
+      : 'Custom';
+    $('#other-box').classList.toggle('on', other);
     if (other) $('#custom').innerHTML = otherOptions(length);
     else $('#other-box').open = false;
     $('#span-field').hidden = length !== 'days';

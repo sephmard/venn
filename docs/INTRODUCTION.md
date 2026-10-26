@@ -52,7 +52,8 @@ public/            the whole front end, served as-is
   day-nav.js       the organizer's day strip, « » and jump-to-a-day month, loaded after the create page
   day-window.js    the days that strip offers
   ui.js            shared UI helpers: formatting, avatars, storage, API calls
-  core.js          shared logic: time zones, ranking, calendar import/export
+  core.js          shared logic: time zones, ranking, calendar import
+  calendar-export.js  the .ics file and Google Calendar and Outlook links, for a picked date
   calendars.js     Google / Outlook free-busy, in the browser
   styles.css       the app's light and dark themes
   site.css         landing page styles (see DESIGN.md)
