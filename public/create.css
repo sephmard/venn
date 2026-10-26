@@ -569,7 +569,20 @@
     width: auto;
   }
 }
-/* "Other length", under the length chips */
+/* "Custom", under the length chips: when it's the length in use, it looks like a chosen chip. */
+#other-box.on > summary {
+  display: inline-flex;
+  padding: 0 18px;
+  border-radius: 999px;
+  background: var(--accent);
+  color: var(--accent-ink);
+}
+#other-box.on > summary::before {
+  content: '✓';
+}
+#other-box.on[open] > summary::before {
+  content: '−';
+}
 #other-box select {
   margin-top: 4px;
 }

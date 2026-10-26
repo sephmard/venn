@@ -302,6 +302,11 @@ button.final:focus-visible {
   text-decoration: underline;
   text-underline-offset: 3px;
 }
+/* A link that looks like these buttons sits on the same line as them. */
+a.link-btn {
+  display: inline-flex;
+  align-items: center;
+}
 .hint .link-btn,
 .hint a {
   min-height: 0;

@@ -1,10 +1,10 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
+import { buildIcs, googleCalendarUrl } from '../public/calendar-export.js';
 import {
   YES,
   IF_NEEDED,
   availabilityFromBusy,
-  buildIcs,
   buildSlots,
   dayRuns,
   eventWindows,
@@ -154,6 +154,30 @@ test('buildIcs escapes text', () => {
   assert.match(ics, /SUMMARY:A\\, B\\; C/);
   assert.match(ics, /DESCRIPTION:line1\\nline2/);
   assert.match(ics, /DTSTART:19700101T000000Z/);
+});
+
+test('buildIcs invites attendees, with names that cannot break out of their quotes', () => {
+  const ics = buildIcs({
+    id: 'x',
+    title: 'Dinner',
+    start: 0,
+    end: 3_600_000,
+    attendees: [
+      { name: 'Ana', email: 'ana@example.com' },
+      { name: 'Sam "the man"\r\nX-EVIL:1', email: 'sam@example.com' },
+    ],
+  });
+  const lines = ics.split('\r\n');
+  assert.ok(lines.includes('ATTENDEE;CN="Ana";ROLE=REQ-PARTICIPANT;RSVP=TRUE:mailto:ana@example.com'));
+  assert.ok(lines.includes('ATTENDEE;CN="Sam the manX-EVIL:1";ROLE=REQ-PARTICIPANT;RSVP=TRUE:mailto:sam@example.com'));
+  assert.ok(!lines.some((l) => l.startsWith('X-EVIL')));
+  assert.doesNotMatch(buildIcs({ id: 'x', title: 'Dinner', start: 0, end: 1 }), /ATTENDEE/);
+});
+
+test('googleCalendarUrl adds guests, for Google Calendar to invite', () => {
+  const u = new URL(googleCalendarUrl({ title: 'Dinner', start: 0, end: 1, guests: ['ana@example.com', 'sam@example.com'] }));
+  assert.equal(u.searchParams.get('add'), 'ana@example.com,sam@example.com');
+  assert.equal(new URL(googleCalendarUrl({ title: 'Dinner', start: 0, end: 1 })).searchParams.get('add'), null);
 });
 
 const H = 3_600_000;

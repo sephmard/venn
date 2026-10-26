@@ -1,6 +1,7 @@
 // HTTP API built on web-standard Request/Response, shared by the Worker and the Node server.
 
-import { LIMITS, ValidationError, YES, allDaySpan, buildIcs, isValidTimeZone, buildSlots, meetingEnd } from '../public/core.js';
+import { LIMITS, ValidationError, YES, allDaySpan, isValidTimeZone, buildSlots, meetingEnd } from '../public/core.js';
+import { buildIcs } from '../public/calendar-export.js';
 import { normalizeAvailability, normalizeEventInput, normalizeName } from './validate.js';
 import { SECURITY_HEADERS } from './security-headers.js';
 import {
