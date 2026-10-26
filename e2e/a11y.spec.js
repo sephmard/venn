@@ -48,15 +48,17 @@ for (const scheme of ['light', 'dark']) {
       await page.locator('.cal-grid').evaluate((el) => el.scrollIntoView({ block: 'center' })); // clear of the sticky bar
       await audit(page, 'vote on a few dates (trips)');
       await page.goto('/new/free');
+      await page.click('[data-fill="2"]');
+      await audit(page, 'ask when people are free (painting hours)');
+      await page.click('[data-flength="days"]');
       await page.click('#q-2w');
-      await page.click('[data-mark="hours"]');
-      await page.click('[data-window="custom"]');
-      await audit(page, 'ask when people are free');
+      await audit(page, 'ask when people are free (whole days)');
     });
 
     test('privacy options, the Privacy panel, and a guest with answers hidden', async ({ page, browser }) => {
       await page.goto('/new/free');
       await page.fill('#title', 'Privacy check');
+      await page.click('[data-flength="allday"]');
       await page.click('#q-2w');
       await page.locator('#privacy-opts summary').click();
       for (const name of ['Ask everyone for their email', "Hide everyone's answers from guests"])
@@ -81,7 +83,7 @@ for (const scheme of ['light', 'dark']) {
       await page.emulateMedia({ reducedMotion: 'reduce' }); // no confetti over the text
       await page.goto('/new/free');
       await page.fill('#title', 'Celebration check');
-      await page.click('#q-2w');
+      await page.click('[data-fill="2"]');
       await page.click('#submit');
       await expect(page.locator('.party [role=status]')).toContainText('Poll created!');
       await audit(page, 'poll created', { party: true });
@@ -116,22 +118,27 @@ for (const scheme of ['light', 'dark']) {
     test('days and hours polls', async ({ page }) => {
       await page.goto('/new/free');
       await page.fill('#title', 'Days check');
+      await page.click('[data-flength="allday"]');
       await page.click('#q-2w');
-      await page.click('[data-mark="days"]');
       await page.click('#submit');
       await expect(page.locator('#mine .row').first()).toBeVisible();
       await audit(page, 'days poll');
       await page.goto('/new/free');
       await page.fill('#title', 'Grid check');
-      await page.click('#q-2w');
-      await page.click('[data-mark="hours"]');
+      await page.click('[data-fill="3"]');
       await page.click('#submit');
       await expect(page.locator('#mine .cell[data-slot]').first()).toBeVisible();
       await audit(page, 'hours poll');
-      await page.goto('/new/free');
-      await page.fill('#title', 'Parts check');
-      await page.click('#q-2w');
-      await page.click('#submit');
+      // Older polls ask about mornings, afternoons and evenings.
+      const day = (d, h) => Date.UTC(2030, 0, d, h);
+      const options = [8, 9].flatMap((d) => [
+        { start: day(d, 12), end: day(d, 17) },
+        { start: day(d, 18), end: day(d, 22) },
+      ]);
+      const res = await page.request.post('/api/events', {
+        data: { title: 'Parts check', timezone: 'UTC', mode: 'options', layout: 'parts', options },
+      });
+      await page.goto(`/e/${(await res.json()).id}`);
       await page.locator('.part-vote').first().click();
       await page.fill('#name', 'Sam');
       await page.click('#save');
