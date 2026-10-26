@@ -23,6 +23,13 @@ const SCHEMA = [
      event_id TEXT PRIMARY KEY,
      data TEXT NOT NULL
    )`,
+  // Emails, when the organizer asks everyone for one. Only ever shown to the organizer.
+  `CREATE TABLE IF NOT EXISTS participant_emails (
+     participant_id TEXT PRIMARY KEY,
+     event_id TEXT NOT NULL,
+     email TEXT NOT NULL
+   )`,
+  `CREATE INDEX IF NOT EXISTS participant_emails_event ON participant_emails(event_id)`,
 ];
 
 export function createStore(db) {
@@ -59,8 +66,15 @@ export function createStore(db) {
     async deleteEvent(id) {
       await init();
       await db.run('DELETE FROM participants WHERE event_id = ?', [id]);
+      await db.run('DELETE FROM participant_emails WHERE event_id = ?', [id]);
       await db.run('DELETE FROM notifications WHERE event_id = ?', [id]);
       await db.run('DELETE FROM events WHERE id = ?', [id]);
+    },
+
+    /** Replace the poll's settings (everything stored in `data`). */
+    async updateEvent(id, event) {
+      await init();
+      await db.run('UPDATE events SET data = ? WHERE id = ?', [JSON.stringify(event), id]);
     },
 
     async setFinal(id, finalStart) {
@@ -128,6 +142,24 @@ export function createStore(db) {
     async deleteParticipant(eventId, id) {
       await init();
       await db.run('DELETE FROM participants WHERE event_id = ? AND id = ?', [eventId, id]);
+      await db.run('DELETE FROM participant_emails WHERE participant_id = ?', [id]);
+    },
+
+    /** Save (or, with no email, forget) the email someone answered with. */
+    async setParticipantEmail(eventId, id, email) {
+      await init();
+      if (!email) return db.run('DELETE FROM participant_emails WHERE participant_id = ?', [id]);
+      await db.run(
+        'INSERT INTO participant_emails (participant_id, event_id, email) VALUES (?, ?, ?) ON CONFLICT(participant_id) DO UPDATE SET email = excluded.email',
+        [id, eventId, email],
+      );
+    },
+
+    /** Participant id → email, for one poll. */
+    async listEmails(eventId) {
+      await init();
+      const rows = await db.all('SELECT participant_id, email FROM participant_emails WHERE event_id = ?', [eventId]);
+      return new Map(rows.map((r) => [r.participant_id, r.email]));
     },
   };
 }

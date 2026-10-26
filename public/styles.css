@@ -1579,6 +1579,22 @@ details.organizer summary b {
   align-items: center;
   margin-top: 10px;
 }
+#privacy-box h3 {
+  margin: 24px 0 4px;
+}
+.email-list {
+  list-style: none;
+  padding: 0;
+  margin: 8px 0;
+  display: grid;
+  gap: 6px;
+}
+.email-list li {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 2px 8px;
+  overflow-wrap: anywhere;
+}
 .secret-row {
   display: flex;
   flex-wrap: wrap;

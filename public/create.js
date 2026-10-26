@@ -121,6 +121,15 @@ function youFields() {
         <p class="hint">We'll send one link to confirm it's you. Webhooks for Slack, Discord or your own app are under Notifications once the poll exists.</p>
       </div>
       <p class="hint" id="notify-off" hidden>Email notifications aren't switched on for this Venn server yet. You can add a webhook from the poll's Notifications panel.</p>
+      <details class="reveal" id="privacy-opts">
+        <summary>Privacy options</summary>
+        <label class="switch"><input type="checkbox" role="switch" id="p-email"> Ask everyone for their email</label>
+        <p class="hint">Only you see the emails.</p>
+        <label class="switch"><input type="checkbox" role="switch" id="p-names"> Hide names from guests</label>
+        <p class="hint">Guests see how many people can make each date, but not who.</p>
+        <label class="switch"><input type="checkbox" role="switch" id="p-results"> Hide everyone's answers from guests</label>
+        <p class="hint">Only you see the answers. Guests see the date once you pick it.</p>
+      </details>
       <details class="reveal">
         <summary>Time zone: <span id="tz-name">${esc(tzName(localTz))}</span></summary>
         <label for="tz">Time zone for the times you propose</label>
@@ -163,6 +172,13 @@ async function submit(body, occasion) {
     timezone: $('#tz').value,
   });
   if (occasion()) body.emoji = occasion().emoji;
+  // Privacy options: only the ones switched on are sent.
+  for (const [key, el] of [
+    ['requireEmail', '#p-email'],
+    ['hideNames', '#p-names'],
+    ['hideResults', '#p-results'],
+  ])
+    if ($(el).checked) body[key] = true;
   const notifyEmail = $('#notify-field').hidden ? '' : $('#notify').value.trim();
   if (notifyEmail) body.notifyEmail = notifyEmail;
   if (body.organizer) rememberName(body.organizer);
