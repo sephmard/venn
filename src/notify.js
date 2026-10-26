@@ -18,8 +18,9 @@ export { sendEmail };
 const TIMEOUT_MS = 5000;
 // Don't email the organizer again about the same person editing their answer within this window.
 const EDIT_EMAIL_COOLDOWN_MS = 10 * 60_000;
-// Confirmation emails per poll, so a poll can't be used to spam someone's inbox.
-export const MAX_CONFIRMATIONS = 3;
+// Emails to the organizer per poll. There's no confirmation step, so this keeps a poll from being
+// used to flood someone else's inbox; every email also has a link to stop them.
+export const MAX_ORGANIZER_EMAILS = 200;
 // Copies of an answer emailed to the person who gave it. Someone could type another person's
 // address, so each answer gets a few copies at most, and each poll a bounded number.
 export const MAX_COPIES_PER_ANSWER = 3;
@@ -165,14 +166,53 @@ function emailLayout(bodyHtml, footerHtml, pageUrl) {
 const button = (href, label) =>
   `<p style="margin:20px 0"><a href="${escHtml(href)}" style="display:inline-block;background:#0f9d76;color:#fff;text-decoration:none;font-weight:600;padding:10px 18px;border-radius:8px">${escHtml(label)}</a></p>`;
 
-export function responseEmail(s, unsubscribeUrl) {
-  const subject = s.response
-    ? `${s.response.name} ${VERBS[s.event] || 'responded to'} “${s.poll.title}”`
-    : `Test notification for “${s.poll.title}”`;
-  const text = `${summaryText(s)}\n\nSee all responses: ${s.poll.url}\n\nStop these emails: ${unsubscribeUrl}\n`;
+const heading = (html) => `<p style="margin:0 0 8px;font-size:22px;font-weight:700;line-height:1.3">${html}</p>`;
+const para = (html) => `<p style="margin:0 0 12px;line-height:1.5">${html}</p>`;
+/** The link itself, under its button, for anyone who wants to copy or forward it. */
+const linkLine = (href) =>
+  `<p style="margin:-8px 0 16px;font-size:13px;line-height:1.5;word-break:break-all"><a href="${escHtml(href)}" style="color:#0f9d76">${escHtml(href)}</a></p>`;
+const stopFooter = (unsubscribeUrl) =>
+  `You get these emails because you asked Venn to tell you about this poll. <a href="${escHtml(unsubscribeUrl)}" style="color:#6b6d70">Stop these emails</a>.`;
+
+/** To the organizer, the moment their poll exists: well done, and here's the link to share. */
+export function pollReadyEmail({ title, pollUrl, unsubscribeUrl }) {
+  const subject = `Your poll “${title}” is ready 🎉`;
+  const text = `Your poll “${title}” is ready!\n\nWe're so proud of you for bringing people together. Here's the link to share with everyone:\n\n${pollUrl}\n\nWe'll email you here whenever someone answers.\n\nStop these emails: ${unsubscribeUrl}\n`;
   const html = emailLayout(
-    `<p style="margin:0;line-height:1.5">${escHtml(summaryText(s))}</p>${button(s.poll.url, 'See all responses')}`,
-    `You get these emails because you asked to be notified about this poll. <a href="${escHtml(unsubscribeUrl)}" style="color:#6b6d70">Stop these emails</a>.`,
+    `${heading('Your poll is ready! 🎉')}${para(
+      `We're so proud of you for bringing people together. Here's the link to <strong>${escHtml(title)}</strong>. Share it with everyone:`,
+    )}${button(pollUrl, 'Open your poll')}${linkLine(pollUrl)}${para("We'll email you here whenever someone answers.")}`,
+    stopFooter(unsubscribeUrl),
+    pollUrl,
+  );
+  return { subject, text, html };
+}
+
+/** To the organizer, each time someone answers: who it was, the best time so far, and the poll. */
+export function responseEmail(s, unsubscribeUrl) {
+  const name = s.response?.name;
+  const isNew = s.event === 'response.created';
+  const subject = !name
+    ? `Test notification for “${s.poll.title}”`
+    : isNew
+      ? `🎉 ${name} just answered “${s.poll.title}”`
+      : `${name} ${VERBS[s.event] || 'responded to'} “${s.poll.title}”`;
+  const lead = !name
+    ? `This is a test notification for “${s.poll.title}”.`
+    : isNew
+      ? `${name} just answered “${s.poll.title}”. We're fired up: your plans are coming together!`
+      : `${name} ${VERBS[s.event] || 'responded to'} “${s.poll.title}”.`;
+  const can = s.bestTime && s.bestTime.available + s.bestTime.ifNeeded;
+  const best = s.bestTime
+    ? `Best time so far: ${s.bestTime.label} (${can} of ${s.poll.responses} can make it).`
+    : s.poll.responses
+      ? ''
+      : 'No answers yet.';
+  const text = `${lead}${best ? `\n\n${best}` : ''}\n\nSee everyone's answers: ${s.poll.url}\n\nStop these emails: ${unsubscribeUrl}\n`;
+  const headline = name && isNew ? heading(`${escHtml(name)} just answered! 🎉`) : '';
+  const html = emailLayout(
+    `${headline}${para(escHtml(lead))}${best ? para(escHtml(best)) : ''}${button(s.poll.url, "See everyone's answers")}${linkLine(s.poll.url)}`,
+    stopFooter(unsubscribeUrl),
     s.poll.url,
   );
   return { subject, text, html };
@@ -204,33 +244,31 @@ export function answerLines(ev, availability) {
   return out.map((r) => ({ label: windowLabel(r.start, r.end, ev.timezone), answer: r.v === YES ? 'yes' : 'if needed' }));
 }
 
-/** A copy of someone's answer, for them: what they said, and the links to see the poll and change it. */
-export function answerCopyEmail({ title, name, lines, pollUrl, editUrl }) {
+/**
+ * A copy of someone's answer, for them: what they said, their own link to see and change it, and
+ * the poll. `seeAnswers` is false when the organizer hides everyone's answers.
+ */
+export function answerCopyEmail({ title, name, lines, pollUrl, editUrl, seeAnswers = true }) {
   const subject = `Your answer to “${title}”`;
   const list = lines.length ? lines : null;
+  const pollLabel = seeAnswers ? "See everyone's answers" : 'Open the poll';
   const text = `Hi ${name}, here's what you told Venn for “${title}”:\n\n${
     list ? list.map((l) => `- ${l.label}: ${l.answer}`).join('\n') : 'None of the times work for you.'
-  }\n\nSee everyone's answers: ${pollUrl}\nChange your answer: ${editUrl}\n\nYou asked for this copy when you answered. If that wasn't you, ignore this email.\n`;
+  }\n\nYour answer (open it to change it): ${editUrl}\nThis link is just for you, so don't share it.\n\n${pollLabel}: ${pollUrl}\n\nYou asked for this copy when you answered. If that wasn't you, ignore this email.\n`;
   const items = list
     ? `<ul style="margin:12px 0;padding-left:20px;line-height:1.6">${list
         .map((l) => `<li>${escHtml(l.label)}: <strong>${escHtml(l.answer)}</strong></li>`)
         .join('')}</ul>`
-    : '<p style="margin:12px 0;line-height:1.5">None of the times work for you.</p>';
+    : para('None of the times work for you.');
   const html = emailLayout(
-    `<p style="margin:0;line-height:1.5">Hi ${escHtml(name)}, here's what you told Venn for <strong>${escHtml(title)}</strong>:</p>${items}${button(pollUrl, "See everyone's answers")}<p style="margin:0;line-height:1.5"><a href="${escHtml(editUrl)}" style="color:#0f9d76">Change your answer</a>. This link is just for you, so don't share it.</p>`,
+    `${para(`Hi ${escHtml(name)}, here's what you told Venn for <strong>${escHtml(title)}</strong>:`)}${items}${button(
+      editUrl,
+      'View or change your answer',
+    )}${linkLine(editUrl)}${para("This link is just for you, so don't share it.")}${para(
+      `<a href="${escHtml(pollUrl)}" style="color:#0f9d76">${pollLabel}</a>`,
+    )}`,
     "You asked for this copy when you answered the poll. If that wasn't you, ignore this email and nothing more will be sent.",
     pollUrl,
-  );
-  return { subject, text, html };
-}
-
-export function confirmationEmail(title, confirmUrl) {
-  const subject = `Confirm notifications for “${title}”`;
-  const text = `Someone (hopefully you) asked Venn to email this address when people respond to the poll “${title}”.\n\nConfirm: ${confirmUrl}\n\nIf this wasn't you, ignore this email and nothing more will be sent.\n`;
-  const html = emailLayout(
-    `<p style="margin:0;line-height:1.5">Someone (hopefully you) asked Venn to email this address when people respond to the poll <strong>${escHtml(title)}</strong>.</p>${button(confirmUrl, 'Confirm notifications')}`,
-    "If this wasn't you, ignore this email and nothing more will be sent.",
-    confirmUrl,
   );
   return { subject, text, html };
 }
@@ -291,7 +329,7 @@ export async function sendWebhook(url, secret, s, { fetchImpl, now }) {
 export async function notifyResponse({ store, env, fetchImpl, now, origin, ev, kind, participantId, name }) {
   try {
     const settings = await store.getNotify(ev.id);
-    if (!settings || (!settings.webhookUrl && !(settings.email && settings.emailConfirmed))) return;
+    if (!settings || (!settings.webhookUrl && !settings.email)) return;
     const participants = await store.listParticipants(ev.id);
     const s = buildSummary(ev, participants, { kind, name, origin, now: now() });
     const delivery = { ...(settings.lastDelivery || {}) };
@@ -309,7 +347,8 @@ export async function notifyResponse({ store, env, fetchImpl, now, origin, ev, k
       );
     }
     const recentlyEmailed = kind === 'response.updated' && now() - (emailedAt[participantId] || 0) < EDIT_EMAIL_COOLDOWN_MS;
-    if (settings.email && settings.emailConfirmed && emailEnabled(env) && !recentlyEmailed) {
+    let emailsSent = settings.emailsSent || 0;
+    if (settings.email && emailEnabled(env) && !recentlyEmailed && emailsSent < MAX_ORGANIZER_EMAILS) {
       const unsubscribeUrl = `${origin}/e/${ev.id}#unsubscribe=${settings.unsubscribeToken}`;
       const msg = responseEmail(s, unsubscribeUrl);
       jobs.push(
@@ -317,6 +356,7 @@ export async function notifyResponse({ store, env, fetchImpl, now, origin, ev, k
           .then(() => {
             delivery.email = { at: now(), ok: true };
             emailedAt[participantId] = now();
+            emailsSent += 1;
           })
           .catch(() => (delivery.email = { at: now(), ok: false, error: 'Email service error' })),
       );
@@ -324,7 +364,7 @@ export async function notifyResponse({ store, env, fetchImpl, now, origin, ev, k
     await Promise.all(jobs);
     // Re-read so concurrent changes to the settings aren't overwritten.
     const latest = await store.getNotify(ev.id);
-    if (latest) await store.setNotify(ev.id, { ...latest, lastDelivery: delivery, emailedAt });
+    if (latest) await store.setNotify(ev.id, { ...latest, lastDelivery: delivery, emailedAt, emailsSent });
   } catch (e) {
     console.error('notification failed', e);
   }

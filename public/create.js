@@ -118,7 +118,7 @@ function youFields() {
       <div id="notify-field" hidden>
         <label for="notify">Email me when people answer <span class="muted">(recommended)</span></label>
         <input id="notify" type="email" inputmode="email" autocomplete="email" maxlength="254" placeholder="you@example.com" value="${esc(lastEmail())}">
-        <p class="hint">We'll send one link to confirm it's you. Webhooks for Slack, Discord or your own app are under Notifications once the poll exists.</p>
+        <p class="hint">We'll email you your poll's link, then each time someone answers. Webhooks for Slack, Discord or your own app are under Notifications once the poll exists.</p>
       </div>
       <p class="hint" id="notify-off" hidden>Email notifications aren't switched on for this Venn server yet. You can add a webhook from the poll's Notifications panel.</p>
       <details class="reveal" id="privacy-opts">
