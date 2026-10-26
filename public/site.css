@@ -819,6 +819,49 @@ h3 {
   color: var(--ink);
 }
 
+/* ---------- Finn, the Venn dog ---------- */
+.meet-finn {
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  gap: 12px;
+  max-width: 30em;
+  margin: 40px auto 0;
+  text-align: left;
+  color: var(--ink-2);
+}
+.meet-finn img {
+  flex: none;
+  transform: rotate(-4deg);
+  transform-origin: 50% 100%;
+}
+.meet-finn p {
+  margin: 0 0 6px;
+  font-size: 1rem;
+  line-height: 1.5;
+}
+.meet-finn b {
+  color: var(--ink);
+}
+.finn-lost {
+  position: relative;
+  width: 70px;
+  height: 152px;
+  margin: 24px 0;
+}
+.finn-lost img {
+  display: block;
+  transform: scaleX(-1) rotate(-6deg);
+  transform-origin: 50% 100%;
+}
+.finn-lost span {
+  position: absolute;
+  left: 74px;
+  top: -30px;
+  font: 400 3.5rem/1 var(--serif);
+  color: var(--green);
+}
+
 /* ---------- text pages (privacy, 404) ---------- */
 .page {
   padding-top: 56px;
