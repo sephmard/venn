@@ -60,7 +60,7 @@ export function renderPick() {
   startForm();
   // The options so far, in local time: { date, from, to } in minutes, or { date, days } for all day or longer.
   const items = new Map();
-  let length = 120;
+  let length = 60; // an hour, until a kind of plan says otherwise
   let spanDays = 3;
   let brush = YES; // new options are marked as working for the organizer, or only if needed
   let view = null; // the week / day picker, for options with times
@@ -92,7 +92,7 @@ export function renderPick() {
           </div>
         </div>
         <details class="reveal" id="other-box">
-          <summary>Other length</summary>
+          <summary>Custom</summary>
           <label for="custom">Length</label>
           <select id="custom">${otherOptions(90)}</select>
         </details>
@@ -428,14 +428,15 @@ export function renderPick() {
   function showLength() {
     const chip = lengthChip(length);
     for (const b of $$('[data-length]')) b.setAttribute('aria-pressed', b.dataset.length === chip);
-    // Any other length is under "Other length", open while it's the one in use.
+    // Any other length is under "Custom": folded away so the chips stay uncrowded, its summary
+    // saying the length when it's the one in use.
     const other = chip === 'custom';
-    $('#other-box summary').textContent = other ? `Other length · ${lengthLabel(length)}` : 'Other length';
+    $('#other-box summary').textContent = other ? `Custom · ${lengthLabel(length)}` : 'Custom';
     if (other) $('#custom').innerHTML = otherOptions(length);
-    $('#other-box').open = other;
+    else $('#other-box').open = false;
     $('#span-field').hidden = length !== 'days';
   }
-  // Opening "Other length" uses the length it shows.
+  // Opening "Custom" uses the length it shows.
   $('#other-box').addEventListener('toggle', (e) => {
     if (e.target.open && lengthChip(length) !== 'custom' && setLength('custom') === false) e.target.open = false;
   });
@@ -523,7 +524,7 @@ export function renderPick() {
     load(ev.options, ev.timezone, (start) => (host?.availability[start] === IF_NEEDED ? IF_NEEDED : YES));
   }
 
-  setLength(120);
+  setLength(length);
   showConfig(updateReady);
   // Describing the plan in words, when this server has AI.
   getConfig().then((c) => c.ai && !src && import('./ai-draft.js').then((m) => $('#create') && m.aiDraft($('#create'), load)));

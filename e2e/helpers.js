@@ -65,3 +65,22 @@ export async function addOptions(page, days, times = [1140]) {
   const first = await nextMonth(page);
   for (let i = 0; i < days; i++) for (const t of times) await tapAt(page, addDays(first, i), t);
 }
+
+/**
+ * Press Submit on a poll. When the answer can go in, confirm "Submit your answer?" and skip the
+ * celebration that follows; when something's missing, the error says so and nothing more happens.
+ */
+export async function submit(page) {
+  await page.click('#save');
+  const yes = page.locator('#submit-check[open] #sc-yes');
+  const err = page.locator('#save-err:not(:empty)');
+  await yes.or(err).first().waitFor();
+  if (!(await yes.isVisible())) return;
+  await yes.click();
+  const go = page.locator('.party-go');
+  await go.or(err).first().waitFor();
+  if (await go.isVisible()) {
+    await go.click();
+    await page.locator('.party').waitFor({ state: 'detached' });
+  }
+}

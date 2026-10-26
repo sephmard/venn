@@ -48,6 +48,10 @@ export const OCCASIONS = [
   { emoji: '🎲', label: 'Game night', length: 180, part: 'evening' },
   { emoji: '🥾', label: 'Hike', length: 'allday', part: 'morning' },
   { emoji: '🎉', label: 'Party', length: 240, part: 'evening' },
+  { emoji: '🏋️', label: 'Gym', length: 60, part: 'morning' },
+  { emoji: '🏃', label: 'Run', length: 60, part: 'morning' },
+  { emoji: '🚴', label: 'Bike', length: 120, part: 'morning' },
+  { emoji: '⛳', label: 'Golf', length: 240, part: 'morning' },
   { emoji: '✈️', label: 'Trip', length: 'days', days: 3 },
 ];
 

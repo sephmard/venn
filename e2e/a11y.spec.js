@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test';
-import { addOptions, showNextMonth } from './helpers.js';
+import { addOptions, showNextMonth, submit } from './helpers.js';
 import AxeBuilder from '@axe-core/playwright';
 
 // Automated accessibility checks (WCAG 2.2 A/AA rules from axe) on every main screen, in light and
@@ -121,7 +121,7 @@ for (const scheme of ['light', 'dark']) {
       await audit(page, 'event page (answering on the calendar)');
       await page.click('[data-mine-view="list"]');
       await page.fill('#name', 'Sam');
-      await page.click('#save');
+      await submit(page);
       await expect(page.locator('.matrix')).toBeVisible();
       await page.locator('.best-hero [data-pick]').click();
       await expect(page.locator('.banner-final')).toBeVisible();
@@ -166,7 +166,7 @@ for (const scheme of ['light', 'dark']) {
       await page.goto(`/e/${(await res.json()).id}`);
       await page.locator('.part-vote').first().click();
       await page.fill('#name', 'Sam');
-      await page.click('#save');
+      await submit(page);
       await page.locator('.heat-btn').first().click();
       await audit(page, 'parts of the day poll');
     });
