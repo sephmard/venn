@@ -214,7 +214,8 @@ test("the organizer's own answer, and editing a poll until someone else answers"
   // Guests aren't told which answer is the organizer's.
   assert.equal((await call(`/api/events/${id}`)).data.hostId, undefined);
 
-  // Only the organizer can change the poll; the organizer's answer follows the new times.
+  // Only the organizer can change the poll. The organizer's answer keeps the times still in it;
+  // new times are theirs to answer, like everyone's.
   const edit = (body, headers = admin) => call(`/api/events/${id}`, { method: 'PUT', body, headers });
   const changed = { ...newEvent, title: 'Coffee, later', startMinute: 780, endMinute: 900, hideNames: true };
   assert.equal((await edit(changed, {})).status, 403);
@@ -224,7 +225,7 @@ test("the organizer's own answer, and editing a poll until someone else answers"
   assert.equal(ev.title, 'Coffee, later');
   assert.equal(ev.hideNames, true);
   assert.equal(ev.slots.length, 4);
-  assert.deepEqual(Object.keys(ev.participants[0].availability).map(Number), ev.slots);
+  assert.deepEqual(ev.participants[0].availability, {});
 
   // With the organizer link alone (another device), the organizer can change their own answer, but no one else's.
   const hostPut = (pid) =>
@@ -406,4 +407,27 @@ test('writes must be JSON', async () => {
   });
   assert.equal(res.status, 400);
   assert.match((await res.json()).error, /JSON/);
+});
+
+test("the organizer's first answer, sent with their link, is theirs: the poll can still be changed", async () => {
+  const { id, adminToken } = (await call('/api/events', { method: 'POST', body: newEvent })).data;
+  const admin = { 'x-admin-token': adminToken };
+  let ev = (await call(`/api/events/${id}`)).data;
+  assert.equal(ev.participants.length, 0); // nothing is answered for the organizer
+  const [s0, s1] = ev.slots;
+  const host = await call(`/api/events/${id}/participants`, {
+    method: 'POST',
+    body: { name: 'Sam', availability: { [s0]: 2, [s1]: 1 } },
+    headers: admin,
+  });
+  assert.equal(host.status, 201);
+  // Changing the poll keeps the organizer's answer for the times still in it.
+  const changed = await call(`/api/events/${id}`, { method: 'PUT', body: { ...newEvent, endMinute: 660 }, headers: admin });
+  assert.equal(changed.status, 200);
+  ev = (await call(`/api/events/${id}`)).data;
+  assert.deepEqual(ev.participants[0].availability, { [s0]: 2, [s1]: 1 });
+  // A guest's answer is a guest's, even when the organizer has answered.
+  await call(`/api/events/${id}/participants`, { method: 'POST', body: { name: 'Ann', availability: { [s0]: 2 } } });
+  const locked = await call(`/api/events/${id}`, { method: 'PUT', body: newEvent, headers: admin });
+  assert.equal(locked.status, 409);
 });

@@ -18,6 +18,7 @@ import {
   sendWebhook,
   validateWebhookUrl,
 } from './notify.js';
+import { pollKind, planOf, recordUsage, sizeOf, usageEnabled, usageReport } from './usage.js';
 import { AiUnavailableError, aiEnabled, allowAiRequest, answerForMe, draftPoll, summarize, writeMessage } from './ai.js';
 
 const MAX_BODY = 200_000;
@@ -166,6 +167,12 @@ export async function handleApi(
    * used for this one email and never stored. Copies are counted, so a poll can't be used to
    * flood an inbox.
    */
+  /** Count a usage event (src/usage.js), after the response. */
+  // Browsers that ask not to be tracked (Global Privacy Control, Do Not Track) aren't counted at all.
+  const optedOut = request.headers.get('sec-gpc') === '1' || request.headers.get('dnt') === '1';
+  const count = (name, props) => !optedOut && waitUntil(recordUsage(store, env, now(), name, props));
+  const kindOf = (ev) => ({ kind: pollKind(ev).kind });
+
   async function sendCopy(ev, to, { participantId, editToken, name, availability }) {
     if (!to || !emailEnabled(env)) return;
     const settings = (await store.getNotify(ev.id)) || {};
@@ -192,6 +199,7 @@ export async function handleApi(
       return json({
         email: emailEnabled(env),
         ai: aiEnabled(env),
+        usage: usageEnabled(env),
         // OAuth client IDs are public by design; they only identify the app to Google/Microsoft.
         calendars: {
           google: env.GOOGLE_CLIENT_ID || null,
@@ -199,6 +207,22 @@ export async function handleApi(
           microsoftTenant: env.MICROSOFT_TENANT || 'common',
         },
       });
+    }
+
+    // POST /api/usage  { name, props }: a count from the browser, for usage stats
+    if (parts.length === 1 && parts[0] === 'usage' && method === 'POST') {
+      const { name, props } = await readJson(request);
+      if (!optedOut) await recordUsage(store, env, now(), name, props, { client: true });
+      return new Response(null, { status: 204, headers: SECURITY_HEADERS });
+    }
+
+    // GET /api/stats?days=30, with "authorization: Bearer <STATS_TOKEN>": the usage stats
+    if (parts.length === 1 && parts[0] === 'stats' && method === 'GET') {
+      const token = (request.headers.get('authorization') || '').replace(/^Bearer /, '');
+      if (!usageEnabled(env)) return error(404, "Usage stats aren't turned on for this server");
+      if (!timingSafeEqual(token, env.STATS_TOKEN)) return error(403, 'Wrong stats token');
+      const days = Math.max(1, Math.min(365, Number(url.searchParams.get('days')) || 30));
+      return json(await usageReport(store, { days, now: now() }));
     }
 
     // Every AI endpoint: switched on, and rate limited per visitor (each call costs money).
@@ -214,6 +238,7 @@ export async function handleApi(
     if (isAi && parts[0] === 'ai' && parts[1] === 'draft-poll') {
       const { prompt, timezone } = await readJson(request);
       if (!isValidTimeZone(timezone)) throw new ValidationError('Unknown time zone');
+      count('ai.used', { feature: 'draft' });
       return json(await draftPoll(env, { prompt, timezone }, { now: now(), anthropic }));
     }
 
@@ -252,6 +277,13 @@ export async function handleApi(
         });
         waitUntil(sendEmail(env, { to: notifyEmail, ...msg }, { fetchImpl }).catch((e) => console.error('poll email failed', e)));
       }
+      count('poll.created', {
+        ...pollKind(event),
+        plan: planOf(event),
+        options: sizeOf(event),
+        email: notifyEmail ? 'yes' : 'no',
+        copy: body.copied === true ? 'yes' : 'no',
+      });
       return json({ id, adminToken, ...(host && { participant: host }) }, 201);
     }
 
@@ -278,9 +310,17 @@ export async function handleApi(
         const body = await readJson(request);
         const next = applyPrivacy(normalizeEventInput(body), body);
         if (ev.hostId) next.hostId = ev.hostId;
-        // The organizer's own answer follows the new times. It's checked before the poll changes.
+        // The organizer's own answer follows the new times: what they sent, or what they'd already
+        // answered for the times that are still there. It's checked before the poll changes.
         const host = participants.find((p) => p.id === ev.hostId);
-        const hostAnswer = host && hostAvailability(next, body.hostAvailability);
+        const hostAnswer =
+          host &&
+          (body.hostAvailability != null
+            ? hostAvailability(next, body.hostAvailability)
+            : normalizeAvailability(
+                Object.fromEntries(Object.entries(host.availability).filter(([s]) => buildSlots(next).includes(+s))),
+                buildSlots(next),
+              ));
         await store.updateEvent(ev.id, next);
         await store.setFinal(ev.id, null);
         if (host)
@@ -291,11 +331,13 @@ export async function handleApi(
             availability: hostAnswer,
             now: now(),
           });
+        count('poll.edited', kindOf(next));
         return json({ ok: true });
       }
       if (method === 'DELETE') {
         if (!isAdmin) return error(403, 'Only the organizer can delete this poll');
         await store.deleteEvent(ev.id);
+        count('poll.deleted', kindOf(ev));
         return json({ ok: true });
       }
       return error(405, 'Method not allowed');
@@ -315,6 +357,7 @@ export async function handleApi(
         allDay: allDaySpan(ev.finalStart, end, ev.timezone),
         url: `${url.origin}/e/${ev.id}`,
       });
+      count('calendar.ics', {});
       return new Response(body, {
         headers: {
           ...SECURITY_HEADERS,
@@ -354,6 +397,8 @@ export async function handleApi(
           if (!webhookUrl) settings.webhookSecret = null;
         }
         await store.setNotify(ev.id, settings);
+        if (body.email) count('notify.email', {});
+        if (body.webhookUrl) count('notify.webhook', {});
         return json(notifyView(settings, env));
       }
 
@@ -376,6 +421,7 @@ export async function handleApi(
     // POST /api/events/:id/ai/{summary,answer,message}
     if (isAi) {
       const kind = parts[3];
+      if (['answer', 'summary', 'message'].includes(kind)) count('ai.used', { feature: kind });
       if (kind === 'answer') {
         const body = await readJson(request);
         if (body.timezone && !isValidTimeZone(body.timezone)) throw new ValidationError('Unknown time zone');
@@ -406,6 +452,7 @@ export async function handleApi(
       const { start } = await readJson(request);
       if (start !== null && !buildSlots(ev).includes(start)) throw new ValidationError('That time is not part of this poll');
       await store.setFinal(ev.id, start);
+      if (start !== null) count('poll.finalized', kindOf(ev));
       return json({ ok: true, finalStart: start });
     }
 
@@ -433,7 +480,15 @@ export async function handleApi(
       });
       if (email) await store.setParticipantEmail(ev.id, id, email);
       await sendCopy(ev, copyTo, { participantId: id, editToken, name, availability });
-      notify(ev, 'response.created', id, name);
+      // The organizer's first answer (sent with their link) is theirs: they aren't told about it, and
+      // the poll can still be changed until someone else answers.
+      if (isAdmin && !ev.hostId) {
+        const { id: _id, adminHash, finalStart, createdAt, ...data } = ev;
+        await store.updateEvent(ev.id, { ...data, hostId: id });
+      } else {
+        notify(ev, 'response.created', id, name);
+        count('answer.created', { ...kindOf(ev), copy: copyTo ? 'yes' : 'no' });
+      }
       return json({ id, editToken }, 201);
     }
 
@@ -456,13 +511,17 @@ export async function handleApi(
         const editToken = request.headers.get('x-edit-token');
         if (editToken) await sendCopy(ev, copyTo, { participantId: p.id, editToken, name, availability });
         // The organizer isn't told about their own answer.
-        if (!isHost) notify(ev, 'response.updated', p.id, name);
+        if (!isHost) {
+          notify(ev, 'response.updated', p.id, name);
+          count('answer.updated', kindOf(ev));
+        }
         return json({ ok: true });
       }
       if (method === 'DELETE') {
         if (!isOwner && !isAdmin) return error(403, 'You can only remove your own response');
         await store.deleteParticipant(ev.id, p.id);
         notify(ev, 'response.deleted', p.id, p.name);
+        count('answer.deleted', kindOf(ev));
         return json({ ok: true });
       }
       return error(405, 'Method not allowed');

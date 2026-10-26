@@ -1,7 +1,7 @@
 // The moment a poll is created, or an answer is sent: a happy dog bounces in over the Venn circles,
 // confetti flies, and a little note says well done. Loaded only when it's needed.
 
-import { reducedMotion } from './ui.js';
+import { reducedMotion, track } from './ui.js';
 
 const DOG = '/img/dog.webp';
 new Image().src = DOG; // start loading it while the poll is being saved
@@ -226,7 +226,10 @@ export function celebrate({
     buttons[i < 0 ? 0 : (i + (e.shiftKey ? buttons.length - 1 : 1)) % buttons.length].focus();
   };
   go.addEventListener('click', () => {
-    share?.();
+    if (share) {
+      track('share', { from: 'created' });
+      share();
+    }
     skip();
   });
   view.addEventListener('click', () => skip());

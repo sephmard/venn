@@ -50,6 +50,7 @@ Each one switches on when its settings exist, and `GET /api/config` reports whic
 | Webhook notifications     | Always on. Organizers add a URL from their poll.                                     | [Notifications](NOTIFICATIONS.md) |
 | Google Calendar / Outlook | `GOOGLE_CLIENT_ID` and/or `MICROSOFT_CLIENT_ID`                                      | [Calendars](CALENDARS.md)         |
 | AI features (Claude)      | `ANTHROPIC_API_KEY`                                                                  | [AI features](AI.md)              |
+| Usage stats               | `STATS_TOKEN`                                                                        | [Usage stats](USAGE-STATS.md)     |
 
 ## Running a public instance
 

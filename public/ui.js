@@ -116,6 +116,9 @@ export async function api(path, { method = 'GET', body, headers = {} } = {}) {
 let configPromise;
 export const getConfig = () => (configPromise ??= api('config').catch(() => ({})));
 
+// Usage stats (track.js), loaded when first used.
+export const track = (...a) => import('./track.js').then((m) => m.track(...a)).catch(() => {});
+
 // ---------- dates and times ----------
 
 export const todayStr = () => {

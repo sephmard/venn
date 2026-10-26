@@ -30,6 +30,14 @@ const SCHEMA = [
      email TEXT NOT NULL
    )`,
   `CREATE INDEX IF NOT EXISTS participant_emails_event ON participant_emails(event_id)`,
+  // Usage stats (src/usage.js): a count per day, event and set of properties. Nothing else.
+  `CREATE TABLE IF NOT EXISTS usage_counts (
+     day TEXT NOT NULL,
+     name TEXT NOT NULL,
+     props TEXT NOT NULL,
+     count INTEGER NOT NULL,
+     PRIMARY KEY (day, name, props)
+   )`,
 ];
 
 export function createStore(db) {
@@ -153,6 +161,31 @@ export function createStore(db) {
         'INSERT INTO participant_emails (participant_id, event_id, email) VALUES (?, ?, ?) ON CONFLICT(participant_id) DO UPDATE SET email = excluded.email',
         [id, eventId, email],
       );
+    },
+
+    async countUsage(day, name, props) {
+      await init();
+      await db.run(
+        'INSERT INTO usage_counts (day, name, props, count) VALUES (?, ?, ?, 1) ON CONFLICT(day, name, props) DO UPDATE SET count = count + 1',
+        [day, name, props],
+      );
+    },
+
+    /** Usage counts from `since` (YYYY-MM-DD) on: [{ day, name, props, count }]. */
+    async listUsage(since) {
+      await init();
+      return db.all('SELECT day, name, props, count FROM usage_counts WHERE day >= ? ORDER BY day, name', [since]);
+    },
+
+    /** Polls created since `since` (ms), with how many answers each has and whether a date was picked. */
+    async pollOutcomes(since) {
+      await init();
+      const rows = await db.all(
+        `SELECT e.data, e.final_start, (SELECT COUNT(*) FROM participants p WHERE p.event_id = e.id) AS answers
+         FROM events e WHERE e.created_at >= ? LIMIT 50000`,
+        [since],
+      );
+      return rows.map((r) => ({ data: r.data, final_start: r.final_start ?? null, answers: Number(r.answers) }));
     },
 
     /** Participant id → email, for one poll. */
