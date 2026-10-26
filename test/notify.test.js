@@ -71,6 +71,31 @@ test("the emails: a proud poll-ready email, an excited one per answer, and the g
   assert.match(copy.text, /None of these work\./); // the same words as the poll page
 });
 
+test('emails say "can make it" or "available", like the poll page, never "free" for availability', () => {
+  const pollUrl = 'https://venn.example/e/abc';
+  const s = {
+    event: 'response.created',
+    poll: { title: 'Dinner', url: pollUrl, responses: 3 },
+    response: { name: 'Ana' },
+    bestTime: { label: 'Wed, Nov 4, 3:00 PM – 4:00 PM EST', available: 2, ifNeeded: 1 },
+  };
+  const mails = [
+    pollReadyEmail({ title: 'Dinner', pollUrl, unsubscribeUrl: `${pollUrl}#unsubscribe=u` }),
+    responseEmail(s, `${pollUrl}#unsubscribe=u`),
+    responseEmail({ ...s, response: null, bestTime: null, poll: { ...s.poll, responses: 0 } }, ''),
+    answerCopyEmail({
+      title: 'Dinner',
+      name: 'Ana',
+      lines: [{ label: 'Wed, Nov 4, all day', answer: 'yes' }],
+      pollUrl,
+      editUrl: `${pollUrl}#edit=p.t`,
+    }),
+  ];
+  assert.match(mails[1].text, /\(3 of 3 can make it\)/);
+  assert.match(summaryText(s), /3 of 3 can make it/);
+  for (const m of mails) for (const part of [m.subject, m.text, m.html]) assert.doesNotMatch(part, /\bfree\b/i);
+});
+
 test('email buttons and links use the app green, which is readable with white text (WCAG AA)', () => {
   const pollUrl = 'https://venn.example/e/abc';
   const emails = [

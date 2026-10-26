@@ -9,17 +9,16 @@ import {
   addDays,
   allDaySpan,
   eventWindows,
-  googleCalendarUrl,
   isDaysPoll,
   isOptionsPoll,
   isPartsPoll,
   meetingEnd,
-  outlookCalendarUrl,
   partOf,
   rankTimes,
   slotEnd,
   utcToZoned,
 } from './core.js';
+import { cycleGroup, fitsParts, groupState, partKey } from './day-parts.js';
 import { dayChip, isPhone, timeView } from './picker.js';
 import {
   $,
@@ -125,13 +124,21 @@ export async function renderEvent(id, navigate) {
   }
 
   const ev = () => st.ev;
+  // Organizer-only code (their tools, panels and AI summary) is in a module guests never download,
+  // and "Add to your calendar" in one that loads once there's a date to add.
+  let calJs = null;
+  const loadCal = () => import('./add-to-calendar.js').catch(() => ({ addToCalendar: () => '' })).then((m) => (calJs = m));
+  const [org] = await Promise.all([
+    st.ev.isAdmin ? import('./organizer.js').catch(() => null) : null,
+    st.ev.finalStart != null && loadCal(),
+  ]);
   document.title = `${ev().title} · Venn`;
   const shareUrl = `${location.origin}/e/${id}`;
   const optionsMode = isOptionsPoll(ev());
   const daysMode = isDaysPoll(ev());
   const listMode = optionsMode || daysMode; // answered row by row
   const windows = eventWindows(ev());
-  const partsMode = isPartsPoll(ev()); // people tap the mornings, afternoons and evenings they're free
+  const partsMode = isPartsPoll(ev()); // people tap the mornings, afternoons and evenings they're available
   // Options inside a single day can also be shown on a calendar, next to the guest's busy times.
   const calendarOk =
     optionsMode &&
@@ -188,9 +195,9 @@ export async function renderEvent(id, navigate) {
               ? 'The date is picked. Can you make it?'
               : listMode
                 ? daysMode
-                  ? `Which days are you free?${ev().durationMinutes > 1440 ? ` We need ${lengthLabel(ev().durationMinutes)} in a row.` : ''}`
+                  ? `Which days are you available?${ev().durationMinutes > 1440 ? ` We need ${lengthLabel(ev().durationMinutes)} in a row.` : ''}`
                   : 'Which of these work for you?'
-                : 'When are you free?'
+                : 'When are you available?'
           }</h2>
           <div class="quick-actions">
             ${optionsMode ? '<button type="button" class="pill" id="ai-answer-btn" hidden aria-expanded="false" aria-controls="ai-answer">Answer for me</button>' : ''}
@@ -198,19 +205,7 @@ export async function renderEvent(id, navigate) {
             <button type="button" class="pill pill-quiet" id="decline">None of these work</button>
             <button type="button" class="pill pill-quiet" id="none">Clear</button>
           </div>
-          ${
-            optionsMode
-              ? `<div id="ai-answer" class="ai-panel" hidden>
-                  <label for="ai-prefs">What works for you?</label>
-                  <textarea id="ai-prefs" rows="2" maxlength="600" placeholder="No Mondays. Weekends are best. I'm away on the 12th."></textarea>
-                  <label class="check" id="ai-use-cal-row" hidden><input type="checkbox" id="ai-use-cal" checked> Also use the busy times from my calendar</label>
-                  <div class="btn-row">
-                    <button type="button" class="btn btn-primary btn-sm" id="ai-answer-go">Fill in my answers</button>
-                    <span class="hint">Sent to Anthropic's Claude to fill in. You can change anything before saving.</span>
-                  </div>
-                </div>`
-              : ''
-          }
+          ${optionsMode ? '<div id="ai-answer" class="ai-panel" hidden></div>' : ''}
           ${
             listMode
               ? `${
@@ -221,21 +216,22 @@ export async function renderEvent(id, navigate) {
                       </div>`
                     : ''
                 }
-                ${partsMode ? '<p class="hint">Tap each time you\'re free. Tap again for "if needed", and once more to clear it.</p>' : ''}
+                ${partsMode ? '<p class="hint">Tap each time you\'re available. Tap again for "if needed", and once more to clear it.</p>' : ''}
                 <div id="mine" class="rows"></div>
                 <div id="mine-cal" hidden></div>`
-              : `<div class="seg hview" role="radiogroup" aria-label="How to answer">
-                  <button type="button" role="radio" data-hview="quick">Mornings, afternoons…</button>
+              : `<p class="hview-h" id="hview-h">Answer with</p>
+                <div class="seg hview" role="radiogroup" aria-labelledby="hview-h">
+                  <button type="button" role="radio" data-hview="quick">Parts of the day</button>
                   <button type="button" role="radio" data-hview="exact">Exact times</button>
                 </div>
                 <div id="quick-hours" class="rows"></div>
                 <div id="exact-hours" class="stack-sm">
                 <div class="seg brush" role="group" aria-label="Brush">
-                  <button type="button" data-brush="${YES}"><span class="swatch swatch-yes"></span>Free</button>
+                  <button type="button" data-brush="${YES}"><span class="swatch swatch-yes"></span>Available</button>
                   <button type="button" data-brush="${IF_NEEDED}"><span class="swatch swatch-maybe"></span>If needed</button>
                   <button type="button" data-brush="0"><span class="swatch swatch-no"></span>Busy</button>
                 </div>
-                <p class="hint">Drag across the times you're free. On a phone, tap or drag.</p>
+                <p class="hint">Drag across the times you're available. On a phone, tap or drag.</p>
                 <div class="tv-strip" id="hour-days" role="group" aria-label="Days" hidden></div>
                 <div class="grid-scroll"><div class="grid" id="mine" role="group" aria-label="Your availability. Use the arrow keys to move and Space to mark a time."></div></div>
                 </div>`
@@ -297,11 +293,9 @@ export async function renderEvent(id, navigate) {
       </details>
     </article>`;
 
-  $('#copy').onclick = () => {
-    const f = ev().finalStart;
-    const text = f == null ? `When works for you? ${ev().title}` : `It's set: ${ev().title}, ${when(f, meetingEnd(ev(), f))}`;
-    canShare ? navigator.share({ title: ev().title, text, url: shareUrl }).catch(() => {}) : copy(shareUrl, 'Invite link copied');
-  };
+  // Every share is just the poll's link: no message around it, so "Copy" in the share sheet copies a link that works.
+  $('#copy').onclick = () =>
+    canShare ? navigator.share({ title: ev().title, url: shareUrl }).catch(() => {}) : copy(shareUrl, 'Invite link copied');
   $('#name').value = me()?.name || lastName();
   $('#name').oninput = () => setDirty(true);
   $('#tz').onchange = (e) => {
@@ -407,7 +401,7 @@ export async function renderEvent(id, navigate) {
 
   // ----- what I've picked so far, in words -----
   const hasAnswer = () => Object.values(st.mine).some((v) => v > 0) || st.declined || (listMode && st.touched.size > 0);
-  /** Runs of free slots on each day of an hours poll: "Sat, Nov 7: 9 AM – 12 PM". */
+  /** Runs of available slots on each day of an hours poll: "Sat, Nov 7: 9 AM – 12 PM". */
   function hourRuns(v) {
     const runs = [];
     let cur = null;
@@ -451,8 +445,8 @@ export async function renderEvent(id, navigate) {
   /** The date block on the left of a row: weekday, big day number, month. */
   const dateBlock = (d) => {
     const dt = dateParts(d);
-    // Whole-day polls name the weekday in the row itself.
-    return `<span class="date-block" aria-hidden="true">${daysMode || partsMode ? '' : `<small>${esc(fmtDow.format(dt))}</small>`}<b>${dt.getUTCDate()}</b><small>${esc(dt.toLocaleDateString(undefined, { month: 'short', timeZone: 'UTC' }))}</small></span>`;
+    // Whole-day, parts-of-the-day and hours polls name the weekday in the row itself.
+    return `<span class="date-block" aria-hidden="true">${daysMode || partsMode || !listMode ? '' : `<small>${esc(fmtDow.format(dt))}</small>`}<b>${dt.getUTCDate()}</b><small>${esc(dt.toLocaleDateString(undefined, { month: 'short', timeZone: 'UTC' }))}</small></span>`;
   };
 
   function renderMineList() {
@@ -495,7 +489,7 @@ export async function renderEvent(id, navigate) {
       .map(
         ([d, ws]) => `<div class="row parts-row">${dateBlock(d)}
           <div class="row-main"><div class="row-when">${esc(fmtDowLong.format(dateParts(d)))}</div>
-            ${ws.length > 1 ? `<button type="button" class="link-btn all-day" data-all-day="${d}">Free all day<span class="sr-only">, ${esc(fmtDay.format(dateParts(d)))}</span></button>` : ''}</div>
+            ${ws.length > 1 ? allDayBtn(`data-all-day="${d}"`, d) : ''}</div>
           <div class="part-votes">${ws
             .map((w) => {
               const p = partOf(w.start, w.end, ev().timezone);
@@ -511,11 +505,35 @@ export async function renderEvent(id, navigate) {
     for (const b of $$('.part-vote', mineEl)) {
       const v = st.mine[b.dataset.opt] || 0;
       b.dataset.v = v;
-      // Pressed: true = free, mixed = if needed. The state is also written out for screen readers.
+      // Pressed: true = available, mixed = if needed. The state is also written out for screen readers.
       b.setAttribute('aria-pressed', v === YES ? 'true' : v === IF_NEEDED ? 'mixed' : 'false');
       $('.pv-state', b).innerHTML =
-        v === YES ? '✓ Free' : v === IF_NEEDED ? '~ If needed' : '<span class="sr-only">Not marked</span>';
+        v === YES ? '✓ Available' : v === IF_NEEDED ? '~ If needed' : '<span class="sr-only">Not marked</span>';
     }
+    for (const b of $$('[data-all-day]', mineEl)) showAllDay(b, partsOfDay(b.dataset.allDay));
+  }
+  const partsOfDay = (d) =>
+    byDay()
+      .get(d)
+      .map((w) => String(w.start));
+
+  // ----- "All day": a shortcut that marks every part of a day at once, stored as those parts -----
+  /** The button, after a row's date. `attrs` says which day it's for. */
+  const allDayBtn = (attrs, d) =>
+    `<button type="button" class="all-day" ${attrs}><span class="ad-mark" aria-hidden="true"></span>All day<span class="sr-only">, ${esc(fmtDay.format(dateParts(d)))}</span></button>`;
+  const allState = (slots) => groupState(st.mine, slots);
+  function showAllDay(b, slots) {
+    const v = allState(slots);
+    b.dataset.v = v;
+    b.setAttribute('aria-pressed', v === YES ? 'true' : v === IF_NEEDED ? 'mixed' : 'false');
+    $('.ad-mark', b).textContent = v === YES ? '✓' : v === IF_NEEDED ? '~' : '';
+  }
+  /** All available → all if needed → cleared; from anything else, all available. */
+  function cycleAll(slots) {
+    cycleGroup(st.mine, slots);
+    for (const s of slots) st.touched.add(String(s));
+    refreshMine();
+    changed();
   }
   /** Not marked or no → yes → if needed → no. */
   function cycle(s) {
@@ -532,13 +550,7 @@ export async function renderEvent(id, navigate) {
       const b = e.target.closest('.part-vote');
       if (b) cycle(b.dataset.opt);
       const day = e.target.closest('[data-all-day]');
-      if (day)
-        markAll(
-          byDay()
-            .get(day.dataset.allDay)
-            .map((w) => String(w.start)),
-          YES,
-        );
+      if (day) cycleAll(partsOfDay(day.dataset.allDay));
     });
 
   // ----- the calendar view of the options -----
@@ -643,38 +655,35 @@ export async function renderEvent(id, navigate) {
     });
 
   // ----- hours polls, quickly: a day's morning, afternoon, evening or all of it at once -----
-  st.hview = 'quick';
   const BUCKETS = [
-    ['morning', 'Morning', (m) => m < 720],
-    ['afternoon', 'Afternoon', (m) => m >= 720 && m < 1020],
-    ['evening', 'Evening', (m) => m >= 1020],
+    ['morning', 'Morning'],
+    ['afternoon', 'Afternoon'],
+    ['evening', 'Evening'],
   ];
   /** The slots of a day in a bucket ('all' for the whole day), in the viewer's time zone. */
   const quickSlots = (d, key) =>
     ev().slots.filter((s) => {
       const z = utcToZoned(s, st.tz);
-      return z.date === d && (key === 'all' || BUCKETS.find((b) => b[0] === key)[2](z.minutes));
+      return z.date === d && (key === 'all' || partKey(z.minutes) === key);
     });
-  const quickState = (slots) =>
-    slots.every((s) => st.mine[s] === YES)
-      ? YES
-      : slots.every((s) => st.mine[s])
-        ? IF_NEEDED
-        : slots.some((s) => st.mine[s])
-          ? 'some'
-          : 0;
+  const partsFit = () => fitsParts(ev().slots, st.mine, st.tz);
+  // Guests answer one way at a time. Parts of the day are quicker on a phone; an answer with
+  // exact times opens on exact times, so nothing is hidden.
+  st.hview = isPhone() && partsFit() ? 'quick' : 'exact';
   function renderQuick() {
     const box = $('#quick-hours');
+    if (st.hview === 'quick' && !partsFit()) st.hview = 'exact'; // e.g. after changing the time zone
     for (const b of $$('[data-hview]')) b.setAttribute('aria-checked', b.dataset.hview === st.hview);
     box.hidden = st.hview !== 'quick';
     $('#exact-hours').hidden = st.hview === 'quick';
     if (box.hidden) return;
-    box.innerHTML = LG.dates
-      .map((d) => {
-        const keys = BUCKETS.filter((b) => quickSlots(d, b[0]).length).map((b) => [b[0], b[1]]);
-        if (keys.length > 1) keys.push(['all', 'All day']);
-        return `<div class="row parts-row">${dateBlock(d)}
-          <div class="row-main"><div class="row-when">${esc(fmtDowLong.format(dateParts(d)))}</div></div>
+    box.innerHTML =
+      '<p class="hint">Tap each part of the day you\'re available. Tap again for "if needed", and once more to clear it.</p>' +
+      LG.dates
+        .map((d) => {
+          const keys = BUCKETS.filter((b) => quickSlots(d, b[0]).length);
+          return `<div class="row parts-row">${dateBlock(d)}
+          <div class="row-main"><div class="row-when">${esc(fmtDowLong.format(dateParts(d)))}</div>${keys.length > 1 ? allDayBtn(`data-quick="${d}|all"`, d) : ''}</div>
           <div class="part-votes quick-votes">${keys
             .map(([k, l]) => {
               const sl = quickSlots(d, k);
@@ -683,24 +692,18 @@ export async function renderEvent(id, navigate) {
               return `<button type="button" class="part-vote" data-quick="${d}|${k}"><b>${l}</b><small>${esc(shortRange(a, z.date === d ? z.minutes : 1440))}</small><span class="pv-state"></span></button>`;
             })
             .join('')}</div></div>`;
-      })
-      .join('');
+        })
+        .join('');
     refreshQuick();
   }
   function refreshQuick() {
-    for (const b of $$('[data-quick]')) {
-      const [d, k] = b.dataset.quick.split('|');
-      const v = quickState(quickSlots(d, k));
+    for (const b of $$('.all-day[data-quick]')) showAllDay(b, quickSlots(...b.dataset.quick.split('|')));
+    for (const b of $$('.part-vote[data-quick]')) {
+      const v = allState(quickSlots(...b.dataset.quick.split('|')));
       b.dataset.v = v;
       b.setAttribute('aria-pressed', v === YES ? 'true' : v === IF_NEEDED ? 'mixed' : 'false');
       $('.pv-state', b).innerHTML =
-        v === YES
-          ? '✓ Free'
-          : v === IF_NEEDED
-            ? '~ If needed'
-            : v === 'some'
-              ? 'Some times'
-              : '<span class="sr-only">Not marked</span>';
+        v === YES ? '✓ Available' : v === IF_NEEDED ? '~ If needed' : '<span class="sr-only">Not marked</span>';
     }
   }
 
@@ -777,24 +780,25 @@ export async function renderEvent(id, navigate) {
   if (!listMode) {
     $('#panel-mine').addEventListener('click', (e) => {
       const hv = e.target.closest('[data-hview]');
-      if (hv) {
+      if (hv && hv.dataset.hview !== st.hview) {
+        // Parts of the day → exact times keeps everything. The other way only when nothing would be lost.
+        const clear = hv.dataset.hview === 'quick' && !partsFit();
+        if (
+          clear &&
+          !confirm('Parts of the day can’t show the exact times you marked. Clear them and answer with parts of the day?')
+        )
+          return;
+        if (clear) {
+          st.mine = {};
+          st.touched.clear();
+        }
         st.hview = hv.dataset.hview;
-        return renderMine();
+        renderMine();
+        return clear && changed();
       }
-      // Free → if needed → not marked, for the whole morning, afternoon, evening or day.
+      // Available → if needed → not marked, for the whole morning, afternoon, evening or day.
       const q = e.target.closest('[data-quick]');
-      if (!q) return;
-      const [d, k] = q.dataset.quick.split('|');
-      const slots = quickSlots(d, k);
-      const v = quickState(slots);
-      for (const s of slots) {
-        if (v === YES) st.mine[s] = IF_NEEDED;
-        else if (v === IF_NEEDED) delete st.mine[s];
-        else st.mine[s] = YES;
-        st.touched.add(String(s));
-      }
-      refreshMine();
-      changed();
+      if (q) cycleAll(quickSlots(...q.dataset.quick.split('|')));
     });
     mineEl.addEventListener('click', (e) => {
       const b = e.target.closest('[data-fill-day]');
@@ -895,64 +899,19 @@ export async function renderEvent(id, navigate) {
     renderBanners();
   });
 
-  if (optionsMode) {
-    $('#ai-answer-btn').onclick = () => {
-      const panel = $('#ai-answer');
-      panel.hidden = !panel.hidden;
-      $('#ai-answer-btn').setAttribute('aria-expanded', !panel.hidden);
-      $('#ai-use-cal-row').hidden = !st.lastBusy;
-      if (!panel.hidden) $('#ai-prefs').focus();
-    };
-    $('#ai-answer-go').onclick = async (e) => {
-      const preferences = $('#ai-prefs').value.trim();
-      if (!preferences) return $('#ai-prefs').focus();
-      const busy = st.lastBusy && $('#ai-use-cal').checked ? st.lastBusy : [];
-      if (Object.keys(st.mine).length && !confirm('Replace your current answers with AI suggestions?')) return;
-      e.target.disabled = true;
-      e.target.textContent = 'Thinking…';
-      try {
-        const { answers } = await api(`events/${id}/ai/answer`, { method: 'POST', body: { preferences, busy, timezone: st.tz } });
-        st.mine = {};
-        st.aiNotes = {};
-        for (const [s, a] of Object.entries(answers)) {
-          if (a.answer) st.mine[s] = a.answer;
-          if (a.note) st.aiNotes[s] = a.note;
-          st.touched.add(s);
-        }
-        $('#ai-answer').hidden = true;
-        renderMine();
-        changed();
-        toast('Filled in your answers. Check them, then save.');
-      } catch (ex) {
-        toast(ex.message);
-      } finally {
-        e.target.disabled = false;
-        e.target.textContent = 'Fill in my answers';
-      }
-    };
-  }
+  // "Answer for me" loads when it's opened.
+  if (optionsMode)
+    $('#ai-answer-btn').onclick = async () =>
+      (await import('./ai-answer.js')).answerForMe({
+        id,
+        st,
+        done: () => {
+          renderMine();
+          changed();
+        },
+      });
 
-  $('#ai-summary-btn').onclick = async (e) => {
-    e.target.disabled = true;
-    e.target.textContent = 'Summarizing…';
-    try {
-      const r = await api(`events/${id}/ai/summary`, { method: 'POST', body: {}, headers: authHeaders() });
-      const rec =
-        r.recommendedStart == null
-          ? ''
-          : `<div class="ai-rec">
-              <div><b>Suggested:</b> ${esc(when(r.recommendedStart, meetingEnd(ev(), r.recommendedStart)))}${r.reason ? `<div class="hint">${esc(r.reason)}</div>` : ''}</div>
-              ${ev().finalStart === r.recommendedStart ? '' : `<button class="btn btn-sm" data-pick="${r.recommendedStart}">Pick this</button>`}
-            </div>`;
-      $('#ai-summary').innerHTML =
-        `<div class="ai-card"><p>${esc(r.summary)}</p>${rec}<p class="hint">Written by AI from the answers so far. Double-check before deciding.</p></div>`;
-    } catch (ex) {
-      toast(ex.message);
-    } finally {
-      e.target.disabled = false;
-      e.target.textContent = 'Summarize with AI';
-    }
-  };
+  $('#ai-summary-btn').onclick = (e) => org?.summary(e.target, { id, ev: ev(), headers: authHeaders(), when });
 
   // ----- saving -----
   /** What's still missing before the answer can be saved, or '' when it can. */
@@ -1156,7 +1115,7 @@ export async function renderEvent(id, navigate) {
     <p class="hint">✓ yes, ~ if needed, ✕ no. ${daysMode ? '' : 'The most popular are highlighted.'}</p>`;
   }
 
-  // Parts of the day: a day-by-part table, shaded by how many people are free.
+  // Parts of the day: a day-by-part table, shaded by how many people are available.
   function renderGroupParts() {
     const people = others();
     const n = people.length;
@@ -1170,7 +1129,7 @@ export async function renderEvent(id, navigate) {
             if (!w) return '<td></td>';
             const yes = people.filter((x) => x.availability[w.start] === YES).length;
             const maybe = people.filter((x) => x.availability[w.start] === IF_NEEDED).length;
-            const label = `${when(w.start, w.end)}: ${yes} of ${n} free${maybe ? `, ${maybe} if needed` : ''}`;
+            const label = `${when(w.start, w.end)}: ${yes} of ${n} available${maybe ? `, ${maybe} if needed` : ''}`;
             return `<td><button type="button" class="heat-btn${String(w.start) === String(st.inspect) ? ' active' : ''}${w.start === ev().finalStart ? ' final' : ''}" data-inspect="${w.start}" style="--a:${((yes + maybe / 2) / n).toFixed(2)}" aria-label="${esc(label)}">${yes + maybe}</button></td>`;
           })
           .join('');
@@ -1181,7 +1140,7 @@ export async function renderEvent(id, navigate) {
         <thead><tr><th></th>${parts.map((p) => `<th scope="col">${esc(p.label)}</th>`).join('')}</tr></thead>
         <tbody>${rows}</tbody>
       </table></div>
-      <p class="hint">How many people are free. Darker means more. Tap one to see who.</p>
+      <p class="hint">How many people are available. Darker means more. Tap one to see who.</p>
       <div class="hover-info" id="parts-inspect"></div>`;
     renderPartsInspect();
   }
@@ -1231,7 +1190,7 @@ export async function renderEvent(id, navigate) {
       const yes = people.filter((p) => p.availability[s] === YES).length;
       const maybe = people.filter((p) => p.availability[s] === IF_NEEDED).length;
       const when = fmtWhen(s, slotEnd(ev(), s), st.tz);
-      return `role="img" aria-label="${esc(`${when}: ${yes} of ${n} free${maybe ? `, ${maybe} if needed` : ''}`)}"`;
+      return `role="img" aria-label="${esc(`${when}: ${yes} of ${n} available${maybe ? `, ${maybe} if needed` : ''}`)}"`;
     };
     groupEl.innerHTML = gridHtml(
       (s) => {
@@ -1254,9 +1213,9 @@ export async function renderEvent(id, navigate) {
       .map((a) => `<span style="background:rgba(var(--heat),${0.15 + 0.85 * a})"></span>`)
       .join('');
     $('#legend').innerHTML = focus
-      ? `<span>Showing <b>${esc(focus.name)}</b></span><span><span class="swatch swatch-yes"></span> free</span><span><span class="swatch swatch-maybe"></span> if needed</span><button class="link-btn" id="unfocus">Show everyone</button>`
+      ? `<span>Showing <b>${esc(focus.name)}</b></span><span><span class="swatch swatch-yes"></span> available</span><span><span class="swatch swatch-maybe"></span> if needed</span><button class="link-btn" id="unfocus">Show everyone</button>`
       : n
-        ? `<span>0/${n}</span><span class="heat-scale">${scale}</span><span>${n}/${n} free</span>`
+        ? `<span>0/${n}</span><span class="heat-scale">${scale}</span><span>${n}/${n} available</span>`
         : '';
     if ($('#unfocus'))
       $('#unfocus').onclick = () => {
@@ -1274,7 +1233,7 @@ export async function renderEvent(id, navigate) {
     if (!people.length) return (box.innerHTML = '');
     if (st.inspect == null)
       return (box.innerHTML =
-        '<p class="hint">Hover or tap a time to see who\'s free. Tap a name to see just their answers.</p>');
+        '<p class="hint">Hover or tap a time to see who\'s available. Tap a name to see just their answers.</p>');
     const s = +st.inspect;
     const yes = people.filter((p) => p.availability[s] === YES);
     const maybe = people.filter((p) => p.availability[s] === IF_NEEDED);
@@ -1288,7 +1247,7 @@ export async function renderEvent(id, navigate) {
         ${canPick ? `<button class="btn btn-sm" data-pick="${s}">Pick this start time</button>` : ''}
       </div>
       <div class="chips">${chips(yes, 'yes')}${chips(maybe, 'maybe')}${chips(no, 'no')}</div>
-      <p class="hint">${yes.length} free, ${maybe.length} if needed, ${no.length} not free</p>`;
+      <p class="hint">${yes.length} available, ${maybe.length} if needed, ${no.length} not available</p>`;
   }
   if (!listMode) {
     const inspectFrom = (e) => {
@@ -1487,65 +1446,42 @@ export async function renderEvent(id, navigate) {
         end,
         allDay: allDaySpan(start, end, ev().timezone),
       };
+      if (!calJs) return void loadCal().then(renderBanners); // the date was just picked
+      const day = utcToZoned(start, info.allDay || partsMode ? ev().timezone : st.tz).date.slice(8);
       h += `<section class="banner-final${st.celebrate && !reducedMotion() ? ' celebrate' : ''}" aria-labelledby="final-h">
         <p class="kicker">It's happening</p>
         <h2 id="final-h">${esc(when(start, end))}</h2>
-        <div class="btn-row">
-          <a class="btn btn-sm" href="${esc(googleCalendarUrl(info))}" target="_blank" rel="noopener">Google Calendar</a>
-          <a class="btn btn-sm" href="${esc(outlookCalendarUrl(info))}" target="_blank" rel="noopener">Outlook</a>
-          <a class="btn btn-sm" href="/api/events/${esc(id)}/event.ics">Apple / other (.ics)</a>
-          <button class="btn btn-sm" data-share>${canShare ? 'Share the date' : 'Copy the link'}</button>
-          ${ev().isAdmin ? '<button class="link-btn" id="unpick">Clear the date</button>' : ''}
+        ${calJs.addToCalendar({ id, info, day })}
+        <div class="final-more">
+          <button type="button" class="link-btn" data-share>${canShare ? 'Share the date' : 'Copy the link'}</button>
+          ${ev().isAdmin ? '<button type="button" class="link-btn" id="unpick">Clear the date</button>' : ''}
         </div>
       </section>`;
     }
-    if (ev().isAdmin) {
-      const fresh = st.fresh;
-      h += `<details class="organizer"${(st.orgOpen ?? fresh) ? ' open' : ''}>
-        <summary><b>${fresh ? 'Your poll is ready.' : "You're the organizer."}</b> ${fresh ? 'Share the invite link with your group.' : 'Organizer tools'}</summary>
-        <p class="hint">When you're ready, press <b>Pick</b> on the best ${listMode && !daysMode ? 'option' : 'date'} in the group view. To manage this poll from another device, keep your private organizer link, and don't share it.</p>
-        ${fresh && saved(id).notifyPending ? '<p class="hint"><b>Check your inbox</b> for your poll\'s link. We\'ll email you when people answer.</p>' : ''}
-        <div class="btn-row">
-          <button class="btn btn-sm${fresh ? ' btn-primary' : ''}" id="notify-open" aria-expanded="${!!panels.notify}" aria-controls="notify-box">${fresh ? 'Get notified when people answer' : 'Notifications'}</button>
-          ${aiOn ? '<button class="btn btn-sm" id="writer-open" aria-controls="writer-box">Write a message</button>' : ''}
-          <button class="btn btn-sm" id="privacy-open" aria-expanded="${!!panels.privacy}" aria-controls="privacy-box">Privacy</button>
-          ${
-            // Edit until someone else answers; after that, start a new poll from this one.
-            ((copy) =>
-              `<a class="btn btn-sm" href="/new/${optionsMode && !partsMode ? 'pick' : 'free'}?${copy ? 'copy' : 'edit'}=${id}" data-link>${copy ? 'Duplicate' : 'Edit'} poll</a>`)(
-              ev().participants.some((p) => p.id !== ev().hostId),
-            )
-          }
-          <button class="btn btn-sm" id="copy-admin">Copy private organizer link</button>
-          <button class="link-btn danger" id="delete-poll">Delete poll</button>
-        </div>
-      </details>`;
-    }
+    if (org) h += '<div id="org-tools"></div>';
     $('#banners').innerHTML = h;
     st.celebrate = false;
-    // Keep the organizer tools open or closed across re-renders.
-    $('details.organizer')?.addEventListener('toggle', (e) => (st.orgOpen = e.target.open));
-    if ($('#copy-admin'))
-      $('#copy-admin').onclick = () =>
-        copy(
-          `${shareUrl}#admin=${saved(id).adminToken}`,
-          'Organizer link copied. Keep it private: anyone with it can change or delete the poll.',
-        );
-    for (const name of ['notify', 'privacy', 'writer'])
-      if ($(`#${name}-open`)) $(`#${name}-open`).onclick = () => panel(name, !panels[name]);
-    if ($('#delete-poll'))
-      $('#delete-poll').onclick = async () => {
-        if (!confirm("Delete this poll and everyone's answers? This cannot be undone.")) return;
-        try {
-          await api(`events/${id}`, { method: 'DELETE', headers: authHeaders() });
-          forget(id, 'adminToken', 'participantId', 'editToken');
-          st.dirty = false;
-          navigate('/new');
-          toast('Poll deleted');
-        } catch (ex) {
-          toast(ex.message);
-        }
-      };
+    org?.tools($('#org-tools'), {
+      id,
+      ev: ev(),
+      fresh: st.fresh,
+      open: st.orgOpen ?? st.fresh,
+      onToggle: (open) => (st.orgOpen = open), // stays open or closed across re-renders
+      notifyPending: saved(id).notifyPending,
+      ai: aiOn,
+      panels,
+      panel,
+      what: listMode && !daysMode ? 'option' : 'date',
+      kind: optionsMode && !partsMode ? 'pick' : 'free',
+      shareUrl,
+      adminToken: saved(id).adminToken,
+      headers: authHeaders(),
+      deleted: () => {
+        forget(id, 'adminToken', 'participantId', 'editToken');
+        st.dirty = false;
+        navigate('/new');
+      },
+    });
   }
 
   function renderMeState() {

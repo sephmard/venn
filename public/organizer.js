@@ -1,7 +1,75 @@
 // Organizer-only panels on the poll page: notifications, and privacy (with the emails people
 // answered with). Loaded when the organizer opens one, so guests never download this code.
 
+import { meetingEnd } from './core.js';
 import { $, ago, api, copy, esc, lastEmail, toast } from './ui.js';
+
+// ----- the organizer's tools, at the top of the poll -----
+
+/**
+ * ctx: { id, ev, fresh, open, onToggle, notifyPending, ai, panels, panel, what, kind, shareUrl,
+ * adminToken, headers, deleted }
+ */
+export function tools(box, ctx) {
+  const { id, ev, fresh, panels } = ctx;
+  // Edit until someone else answers; after that, start a new poll from this one.
+  const copyOnly = ev.participants.some((p) => p.id !== ev.hostId);
+  box.innerHTML = `<details class="organizer"${ctx.open ? ' open' : ''}>
+    <summary><b>${fresh ? 'Your poll is ready.' : "You're the organizer."}</b> ${fresh ? 'Share the invite link with your group.' : 'Organizer tools'}</summary>
+    <p class="hint">When you're ready, press <b>Pick</b> on the best ${ctx.what} in the group view. To manage this poll from another device, keep your private organizer link, and don't share it.</p>
+    ${fresh && ctx.notifyPending ? '<p class="hint"><b>Check your inbox</b> for your poll\'s link. We\'ll email you when people answer.</p>' : ''}
+    <div class="btn-row">
+      <button class="btn btn-sm${fresh ? ' btn-primary' : ''}" id="notify-open" aria-expanded="${!!panels.notify}" aria-controls="notify-box">${fresh ? 'Get notified when people answer' : 'Notifications'}</button>
+      ${ctx.ai ? '<button class="btn btn-sm" id="writer-open" aria-controls="writer-box">Write a message</button>' : ''}
+      <button class="btn btn-sm" id="privacy-open" aria-expanded="${!!panels.privacy}" aria-controls="privacy-box">Privacy</button>
+      <a class="btn btn-sm" href="/new/${ctx.kind}?${copyOnly ? 'copy' : 'edit'}=${id}" data-link>${copyOnly ? 'Duplicate' : 'Edit'} poll</a>
+      <button class="btn btn-sm" id="copy-admin">Copy private organizer link</button>
+      <button class="link-btn danger" id="delete-poll">Delete poll</button>
+    </div>
+  </details>`;
+  $('details.organizer', box).addEventListener('toggle', (e) => ctx.onToggle(e.target.open));
+  // The one link that carries the organizer's secret, and it says so.
+  $('#copy-admin').onclick = () =>
+    copy(
+      `${ctx.shareUrl}#admin=${ctx.adminToken}`,
+      'Organizer link copied. Keep it private: anyone with it can change or delete the poll.',
+    );
+  for (const name of ['notify', 'privacy', 'writer'])
+    if ($(`#${name}-open`)) $(`#${name}-open`).onclick = () => ctx.panel(name, !panels[name]);
+  $('#delete-poll').onclick = async () => {
+    if (!confirm("Delete this poll and everyone's answers? This cannot be undone.")) return;
+    try {
+      await api(`events/${id}`, { method: 'DELETE', headers: ctx.headers });
+      ctx.deleted();
+      toast('Poll deleted');
+    } catch (ex) {
+      toast(ex.message);
+    }
+  };
+}
+
+/** The AI summary of the answers so far. ctx: { id, ev, headers, when(start, end) } */
+export async function summary(btn, { id, ev, headers, when }) {
+  btn.disabled = true;
+  btn.textContent = 'Summarizing…';
+  try {
+    const r = await api(`events/${id}/ai/summary`, { method: 'POST', body: {}, headers });
+    const rec =
+      r.recommendedStart == null
+        ? ''
+        : `<div class="ai-rec">
+            <div><b>Suggested:</b> ${esc(when(r.recommendedStart, meetingEnd(ev, r.recommendedStart)))}${r.reason ? `<div class="hint">${esc(r.reason)}</div>` : ''}</div>
+            ${ev.finalStart === r.recommendedStart ? '' : `<button class="btn btn-sm" data-pick="${r.recommendedStart}">Pick this</button>`}
+          </div>`;
+    $('#ai-summary').innerHTML =
+      `<div class="ai-card"><p>${esc(r.summary)}</p>${rec}<p class="hint">Written by AI from the answers so far. Double-check before deciding.</p></div>`;
+  } catch (ex) {
+    toast(ex.message);
+  } finally {
+    btn.disabled = false;
+    btn.textContent = 'Summarize with AI';
+  }
+}
 
 /** Show "Loading…" in a panel's box, then the panel, or what went wrong. */
 async function showPanel(box, path, ctx, render) {

@@ -13,6 +13,7 @@ import {
   utcToZoned,
   zonedToUtc,
 } from '../public/core.js';
+import { cycleGroup, fitsParts, groupState, partKey } from '../public/day-parts.js';
 import { normalizeAvailability, normalizeEventInput } from '../src/validate.js';
 
 const base = {
@@ -225,4 +226,47 @@ test('tentative clashes become "if needed"', () => {
     { start: 28, end: 40, tentative: true },
   ];
   assert.deepEqual(availabilityFromBusy(windows, busy), { 0: YES, 10: IF_NEEDED });
+});
+
+// ---------- answering an hours poll with parts of the day ----------
+
+test('times count in the morning, afternoon or evening by the clock where they are shown', () => {
+  assert.deepEqual([540, 690, 720, 1010, 1020, 1260].map(partKey), [
+    'morning',
+    'morning',
+    'afternoon',
+    'afternoon',
+    'evening',
+    'evening',
+  ]);
+});
+
+test('an answer fits parts of the day only when each part has one answer throughout', () => {
+  const tz = 'America/New_York';
+  // Half hours from 9 AM to 9 PM on the Sunday clocks go back, and the day after.
+  const slots = ['2030-11-03', '2030-11-04'].flatMap((d) =>
+    Array.from({ length: 24 }, (_, i) => zonedToUtc(d, 540 + i * 30, tz)),
+  );
+  const at = (d, m) => zonedToUtc(d, m, tz);
+  const morning = (d) => slots.filter((s) => utcToZoned(s, tz).date === d && utcToZoned(s, tz).minutes < 720);
+  assert.equal(fitsParts(slots, {}, tz), true);
+  const whole = Object.fromEntries(morning('2030-11-03').map((s) => [s, YES]));
+  assert.equal(fitsParts(slots, whole, tz), true);
+  assert.equal(fitsParts(slots, { ...whole, [at('2030-11-03', 600)]: IF_NEEDED }, tz), false); // one half hour differs
+  assert.equal(fitsParts(slots, { [at('2030-11-04', 1080)]: YES }, tz), false); // 6 PM only, not the evening
+  // The same instants, read in another time zone, fall in other parts of the day.
+  assert.equal(fitsParts(slots, whole, 'Asia/Tokyo'), false);
+});
+
+test('"All day" and each part cycle all their times together: yes, if needed, cleared', () => {
+  const slots = [1, 2, 3];
+  assert.equal(groupState({}, slots), 0);
+  assert.equal(groupState({ 1: YES }, slots), 'some');
+  assert.equal(groupState({ 1: YES, 2: IF_NEEDED, 3: YES }, slots), 'some'); // a mix isn't "if needed"
+  const a = { 1: YES, 9: IF_NEEDED };
+  assert.deepEqual(cycleGroup(a, slots), { 1: YES, 2: YES, 3: YES, 9: IF_NEEDED });
+  assert.equal(groupState(a, slots), YES);
+  assert.deepEqual(cycleGroup(a, slots), { 1: IF_NEEDED, 2: IF_NEEDED, 3: IF_NEEDED, 9: IF_NEEDED });
+  assert.deepEqual(cycleGroup(a, slots), { 9: IF_NEEDED }); // other days are left alone
+  assert.deepEqual(cycleGroup({ 1: YES, 2: IF_NEEDED }, slots), { 1: YES, 2: YES, 3: YES });
 });
