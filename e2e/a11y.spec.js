@@ -3,9 +3,11 @@ import AxeBuilder from '@axe-core/playwright';
 
 // Automated accessibility checks (WCAG 2.2 A/AA rules from axe) on every main screen, in light and
 // dark mode, on desktop and phone. Serious and critical problems fail the build.
-async function audit(page, label) {
+async function audit(page, label, { party = false } = {}) {
   // A passing toast can sit over the page for a moment; it isn't part of what's being checked.
   await page.evaluate(() => document.getElementById('toast')?.setAttribute('hidden', ''));
+  // Nor is the "poll created" celebration while it fades away (it has its own audit).
+  if (!party) await expect(page.locator('.party')).toHaveCount(0, { timeout: 10_000 });
   const results = await new AxeBuilder({ page }).withTags(['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa', 'wcag22aa']).analyze();
   const blocking = results.violations.filter((v) => v.impact === 'serious' || v.impact === 'critical');
   const report = blocking
@@ -50,6 +52,16 @@ for (const scheme of ['light', 'dark']) {
       await page.click('[data-mark="hours"]');
       await page.click('[data-window="custom"]');
       await audit(page, 'ask when people are free');
+    });
+
+    test('the poll created celebration', async ({ page }) => {
+      await page.emulateMedia({ reducedMotion: 'reduce' }); // no confetti over the text
+      await page.goto('/new/free');
+      await page.fill('#title', 'Celebration check');
+      await page.click('#q-2w');
+      await page.click('#submit');
+      await expect(page.locator('.party [role=status]')).toContainText('Poll created!');
+      await audit(page, 'poll created', { party: true });
     });
 
     test('answering and results, as organizer', async ({ page }) => {
