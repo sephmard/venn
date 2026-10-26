@@ -197,6 +197,58 @@ test('organizer privacy: required emails, hidden names, hidden answers', async (
   assert.equal((await call(`/api/events/${id}`, { method: 'DELETE', headers: admin })).status, 200);
 });
 
+test("the organizer's own answer, and editing a poll until someone else answers", async () => {
+  const created = await call('/api/events', { method: 'POST', body: { ...newEvent, hostAnswers: true } });
+  assert.equal(created.status, 201);
+  const { id, adminToken, participant } = created.data;
+  const admin = { 'x-admin-token': adminToken };
+  assert.ok(participant.id && participant.editToken);
+
+  // The times offered are the organizer's answer: yes to all of them, under their name.
+  let ev = (await call(`/api/events/${id}`, { headers: admin })).data;
+  assert.equal(ev.hostId, participant.id);
+  assert.equal(ev.participants.length, 1);
+  assert.equal(ev.participants[0].name, 'Sam');
+  assert.deepEqual(Object.values(ev.participants[0].availability), [2, 2, 2, 2]);
+  // Guests aren't told which answer is the organizer's.
+  assert.equal((await call(`/api/events/${id}`)).data.hostId, undefined);
+
+  // Only the organizer can change the poll; the organizer's answer follows the new times.
+  const edit = (body, headers = admin) => call(`/api/events/${id}`, { method: 'PUT', body, headers });
+  const changed = { ...newEvent, title: 'Coffee, later', startMinute: 780, endMinute: 900, hideNames: true };
+  assert.equal((await edit(changed, {})).status, 403);
+  assert.equal((await edit({ ...changed, title: '' })).status, 400);
+  assert.equal((await edit(changed)).status, 200);
+  ev = (await call(`/api/events/${id}`, { headers: admin })).data;
+  assert.equal(ev.title, 'Coffee, later');
+  assert.equal(ev.hideNames, true);
+  assert.equal(ev.slots.length, 4);
+  assert.deepEqual(Object.keys(ev.participants[0].availability).map(Number), ev.slots);
+
+  // Once someone else answers, the poll can't be changed any more.
+  await call(`/api/events/${id}/participants`, { method: 'POST', body: { name: 'Ann', availability: {} } });
+  const refused = await edit({ ...changed, title: 'Too late' });
+  assert.equal(refused.status, 409);
+  assert.match(refused.data.error, /Duplicate it instead/);
+
+  // The organizer can mark their own answer: only some times, or only if needed.
+  const [t0, t1] = (await call(`/api/events/${(await call('/api/events', { method: 'POST', body: newEvent })).data.id}`)).data
+    .slots;
+  const marked = (
+    await call('/api/events', {
+      method: 'POST',
+      body: { ...newEvent, hostAnswers: true, hostAvailability: { [t0]: 1, [t1]: 2, 123: 2 } }, // 123 isn't a time: ignored
+    })
+  ).data;
+  ev = (await call(`/api/events/${marked.id}`, { headers: { 'x-admin-token': marked.adminToken } })).data;
+  assert.deepEqual(ev.participants[0].availability, { [ev.slots[0]]: 1, [ev.slots[1]]: 2 });
+
+  // Without hostAnswers, nobody has answered a new poll.
+  const plain = (await call('/api/events', { method: 'POST', body: newEvent })).data;
+  assert.equal(plain.participant, undefined);
+  assert.equal((await call(`/api/events/${plain.id}`)).data.participants.length, 0);
+});
+
 test('specific-times poll: votes and finalize use the option end', async () => {
   const start = Date.UTC(2026, 10, 4, 15);
   const { data } = await call('/api/events', {

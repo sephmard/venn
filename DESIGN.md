@@ -99,5 +99,8 @@ The app (`public/styles.css`, for `/new` and `/e/:id`) uses the same colors and 
 - **Answers use colour and words.** Yes is green, if needed amber, and an explicit no is red, so it never looks like an unanswered row. Guests see a summary of what they picked, and need a name and at least one answer (or "None of these work") to save.
 - **Guests see options on a calendar too**: Week on desktop, Day on phones, with overlapping options side by side.
 - **Emoji** mark the kind of plan (🍝 dinner, ✈️ trip…) in the app only; the landing page stays without.
+- **The organizer's answer comes for free.** The times they offer count as their own answer, as they marked them (Available or If needed), or yes to all where there's nothing to mark. A new poll opens on **Your answer** to adjust it.
+- **Pick first, then your name.** On the answer form, the name and email fields sit just above **Save**, after the answers, so people start choosing straight away.
+- **Edit, then duplicate.** Organizers can **Edit poll** until someone else answers. After that the button becomes **Duplicate poll**, which opens the create page filled in.
 - **Phones first:** 44px tap targets, 16px inputs, sticky Save and Create bars, and two tabs ("Your answer", "The group") that become two columns on wide screens.
 - **Motion:** two celebrations. Picking the date gets a small one. Creating a poll gets a big one (`public/celebrate.js`): the Venn circles slide together behind the dog (`public/img/dog.webp`), confetti flies, and "Poll created! So proud of you for bringing people together." stays up for a few seconds before the poll opens. Its button opens the poll straight away. Under `prefers-reduced-motion` nothing moves: the note just shows, then the poll opens.

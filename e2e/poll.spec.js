@@ -27,6 +27,9 @@ async function addOptions(page, days, times = [1140]) {
   }
 }
 
+/** Skip the "Poll created!" celebration and open the new poll. */
+const openNewPoll = (page) => page.getByRole('button', { name: /^(View poll|Open .+ →)$/ }).click();
+
 /** Start a "vote on a few dates" poll: 7 days, at the given start times. */
 async function startPick(page, title, times = [1140]) {
   await page.goto('/new/pick');
@@ -48,8 +51,13 @@ test('vote on a few dates: collect votes, pick the final date', async ({ page, r
   await expect(page.locator('.party')).toHaveCount(0);
   await expect(page.locator('details.organizer')).toHaveAttribute('open', '');
 
-  // The organizer answers: yes to the first two, no to the third.
+  // The times the organizer offered are already their answer: yes to all of them.
   const row = (i) => page.locator('#mine .row').nth(i);
+  await expect(page.locator('#mine .row[data-v="2"]')).toHaveCount(14);
+  await expect(page.locator('#ev-meta')).toContainText('1 person answered');
+  await page.click('#none');
+
+  // The organizer changes it: yes to the first two, no to the third.
   await row(0).locator('[data-vote="2"]').click();
   await row(1).locator('[data-vote="2"]').click();
   await row(2).locator('[data-vote="0"]').click();
@@ -125,6 +133,7 @@ test('ask when people are free: days, looking for a run of days', async ({ page 
 
   await expect(page.locator('#mine .row')).toHaveCount(14);
   await expect(page.locator('#ev-details')).toContainText('Looking for 2 days in a row');
+  await page.click('#none'); // the organizer starts free on every day they offered
   await page.locator('#mine .row').nth(3).locator('[data-vote="2"]').click();
   await page.locator('#mine .row').nth(4).locator('[data-vote="1"]').click();
   await page.fill('#name', 'Sam');
@@ -146,6 +155,8 @@ test('ask when people are free: paint hours and see the best time', async ({ pag
   await expect(page.locator('#quick-hours .part-vote').first()).toBeVisible();
   await page.click('[data-hview="exact"]');
   await expect(page.locator('#mine .cell[data-slot]').first()).toBeVisible();
+  await expect(page.locator('#mine .cell[data-slot]:not(.yes)')).toHaveCount(0); // the organizer is free when they offered
+  await page.click('#none');
   // Phones show one day at a time, and the page still fits the screen.
   if (isMobile) await expect(page.locator('#hour-days .tv-chip')).toHaveCount(7);
   expect(await page.evaluate(() => document.documentElement.scrollWidth - screen.width)).toBeLessThanOrEqual(0);
@@ -282,8 +293,8 @@ test('organizers add different times on different days, and see the whole poll b
   await page.fill('#title', 'Dinner');
   await expect(page.locator('#submit')).toBeEnabled();
 
-  // Another time on the first day only.
-  await page.locator('[data-add-to]').first().click();
+  // Another time on the first day only, chosen above the start times.
+  await page.locator('[data-scope]').nth(1).click();
   await expect(page.locator('[data-scope]').nth(1)).toHaveAttribute('aria-pressed', 'true');
   await page.click('[data-time="1230"]');
   await expect(page.locator('#options-list .od-row').first().locator('.chip')).toHaveCount(2);
@@ -447,8 +458,71 @@ test('organizer privacy: required emails, hidden names, then hidden answers', as
   if (await g.locator('#tab-group').isVisible()) await g.click('#tab-group'); // tabs are only on phones
   await expect(g.locator('#panel-group')).toContainText("Only the organizer sees everyone's answers.");
   await expect(g.locator('#people')).toBeHidden();
-  await expect(g.locator('#ev-meta')).toContainText('2 people answered');
+  await expect(g.locator('#ev-meta')).toContainText('3 people answered'); // the organizer and two guests
   await guest.close();
+});
+
+test('organizers edit a poll until someone answers, then duplicate it', async ({ page, request }) => {
+  await startPick(page, 'Dinner', [1140]);
+  await page.click('#submit');
+  await openNewPoll(page);
+  const url = page.url();
+
+  // Nobody else has answered, so the poll can still be changed.
+  await page.getByRole('link', { name: 'Edit poll' }).click();
+  await expect(page.locator('h1')).toHaveText('Edit your poll');
+  await expect(page.locator('#title')).toHaveValue('Dinner');
+  await expect(page.locator('#organizer')).toHaveValue('Sam');
+  await expect(page.locator('#options-list')).toContainText('Guests will choose from 7 options');
+  await page.fill('#title', 'Dinner, take two');
+  await page.locator('#options-list [data-remove]').first().click();
+  await page.click('#submit'); // Save changes
+  await expect(page).toHaveURL(url);
+  await expect(page.locator('#ev-title')).toHaveText('Dinner, take two');
+  await expect(page.locator('#mine .row')).toHaveCount(6);
+  await expect(page.locator('#mine .row[data-v="2"]')).toHaveCount(6); // the organizer's answer follows the new times
+
+  // Once someone answers, the poll can only be duplicated.
+  const id = url.split('/e/')[1];
+  const ev = await (await request.get(`/api/events/${id}`)).json();
+  await request.post(`/api/events/${id}/participants`, { data: { name: 'Ana', availability: { [ev.slots[0]]: 2 } } });
+  await page.reload();
+  if (!(await page.locator('#privacy-open').isVisible())) await page.locator('details.organizer summary').click();
+  await expect(page.getByRole('link', { name: 'Edit poll' })).toHaveCount(0);
+  await page.getByRole('link', { name: 'Duplicate poll' }).click();
+  await expect(page.locator('h1')).toHaveText('Vote on a few dates');
+  await expect(page.locator('#title')).toHaveValue('Dinner, take two');
+  await expect(page.locator('#options-list')).toContainText('Guests will choose from 6 options');
+  await page.click('#submit');
+  await openNewPoll(page);
+  await expect(page).not.toHaveURL(url);
+  await expect(page.locator('#ev-meta')).toContainText('1 person answered'); // a new poll, with only the organizer
+});
+
+test('"when are you free" polls come back to edit at their level: hours, or parts of the day', async ({ page }) => {
+  await page.goto('/new/free');
+  await page.fill('#title', 'Book club');
+  await page.click('[data-level="hours"]');
+  await page.click('[data-fill="0"]'); // mornings, all week
+  await page.click('#submit');
+  await openNewPoll(page);
+  await page.getByRole('link', { name: 'Edit poll' }).click();
+  await expect(page.locator('#title')).toHaveValue('Book club');
+  await expect(page.locator('[data-level="hours"]')).toHaveAttribute('aria-checked', 'true');
+  await expect(page.locator('#free-list')).toContainText('8 AM – 12 PM');
+  await expect(page.locator('#submit')).toBeEnabled();
+
+  await page.goto('/new/free');
+  await page.fill('#title', 'Coffee');
+  await page.click('[data-level="parts"]');
+  await page.click('#q-2w');
+  await page.click('[data-ask="evening"]'); // mornings and afternoons only
+  await page.click('#submit');
+  await openNewPoll(page);
+  await page.getByRole('link', { name: 'Edit poll' }).click();
+  await expect(page.locator('[data-level="parts"]')).toHaveAttribute('aria-checked', 'true');
+  await expect(page.locator('[data-ask="evening"]')).toHaveAttribute('aria-pressed', 'false');
+  await expect(page.locator('#summary')).toHaveText('28 times to choose from');
 });
 
 test('installable: manifest and icons are served', async ({ request }) => {
@@ -488,7 +562,7 @@ test('AI: describe a poll in words, then summarize and write messages as the org
   await page.locator('.ai-card [data-pick]').click();
   await expect(page.locator('.banner-final')).toBeVisible();
 
-  await page.click('#ai-write-open');
+  await page.click('#writer-open');
   await page.click('[data-kind="announcement"]');
   await expect(page.locator('#ai-msg')).toHaveValue(/Hi team! .*\/e\/\w+/);
 });
