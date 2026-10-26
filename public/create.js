@@ -238,7 +238,8 @@ export async function submit(body, occasion, answer = null) {
   if (answer && Object.keys(answer).length) body.hostAvailability = answer;
   if (editing) return editPoll.saveEdit(editing, body);
   body.hostAnswers = true;
-  if (source()) body.copied = true;
+  // A copy; the next one of a plan that repeats also says how often, and which poll it follows.
+  if (source()) Object.assign(body, { copied: true }, editPoll?.seriesFields());
   // The celebration (and its picture) load while the poll is saved.
   const celebration = import('./celebrate.js').catch(() => null);
   try {
@@ -262,7 +263,9 @@ export async function submit(body, occasion, answer = null) {
           () => false,
         );
     };
-    const party = (await celebration)?.celebrate({ emoji: body.emoji, title, share });
+    // The next one of a plan that repeats: also one tap to email last time's group.
+    const also = body.seriesOf ? editPoll?.inviteLast(url, title) : null;
+    const party = (await celebration)?.celebrate({ emoji: body.emoji, title, share, also });
     await party?.shown;
     history.pushState(null, '', `/e/${id}`);
     dispatchEvent(new PopStateEvent('popstate'));

@@ -38,6 +38,15 @@ const SCHEMA = [
      count INTEGER NOT NULL,
      PRIMARY KEY (day, name, props)
    )`,
+  // Plans that repeat (src/reminders.js): each poll whose date has passed is handled once, by an
+  // email to the organizer ('email'), or not ('skipped'), or because the next one was planned
+  // ('continued').
+  `CREATE TABLE IF NOT EXISTS series_reminders (
+     event_id TEXT PRIMARY KEY,
+     at INTEGER NOT NULL,
+     how TEXT NOT NULL
+   )`,
+  `CREATE INDEX IF NOT EXISTS events_final_start ON events(final_start)`,
 ];
 
 export function createStore(db) {
@@ -97,6 +106,7 @@ export function createStore(db) {
       await db.run('DELETE FROM participants WHERE event_id = ?', [id]);
       await db.run('DELETE FROM participant_emails WHERE event_id = ?', [id]);
       await db.run('DELETE FROM notifications WHERE event_id = ?', [id]);
+      await db.run('DELETE FROM series_reminders WHERE event_id = ?', [id]);
       await db.run('DELETE FROM events WHERE id = ?', [id]);
     },
 
@@ -207,6 +217,33 @@ export function createStore(db) {
         [since],
       );
       return rows.map((r) => ({ data: r.data, final_start: r.final_start ?? null, answers: Number(r.answers) }));
+    },
+
+    /**
+     * Polls that repeat, whose date was between `since` and `before` (ms) and that haven't been
+     * handled yet (markReminded): their ids, oldest date first.
+     */
+    async dueReminders(before, since, limit = 200) {
+      await init();
+      const rows = await db.all(
+        `SELECT e.id FROM events e LEFT JOIN series_reminders r ON r.event_id = e.id
+         WHERE r.event_id IS NULL AND e.final_start IS NOT NULL AND e.final_start < ? AND e.final_start >= ?
+           AND json_extract(e.data, '$.repeat') IS NOT NULL
+         ORDER BY e.final_start LIMIT ?`,
+        [before, since, limit],
+      );
+      return rows.map((r) => r.id);
+    },
+
+    /** Mark a poll's "time to plan the next one?" as handled. True only for the first call, so it happens once. */
+    async markReminded(eventId, at, how) {
+      await init();
+      const r = await db.run(
+        'INSERT INTO series_reminders (event_id, at, how) VALUES (?, ?, ?) ON CONFLICT(event_id) DO NOTHING',
+        [eventId, at, how],
+      );
+      // node:sqlite says how many rows changed as `changes`; D1 as `meta.changes`.
+      return Number(r?.changes ?? r?.meta?.changes ?? 0) > 0;
     },
 
     /** Participant id → email, for one poll. */

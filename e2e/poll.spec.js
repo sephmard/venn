@@ -1171,7 +1171,8 @@ test('with answers hidden, a guest stays on their own answer after sending it; a
   await page.fill('#name', 'Ana');
   await page.click('#save');
   await page.click('#sc-yes');
-  await page.getByRole('button', { name: 'Done' }).click();
+  // Answers are hidden from guests, so the celebration goes back to the poll.
+  await page.getByRole('button', { name: 'Back to the poll' }).click();
   await expect(page.locator('#panel-mine')).toBeVisible();
   await request.post(`/api/events/${id}/finalize`, { data: { start: t0 }, headers: { 'x-admin-token': adminToken } });
   await page.reload();
@@ -2192,10 +2193,24 @@ test('guests are one tap from making their own poll: from the celebration, and o
   await page.fill('#name', 'Ana');
   await page.click('#save');
   await page.click('#sc-yes');
-  // Finn celebrates, and offers the next step.
+  // Finn celebrates, with two real buttons: everyone's answers, and making your own poll.
   await expect(page.locator('.party [role=status]')).toContainText("Finn is so glad you're in");
-  const own = page.locator('.party-also');
-  await expect(own).toHaveText('Planning something? Make your own poll');
+  const go = page.locator('.party-go');
+  await expect(go).toHaveText('See everyone’s answers');
+  await expect(go).toBeFocused();
+  const own = page.getByRole('link', { name: 'Planning something? Make yours in 30 seconds' });
+  await expect(own).toBeVisible();
+  await expect(own).toHaveAttribute('href', '/new?from=guest');
+  // Both are full-size buttons that fit a phone, and Tab goes round them.
+  for (const b of [go, own]) {
+    const box = await b.boundingBox();
+    expect(box.height).toBeGreaterThanOrEqual(44);
+    expect(box.x + box.width).toBeLessThanOrEqual(page.viewportSize().width);
+  }
+  await page.keyboard.press('Tab');
+  await expect(own).toBeFocused();
+  await page.keyboard.press('Tab');
+  await expect(go).toBeFocused();
   await own.click();
   await expect(page).toHaveURL(/\/new\?from=guest$/);
   await expect(page.locator('.party')).toHaveCount(0);
@@ -2206,5 +2221,118 @@ test('guests are one tap from making their own poll: from the celebration, and o
   await page.goto(`/e/${id}`);
   await expect(page.locator('.final-more a[href="/new?from=set"]')).toHaveText('Make your own poll');
   await page.goto(`/e/${id}#admin=${adminToken}`);
+  await expect(page.locator(`.final-more a[href="/new/pick?copy=${id}&next=monthly"]`)).toHaveText('Plan next month’s');
+  // Not every plan repeats: then it's a plain copy.
+  await page.selectOption('#repeat-sel', '');
   await expect(page.locator(`.final-more a[href="/new/pick?copy=${id}"]`)).toHaveText('Plan the next one');
+});
+
+test('a plan that repeats: the organizer plans next month’s in one tap, then brings last time’s group back', async ({
+  page,
+  request,
+}) => {
+  // A book club on the 2nd Tuesday of January 2030, 6pm UTC, asking everyone for their email.
+  const t0 = Date.UTC(2030, 0, 8, 18);
+  const H = 3_600_000;
+  const { id, adminToken } = await (
+    await request.post('/api/events', {
+      data: {
+        title: 'Book club',
+        emoji: '📚',
+        organizer: 'Sam',
+        location: 'The library',
+        description: 'Bring the book',
+        timezone: 'UTC',
+        mode: 'options',
+        requireEmail: true,
+        hostAnswers: true,
+        options: [
+          { start: t0, end: t0 + 2 * H },
+          { start: t0 + 24 * H, end: t0 + 26 * H },
+        ],
+      },
+    })
+  ).json();
+  await request.post(`/api/events/${id}/participants`, {
+    data: { name: 'Ana', email: 'ana@example.com', availability: { [t0]: 2 } },
+  });
+  await request.post(`/api/events/${id}/finalize`, { data: { start: t0 }, headers: { 'x-admin-token': adminToken } });
+
+  await page.goto(`/e/${id}#admin=${adminToken}`);
+  const plan = page.locator('#plan-next a');
+  await expect(plan).toHaveText('Plan next month’s');
+  // How often it repeats is saved with the poll.
+  await page.selectOption('#repeat-sel', 'weekly');
+  await expect(plan).toHaveText('Plan next week’s');
+  await expect(page.locator('#toast')).toContainText('Saved: every week');
+  expect((await (await request.get(`/api/events/${id}`)).json()).repeat).toBe('weekly');
+  await page.selectOption('#repeat-sel', 'monthly');
+  await expect(page.locator('#toast')).toContainText('Saved: every month');
+  await plan.click();
+
+  // The create page has everything, with the dates moved on to February's 2nd Tuesday and Wednesday.
+  await expect(page).toHaveURL(new RegExp(`/new/pick\\?copy=${id}&next=monthly$`));
+  await expect(page.locator('#create h1')).toHaveText('Plan next month’s');
+  await expect(page.locator('#title')).toHaveValue('Book club');
+  await expect(page.locator('#location')).toHaveValue('The library');
+  await expect(page.locator('#desc')).toHaveValue('Bring the book');
+  await expect(page.locator('[data-occasion="3"]')).toHaveAttribute('aria-pressed', 'true');
+  await expect(page.locator('#p-email')).toBeChecked();
+  await expect(page.locator('#summary')).toHaveText('2 options to vote on');
+  await page.click('#submit');
+
+  // The celebration offers to email last time's group, in BCC.
+  const mail = page.getByRole('link', { name: 'Email last time’s group' });
+  await expect(mail).toHaveAttribute('href', /^mailto:\?bcc=ana%40example\.com&subject=Book%20club&body=/);
+  await page.getByRole('button', { name: 'View poll' }).click();
+  await expect(page).toHaveURL(/\/e\/\w+$/);
+  const next = page.url().split('/e/')[1];
+  const ev = await (await request.get(`/api/events/${next}`)).json();
+  const D = 24 * H;
+  expect(ev.options).toEqual([
+    { start: Date.UTC(2030, 1, 12, 18), end: Date.UTC(2030, 1, 12, 20) },
+    { start: Date.UTC(2030, 1, 12, 18) + D, end: Date.UTC(2030, 1, 12, 20) + D },
+  ]);
+  expect([ev.repeat, ev.seriesOf, ev.requireEmail, ev.emoji]).toEqual(['monthly', id, true, '📚']);
+
+  // The new poll's page brings the group back too.
+  const box = page.locator('#series-box');
+  await expect(box).toContainText('1 person answered “Book club” last time.');
+  await expect(box.getByRole('link', { name: 'Email last time’s group' })).toHaveAttribute('href', /bcc=ana%40example\.com/);
+  await expect(box.getByRole('button', { name: 'Share the link' })).toBeVisible();
+});
+
+test('a copy of a poll whose dates have passed moves them on by whole weeks', async ({ page, request }) => {
+  // Two Tuesdays in the past, at 6pm UTC.
+  const t0 = Date.UTC(2025, 0, 7, 18);
+  const H = 3_600_000;
+  const { id } = await (
+    await request.post('/api/events', {
+      data: {
+        title: 'Run club',
+        timezone: 'UTC',
+        mode: 'options',
+        options: [
+          { start: t0, end: t0 + H },
+          { start: t0 + 7 * 24 * H, end: t0 + 7 * 24 * H + H },
+        ],
+      },
+    })
+  ).json();
+  await page.goto(`/new/pick?copy=${id}`);
+  await expect(page.locator('#title')).toHaveValue('Run club');
+  await page.fill('#organizer', 'Sam');
+  await expect(page.locator('#summary')).toHaveText('2 options to vote on');
+  await page.click('#submit');
+  await page.getByRole('button', { name: /^(View poll|Open .+ →)$/ }).click();
+  await expect(page).toHaveURL(/\/e\/\w+$/);
+  const ev = await (await request.get(`/api/events/${page.url().split('/e/')[1]}`)).json();
+  // Still Tuesdays at 6pm, a week apart, and still to come.
+  for (const o of ev.options) {
+    expect(new Date(o.start).getUTCDay()).toBe(2);
+    expect(new Date(o.start).getUTCHours()).toBe(18);
+    expect(o.start).toBeGreaterThan(Date.now());
+  }
+  expect(ev.options[1].start - ev.options[0].start).toBe(7 * 24 * H);
+  expect(ev.repeat).toBeUndefined();
 });
