@@ -63,13 +63,18 @@ export function rememberEmail(e) {
 
 // ---------- feedback ----------
 
+// The toast is a status region that stays on the page (empty when there's nothing to say), so screen
+// readers announce each message: it's cleared first, then filled a moment later.
 let toastTimer;
 export function toast(msg) {
   const t = document.getElementById('toast');
-  t.textContent = msg;
   t.hidden = false;
+  t.textContent = '';
   clearTimeout(toastTimer);
-  toastTimer = setTimeout(() => (t.hidden = true), 3200);
+  toastTimer = setTimeout(() => {
+    t.textContent = msg;
+    toastTimer = setTimeout(() => (t.textContent = ''), 3200);
+  }, 50);
 }
 
 export async function copy(text, done = 'Link copied') {
@@ -83,17 +88,27 @@ export async function copy(text, done = 'Link copied') {
 
 // ---------- API ----------
 
+/** Errors keep the HTTP `status` (0 when Venn couldn't be reached), so callers can tell a 404 from the rest. */
 export async function api(path, { method = 'GET', body, headers = {} } = {}) {
-  const res = await fetch(`/api/${path}`, {
-    method,
-    headers: { ...(body ? { 'content-type': 'application/json' } : {}), ...headers },
-    body: body ? JSON.stringify(body) : undefined,
-  });
+  const fail = (status, message, cause) => Object.assign(new Error(message, { cause }), { status });
+  let res;
+  try {
+    res = await fetch(`/api/${path}`, {
+      method,
+      headers: { ...(body ? { 'content-type': 'application/json' } : {}), ...headers },
+      body: body ? JSON.stringify(body) : undefined,
+    });
+  } catch (e) {
+    throw fail(0, "Can't reach Venn. Check your connection and try again.", e);
+  }
   const data = await res.json().catch(() => ({}));
   if (!res.ok) {
-    const err = new Error(data.error || `Request failed (${res.status})`);
-    err.status = res.status;
-    throw err;
+    // A crash (500) or a proxy error page says nothing useful; a 503 says what's unavailable.
+    const s = res.status;
+    throw fail(
+      s,
+      (s !== 500 && data.error) || (s < 500 ? `Request failed (${s})` : 'Something went wrong on our side. Try again.'),
+    );
   }
   return data;
 }

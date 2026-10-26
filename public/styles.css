@@ -1572,6 +1572,10 @@ details.organizer summary b {
   width: max-content;
   text-align: center;
 }
+/* Empty between messages: nothing to see, but still on the page for screen readers. */
+#toast:empty {
+  padding: 0;
+}
 
 @media (max-width: 520px) {
   .sheet {
@@ -2093,17 +2097,6 @@ pre.code {
 .btn-new {
   border-color: var(--accent);
   color: var(--accent);
-}
-.btn-new .short {
-  display: none;
-}
-@media (max-width: 520px) {
-  .btn-new .long {
-    display: none;
-  }
-  .btn-new .short {
-    display: inline;
-  }
 }
 .hview {
   margin-bottom: 4px;
