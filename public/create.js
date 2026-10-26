@@ -211,8 +211,11 @@ export function wirePlan(onOccasion) {
   return () => current;
 }
 
-/** Create the poll (or save the changes to it). The organizer answers on the poll, like everyone. */
-export async function submit(body, occasion) {
+/**
+ * Create the poll (or save the changes to it). `answer` (option start → yes or if needed) is the
+ * organizer's own answer, from how they marked each option, saved with the poll.
+ */
+export async function submit(body, occasion, answer = null) {
   $('#err').textContent = '';
   const title = $('#title').value.trim() || occasion()?.label || '';
   Object.assign(body, {
@@ -229,7 +232,10 @@ export async function submit(body, occasion) {
   if (body.organizer) rememberName(body.organizer);
   if (notifyEmail) rememberEmail(notifyEmail);
   $('#submit').disabled = true;
+  // The organizer's own answer: what they marked for each option, or yes to all the times offered.
+  if (answer && Object.keys(answer).length) body.hostAvailability = answer;
   if (editing) return editPoll.saveEdit(editing, body);
+  body.hostAnswers = true;
   if (source()) body.copied = true;
   // The celebration (and its picture) load while the poll is saved.
   const celebration = import('./celebrate.js').catch(() => null);

@@ -70,8 +70,8 @@ export function paintView(
       h += `<span class="pg-time${parts ? ' part' : ''}" aria-hidden="true">${parts || !(m % 60) ? esc(label(m)) : ''}</span>`;
       ds.forEach((d, c) => {
         const on = selected.has(key(d, m));
-        // A picked part that's only if needed for the organizer says so (when editing an older poll).
-        const tag = parts && on && maybe.has(key(d, m)) ? ' If needed' : '';
+        // What a picked part is for the organizer, shown on it: " If needed" or " Available".
+        const tag = parts && on ? (maybe.has(key(d, m)) ? ' If needed' : ' Available') : '';
         h += `<span class="pg-cell${parts ? ' part' : m % 60 ? '' : ' hour'}${on ? ' on' : ''}${on && maybe.has(key(d, m)) ? ' maybe' : ''}" role="button" tabindex="${r || c ? -1 : 0}" data-d="${d}" data-m="${m}" data-r="${r}" data-c="${c}" aria-pressed="${on}" aria-label="${esc(`${dayLabel(d)}, ${label(m)}${parts ? ` ${span(m)}${tag}` : on && maybe.has(key(d, m)) ? ', if needed' : ''}`)}">${parts ? `<small aria-hidden="true">${esc(span(m))}</small>${tag ? ` <small class="pg-tag" aria-hidden="true">${tag.trim()}</small>` : ''}` : ''}</span>`;
       });
     });
@@ -123,15 +123,19 @@ export function paintView(
     refresh();
   };
   const pos = (el) => ({ r: +el.dataset.r, c: +el.dataset.c });
-  /** One time, tapped (or Space): picked, or taken away. */
-  const cycle = (k) => (selected.has(k) ? drop(k) : add(k));
+  /** One time, tapped (or Space): picked → if needed → taken away. */
+  const cycle = (k) => {
+    if (!selected.has(k)) add(k);
+    else if (!maybe.has(k)) maybe.add(k);
+    else drop(k);
+  };
   grid.addEventListener('pointerdown', (e) => {
     const el = e.target.closest('.pg-cell');
     if (!el || e.button > 0) return;
     e.preventDefault();
     const erase = el.classList.contains('on');
     drag = { at: pos(el), el, before: new Set(selected), maybe: new Set(maybe), erase, moved: false };
-    // A picked time waits to see whether this is a tap or a drag; either way it's taken away.
+    // A picked time waits to see whether this is a tap (which goes round) or a drag (which erases).
     if (!erase) paint(drag.at, drag.at);
   });
   grid.addEventListener('pointermove', (e) => {
@@ -364,7 +368,7 @@ export function windowList(windows, level, chip, dayRange) {
 /** How to paint, said above the calendar where it's read before the first stroke. */
 export function paintHelp() {
   const tap = isPhone() ? 'Tap' : 'Click';
-  return `${tap} or drag across mornings, afternoons and evenings. ${tap} a day name for the whole day.`;
+  return `${tap} a morning, afternoon or evening to pick it, again to make it if needed, and once more to take it away, or drag across several. ${tap} a day name for the whole day.`;
 }
 /** The quick fills, for the week shown. */
 export const fillPills = (parts) =>
