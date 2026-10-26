@@ -1204,9 +1204,27 @@ ol.best .when {
   padding-right: 14px;
   border: 1.5px solid transparent;
 }
-.chip.person[aria-pressed='true'] {
+.chip.person:has([aria-pressed='true']) {
   border-color: var(--accent);
   background: var(--accent-soft);
+}
+/* The name is its own button, with the remove button beside it. */
+.chip.person .person-btn {
+  margin: 0;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font: inherit;
+  color: inherit;
+  font-size: inherit;
+  min-height: 36px;
+  min-width: 0;
+  text-align: left;
+}
+.badge-final {
+  font-size: 0.85rem;
+  font-weight: 700;
+  white-space: nowrap;
 }
 .chip button {
   border: 0;
@@ -1349,9 +1367,15 @@ ol.best .when {
   width: max-content;
   min-width: 100%;
 }
-/* drag cells to paint, the times to scroll */
+/* A mouse drags across cells to paint. On touch screens a swipe scrolls and a tap marks one time. */
 .grid:not(.readonly) .cell {
   touch-action: none;
+}
+@media (pointer: coarse) {
+  .grid:not(.readonly),
+  .grid:not(.readonly) .cell {
+    touch-action: pan-y;
+  }
 }
 .grid .day-label {
   font-size: 0.75rem;
@@ -2051,19 +2075,6 @@ details.organizer summary b {
 }
 .my-picks p:last-child {
   margin: 0;
-}
-.pill.soon:disabled {
-  opacity: 1;
-  color: var(--muted);
-  cursor: default;
-}
-.badge-soon {
-  font-size: 0.75rem;
-  font-weight: 700;
-  padding: 2px 8px;
-  border-radius: 999px;
-  background: var(--surface-2);
-  color: var(--muted);
 }
 /* Not ready to save yet (no name, or nothing picked): an outline, so it reads as not done. */
 #save[data-ready='false'] {

@@ -245,7 +245,7 @@ for (const width of [375, 412]) {
       });
       expect(hit, await el.innerText()).toBe(true);
     }
-    await banner.getByRole('button', { name: 'Change the date' }).click();
+    await banner.getByRole('button', { name: 'Clear the date' }).click();
     await expect(banner).toHaveCount(0);
   });
 }

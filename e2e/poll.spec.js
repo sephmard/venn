@@ -552,9 +552,8 @@ test('on a phone, a tap marks a time on the exact grid and a swipe scrolls inste
   ).json();
   await page.goto(`/e/${id}`);
   await page.click('[data-hview="exact"]');
-  const grid = page.locator('#mine');
-  await expect(grid).toHaveCSS('touch-action', 'pan-y');
   const cell = page.locator('#mine .cell[data-slot]').nth(4);
+  await expect(cell).toHaveCSS('touch-action', 'pan-y');
   await cell.scrollIntoViewIfNeeded();
   await cell.tap();
   await expect(page.locator('#mine .cell.yes')).toHaveCount(1);

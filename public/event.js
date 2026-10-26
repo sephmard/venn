@@ -119,8 +119,8 @@ export async function renderEvent(id, navigate) {
     document.title = e.status === 404 ? 'Poll not found · Venn' : 'Venn';
     app.innerHTML =
       e.status === 404
-        ? `<div class="sheet empty"><h1>Poll not found</h1><p class="muted">${esc(e.message)}.</p><a class="btn btn-primary" href="/new" data-link>Create a poll</a></div>`
-        : `<div class="sheet empty"><h1>Couldn't open this poll</h1><p class="muted">${esc(e.message)}</p><button class="btn btn-primary" onclick="location.reload()">Try again</button></div>`;
+        ? `<div class="sheet empty"><h1>Poll not found</h1><p class="muted">This poll may have been deleted, or the link wasn't copied in full. Check the link with whoever sent it.</p><a class="btn btn-primary" href="/new" data-link>Create a poll</a></div>`
+        : `<div class="sheet empty"><h1>Can't open this poll</h1><p class="muted">${esc(e.message)}</p><button class="btn btn-primary" onclick="location.reload()">Try again</button></div>`;
     return () => {};
   }
 
@@ -803,7 +803,6 @@ export async function renderEvent(id, navigate) {
       markAll(slots, st.brush);
     });
     // On touch screens a swipe scrolls the page, so a tap marks one time; mice and pens drag.
-    if (matchMedia('(pointer: coarse)').matches) mineEl.style.touchAction = 'pan-y';
     mineEl.addEventListener('pointerup', (e) => {
       const t = tap;
       tap = null;
@@ -1140,7 +1139,7 @@ export async function renderEvent(id, navigate) {
                 : `<td class="m-no ${cls(w)}"><span aria-hidden="true">✕</span><span class="sr-only">No</span></td>`;
           })
           .join('');
-        return `<tr class="${p.id === st.focus ? 'focus' : ''}"><th scope="row">${avatar(p.name, 'av-sm')}<span>${esc(p.name)}${p.id === myId ? ' <span class="muted">(you)</span>' : ''}</span></th>${cells}</tr>`;
+        return `<tr class="${p.id === st.focus ? 'focus' : ''}"><th scope="row">${avatar(p.name, 'av-sm')}<span title="${esc(p.name)}">${esc(p.name)}${p.id === myId ? ' <span class="muted">(you)</span>' : ''}</span></th>${cells}</tr>`;
       })
       .join('');
     const totals = windows
