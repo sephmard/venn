@@ -2407,3 +2407,16 @@ pre.code {
   color: var(--muted);
   filter: none;
 }
+/* The time zone line under the calendar: quiet until it's opened. */
+.tz-pick {
+  margin-top: 12px;
+}
+.tz-pick summary {
+  font-size: 0.95rem;
+}
+.tz-pick select {
+  max-width: 360px;
+}
+.tz-pick .hint {
+  margin: 6px 0 0;
+}

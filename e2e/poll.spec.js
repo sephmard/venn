@@ -390,8 +390,35 @@ test('organizers give their email when this server sends email', async ({ page }
   await expect(page.locator('#summary')).toHaveText('Check your email address');
   await page.fill('#notify', 'sam@example.com');
   await expect(page.locator('#submit')).toHaveAttribute('aria-disabled', 'false');
-  // The time zone is the organizer's own; there's nothing to set.
+});
+
+test('the create pages say which time zone the times are in, and it can be changed', async ({ page, request }) => {
+  const zoneName = (tz) =>
+    page.evaluate(
+      (tz) =>
+        new Intl.DateTimeFormat(undefined, { timeZone: tz, timeZoneName: 'longGeneric' })
+          .formatToParts(new Date())
+          .find((x) => x.type === 'timeZoneName').value,
+      tz,
+    );
+  await startPick(page, 'Call with Tokyo', [1140]);
+  const line = page.locator('#tz-box summary');
+  const local = await page.evaluate(() => Intl.DateTimeFormat().resolvedOptions().timeZone);
+  await expect(line).toHaveText(`Times in ${await zoneName(local)} · Change`);
+  // It's the organizer's own time zone, so the choice stays out of the way until asked for.
   await expect(page.locator('#tz')).toBeHidden();
+  await line.click();
+  await page.selectOption('#tz', 'Asia/Tokyo');
+  await expect(line).toHaveText(`Times in ${await zoneName('Asia/Tokyo')} · Change`);
+  await page.click('#submit');
+  await openNewPoll(page);
+  const ev = await (await request.get(`/api/events/${page.url().split('/e/')[1]}`)).json();
+  expect(ev.timezone).toBe('Asia/Tokyo');
+  // 7 PM in Tokyo.
+  expect(new Date(ev.options[0].start).toISOString()).toMatch(/T10:00:00/);
+
+  await page.goto('/new/free');
+  await expect(page.locator('#tz-box summary')).toHaveText(`Times in ${await zoneName(local)} · Change`);
 });
 
 test('phone: no zoom on focus, tap targets, tap-to-pick dates, Save always in reach', async ({ page, isMobile }) => {

@@ -39,6 +39,8 @@ import {
   saved,
   toast,
   todayStr,
+  tzName,
+  tzOptions,
 } from './ui.js';
 
 // The organizer's privacy choices, and their switches in "Privacy options".
@@ -105,7 +107,10 @@ function fillCommon(ev, src) {
   $('#desc-box').open = !!ev.description;
   $('#organizer').value = ev.organizer || '';
   // Times are in the organizer's time zone (everyone sees them in their own); a poll keeps its own.
-  if (ev.timezone) $('#tz').value = ev.timezone;
+  if (ev.timezone) {
+    $('#tz').innerHTML = tzOptions(ev.timezone);
+    showTz();
+  }
   for (const [key, el] of PRIVACY) $(el).checked = !!ev[key];
   $('#privacy-opts').open = PRIVACY.some(([key]) => ev[key]);
   if (src.edit) {
@@ -203,13 +208,23 @@ function youFields() {
         <label class="switch"><input type="checkbox" role="switch" id="p-results"> Hide everyone's answers from guests</label>
         <p class="hint">Only you see the answers. Guests see the date once you pick it.</p>
       </details>
-      <input type="hidden" id="tz" value="${esc(localTz)}">
     </section>`;
 }
+
+/** The time zone the times are in, under the calendar, with a way to change it. */
+const tzLine = () => `
+  <details class="reveal tz-pick" id="tz-box">
+    <summary><span>Times in <span id="tz-name">${esc(tzName(localTz))}</span> · Change</span></summary>
+    <label for="tz">Time zone for this poll</label>
+    <select id="tz" aria-describedby="tz-hint">${tzOptions(localTz)}</select>
+    <p class="hint" id="tz-hint">Everyone sees the times in their own time zone.</p>
+  </details>`;
+const showTz = () => ($('#tz-name').textContent = tzName($('#tz').value));
 
 /** Wire up the plan fields: occasion presets fill in sensible defaults. */
 function wirePlan(onOccasion) {
   let current = null;
+  $('#tz').addEventListener('change', showTz);
   $('#create').addEventListener('click', (e) => {
     const b = e.target.closest('[data-occasion]');
     if (!b) return;
@@ -441,6 +456,7 @@ export function renderPick() {
         </div>
         <p class="hint" id="when-hint"></p>
         <div id="picker"></div>
+        ${tzLine()}
       </section>
       <section class="sheet poll-preview" aria-labelledby="preview-h">
         <h2 id="preview-h">Options in your poll</h2>
@@ -898,6 +914,7 @@ export function renderFree() {
         </div>
         <div id="when"></div>
         <div class="pills quick" role="group" aria-label="Quick picks" id="quick"></div>
+        ${tzLine()}
       </section>
       <section class="sheet poll-preview" aria-labelledby="preview-h">
         <h2 id="preview-h">What your guests will mark</h2>
