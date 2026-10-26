@@ -164,13 +164,13 @@ function emailLayout(bodyHtml, footerHtml, pageUrl) {
 }
 
 const button = (href, label) =>
-  `<p style="margin:20px 0"><a href="${escHtml(href)}" style="display:inline-block;background:#0f9d76;color:#fff;text-decoration:none;font-weight:600;padding:10px 18px;border-radius:8px">${escHtml(label)}</a></p>`;
+  `<p style="margin:20px 0"><a href="${escHtml(href)}" style="display:inline-block;background:#0b7a5c;color:#fff;text-decoration:none;font-weight:600;padding:12px 20px;border-radius:999px">${escHtml(label)}</a></p>`;
 
 const heading = (html) => `<p style="margin:0 0 8px;font-size:22px;font-weight:700;line-height:1.3">${html}</p>`;
 const para = (html) => `<p style="margin:0 0 12px;line-height:1.5">${html}</p>`;
 /** The link itself, under its button, for anyone who wants to copy or forward it. */
 const linkLine = (href) =>
-  `<p style="margin:-8px 0 16px;font-size:13px;line-height:1.5;word-break:break-all"><a href="${escHtml(href)}" style="color:#0f9d76">${escHtml(href)}</a></p>`;
+  `<p style="margin:-8px 0 16px;font-size:13px;line-height:1.5;word-break:break-all"><a href="${escHtml(href)}" style="color:#0b7a5c">${escHtml(href)}</a></p>`;
 const stopFooter = (unsubscribeUrl) =>
   `You get these emails because you asked Venn to tell you about this poll. <a href="${escHtml(unsubscribeUrl)}" style="color:#6b6d70">Stop these emails</a>.`;
 
@@ -253,19 +253,19 @@ export function answerCopyEmail({ title, name, lines, pollUrl, editUrl, seeAnswe
   const list = lines.length ? lines : null;
   const pollLabel = seeAnswers ? "See everyone's answers" : 'Open the poll';
   const text = `Hi ${name}, here's what you told Venn for “${title}”:\n\n${
-    list ? list.map((l) => `- ${l.label}: ${l.answer}`).join('\n') : 'None of the times work for you.'
+    list ? list.map((l) => `- ${l.label}: ${l.answer}`).join('\n') : 'None of these work.'
   }\n\nYour answer (open it to change it): ${editUrl}\nThis link is just for you, so don't share it.\n\n${pollLabel}: ${pollUrl}\n\nYou asked for this copy when you answered. If that wasn't you, ignore this email.\n`;
   const items = list
     ? `<ul style="margin:12px 0;padding-left:20px;line-height:1.6">${list
         .map((l) => `<li>${escHtml(l.label)}: <strong>${escHtml(l.answer)}</strong></li>`)
         .join('')}</ul>`
-    : para('None of the times work for you.');
+    : para('None of these work.');
   const html = emailLayout(
     `${para(`Hi ${escHtml(name)}, here's what you told Venn for <strong>${escHtml(title)}</strong>:`)}${items}${button(
       editUrl,
       'View or change your answer',
     )}${linkLine(editUrl)}${para("This link is just for you, so don't share it.")}${para(
-      `<a href="${escHtml(pollUrl)}" style="color:#0f9d76">${pollLabel}</a>`,
+      `<a href="${escHtml(pollUrl)}" style="color:#0b7a5c">${pollLabel}</a>`,
     )}`,
     "You asked for this copy when you answered the poll. If that wasn't you, ignore this email and nothing more will be sent.",
     pollUrl,
