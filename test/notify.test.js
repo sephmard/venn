@@ -2,9 +2,31 @@ import { test, before, after, beforeEach } from 'node:test';
 import assert from 'node:assert/strict';
 import { createHmac } from 'node:crypto';
 import { createApp } from '../server.js';
-import { validateWebhookUrl, webhookBody, summaryText, isPrivateAddress } from '../src/notify.js';
+import { existsSync } from 'node:fs';
+import {
+  MASCOT_PATH,
+  confirmationEmail,
+  isPrivateAddress,
+  responseEmail,
+  summaryText,
+  validateWebhookUrl,
+  webhookBody,
+} from '../src/notify.js';
 
 // ---------- unit ----------
+
+test("every notification email shows Venn's dog, from the instance's own site", () => {
+  assert.ok(existsSync(new URL(`../public${MASCOT_PATH}`, import.meta.url)));
+  const confirm = confirmationEmail('Dinner', 'https://venn.example/e/abc#confirm-email=t');
+  assert.match(confirm.html, /<img src="https:\/\/venn\.example\/img\/venn-dog\.png"/);
+  const s = {
+    event: 'test',
+    poll: { title: 'Dinner', url: 'https://venn.example/e/abc', responses: 0 },
+    response: null,
+    bestTime: null,
+  };
+  assert.match(responseEmail(s, 'https://venn.example/e/abc#unsubscribe=u').html, /venn\.example\/img\/venn-dog\.png/);
+});
 
 test('webhook URLs must be public https endpoints', async () => {
   const bad = [
@@ -46,8 +68,12 @@ test('Slack and Discord get messages in their own format', () => {
     summaryText(summary),
     /^Ana responded to “Design review”\. Best time so far: Wed, Nov 4.*\(3 of 3 can make it\)\.$/,
   );
-  assert.deepEqual(Object.keys(webhookBody('https://hooks.slack.com/services/T/B/x', summary)), ['text']);
-  assert.deepEqual(Object.keys(webhookBody('https://discord.com/api/webhooks/1/abc', summary)), ['content']);
+  const slack = webhookBody('https://hooks.slack.com/services/T/B/x', summary);
+  assert.deepEqual(Object.keys(slack), ['text', 'blocks']);
+  assert.match(slack.blocks[0].accessory.image_url, /\/img\/venn-dog\.png$/);
+  const discord = webhookBody('https://discord.com/api/webhooks/1/abc', summary);
+  assert.deepEqual(Object.keys(discord), ['content', 'embeds']);
+  assert.match(discord.embeds[0].thumbnail.url, /\/img\/venn-dog\.png$/);
   assert.equal(webhookBody('https://example.com/hook', summary), summary);
 });
 
