@@ -2034,6 +2034,21 @@ details.organizer summary b {
   background: var(--accent-soft);
   border-color: var(--accent-soft);
 }
+.cal-day.day-maybe[aria-pressed='true'] {
+  background: var(--maybe);
+  border-color: var(--maybe);
+  color: var(--maybe-ink);
+}
+.chip .chip-flip {
+  font: inherit;
+  color: inherit;
+  min-height: 32px;
+  padding: 0 2px;
+}
+.chip .chip-flip:hover {
+  color: inherit;
+  text-decoration: underline;
+}
 .poll-preview .preview-lede {
   margin-bottom: 10px;
 }
@@ -2222,6 +2237,51 @@ pre.code {
 .tg-bottom {
   bottom: -2px;
 }
+/* The × to remove a block: on hover (mouse), always on touch screens. */
+.tg-x-box {
+  position: absolute;
+  pointer-events: none;
+  z-index: 3;
+}
+.tg-x {
+  position: absolute;
+  top: 2px;
+  right: 2px;
+  width: 24px;
+  height: 24px;
+  padding: 0;
+  border: 1.5px solid var(--border);
+  border-radius: 50%;
+  background: var(--surface);
+  color: var(--text);
+  font-size: 1rem;
+  line-height: 1;
+  cursor: pointer;
+  pointer-events: auto;
+  opacity: 0;
+  transition: opacity 0.12s;
+}
+.tg-block:hover + .tg-x-box .tg-x,
+.tg-x:hover,
+.tg-x:focus-visible {
+  opacity: 1;
+}
+.tg-x:hover {
+  background: var(--no);
+  border-color: var(--no);
+  color: #fff;
+}
+.tg-block.opt:hover {
+  filter: brightness(0.92);
+}
+@media (hover: none) {
+  .tg-x {
+    opacity: 1;
+  }
+}
+.chip button:hover {
+  color: var(--no);
+}
 .tg-block.opt-maybe {
   background: var(--maybe);
   border-color: var(--maybe);
@@ -2278,7 +2338,7 @@ pre.code {
   touch-action: pan-y; /* phones scroll by dragging the times */
 }
 .pg-cell {
-  height: 22px;
+  height: 24px;
   border-left: 1px solid var(--border);
   border-top: 1px dashed var(--cell-empty);
   touch-action: none;
@@ -2302,6 +2362,26 @@ pre.code {
   .pg-cell {
     height: 28px;
   }
+}
+.pg-cell.part {
+  height: 64px;
+  border-top: 1px solid var(--border);
+  display: grid;
+  place-items: center;
+  cursor: pointer;
+}
+.pg-cell.part small {
+  font-size: 0.7rem;
+  color: var(--muted);
+}
+.pg-cell.part.on small {
+  color: var(--accent-ink);
+}
+.pg-time.part {
+  transform: none;
+  align-self: center;
+  font-size: 0.8rem;
+  font-weight: 600;
 }
 .zoom {
   display: grid;

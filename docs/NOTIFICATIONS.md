@@ -57,7 +57,7 @@ No API key: the Worker sends through a binding.
 
    With Node, set them as environment variables.
 
-Once a provider and `EMAIL_FROM` are set, `GET /api/config` reports `"email": true`. The "Email me when people answer" field appears on the create pages, and email becomes the first choice in the Notifications panel. Until then, both say that email isn't switched on, and point to custom notifications.
+Once a provider and `EMAIL_FROM` are set, `GET /api/config` reports `"email": true`. The organizer's email becomes a required field on the create pages, and email becomes the first choice in the Notifications panel. Until then, both say that email isn't switched on, and point to custom notifications.
 
 ### Adding an email provider
 

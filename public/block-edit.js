@@ -1,15 +1,31 @@
 // Changing blocks on the time grid (picker.js): drag an edge to make a block longer or shorter
-// (mouse or touch), or drag the block itself to another time or day (mouse). Only organizers do
-// this, so it lives here and the poll page doesn't download it.
+// (mouse or touch), drag the block itself to another time or day (mouse), or remove it with its ×.
+// Only organizers do this, so it lives here and the poll page doesn't download it.
 
-import { $, shortRange } from './ui.js';
+import { $, esc, shortRange } from './ui.js';
 
 const STEP = 30;
 
-/** Pass as `editBlocks` to timeView; picker.js calls it with the grid's root and helpers. */
-export function editBlocks(root, { blocks, range, minuteAt, rowPx, onResize, onMove }) {
+/**
+ * Pass as `editBlocks` to timeView; picker.js calls it with the grid's root and helpers. With
+ * `onRemove(key)`, each block gets a × (shown on hover with a mouse, always on touch screens), named
+ * by the block's `remove` text.
+ */
+export function editBlocks(root, { blocks, range, minuteAt, rowPx, onResize, onMove, onRemove }) {
   let edit = null;
   let suppressClick = false;
+  // The × sits on top of the grid: it mustn't start a drag or count as a tap on the calendar.
+  const x = (e) => e.target.closest('[data-rm-block]');
+  root.addEventListener('pointerdown', (e) => x(e) && e.stopPropagation(), true);
+  root.addEventListener(
+    'click',
+    (e) => {
+      if (!x(e)) return;
+      e.stopPropagation();
+      onRemove(x(e).dataset.rmBlock);
+    },
+    true,
+  );
   const colAt = (x, y) => document.elementFromPoint(x, y)?.closest('.tg-col');
   root.addEventListener('pointerdown', (e) => {
     const el = e.target.closest('.tg-block[data-key]');
@@ -61,6 +77,11 @@ export function editBlocks(root, { blocks, range, minuteAt, rowPx, onResize, onM
     /** Markup for the edges of each block, which picker.js puts in. */
     top: handle('top'),
     bottom: handle('bottom'),
+    /** Markup after each block: its ×, in a box the block's size so it lines up. */
+    after: (b, style) =>
+      onRemove
+        ? `<span class="tg-x-box" style="${style}"><button type="button" class="tg-x" data-rm-block="${esc(b.key)}" aria-label="${esc(b.remove || 'Remove')}">×</button></span>`
+        : '',
     active: () => Boolean(edit),
     /** True once after a drag, so the click that follows it isn't taken as a tap. */
     takeClick() {

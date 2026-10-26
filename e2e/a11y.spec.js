@@ -1,4 +1,5 @@
 import { test, expect } from '@playwright/test';
+import { addOptions } from './helpers.js';
 import AxeBuilder from '@axe-core/playwright';
 
 // Automated accessibility checks (WCAG 2.2 A/AA rules from axe) on every main screen, in light and
@@ -32,16 +33,7 @@ for (const scheme of ['light', 'dark']) {
       await audit(page, 'chooser');
       await page.goto('/new/pick');
       await page.click('[data-occasion="0"]');
-      await page.click('[data-pick-mode="compose"]');
-      await page.click('#draft-cal [data-nav="1"]');
-      await page.locator('#draft-cal .cal-day').first().click();
-      await page.locator('#draft-cal .cal-day').nth(1).click();
-      await page.click('[data-time="1140"]');
-      await audit(page, 'vote on a few dates (days, then times)');
-      await page.click('[data-pick-mode="calendar"]');
-      await page.click('.tv-nav [data-step="1"]');
-      const grid = await page.locator('.tg-scroll').boundingBox();
-      await page.mouse.click(grid.x + grid.width / 2, grid.y + 40);
+      await addOptions(page, 2);
       await audit(page, 'vote on a few dates (week or day)');
       await page.click('[data-length="days"]');
       await page.click('[data-nav="1"]');
@@ -94,10 +86,7 @@ for (const scheme of ['light', 'dark']) {
       page.on('dialog', (d) => d.accept());
       await page.goto('/new/pick');
       await page.fill('#title', 'Accessibility check');
-      await page.click('[data-pick-mode="compose"]');
-      await page.click('#draft-cal [data-nav="1"]');
-      for (const i of [0, 1]) await page.locator('#draft-cal .cal-day').nth(i).click();
-      await page.click('[data-time="1140"]');
+      await addOptions(page, 2);
       await page.click('#submit');
       await page.locator('#mine .row').first().locator('[data-vote="2"]').click();
       await page.locator('#mine .row').nth(1).locator('[data-vote="1"]').click();
