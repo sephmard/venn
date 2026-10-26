@@ -11,12 +11,40 @@ import {
   notifyResponse,
   pollReadyEmail,
   responseEmail,
+  shareLinks,
   summaryText,
   validateWebhookUrl,
   webhookBody,
 } from '../src/notify.js';
 
 // ---------- unit ----------
+
+test('emails offer ways to share the poll: a text message, WhatsApp and an email, with the link in each', () => {
+  const pollUrl = 'https://venn.example/e/abc';
+  const links = shareLinks('Dinner & drinks', pollUrl);
+  assert.deepEqual(
+    links.map(([label]) => label),
+    ['Text message', 'WhatsApp', 'Email'],
+  );
+  for (const [, href] of links) assert.ok(decodeURIComponent(href).includes(pollUrl), href);
+  assert.ok(links[0][1].startsWith('sms:?&body='));
+  assert.ok(links[1][1].startsWith('https://wa.me/?text='));
+  assert.ok(links[2][1].startsWith('mailto:?subject=Dinner%20%26%20drinks&body='));
+  const s = { event: 'response.created', poll: { title: 'Dinner', url: pollUrl, responses: 1 }, response: { name: 'Ana' } };
+  const emails = [
+    pollReadyEmail({ title: 'Dinner', pollUrl, unsubscribeUrl: `${pollUrl}#unsubscribe=u` }),
+    responseEmail(s, `${pollUrl}#unsubscribe=u`),
+    answerCopyEmail({ title: 'Dinner', name: 'Ana', lines: [], pollUrl, editUrl: `${pollUrl}#edit=p.t` }),
+  ];
+  for (const m of emails) {
+    for (const label of ['Text message', 'WhatsApp', 'Email']) assert.ok(m.html.includes(`>${label}</a>`), label);
+    assert.ok(m.html.includes('https://wa.me/?text='));
+    assert.ok(m.text.includes(pollUrl));
+  }
+  // Titles are escaped in the links' HTML.
+  const odd = pollReadyEmail({ title: '"><b>x', pollUrl, unsubscribeUrl: 'u' }).html;
+  assert.doesNotMatch(odd, /"><b>x/);
+});
 
 /** Whether an email has this exact line: a link checked whole, not found somewhere in the text. */
 const hasLine = (text, line) => text.split('\n').some((l) => l === line);

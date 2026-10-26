@@ -171,8 +171,9 @@ async function answerAsSam(page, id) {
   await page.waitForSelector('#mine .row');
   for (const [i, v] of SAM.entries()) await page.locator('#mine .row').nth(i).locator(`[data-vote="${v}"]`).click();
   await page.fill('#name', 'Sam');
+  // Confirm, then skip the "Answer submitted!" celebration.
   await page.click('#save');
-  // Skip the "Answer sent!" celebration.
+  await page.click('#sc-yes');
   await page.click('.party-go');
   await page.waitForSelector('.party', { state: 'detached' });
   await page.waitForSelector('.matrix');
@@ -228,6 +229,7 @@ async function stills(dark) {
 
   // Then send it and see the group's best options.
   await phone.click('#save');
+  await phone.click('#sc-yes');
   await phone.click('.party-go');
   await phone.waitForSelector('.party', { state: 'detached' });
   await phone.addStyleTag({ content: HIDE_TOAST });

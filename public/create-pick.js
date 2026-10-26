@@ -92,7 +92,7 @@ export function renderPick() {
           </div>
         </div>
         <details class="reveal" id="other-box">
-          <summary>Other length</summary>
+          <summary>Custom</summary>
           <label for="custom">Length</label>
           <select id="custom">${otherOptions(90)}</select>
         </details>
@@ -428,14 +428,15 @@ export function renderPick() {
   function showLength() {
     const chip = lengthChip(length);
     for (const b of $$('[data-length]')) b.setAttribute('aria-pressed', b.dataset.length === chip);
-    // Any other length is under "Other length", open while it's the one in use.
+    // Any other length is under "Custom": folded away so the chips stay uncrowded, its summary
+    // saying the length when it's the one in use.
     const other = chip === 'custom';
-    $('#other-box summary').textContent = other ? `Other length · ${lengthLabel(length)}` : 'Other length';
+    $('#other-box summary').textContent = other ? `Custom · ${lengthLabel(length)}` : 'Custom';
     if (other) $('#custom').innerHTML = otherOptions(length);
-    $('#other-box').open = other;
+    else $('#other-box').open = false;
     $('#span-field').hidden = length !== 'days';
   }
-  // Opening "Other length" uses the length it shows.
+  // Opening "Custom" uses the length it shows.
   $('#other-box').addEventListener('toggle', (e) => {
     if (e.target.open && lengthChip(length) !== 'custom' && setLength('custom') === false) e.target.open = false;
   });

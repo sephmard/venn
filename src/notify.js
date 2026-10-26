@@ -171,17 +171,36 @@ const para = (html) => `<p style="margin:0 0 12px;line-height:1.5">${html}</p>`;
 /** The link itself, under its button, for anyone who wants to copy or forward it. */
 const linkLine = (href) =>
   `<p style="margin:-8px 0 16px;font-size:13px;line-height:1.5;word-break:break-all"><a href="${escHtml(href)}" style="color:#0b7a5c">${escHtml(href)}</a></p>`;
+/**
+ * Ways to pass the poll on from an email: a text message, WhatsApp, or an email, each with the link
+ * filled in. (An email can't open a phone's share sheet, so these are plain links.)
+ */
+export function shareLinks(title, pollUrl) {
+  const say = `When works for you? “${title}”: ${pollUrl}`;
+  return [
+    ['Text message', `sms:?&body=${encodeURIComponent(say)}`],
+    ['WhatsApp', `https://wa.me/?text=${encodeURIComponent(say)}`],
+    ['Email', `mailto:?subject=${encodeURIComponent(title)}&body=${encodeURIComponent(say)}`],
+  ];
+}
+const sharePill = (href, label) =>
+  `<a href="${escHtml(href)}" style="display:inline-block;margin:0 6px 8px 0;padding:10px 16px;border:1.5px solid #0b7a5c;border-radius:999px;color:#0b7a5c;text-decoration:none;font-weight:600">${escHtml(label)}</a>`;
+const shareBlock = (title, pollUrl, lead = 'Share the poll') =>
+  `<p style="margin:16px 0 8px;font-weight:700">${escHtml(lead)}</p><p style="margin:0 0 12px">${shareLinks(title, pollUrl)
+    .map(([label, href]) => sharePill(href, label))
+    .join('')}</p>`;
+const shareText = (pollUrl) => `Share the poll: send everyone this link: ${pollUrl}`;
 const stopFooter = (unsubscribeUrl) =>
   `You get these emails because you asked Venn to tell you about this poll. <a href="${escHtml(unsubscribeUrl)}" style="color:#6b6d70">Stop these emails</a>.`;
 
 /** To the organizer, the moment their poll exists: well done, and here's the link to share. */
 export function pollReadyEmail({ title, pollUrl, unsubscribeUrl }) {
   const subject = `Your poll “${title}” is ready 🎉`;
-  const text = `Your poll “${title}” is ready!\n\nWe're so proud of you for bringing people together. Here's the link to share with everyone:\n\n${pollUrl}\n\nWe'll email you here whenever someone answers.\n\nStop these emails: ${unsubscribeUrl}\n`;
+  const text = `Your poll “${title}” is ready!\n\nWe're so proud of you for bringing people together. Here's the link to share with everyone:\n\n${pollUrl}\n\nShare it by text message, WhatsApp or email from the buttons in this email, or paste the link into your group chat.\n\nWe'll email you here whenever someone answers.\n\nStop these emails: ${unsubscribeUrl}\n`;
   const html = emailLayout(
     `${heading('Your poll is ready! 🎉')}${para(
       `We're so proud of you for bringing people together. Here's the link to <strong>${escHtml(title)}</strong>. Share it with everyone:`,
-    )}${button(pollUrl, 'Open your poll')}${linkLine(pollUrl)}${para("We'll email you here whenever someone answers.")}`,
+    )}${button(pollUrl, 'Open your poll')}${linkLine(pollUrl)}${shareBlock(title, pollUrl)}${para("We'll email you here whenever someone answers.")}`,
     stopFooter(unsubscribeUrl),
     pollUrl,
   );
@@ -208,10 +227,10 @@ export function responseEmail(s, unsubscribeUrl) {
     : s.poll.responses
       ? ''
       : 'No answers yet.';
-  const text = `${lead}${best ? `\n\n${best}` : ''}\n\nSee everyone's answers: ${s.poll.url}\n\nStop these emails: ${unsubscribeUrl}\n`;
+  const text = `${lead}${best ? `\n\n${best}` : ''}\n\nSee everyone's answers: ${s.poll.url}\n\n${shareText(s.poll.url)}\n\nStop these emails: ${unsubscribeUrl}\n`;
   const headline = name && isNew ? heading(`${escHtml(name)} just answered! 🎉`) : '';
   const html = emailLayout(
-    `${headline}${para(escHtml(lead))}${best ? para(escHtml(best)) : ''}${button(s.poll.url, "See everyone's answers")}${linkLine(s.poll.url)}`,
+    `${headline}${para(escHtml(lead))}${best ? para(escHtml(best)) : ''}${button(s.poll.url, "See everyone's answers")}${linkLine(s.poll.url)}${shareBlock(s.poll.title, s.poll.url, 'Waiting on anyone? Share the poll again')}`,
     stopFooter(unsubscribeUrl),
     s.poll.url,
   );
@@ -254,7 +273,7 @@ export function answerCopyEmail({ title, name, lines, pollUrl, editUrl, seeAnswe
   const pollLabel = seeAnswers ? "See everyone's answers" : 'Open the poll';
   const text = `Hi ${name}, here's what you told Venn for “${title}”:\n\n${
     list ? list.map((l) => `- ${l.label}: ${l.answer}`).join('\n') : 'None of these work.'
-  }\n\nYour answer (open it to change it): ${editUrl}\nThis link is just for you, so don't share it.\n\n${pollLabel}: ${pollUrl}\n\nYou asked for this copy when you answered. If that wasn't you, ignore this email.\n`;
+  }\n\nYour answer (open it to change it): ${editUrl}\nThis link is just for you, so don't share it.\n\n${pollLabel}: ${pollUrl}\n\nKnow someone else who should answer? Send them the poll: ${pollUrl}\n\nYou asked for this copy when you answered. If that wasn't you, ignore this email.\n`;
   const items = list
     ? `<ul style="margin:12px 0;padding-left:20px;line-height:1.6">${list
         .map((l) => `<li>${escHtml(l.label)}: <strong>${escHtml(l.answer)}</strong></li>`)
@@ -266,7 +285,7 @@ export function answerCopyEmail({ title, name, lines, pollUrl, editUrl, seeAnswe
       'View or change your answer',
     )}${linkLine(editUrl)}${para("This link is just for you, so don't share it.")}${para(
       `<a href="${escHtml(pollUrl)}" style="color:#0b7a5c">${pollLabel}</a>`,
-    )}`,
+    )}${shareBlock(title, pollUrl, 'Know someone else who should answer? Share the poll')}`,
     "You asked for this copy when you answered the poll. If that wasn't you, ignore this email and nothing more will be sent.",
     pollUrl,
   );

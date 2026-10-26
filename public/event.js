@@ -258,8 +258,9 @@ export async function renderEvent(id, navigate) {
               <span id="save-state" class="hint"></span>
               <div class="error" id="save-err" role="alert"></div>
             </div>
-            <button type="button" class="btn btn-primary" id="save">Save</button>
+            <button type="button" class="btn btn-primary" id="save">Submit</button>
           </div>
+          <dialog class="submit-check" id="submit-check" aria-labelledby="sc-h"></dialog>
         </section>
         <section class="panel" id="panel-group" role="tabpanel" aria-labelledby="tab-group">
           ${hideAll ? `<p class="sheet">🔒 ${privacy} You'll see the date at the top once they pick it.</p>` : ''}
@@ -923,9 +924,9 @@ export async function renderEvent(id, navigate) {
   const needs = () => {
     const name = !$('#name').value.trim();
     const pick = !hasAnswer();
-    if (name && pick) return `Add your name and pick at least one ${listMode ? 'option' : 'time'} to save.`;
-    if (name) return 'Add your name to save.';
-    if (pick) return `Pick at least one ${listMode ? 'option' : 'time'} to save, or choose "None of these work".`;
+    if (name && pick) return `Add your name and pick at least one ${listMode ? 'option' : 'time'} to submit.`;
+    if (name) return 'Add your name to submit.';
+    if (pick) return `Pick at least one ${listMode ? 'option' : 'time'} to submit, or choose "None of these work".`;
     return '';
   };
   function setDirty(v) {
@@ -936,7 +937,7 @@ export async function renderEvent(id, navigate) {
     $('#save').dataset.ready = !need;
     if (v) {
       el.className = 'dirty';
-      el.textContent = 'Not saved yet';
+      el.textContent = 'Not submitted yet';
       if (listMode) {
         const answered = ev().slots.filter((s) => st.mine[s] || st.touched.has(String(s))).length;
         el.textContent += `, ${answered} of ${ev().slots.length} answered`;
@@ -944,8 +945,35 @@ export async function renderEvent(id, navigate) {
       if (need) el.textContent += `. ${need}`;
     } else {
       el.className = 'hint';
-      el.textContent = me() ? 'Saved' : need;
+      el.textContent = me() ? 'Submitted' : need;
     }
+  }
+
+  /** "Are you sure?" before an answer goes in: who it's from and what it says, then Submit or Go back. */
+  function confirmSubmit(name) {
+    const d = $('#submit-check');
+    d.innerHTML = `<h2 id="sc-h">Submit your answer?</h2>
+      <p>Answering as <b>${esc(name)}</b>.${me() ? ' This replaces your last answer.' : ''}</p>
+      <div class="sc-picks">${$('#my-picks').innerHTML}</div>
+      <div class="sc-actions">
+        <button type="button" class="btn" id="sc-no">Go back</button>
+        <button type="button" class="btn btn-primary" id="sc-yes">Submit</button>
+      </div>`;
+    return new Promise((done) => {
+      const close = (yes) => {
+        d.close();
+        done(yes);
+      };
+      $('#sc-no', d).onclick = () => close(false);
+      $('#sc-yes', d).onclick = () => close(true);
+      d.oncancel = (e) => {
+        e.preventDefault();
+        close(false);
+      };
+      d.onclick = (e) => e.target === d && close(false); // a tap outside the box
+      d.showModal();
+      $('#sc-yes', d).focus();
+    });
   }
 
   $('#save').onclick = async () => {
@@ -982,6 +1010,7 @@ export async function renderEvent(id, navigate) {
       )
     )
       return;
+    if (!(await confirmSubmit(name))) return;
     rememberName(name);
     $('#save').disabled = true;
     try {
@@ -1007,8 +1036,8 @@ export async function renderEvent(id, navigate) {
           forget(id, 'participantId', 'editToken');
         }
       }
-      // A first answer gets a little party; it loads while the answer is sent.
-      const party = saved(id).participantId ? null : import('./celebrate.js').catch(() => null);
+      // Every answer sent gets a little party; it loads while the answer is sent.
+      const party = import('./celebrate.js').catch(() => null);
       if (!saved(id).participantId) {
         const r = await api(`events/${id}/participants`, { method: 'POST', body });
         save(id, { participantId: r.id, editToken: r.editToken });
@@ -1017,18 +1046,19 @@ export async function renderEvent(id, navigate) {
       await load();
       setDirty(false);
       renderAll();
-      const sent = `${created ? 'Submitted.' : 'Saved.'}${copyTo ? ` A copy is on its way to ${copyTo}.` : ''}`;
-      if (created && !ev().isAdmin) {
-        const host = ev().organizer;
-        const p = (await party)?.celebrate({
-          emoji: ev().emoji || '🎉',
-          heading: 'Answer sent!',
-          message: `${host ? `${host} can see it now` : 'Everyone can see it now'}. Thanks for helping find a time.`,
-          button: hideAll ? 'Done' : 'See everyone’s answers →',
-        });
-        await p?.shown;
-        p?.finish();
-      }
+      const sent = `Submitted.${copyTo ? ` A copy is on its way to ${copyTo}.` : ''}`;
+      // A party for every answer sent, guests' and the organizer's.
+      const host = ev().isAdmin ? '' : ev().organizer;
+      const p = (await party)?.celebrate({
+        emoji: ev().emoji || '🎉',
+        heading: created ? 'Answer submitted!' : 'Answer updated!',
+        message: ev().isAdmin
+          ? 'Your answer is in. Now the fun part: seeing when everyone can make it.'
+          : `So glad you're in. ${host ? `${host} can see it now` : 'Everyone can see it now'}. Thanks for helping bring people together.`,
+        button: hideAll ? 'Done' : 'See everyone’s answers →',
+      });
+      await p?.shown;
+      p?.finish();
       toast(sent);
       // After the first save here (an organizer's answer may come with the poll), show the group.
       if ((created || !st.savedHere) && !hideAll) {
@@ -1491,7 +1521,7 @@ export async function renderEvent(id, navigate) {
   function renderMeState() {
     const mine = me();
     $('#leave').hidden = !mine;
-    $('#save').textContent = mine ? 'Save changes' : 'Submit';
+    $('#save').textContent = 'Submit';
     const s = saved(id);
     const link = $('#edit-link');
     if (mine) {
