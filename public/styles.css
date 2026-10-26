@@ -2185,6 +2185,16 @@ pre.code {
     display: inline;
   }
 }
+.hview {
+  margin-bottom: 4px;
+}
+.quick-votes {
+  grid-template-columns: repeat(auto-fit, minmax(96px, 1fr));
+}
+.part-vote[data-v='some'] {
+  border-style: dashed;
+  border-color: var(--accent);
+}
 
 /* ---------- organizer: paint the times guests can mark ---------- */
 .pg-scroll {
@@ -2256,4 +2266,17 @@ pre.code {
   .pg-cell {
     height: 28px;
   }
+}
+.zoom {
+  display: grid;
+  gap: 6px;
+  margin-bottom: 4px;
+}
+.sub-h {
+  font-size: 1rem;
+  margin: 0 0 8px;
+}
+.pg-help {
+  flex-basis: 100%;
+  margin: 0;
 }

@@ -2,7 +2,7 @@
 //   /new/pick  You suggest some dates (and times). Everyone votes on each one.
 //   /new/free  You pick a range of days. Everyone marks when they're free; Venn finds the overlap.
 
-import { MINUTE, MAX_SPAN_DAYS, addDays, utcToZoned, zonedToUtc } from './core.js';
+import { DAY_PARTS, MINUTE, MAX_SPAN_DAYS, addDays, utcToZoned, zonedToUtc } from './core.js';
 import { isPhone, monthView, paintView, timeView } from './picker.js';
 import {
   $,
@@ -722,15 +722,12 @@ export function renderPick() {
 
 // ---------- "Ask when people are free" ----------
 
-const FREE_LENGTHS = [
-  [30, '30 min'],
-  [60, '1 hour'],
-  [90, '1½ hours'],
-  [120, '2 hours'],
-  [180, '3 hours'],
-  [240, '4 hours'],
-  ['allday', 'All day'],
-  ['days', 'Several days'],
+const HOUR_LENGTHS = [30, 60, 90, 120, 180, 240];
+// How detailed guests' answers are, from the broadest to the finest.
+const LEVELS = [
+  ['days', 'Whole days'],
+  ['parts', 'Parts of the day'],
+  ['hours', 'Hours'],
 ];
 // Quick fills for the painter: parts of the day, painted on every day of the week shown.
 const FILLS = [
@@ -761,9 +758,11 @@ function toWindows(painted) {
 
 export function renderFree() {
   document.title = 'Ask when people are free · Venn';
-  const painted = new Set(); // "YYYY-MM-DD|minutes" for hours
-  const selected = new Set(); // whole days
-  let length = 120;
+  const selected = new Set(); // days, for whole days and parts of the day
+  const parts = new Set(DAY_PARTS.map((p) => p.key));
+  const painted = new Set(); // "YYYY-MM-DD|minutes", for hours
+  let level = 'days';
+  let length = 120; // minutes, for hours
   let painter = null;
   let cal = null;
 
@@ -772,23 +771,34 @@ export function renderFree() {
       <a class="back" href="/new" data-link>‹ Both kinds of poll</a>
       <h1>Ask when people are free</h1>
       ${planFields('free')}
-      <section class="sheet" aria-labelledby="length-h">
-        <h2 id="length-h">How long is it?</h2>
-        <div class="pills" role="group" aria-label="How long">
-          ${FREE_LENGTHS.map(([v, l]) => `<button type="button" class="pill" data-flength="${v}" aria-pressed="false">${l}</button>`).join('')}
+      <section class="sheet" aria-labelledby="when-h">
+        <h2 id="when-h">When could it be?</h2>
+        <div class="zoom">
+          <span class="scope-label" id="level-l">Guests answer with</span>
+          <div class="seg" role="radiogroup" aria-labelledby="level-l">
+            ${LEVELS.map(([k, l]) => `<button type="button" role="radio" data-level="${k}">${l}</button>`).join('')}
+          </div>
         </div>
-        <div class="inline-field" id="span-field" hidden>
-          <label for="span">How many days in a row?</label>
+        <p class="hint" id="level-hint"></p>
+        <div class="inline-field" data-for="days">
+          <label for="span">How many days in a row do you need?</label>
           <div class="stepper">
             <button type="button" class="icon-btn" data-step="-1" aria-label="One day fewer">−</button>
-            <input id="span" type="number" min="2" max="${MAX_SPAN_DAYS}" value="3" inputmode="numeric">
+            <input id="span" type="number" min="1" max="${MAX_SPAN_DAYS}" value="1" inputmode="numeric">
             <button type="button" class="icon-btn" data-step="1" aria-label="One day more">+</button>
           </div>
         </div>
-      </section>
-      <section class="sheet" aria-labelledby="when-h">
-        <h2 id="when-h">When could it be?</h2>
-        <p class="hint" id="when-hint"></p>
+        <div class="inline-field" data-for="parts">
+          <div class="pills" role="group" aria-label="Parts of the day to ask about">
+            ${DAY_PARTS.map((p) => `<button type="button" class="pill part" data-ask="${p.key}" aria-pressed="true">${p.label} <small>${esc(shortRange(p.start, p.end))}</small></button>`).join('')}
+          </div>
+        </div>
+        <div class="inline-field" data-for="hours">
+          <h3 class="sub-h" id="len-h">How long is it?</h3>
+          <div class="pills" role="group" aria-labelledby="len-h">
+            ${HOUR_LENGTHS.map((m) => `<button type="button" class="pill" data-flength="${m}" aria-pressed="false">${lengthLabel(m)}</button>`).join('')}
+          </div>
+        </div>
         <div id="when"></div>
         <div class="pills quick" role="group" aria-label="Quick picks" id="quick"></div>
       </section>
@@ -802,20 +812,46 @@ export function renderFree() {
 
   const occasion = wirePlan((o) => {
     if (!o) return;
-    if (o.days) $('#span').value = o.days;
-    setLength(o.length);
+    if (o.days) {
+      $('#span').value = o.days;
+      return setLevel('days');
+    }
+    if (typeof o.length === 'number') setLength(o.length);
+    if (o.part) {
+      parts.clear();
+      parts.add(o.part);
+      for (const b of $$('[data-ask]')) b.setAttribute('aria-pressed', parts.has(b.dataset.ask));
+    }
+    update();
   });
 
-  const hoursMode = () => typeof length === 'number';
-  const span = () => (length === 'days' ? Math.max(2, Math.min(MAX_SPAN_DAYS, +$('#span').value || 2)) : 1);
+  const span = () => Math.max(1, Math.min(MAX_SPAN_DAYS, +$('#span').value || 1));
+  const paintedDates = () => [...new Set([...painted].map((k) => k.split('|')[0]))].sort();
 
-  function setLength(v) {
-    const was = hoursMode();
-    length = v;
-    for (const b of $$('[data-flength]')) b.setAttribute('aria-pressed', b.dataset.flength === String(v));
-    $('#span-field').hidden = v !== 'days';
-    if (was !== hoursMode() || (!painter && !cal)) mount();
+  /** Zoom between whole days, parts of the day and hours, keeping the days picked so far. */
+  function setLevel(next) {
+    if (next === level && (painter || cal)) return;
+    if (level === 'hours' && next !== 'hours' && painted.size) {
+      selected.clear();
+      for (const d of paintedDates()) selected.add(d);
+    }
+    if (next === 'hours' && !painted.size)
+      // Zooming in: start from the days picked, painted morning to night.
+      for (const d of selected) for (let m = 480; m < 1380; m += 30) painted.add(`${d}|${m}`);
+    level = next;
+    for (const b of $$('[data-level]')) b.setAttribute('aria-checked', b.dataset.level === level);
+    for (const el of $$('[data-for]')) el.hidden = el.dataset.for !== level;
+    $('#level-hint').textContent = {
+      days: 'Guests tap the days they’re free. Start here: you can zoom in to parts of the day or hours.',
+      parts: 'Guests tap the mornings, afternoons and evenings they’re free.',
+      hours: 'Guests mark the hours they’re free, in 30-minute steps, within the times you paint.',
+    }[level];
+    mount();
     update();
+  }
+  function setLength(v) {
+    length = v;
+    for (const b of $$('[data-flength]')) b.setAttribute('aria-pressed', +b.dataset.flength === v);
   }
 
   function mount() {
@@ -823,18 +859,20 @@ export function renderFree() {
     cal?.cleanup();
     painter = cal = null;
     const root = $('#when');
-    if (hoursMode()) {
-      $('#when-hint').textContent = isPhone()
-        ? 'Drag down the calendar to paint the times people could meet; start on a painted time to erase. Tap a day name for the whole day. Scroll with the times on the left.'
-        : 'Drag across the calendar to paint the times people could meet; start on a painted time to erase. Click a day name for the whole day.';
-      painter = paintView(root, { selected: painted, onChange: update });
-      $('#quick').innerHTML = `<span class="scope-label">Fill this week:</span>${FILLS.map(
+    if (level === 'hours') {
+      painter = paintView(root, { selected: painted, onChange: update, startAt: paintedDates()[0] });
+      $('#quick').innerHTML = `<p class="hint pg-help">${
+        isPhone()
+          ? 'Drag down the calendar to paint; start on a painted time to erase. Tap a day name for the whole day. Scroll with the times on the left.'
+          : 'Drag across the calendar to paint; start on a painted time to erase. Click a day name for the whole day.'
+      }</p><span class="scope-label">Fill this week:</span>${FILLS.map(
         ([l, a, b], i) =>
           `<button type="button" class="pill" data-fill="${i}">${l} <small>${esc(shortRange(a, b))}</small></button>`,
       ).join('')}<button type="button" class="pill pill-quiet" id="q-clear">Clear all</button>`;
     } else {
-      $('#when-hint').textContent = 'Tap or drag across the days that could work. People will mark the ones they’re free.';
       cal = monthView(root, { selected, onChange: update });
+      const first = [...selected].sort()[0];
+      if (first) cal.show(first);
       $('#quick').innerHTML = `
         <button type="button" class="pill" id="q-2w">Next 2 weeks</button>
         <button type="button" class="pill" id="q-weekends">Next 4 weekends</button>
@@ -842,7 +880,6 @@ export function renderFree() {
     }
   }
 
-  // Quick picks
   const fill = (n, keep) => {
     selected.clear();
     for (let d = todayStr(), i = 0; selected.size < n && i < 120; d = addDays(d, 1), i++)
@@ -851,18 +888,30 @@ export function renderFree() {
     update();
   };
   $('#create').addEventListener('click', (e) => {
+    const lv = e.target.closest('[data-level]');
+    if (lv) setLevel(lv.dataset.level);
     const l = e.target.closest('[data-flength]');
-    if (l) setLength(Number.isNaN(+l.dataset.flength) ? l.dataset.flength : +l.dataset.flength);
-    const st = e.target.closest('#span-field [data-step]');
+    if (l) {
+      setLength(+l.dataset.flength);
+      update();
+    }
+    const st = e.target.closest('[data-step]');
     if (st) {
-      $('#span').value = Math.max(2, Math.min(MAX_SPAN_DAYS, span() + +st.dataset.step));
+      $('#span').value = Math.max(1, Math.min(MAX_SPAN_DAYS, span() + +st.dataset.step));
+      update();
+    }
+    const a = e.target.closest('[data-ask]');
+    if (a) {
+      if (parts.has(a.dataset.ask)) parts.delete(a.dataset.ask);
+      else parts.add(a.dataset.ask);
+      a.setAttribute('aria-pressed', parts.has(a.dataset.ask));
       update();
     }
     const f = e.target.closest('[data-fill]');
     if (f) {
       // Paint that part of the day on every day of the week shown, or clear it if it's all painted.
-      const [, a, b] = FILLS[+f.dataset.fill];
-      const keys = painter.week().flatMap((d) => Array.from({ length: (b - a) / 30 }, (_, i) => `${d}|${a + i * 30}`));
+      const [, from, to] = FILLS[+f.dataset.fill];
+      const keys = painter.week().flatMap((d) => Array.from({ length: (to - from) / 30 }, (_, i) => `${d}|${from + i * 30}`));
       const all = keys.every((k) => painted.has(k));
       for (const k of keys) all ? painted.delete(k) : painted.add(k);
       painter.render();
@@ -879,8 +928,8 @@ export function renderFree() {
     }
     const rm = e.target.closest('[data-rm-window]');
     if (rm) {
-      const [ds, a, b] = rm.dataset.rmWindow.split('|');
-      for (const d of ds.split(',')) for (let m = +a; m < +b; m += 30) painted.delete(`${d}|${m}`);
+      const [ds, from, to] = rm.dataset.rmWindow.split('|');
+      for (const d of ds.split(',')) for (let m = +from; m < +to; m += 30) painted.delete(`${d}|${m}`);
       painter.render();
       update();
     }
@@ -907,20 +956,22 @@ export function renderFree() {
     }
     return out;
   }
-
   /** "Nov 1 – Nov 14" or "Sat, Nov 7". */
   const dayRange = (dates) => (dates.length === 1 ? dayLabel(dates[0]) : `${dayLabel(dates[0])} – ${dayLabel(dates.at(-1))}`);
+  const rmBtn = (attr, label) => `<button type="button" ${attr} aria-label="Remove ${esc(label)}">×</button>`;
+  const partNames = () => {
+    const names = DAY_PARTS.filter((p) => parts.has(p.key)).map((p) => `${p.label.toLowerCase()}s`);
+    return names.length > 1 ? `${names.slice(0, -1).join(', ')} and ${names.at(-1)}` : names[0] || '';
+  };
 
-  // The list of what guests will be able to mark, and whether the poll can be created yet.
+  // What guests will be able to mark, and whether the poll can be created yet.
   function update() {
     const box = $('#free-list');
-    const rmBtn = (attr, label) => `<button type="button" ${attr} aria-label="Remove ${esc(label)}">×</button>`;
-    if (hoursMode()) {
+    if (level === 'hours') {
       const windows = toWindows(painted);
-      const dates = [...new Set(windows.map((w) => w.date))];
-      const long = windows.some((w) => w.end - w.start >= length);
+      const dates = paintedDates();
       box.innerHTML = windows.length
-        ? `<p class="preview-lede">Guests will mark when they’re free in these times, in 30-minute steps. Venn looks for <b>${esc(lengthLabel(length))}</b> that works for the most people.</p>
+        ? `<p class="preview-lede">Guests will mark when they’re free in these times. Venn looks for <b>${esc(lengthLabel(length))}</b> that works for the most people.</p>
           <ul class="od-list">${groups(windows)
             .map(
               (g) =>
@@ -933,53 +984,66 @@ export function renderFree() {
             )
             .join('')}</ul>`
         : '<p class="hint">Nothing yet. Paint some times on the calendar above, or use a quick fill.</p>';
-      setReady(
+      return setReady(
         !windows.length
           ? 'Paint at least one time to create the poll'
-          : !long
+          : !windows.some((w) => w.end - w.start >= length)
             ? `Your times are shorter than ${lengthLabel(length)}. Paint a longer stretch`
             : !named(occasion)
               ? 'Give your plan a name to create the poll'
               : '',
         `${plural(dates.length, 'day')} to choose from`,
       );
-    } else {
-      const dates = [...selected].sort();
-      const k = span();
-      box.innerHTML = dates.length
-        ? `<p class="preview-lede">Guests will mark the whole days they’re free on <b>${plural(dates.length, 'day')}</b> (${esc(dayRange(dates))}). ${
-            k > 1
-              ? `Venn looks for ${k} days in a row that work for the most people.`
-              : 'Venn finds the days the most people are free.'
-          }</p><div class="chips">${dates
-            .map((d) => `<span class="chip">${esc(dayLabel(d))}${rmBtn(`data-rm-day="${d}"`, dayLabel(d))}</span>`)
-            .join('')}</div>`
-        : '<p class="hint">Nothing yet. Pick some days on the calendar above.</p>';
-      setReady(
-        !dates.length
-          ? 'Pick at least one day to create the poll'
-          : k > dates.length
+    }
+    const dates = [...selected].sort();
+    const k = span();
+    const what =
+      level === 'parts'
+        ? parts.size
+          ? `which <b>${esc(partNames())}</b> they’re free`
+          : 'nothing yet: pick at least one part of the day'
+        : `the whole days they’re free. ${k > 1 ? `Venn looks for <b>${k} days in a row</b> that work for the most people.` : 'Venn finds the days the most people are free.'}`;
+    box.innerHTML = dates.length
+      ? `<p class="preview-lede">On ${plural(dates.length, 'day')} (${esc(dayRange(dates))}), guests will mark ${what}</p><div class="chips">${dates
+          .map((d) => `<span class="chip">${esc(dayLabel(d))}${rmBtn(`data-rm-day="${d}"`, dayLabel(d))}</span>`)
+          .join('')}</div>`
+      : '<p class="hint">Nothing yet. Pick some days on the calendar above.</p>';
+    setReady(
+      !dates.length
+        ? 'Pick at least one day to create the poll'
+        : level === 'parts' && !parts.size
+          ? 'Pick at least one part of the day'
+          : level === 'days' && k > dates.length
             ? `Pick at least ${k} days, for ${k} in a row`
             : !named(occasion)
               ? 'Give your plan a name to create the poll'
               : '',
-        `${plural(dates.length, 'day')} to choose from`,
-      );
-    }
+      level === 'parts'
+        ? `${plural(dates.length * parts.size, 'time')} to choose from`
+        : `${plural(dates.length, 'day')} to choose from`,
+    );
   }
 
   $('#create').onsubmit = (e) => {
     e.preventDefault();
     if ($('#submit').disabled) return;
-    if (hoursMode()) return submit({ windows: toWindows(painted), slotMinutes: 30, durationMinutes: length }, occasion);
-    const k = span();
-    submit(
-      { dates: [...selected].sort(), startMinute: 0, endMinute: 1440, slotMinutes: 1440, durationMinutes: k * 1440 },
-      occasion,
-    );
+    const dates = [...selected].sort();
+    if (level === 'hours') return submit({ windows: toWindows(painted), slotMinutes: 30, durationMinutes: length }, occasion);
+    if (level === 'parts') {
+      const tz = $('#tz').value;
+      const options = dates.flatMap((d) =>
+        DAY_PARTS.filter((p) => parts.has(p.key)).map((p) => ({
+          start: zonedToUtc(d, p.start, tz),
+          end: zonedToUtc(d, p.end, tz),
+        })),
+      );
+      return submit({ mode: 'options', layout: 'parts', options }, occasion);
+    }
+    submit({ dates, startMinute: 0, endMinute: 1440, slotMinutes: 1440, durationMinutes: span() * 1440 }, occasion);
   };
 
   setLength(120);
+  setLevel('days');
   showConfig();
   prefillTitle();
   $('#title').focus();
