@@ -92,7 +92,7 @@ function planFields(kind) {
       <div class="title-row">
         <span class="emoji-tile" id="emoji-tile" aria-hidden="true">🗓️</span>
         <div class="grow">
-          <label for="title">Name</label>
+          <label for="title">Name of your poll</label>
           <input id="title" type="text" maxlength="120" placeholder="${kind === 'free' ? 'Summer cabin trip' : "Dinner at Finn's"}" required>
         </div>
       </div>
@@ -204,12 +204,26 @@ async function submit(body, occasion, answer = null) {
     }
     // A little party, while the poll page loads behind it.
     import('./event.js').catch(() => {});
-    const party = (await celebration)?.celebrate({ emoji: body.emoji, title });
+    // The main button shares the poll: the phone's share sheet, or the link copied.
+    const url = `${location.origin}/e/${id}`;
+    let copying = null; // the link being copied, so its toast can show once the poll is open
+    const share = () => {
+      if (navigator.share && matchMedia('(pointer: coarse)').matches)
+        navigator.share({ title, text: `When works for you? ${title}`, url }).catch(() => {});
+      else
+        copying = navigator.clipboard.writeText(url).then(
+          () => true,
+          () => false,
+        );
+    };
+    const party = (await celebration)?.celebrate({ emoji: body.emoji, title, share });
     await party?.shown;
     history.pushState(null, '', `/e/${id}`);
     dispatchEvent(new PopStateEvent('popstate'));
     scrollTo(0, 0);
     party?.finish();
+    // Opening the poll clears any toast, so say the link was copied after it.
+    if (copying) (await copying) ? toast('Invite link copied. Paste it in your group chat.') : prompt('Copy this:', url);
   } catch (ex) {
     err.textContent = ex.message;
     $('#submit').disabled = false;
