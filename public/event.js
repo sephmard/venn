@@ -17,6 +17,7 @@ import {
   rankTimes,
   slotEnd,
   utcToZoned,
+  isEmail,
 } from './core.js';
 import { cycleGroup, fitsParts, groupState, partKey } from './day-parts.js';
 import { dayChip, isPhone, timeView } from './picker.js';
@@ -958,8 +959,7 @@ export async function renderEvent(id, navigate) {
       return;
     }
     const mail = $('#copy-to');
-    // The same check as the server's: something@something.something.
-    const okMail = /^[^\s@<>"',;]+@[^\s@<>"',;]+\.[^\s@<>"',;]+$/.test(mail.value.trim());
+    const okMail = isEmail(mail.value.trim()); // the server's rule
     const badMail = mail.value.trim() ? !okMail : ev().requireEmail;
     mail.setAttribute('aria-invalid', !!badMail);
     if (badMail) {
