@@ -28,7 +28,7 @@ const SHELL = ['app.html', 'styles.css', 'app.js'];
 // (create.css), so guests never download it, and each kind of poll loads only its own code.
 const PAGES = {
   'vote on a few dates page': ['create-pick.js', ['create.css'], 46],
-  'ask when people are available page': ['create-free.js', ['create.css'], 44],
+  'ask when people are available page': ['create-free.js', ['create.css'], 44.25], // +0.25 for usage stats
   'poll page': ['event.js', [], 45],
 };
 

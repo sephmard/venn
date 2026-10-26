@@ -17,6 +17,7 @@ import {
   zonedToUtc,
 } from './core.js';
 import { isPhone, monthView, timeView } from './picker.js';
+import * as ui from './ui.js';
 import { $, $$, app, dateParts, dayLabel, esc, fmtDay, lengthLabel, plural, shortRange, shortTime, todayStr } from './ui.js';
 
 import {
@@ -54,6 +55,7 @@ const loadPaint = async () => (pt ??= await import('./paint.js'));
 export function renderFree() {
   document.title = 'Ask when people are available · Venn';
   const src = source();
+  if (!src?.edit) ui.track('view', { page: 'free' });
   startForm();
   // What's picked at each level. Zooming in or out carries it to the next level.
   const selected = new Set(); // days, for whole days

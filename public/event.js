@@ -52,6 +52,7 @@ import {
   shortRange,
   shortTime,
   toast,
+  track,
   tzName,
   tzOptions,
   dayChip,
@@ -135,6 +136,7 @@ export async function renderEvent(id, navigate) {
     st.ev.finalStart != null && loadCal(),
   ]);
   document.title = `${ev().title} · Venn`;
+  track('view', { page: 'poll', as: ev().isAdmin ? 'organizer' : saved(id).participantId ? 'answered' : 'guest' });
   const shareUrl = `${location.origin}/e/${id}`;
   const optionsMode = isOptionsPoll(ev());
   const daysMode = isDaysPoll(ev());
@@ -297,8 +299,10 @@ export async function renderEvent(id, navigate) {
     </article>`;
 
   // Every share is just the poll's link: no message around it, so "Copy" in the share sheet copies a link that works.
-  $('#copy').onclick = () =>
+  $('#copy').onclick = () => {
+    track('share', { how: canShare ? 'sheet' : 'copy', from: 'poll' });
     canShare ? navigator.share({ title: ev().title, url: shareUrl }).catch(() => {}) : copy(shareUrl, 'Invite link copied');
+  };
   $('#name').value = me()?.name || lastName();
   $('#name').oninput = () => setDirty(true);
   $('#tz').onchange = (e) => {

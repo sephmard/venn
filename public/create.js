@@ -18,6 +18,7 @@ import {
   rememberName,
   save,
   toast,
+  track,
   tzName,
   tzOptions,
 } from './ui.js';
@@ -97,6 +98,7 @@ export function fillCommon(ev, src) {
 
 export function renderChooser() {
   document.title = 'New poll · Venn';
+  track('view', { page: 'chooser' });
   const carry = titleFromUrl() ? `?title=${encodeURIComponent(titleFromUrl())}` : '';
   app.innerHTML = `
     <section class="chooser">
@@ -234,6 +236,7 @@ export async function submit(body, occasion, answer = null) {
   if (answer && Object.keys(answer).length) body.hostAvailability = answer;
   if (editing) return editPoll.saveEdit(editing, body);
   body.hostAnswers = true;
+  if (source()) body.copied = true;
   // The celebration (and its picture) load while the poll is saved.
   const celebration = import('./celebrate.js').catch(() => null);
   try {

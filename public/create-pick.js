@@ -4,7 +4,7 @@
 import { DAY_PARTS, IF_NEEDED, MINUTE, MAX_SPAN_DAYS, YES, addDays, lengthChip, utcToZoned, zonedToUtc } from './core.js';
 import { editBlocks } from './block-edit.js';
 import { isPhone, monthView, timeView } from './picker.js';
-import { $, $$, app, dayLabel, esc, getConfig, lengthLabel, plural, shortRange, shortTime, todayStr } from './ui.js';
+import { $, $$, app, dayLabel, esc, getConfig, lengthLabel, plural, shortRange, shortTime, todayStr, track } from './ui.js';
 
 import {
   createBar,
@@ -57,6 +57,7 @@ function tinyTime(m) {
 export function renderPick() {
   document.title = 'Vote on a few dates · Venn';
   const src = source();
+  if (!src?.edit) track('view', { page: 'pick' });
   startForm();
   // The options so far, in local time: { date, from, to } in minutes, or { date, days } for all day or longer.
   const items = new Map();

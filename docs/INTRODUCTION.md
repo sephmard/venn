@@ -84,5 +84,5 @@ Found a security issue? Please report it privately: see [Security](../SECURITY.m
 
 - [Self-hosting](SELF-HOSTING.md): deploy to Cloudflare or any Node server, and turn on optional features.
 - [API](API.md): every endpoint, with request and response shapes.
-- [Notifications](NOTIFICATIONS.md), [Calendars](CALENDARS.md) and [AI features](AI.md): setup for each optional feature.
+- [Notifications](NOTIFICATIONS.md), [Calendars](CALENDARS.md), [AI features](AI.md) and [Usage stats](USAGE-STATS.md): setup for each optional feature.
 - [Contributing](../CONTRIBUTING.md): setup, tests and how pull requests are reviewed.

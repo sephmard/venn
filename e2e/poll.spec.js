@@ -1933,3 +1933,34 @@ test('vote on a few dates starts at an hour, and Gym, Run, Bike and Golf are kin
     else await expect(page.locator('#other-box summary')).toHaveText(length);
   }
 });
+
+test('usage stats: counted as people use Venn, and shown to whoever has the token', async ({ page }) => {
+  // Browsers asking not to be tracked send nothing.
+  const sent = [];
+  page.on('request', (r) => r.url().endsWith('/api/usage') && sent.push(r.postDataJSON()));
+  await page.goto('/new/free');
+  await expect.poll(() => sent.length).toBe(1);
+  expect(sent[0]).toEqual({ name: 'view', props: { page: 'free' } });
+  await page.addInitScript(() => Object.defineProperty(Navigator.prototype, 'globalPrivacyControl', { get: () => true }));
+  await page.goto('/new/pick');
+  await expect(page.locator('#title')).toBeVisible();
+  await page.waitForTimeout(300);
+  expect(sent.length).toBe(1);
+
+  await page.goto('/stats');
+  await page.fill('#token', 'wrong');
+  await page.click('#login button[type=submit]');
+  await expect(page.locator('#login [role=alert]')).toHaveText('Wrong stats token');
+  await page.fill('#token', 'test-stats');
+  await page.click('#login button[type=submit]');
+  await expect(page.locator('h2', { hasText: 'What happens to polls' })).toBeVisible();
+  await expect(page.locator('.tile').first()).toContainText('polls created');
+  await expect(page.locator('section', { hasText: 'From visit to poll' })).toContainText('Ask when people are available');
+  // The token is remembered on this device, until it's forgotten.
+  await page.reload();
+  await expect(page.locator('.tile')).toHaveCount(5);
+  await page.click('[data-days="7"]');
+  await expect(page.locator('[data-days="7"]')).toHaveAttribute('aria-checked', 'true');
+  await page.click('#logout');
+  await expect(page.locator('#token')).toBeVisible();
+});

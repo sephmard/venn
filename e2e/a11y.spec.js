@@ -59,6 +59,15 @@ for (const scheme of ['light', 'dark']) {
       await audit(page, 'ask when people are free (painting hours)');
     });
 
+    test('usage stats page', async ({ page }) => {
+      await page.goto('/stats');
+      await audit(page, 'stats sign-in');
+      await page.fill('#token', 'test-stats');
+      await page.click('#login button[type=submit]');
+      await page.locator('.tile').first().waitFor();
+      await audit(page, 'stats');
+    });
+
     test('privacy options, the Privacy panel, and a guest with answers hidden', async ({ page, browser }) => {
       await page.goto('/new/free');
       await page.fill('#organizer', 'Sam');
