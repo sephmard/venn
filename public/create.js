@@ -169,12 +169,19 @@ async function submit(body, occasion) {
   if (body.organizer) rememberName(body.organizer);
   if (notifyEmail) rememberEmail(notifyEmail);
   $('#submit').disabled = true;
+  // The celebration (and its picture) load while the poll is saved.
+  const celebration = import('./celebrate.js').catch(() => null);
   try {
     const { id, adminToken } = await api('events', { method: 'POST', body });
     save(id, { adminToken, justCreated: true, notifyPending: !!notifyEmail });
+    // A little party, while the poll page loads behind it.
+    import('./event.js').catch(() => {});
+    const party = (await celebration)?.celebrate({ emoji: body.emoji, title });
+    await party?.shown;
     history.pushState(null, '', `/e/${id}`);
     dispatchEvent(new PopStateEvent('popstate'));
     scrollTo(0, 0);
+    party?.finish();
   } catch (ex) {
     err.textContent = ex.message;
     $('#submit').disabled = false;

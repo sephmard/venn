@@ -40,7 +40,11 @@ test('vote on a few dates: collect votes, pick the final date', async ({ page, r
   await expect(page.locator('#summary')).toHaveText('14 options to vote on');
 
   await page.click('#submit');
+  // A celebration, then the new poll.
+  await expect(page.locator('.party [role=status]')).toHaveText(/Poll created!.*bringing people together/);
+  await expect(page.getByRole('button', { name: 'Open Dinner →' })).toBeFocused();
   await expect(page.locator('#mine .row')).toHaveCount(14);
+  await expect(page.locator('.party')).toHaveCount(0);
   await expect(page.locator('details.organizer')).toHaveAttribute('open', '');
 
   // The organizer answers: yes to the first two, no to the third.
@@ -224,6 +228,8 @@ test('guests need a name and an answer to save, and can say none of these work',
     await request.post('/api/events', { data: { title: 'Dinner', timezone: 'UTC', mode: 'options', options } })
   ).json();
   await page.goto(`/e/${id}`);
+  // This test server has no email, so the optional "email me a copy" field stays hidden.
+  await expect(page.locator('#copy-field')).toBeHidden();
   // Checking a calendar is coming later.
   await expect(page.locator('#cal-btn')).toBeDisabled();
   await expect(page.locator('#cal-btn')).toContainText('Coming soon');
@@ -367,6 +373,19 @@ test('landing page: nav bar with GitHub, and the way to both kinds of poll', asy
   await expect(page.getByRole('heading', { name: 'What kind of poll?' })).toBeVisible();
   await page.getByRole('link', { name: 'Venn', exact: true }).click();
   await expect(page).toHaveURL(/\/$/);
+});
+
+test('the poll created celebration shows the dog, and its button skips ahead', async ({ page }) => {
+  await page.emulateMedia({ reducedMotion: 'reduce' });
+  await page.goto('/new/pick');
+  await page.getByRole('button', { name: 'Book club' }).click();
+  await addOptions(page, 7, [1140]);
+  await page.click('#submit');
+  await expect(page.locator('.party [role=status]')).toContainText('Poll created!');
+  await expect.poll(() => page.locator('.party-hero img').evaluate((img) => img.naturalWidth)).toBeGreaterThan(0);
+  await page.getByRole('button', { name: 'Open Book club →' }).click();
+  await expect(page).toHaveURL(/\/e\/\w+$/);
+  await expect(page.locator('.party')).toHaveCount(0);
 });
 
 test('installable: manifest and icons are served', async ({ request }) => {

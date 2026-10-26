@@ -246,3 +246,44 @@ test('calendar client IDs are published when configured', async (t) => {
     microsoftTenant: 'consumers',
   });
 });
+
+test('people who answer can get a copy of their answer, with their edit link', async () => {
+  const { data } = await call('/api/events', { method: 'POST', body: poll });
+  const slot = poll.options[0].start;
+  const path = `/api/events/${data.id}/participants`;
+
+  // A bad address is refused before anything is saved.
+  const bad = await call(path, { method: 'POST', body: { name: 'Ana', availability: { [slot]: 2 }, copyTo: 'nope' } });
+  assert.equal(bad.status, 400);
+  assert.equal((await call(`/api/events/${data.id}`)).data.participants.length, 0);
+
+  sent = [];
+  const ana = await call(path, {
+    method: 'POST',
+    body: { name: 'Ana Lima', availability: { [slot]: 2 }, copyTo: 'Ana@Example.com' },
+  });
+  assert.equal(ana.status, 201);
+  const copy = emails().find((e) => e.body.subject === 'Your answer to “Design review”');
+  assert.deepEqual(copy.body.to, ['ana@example.com']);
+  assert.match(copy.body.text, /Wed, Nov 4, 3:00 PM – 4:00 PM EST: yes/);
+  assert.ok(copy.body.text.includes(`#edit=${ana.data.id}.${ana.data.editToken}`));
+
+  // Saving again sends a fresh copy, up to a limit per answer.
+  const edit = (availability) =>
+    call(`${path}/${ana.data.id}`, {
+      method: 'PUT',
+      body: { name: 'Ana Lima', availability, copyTo: 'ana@example.com' },
+      headers: { 'x-edit-token': ana.data.editToken },
+    });
+  sent = [];
+  await edit({});
+  assert.match(emails()[0].body.text, /None of the times work for you/);
+  for (let i = 0; i < 3; i++) await edit({ [slot]: 1 });
+  sent = [];
+  await edit({ [slot]: 1 });
+  assert.equal(emails().length, 0);
+
+  // No address, no copy; and the address is never kept with the poll.
+  await call(path, { method: 'POST', body: { name: 'Lee', availability: { [slot]: 2 } } });
+  assert.ok(!JSON.stringify((await call(`/api/events/${data.id}`)).data).includes('ana@example.com'));
+});
