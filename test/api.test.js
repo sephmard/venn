@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { createApp } from '../server.js';
 import { SECURITY_HEADERS } from '../src/security-headers.js';
+import { IF_NEEDED, YES, hostAnswer, keySlot, zonedToUtc } from '../public/core.js';
 
 let server, baseUrl;
 
@@ -254,6 +255,60 @@ test("the organizer's own answer, and editing a poll until someone else answers"
   const plain = (await call('/api/events', { method: 'POST', body: newEvent })).data;
   assert.equal(plain.participant, undefined);
   assert.equal((await call(`/api/events/${plain.id}`)).data.participants.length, 0);
+});
+
+test("asking when people are available: the organizer's answer keeps yes and if needed, at every level", async () => {
+  const tz = 'America/New_York';
+  // What the create page sends: the poll, and each pick's slot marked yes or if needed.
+  const days = ['2026-10-31', '2026-11-01', '2026-11-02']; // the clocks go back on Nov 1
+  const hours = ['2026-11-03|1080', '2026-11-03|1110', '2026-11-03|1140', '2026-11-03|1170'];
+  const parts = ['2026-11-04|540', '2026-11-04|1080'];
+  const polls = [
+    [{ dates: days, startMinute: 0, endMinute: 1440, slotMinutes: 1440, durationMinutes: 2880 }, days, ['2026-11-01']],
+    [{ windows: [{ date: '2026-11-03', start: 1080, end: 1200 }], slotMinutes: 30, durationMinutes: 60 }, hours, hours.slice(2)],
+    [
+      {
+        mode: 'options',
+        layout: 'parts',
+        options: [
+          { start: zonedToUtc('2026-11-04', 540, tz), end: zonedToUtc('2026-11-04', 720, tz) },
+          { start: zonedToUtc('2026-11-04', 1080, tz), end: zonedToUtc('2026-11-04', 1320, tz) },
+        ],
+      },
+      parts,
+      parts.slice(1),
+    ],
+  ];
+  for (const [poll, keys, ifNeeded] of polls) {
+    const body = { title: 'Cabin', organizer: 'Sam', timezone: tz, ...poll, hostAnswers: true };
+    const hostAvailability = hostAnswer(keys, new Set(ifNeeded), tz);
+    const created = (await call('/api/events', { method: 'POST', body: { ...body, hostAvailability } })).data;
+    const admin = { 'x-admin-token': created.adminToken };
+    const mine = async () => {
+      const ev = (await call(`/api/events/${created.id}`, { headers: admin })).data;
+      return ev.slots.map((s) => ev.participants[0].availability[s]);
+    };
+    const want = keys.map((k) => (ifNeeded.includes(k) ? IF_NEEDED : YES));
+    assert.deepEqual(await mine(), want);
+    // Editing the poll (before anyone answers) saves the organizer's new answer.
+    const flipped = hostAnswer(keys, new Set(keys.filter((k) => !ifNeeded.includes(k))), tz);
+    const put = await call(`/api/events/${created.id}`, {
+      method: 'PUT',
+      body: { ...body, hostAvailability: flipped },
+      headers: admin,
+    });
+    assert.equal(put.status, 200);
+    assert.deepEqual(
+      await mine(),
+      want.map((v) => (v === YES ? IF_NEEDED : YES)),
+    );
+    // Anything but yes, if needed or no isn't an answer, and the poll stays as it was.
+    const wrong = { [keySlot(keys[0], tz)]: 3 };
+    assert.equal((await call('/api/events', { method: 'POST', body: { ...body, hostAvailability: wrong } })).status, 400);
+    const edit = { ...body, title: 'Changed', hostAvailability: wrong };
+    assert.equal((await call(`/api/events/${created.id}`, { method: 'PUT', body: edit, headers: admin })).status, 400);
+    assert.equal((await call(`/api/events/${created.id}`)).data.title, 'Cabin');
+  }
 });
 
 test('specific-times poll: votes and finalize use the option end', async () => {

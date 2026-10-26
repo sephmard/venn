@@ -227,13 +227,15 @@ export async function handleApi(
       // `hostAnswers`: the times the organizer offers count as their own answer (yes to all).
       const host = body.hostAnswers === true && { id: randomId(10), editToken: randomId(24) };
       if (host) event.hostId = host.id;
+      // Checked before anything is saved, so a bad answer doesn't leave a poll behind.
+      const hostAnswer = host && hostAvailability(event, body.hostAvailability);
       await store.createEvent({ id, event, adminHash: await sha256(adminToken), now: now() });
       if (host)
         await store.insertParticipant({
           id: host.id,
           eventId: id,
           name: event.organizer || 'Organizer',
-          availability: hostAvailability(event, body.hostAvailability),
+          availability: hostAnswer,
           editHash: await sha256(host.editToken),
           now: now(),
         });
@@ -275,16 +277,17 @@ export async function handleApi(
         const body = await readJson(request);
         const next = applyPrivacy(normalizeEventInput(body), body);
         if (ev.hostId) next.hostId = ev.hostId;
+        // The organizer's own answer follows the new times. It's checked before the poll changes.
+        const host = participants.find((p) => p.id === ev.hostId);
+        const hostAnswer = host && hostAvailability(next, body.hostAvailability);
         await store.updateEvent(ev.id, next);
         await store.setFinal(ev.id, null);
-        // The organizer's own answer follows the new times.
-        const host = participants.find((p) => p.id === ev.hostId);
         if (host)
           await store.updateParticipant({
             id: host.id,
             eventId: ev.id,
             name: next.organizer || host.name,
-            availability: hostAvailability(next, body.hostAvailability),
+            availability: hostAnswer,
             now: now(),
           });
         return json({ ok: true });

@@ -126,6 +126,39 @@ export function longestRun(dates) {
   return best;
 }
 
+/** `dates` (YYYY-MM-DD, any order) as runs of days in a row: [['…-06', '…-07', '…-08'], ['…-11']]. */
+export function dayRuns(dates) {
+  const runs = [];
+  for (const d of [...new Set(dates)].sort()) {
+    const last = runs.at(-1);
+    if (last && addDays(last.at(-1), 1) === d) last.push(d);
+    else runs.push([d]);
+  }
+  return runs;
+}
+
+/**
+ * The slot (a UTC instant) that a "YYYY-MM-DD|minutes" key (or a whole day, "YYYY-MM-DD") starts
+ * at in `tz`, or null for a wall-clock time that doesn't exist there, like buildSlots skips.
+ */
+export function keySlot(key, tz) {
+  const [date, m] = key.split('|');
+  const minutes = +m || 0;
+  const t = zonedToUtc(date, minutes, tz);
+  const back = utcToZoned(t, tz);
+  return back.date === date && back.minutes === minutes ? t : null;
+}
+
+/** The organizer's answer from what they picked (`keys`): yes, or if needed for the keys in `maybe`. */
+export function hostAnswer(keys, maybe, tz) {
+  const out = {};
+  for (const k of keys) {
+    const t = keySlot(k, tz);
+    if (t != null) out[t] = maybe.has(k) ? IF_NEEDED : YES;
+  }
+  return out;
+}
+
 export function weekdayOf(dateStr) {
   const [y, m, d] = dateStr.split('-').map(Number);
   return new Date(Date.UTC(y, m - 1, d)).getUTCDay();
