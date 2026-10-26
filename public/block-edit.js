@@ -67,7 +67,10 @@ export function editBlocks(root, { blocks, range, minuteAt, rowPx, onResize, onM
     const { b, edge, moved, date, from, to } = edit;
     edit = null;
     if (!moved) return;
-    suppressClick = true; // the click that follows the drag isn't a tap
+    // The click that comes straight after the drag isn't a tap. When the drag redraws the block there's
+    // no such click, so forget it then, or the next real tap would be swallowed.
+    suppressClick = true;
+    setTimeout(() => (suppressClick = false));
     if (edge) onResize(b.key, from, to);
     else onMove(b.key, date, from, to);
   };

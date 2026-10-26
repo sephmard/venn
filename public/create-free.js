@@ -16,8 +16,8 @@ import {
   utcToZoned,
   zonedToUtc,
 } from './core.js';
-import { monthView } from './picker.js';
-import { $, $$, app, dateParts, dayLabel, esc, fmtDay, lengthLabel, plural, todayStr } from './ui.js';
+import { isPhone, monthView, timeView } from './picker.js';
+import { $, $$, app, dateParts, dayLabel, esc, fmtDay, lengthLabel, plural, shortRange, shortTime, todayStr } from './ui.js';
 
 import {
   createBar,
@@ -132,7 +132,7 @@ export function renderFree() {
 
   const span = () => Math.max(1, Math.min(MAX_SPAN_DAYS, +$('#span').value || 1));
   // Where to go when Create is pressed with nothing picked: the calendar.
-  const gridFocus = () => $('#when .pg-cell[tabindex="0"]') || $('#when .cal-day:not(:disabled)');
+  const gridFocus = () => $('#when .pg-cell[tabindex="0"]') || $('#when .tg-scroll') || $('#when .cal-day:not(:disabled)');
 
   /** Zoom between whole days, parts of the day and hours. */
   async function setLevel(next) {
@@ -146,7 +146,7 @@ export function renderFree() {
     $('#level-hint').textContent = {
       days: 'Guests tap the days they’re available. Start broad. Switch to parts of the day or hours if timing matters; we’ll keep what you’ve picked.',
       parts: 'Guests tap the mornings, afternoons and evenings they’re available. Pick which ones to ask about on each day.',
-      hours: 'Guests mark the hours they’re available, in 30-minute steps, within the times you paint.',
+      hours: 'Guests mark the hours they’re available, in 30-minute steps, within the times you add.',
     }[level];
     mount();
     update();
@@ -161,6 +161,16 @@ export function renderFree() {
    * just that day away. */
   function tapped() {
     const added = [...selected].filter((d) => !before.has(d));
+    const removed = [...before].filter((d) => !selected.has(d));
+    // A tap on a picked day goes round: available, then if needed, then taken away.
+    if (!added.length && removed.length === 1) {
+      const [d] = removed;
+      if (maybe.days.has(d)) maybe.days.delete(d);
+      else {
+        selected.add(d);
+        maybe.days.add(d);
+      }
+    }
     if (added.length === 1)
       for (let i = 1, d = added[0]; i < span() && selected.size < LIMITS.dates; i++) selected.add((d = addDays(d, 1)));
     const focused = document.activeElement?.dataset?.date;
@@ -190,7 +200,7 @@ export function renderFree() {
     const root = $('#when');
     const at = ++mounts;
     root.innerHTML = $('#quick').innerHTML = '';
-    $('#when-help').hidden = level === 'days';
+    $('#when-help').hidden = false;
     const clear = '<button type="button" class="pill pill-quiet" id="q-clear">Clear all</button>';
     if (level === 'days') {
       const said = (d) => (selected.has(d) ? (maybe.days.has(d) ? 'If needed' : 'Available') : '');
@@ -207,6 +217,12 @@ export function renderFree() {
     // Parts of the day and hours need the painter, which most whole-day polls never load.
     const { paintView, datesOf, paintHelp, fillPills } = await loadPaint();
     if (at !== mounts || !root.isConnected) return;
+    // Hours are times on the week calendar, moved and stretched with block-edit.js, loaded then too.
+    if (!parts) {
+      const { editBlocks } = await import('./block-edit.js');
+      if (at !== mounts || !root.isConnected) return;
+      return mountHours(root, datesOf(set)[0], fillPills, editBlocks);
+    }
     painter = paintView(root, {
       selected: set,
       onChange: update,
@@ -215,8 +231,107 @@ export function renderFree() {
       maybe: maybe[level],
       marking: () => brush === IF_NEEDED,
     });
-    $('#when-help').textContent = paintHelp(parts);
+    $('#when-help').textContent = paintHelp();
     $('#quick').innerHTML = fillPills(parts) + clear;
+  }
+
+  /**
+   * Hours: the same week / day calendar as "vote on a few dates". Drag (or tap) to add a stretch of
+   * time, drag it or its edges to move or change it, tap it to switch between available and if
+   * needed, or × to remove it. What's picked stays as half hours, so the levels still carry over.
+   */
+  function mountHours(root, first, fillPills, editBlocks) {
+    const slots = (from, to) => Array.from({ length: Math.max(0, (to - from) / 30) }, (_, i) => from + i * 30);
+    const keyOf = (w) => `${w.date}|${w.start}|${w.end}`;
+    const find = (k) => pt.windowsAt(st, 'hours').find((w) => keyOf(w) === k);
+    const put = (date, from, to, ifNeeded) => {
+      for (const m of slots(from, Math.min(to, 1440))) {
+        painted.add(`${date}|${m}`);
+        if (ifNeeded) maybe.hours.add(`${date}|${m}`);
+        else maybe.hours.delete(`${date}|${m}`);
+      }
+    };
+    const take = (w) => {
+      for (const m of slots(w.start, w.end)) {
+        painted.delete(`${w.date}|${m}`);
+        maybe.hours.delete(`${w.date}|${m}`);
+      }
+    };
+    const changed = () => {
+      view.render();
+      update();
+    };
+    let shown = [];
+    const view = timeView(root, {
+      label: 'Calendar',
+      views: ['week', 'day'],
+      range: () => [420, 1440],
+      tapLength: () => length,
+      startAt: () => null,
+      blocks: () =>
+        pt.windowsAt(st, 'hours').map((w) => ({
+          key: keyOf(w),
+          date: w.date,
+          from: w.start,
+          to: w.end,
+          cls: w.maybe ? 'opt opt-maybe' : 'opt',
+          label: shortRange(w.start, w.end),
+          short: shortTime(w.start),
+          tiny: shortTime(w.start),
+          tag: w.maybe ? 'If needed' : 'Available',
+          title: `${shortRange(w.start, w.end)} ${w.maybe ? 'If needed' : 'Available'}, ${dayLabel(w.date)}. Tap to make it ${w.maybe ? 'available' : 'if needed'}`,
+          remove: `Remove ${shortRange(w.start, w.end)}, ${dayLabel(w.date)}`,
+        })),
+      onCreate: (date, from, to) => {
+        put(date, from, to, brush === IF_NEEDED);
+        changed();
+      },
+      onBlock: (k) => {
+        const w = find(k);
+        if (w) put(w.date, w.start, w.end, !w.maybe);
+        changed();
+      },
+      onResize: (k, from, to) => {
+        const w = find(k);
+        if (!w) return;
+        take(w);
+        put(w.date, from, to, w.maybe);
+        changed();
+      },
+      onMove: (k, date, from, to) => {
+        const w = find(k);
+        if (!w) return;
+        take(w);
+        put(date, from, to, w.maybe);
+        changed();
+      },
+      editBlocks: (el, o) =>
+        editBlocks(el, {
+          ...o,
+          onRemove: (k) => {
+            const w = find(k);
+            if (w) take(w);
+            changed();
+          },
+        }),
+      marks: (d) => {
+        const n = pt.windowsAt(st, 'hours').filter((w) => w.date === d).length;
+        return n ? String(n) : '';
+      },
+      onRender: (ds) => (shown = ds),
+    });
+    if (first) view.show(first);
+    // The quick fills paint the seven days of the week shown, starting today at the earliest.
+    const week = () => {
+      const sun = addDays(shown[0], -dateParts(shown[0]).getUTCDay());
+      const from = sun < todayStr() ? todayStr() : sun;
+      return Array.from({ length: 7 }, (_, i) => addDays(from, i));
+    };
+    painter = { render: view.render, week, cleanup: view.cleanup };
+    $('#when-help').textContent = isPhone()
+      ? 'Tap the calendar to add a time of the length above, or drag down it for longer. Drag a time’s top or bottom edge to change it, or drag it to move it. Tap a time to switch between available and if needed, or × to remove it.'
+      : 'Drag on the calendar to add a time, or click to add one of the length above. Drag a time’s edges to change it, or drag it to move it. Click a time to switch between available and if needed, or × to remove it.';
+    $('#quick').innerHTML = fillPills(false) + '<button type="button" class="pill pill-quiet" id="q-clear">Clear all</button>';
   }
 
   const fill = (n, keep) => {
@@ -352,10 +467,10 @@ export function renderFree() {
         : '<p class="hint">Nothing yet. Paint some times on the calendar above, or use a quick fill.</p>';
       return setReady(
         `${plural(dates.length, 'day')} to choose from`,
-        [!windows.length, 'Paint at least one time to create the poll', gridFocus],
+        [!windows.length, 'Add at least one time to create the poll', gridFocus],
         [
           !windows.some((w) => w.end - w.start >= length),
-          `Your times are shorter than ${lengthLabel(length)}. Paint a longer stretch`,
+          `Your times are shorter than ${lengthLabel(length)}. Make one longer`,
           gridFocus,
         ],
         ...nameAndEmail(occasion),
@@ -374,8 +489,11 @@ export function renderFree() {
     }
     const dates = [...selected].sort();
     const k = span();
-    $('#when-help').hidden = k < 2;
-    $('#when-help').textContent = `Tap a day to pick ${k} days in a row from it. Tap a picked day to take just that day away.`;
+    $('#when-help').hidden = false;
+    $('#when-help').textContent =
+      k > 1
+        ? `Tap a day to pick ${k} days in a row from it. Tap a picked day to make it if needed, and again to take just that day away.`
+        : 'Tap a day to pick it. Tap it again to make it if needed, and once more to take it away.';
     box.innerHTML = dates.length
       ? `<p class="preview-lede">On ${plural(dates.length, 'day')} (${esc(dayRange([dates[0], dates.at(-1)]))}), guests will mark the whole days they’re available. ${k > 1 ? `Venn looks for <b>${k} days in a row</b> that work for the most people.` : 'Venn finds the days the most people are available.'} ${flipHint}</p>${runList(dates, k)}`
       : '<p class="hint">Nothing yet. Pick some days on the calendar above.</p>';

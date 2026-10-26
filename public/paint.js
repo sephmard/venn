@@ -10,7 +10,8 @@ const STEP = 30;
 
 /**
  * Paint times on a week (desktop) or one day at a time (phones), in 30-minute rows. Drag to paint;
- * start on a painted time to erase. Tap a day's name to paint or clear the whole day.
+ * start on a painted time to erase. A tap goes round: picked, then if needed, then taken away. Tap
+ * a day's name to paint or clear the whole day.
  *   selected   Set of "YYYY-MM-DD|minutes", changed in place
  *   onChange() after each stroke
  *   from, to   minutes after midnight shown
@@ -37,7 +38,7 @@ export function paintView(
       </div>
     </div>
     <div class="tv-strip" role="group" aria-label="Days"${day ? '' : ' hidden'}></div>
-    <div class="pg-scroll"><div class="pg" role="group" aria-label="Times. Use the arrow keys to move and Space to paint."></div></div>`;
+    <div class="pg-scroll"><div class="pg" role="group" aria-label="Times. Use the arrow keys to move. Space picks a time, makes it if needed, then takes it away."></div></div>`;
   const grid = $('.pg', root);
   const strip = $('.tv-strip', root);
   const week = () => Array.from({ length: 7 }, (_, i) => addDays(start, i));
@@ -122,22 +123,36 @@ export function paintView(
     refresh();
   };
   const pos = (el) => ({ r: +el.dataset.r, c: +el.dataset.c });
+  /** One time, tapped (or Space): picked → if needed → taken away. */
+  const cycle = (k) => {
+    if (!selected.has(k)) add(k);
+    else if (!maybe.has(k)) maybe.add(k);
+    else drop(k);
+  };
   grid.addEventListener('pointerdown', (e) => {
     const el = e.target.closest('.pg-cell');
     if (!el || e.button > 0) return;
     e.preventDefault();
-    drag = { at: pos(el), before: new Set(selected), maybe: new Set(maybe), erase: el.classList.contains('on') };
-    paint(drag.at, drag.at);
+    const erase = el.classList.contains('on');
+    drag = { at: pos(el), el, before: new Set(selected), maybe: new Set(maybe), erase, moved: false };
+    // A picked time waits to see whether this is a tap (which goes round) or a drag (which erases).
+    if (!erase) paint(drag.at, drag.at);
   });
   grid.addEventListener('pointermove', (e) => {
     if (!drag) return;
     const el = document.elementFromPoint(e.clientX, e.clientY)?.closest('.pg-cell');
-    if (el && grid.contains(el)) paint(drag.at, pos(el));
+    if (!el || !grid.contains(el) || (el === drag.el && !drag.moved)) return;
+    drag.moved = true;
+    paint(drag.at, pos(el));
   });
   const end = () => {
     if (!drag) return;
+    if (drag.erase && !drag.moved) {
+      cycle(key(drag.el.dataset.d, +drag.el.dataset.m));
+      refresh();
+    }
     drag = null;
-    if (day) render();
+    render(); // the labels say what each time is now, as well as the colours
     onChange();
   };
   window.addEventListener('pointerup', end);
@@ -159,10 +174,13 @@ export function paintView(
       }
     } else if (e.key === ' ' || e.key === 'Enter') {
       e.preventDefault();
-      const k = key(el.dataset.d, +el.dataset.m);
-      if (selected.has(k)) drop(k);
-      else add(k);
-      refresh();
+      cycle(key(el.dataset.d, +el.dataset.m));
+      const { r, c } = pos(el);
+      render();
+      for (const x of $$('.pg-cell', grid)) x.tabIndex = -1;
+      const again = $(`.pg-cell[data-r="${r}"][data-c="${c}"]`, grid);
+      again.tabIndex = 0;
+      again.focus();
       onChange();
     }
   });
@@ -348,13 +366,9 @@ export function windowList(windows, level, chip, dayRange) {
 }
 
 /** How to paint, said above the calendar where it's read before the first stroke. */
-export function paintHelp(parts) {
+export function paintHelp() {
   const tap = isPhone() ? 'Tap' : 'Click';
-  if (parts)
-    return `${tap} a morning, afternoon or evening to add it or take it away, or drag across several. ${tap} a day name for the whole day.`;
-  return isPhone()
-    ? 'Drag down the calendar to paint; start on a painted time to erase. Tap a day name for the whole day. To scroll, drag the times on the left, or the page around the calendar.'
-    : 'Drag across the calendar to paint; start on a painted time to erase. Click a day name for the whole day.';
+  return `${tap} a morning, afternoon or evening to pick it, again to make it if needed, and once more to take it away, or drag across several. ${tap} a day name for the whole day.`;
 }
 /** The quick fills, for the week shown. */
 export const fillPills = (parts) =>

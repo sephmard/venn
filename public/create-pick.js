@@ -60,7 +60,7 @@ export function renderPick() {
   startForm();
   // The options so far, in local time: { date, from, to } in minutes, or { date, days } for all day or longer.
   const items = new Map();
-  let length = 120;
+  let length = 60; // an hour, until a kind of plan says otherwise
   let spanDays = 3;
   let brush = YES; // new options are marked as working for the organizer, or only if needed
   let view = null; // the week / day picker, for options with times
@@ -524,7 +524,7 @@ export function renderPick() {
     load(ev.options, ev.timezone, (start) => (host?.availability[start] === IF_NEEDED ? IF_NEEDED : YES));
   }
 
-  setLength(120);
+  setLength(length);
   showConfig(updateReady);
   // Describing the plan in words, when this server has AI.
   getConfig().then((c) => c.ai && !src && import('./ai-draft.js').then((m) => $('#create') && m.aiDraft($('#create'), load)));

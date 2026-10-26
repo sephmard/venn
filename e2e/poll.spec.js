@@ -79,7 +79,7 @@ test('vote on a few dates: collect votes, pick the final date', async ({ page, r
 test('a trip: options that last several days become all-day calendar events', async ({ page, request }) => {
   await page.goto('/new/pick');
   await page.fill('#organizer', 'Sam');
-  await page.click('[data-occasion="8"]'); // ✈️ Trip: several days, 3 by default
+  await page.getByRole('button', { name: 'Trip' }).click(); // ✈️ Trip: several days, 3 by default
   await expect(page.locator('[data-length="days"]')).toHaveAttribute('aria-pressed', 'true');
   await expect(page.locator('.tg')).toHaveCount(0); // whole-day options are picked on the month only
   await expect(page.locator('#span')).toHaveValue('3');
@@ -157,7 +157,7 @@ test('ask when people are available: a tap picks days in a row, shown as one ban
   await page.fill('#organizer', 'Sam');
   await page.fill('#span', '3');
   await expect(page.locator('#when-help')).toHaveText(
-    'Tap a day to pick 3 days in a row from it. Tap a picked day to take just that day away.',
+    'Tap a day to pick 3 days in a row from it. Tap a picked day to make it if needed, and again to take just that day away.',
   );
   await showNextMonth(page);
   const first = await nextMonth(page);
@@ -188,7 +188,11 @@ test('ask when people are available: a tap picks days in a row, shown as one ban
   await expect(rows.first()).toContainText('3 days · long enough');
   await expect(page.locator('#submit')).toHaveAttribute('aria-disabled', 'false');
 
-  // Tapping a picked day takes just that day away, and the run splits.
+  // Tapping a picked day makes it if needed for the organizer; again takes just that day away, and the run splits.
+  await day(1).click();
+  await expect(page.locator('.cal-day[aria-pressed="true"]')).toHaveCount(3);
+  await expect(day(1)).toHaveClass(/day-maybe/);
+  await expect(day(1).locator('small')).toHaveText('If needed');
   await day(1).click();
   await expect(page.locator('.cal-day[aria-pressed="true"]')).toHaveCount(2);
   await expect(rows).toHaveCount(2);
@@ -201,6 +205,8 @@ test('ask when people are available: a tap picks days in a row, shown as one ban
   await expect(page.locator('.cal-day[aria-pressed="true"]')).toHaveCount(5);
   await expect(day(9)).toBeFocused();
   await expect(rows).toHaveCount(3);
+  await page.keyboard.press(' ');
+  await expect(day(9)).toHaveClass(/day-maybe/);
   await page.keyboard.press(' ');
   await expect(day(9)).toHaveAttribute('aria-pressed', 'false');
   await expect(page.locator('.cal-day[aria-pressed="true"]')).toHaveCount(4);
@@ -483,7 +489,7 @@ test('organizers add different times on different days, and see the whole poll b
   await expect(page.locator('.tg-block.opt-maybe')).toHaveCount(1);
   const second = await showDate(page, addDays(first, 1));
   await second.locator('.tg-block').hover();
-  await expect(second.getByRole('button', { name: /^Remove 7 – 9 PM, / })).toBeVisible();
+  await expect(second.getByRole('button', { name: /^Remove 7 – 8 PM, / })).toBeVisible();
   await second.locator('.tg-x').click();
   await expect(page.locator('#options-list .od-row')).toHaveCount(1);
   await page.click('#submit');
@@ -510,7 +516,7 @@ test('organizers are asked before a change removes several options at once', asy
   let asked = answer(false);
   await page.click('[data-length="allday"]');
   expect(await asked).toBe("Switching to all day removes the 2 options you've added. Switch anyway?");
-  await expect(page.locator('#other-box summary')).toHaveText('Custom · 2 hours');
+  await expect(page.locator('[data-length="60"]')).toHaveAttribute('aria-pressed', 'true');
   await expect(page.locator('[data-length="allday"]')).toHaveAttribute('aria-pressed', 'false');
   await expect(page.locator('#options-list .chip')).toHaveCount(2);
   asked = answer(true);
@@ -683,11 +689,12 @@ test('phone: the calendars leave room to scroll the page, and say how to use the
   await page.goto('/new/free');
   await page.fill('#organizer', 'Sam');
   await page.click('[data-level="hours"]');
-  expect((await page.locator('.pg-scroll').boundingBox()).height).toBeLessThanOrEqual(half);
-  // The hint comes before the painter, not after it.
+  const hours = page.locator('#when .tg-scroll');
+  expect((await hours.boundingBox()).height).toBeLessThanOrEqual(half);
+  // The hint comes before the calendar, not after it.
   const help = page.locator('#when-help');
-  await expect(help).toContainText('drag the times on the left');
-  expect((await help.boundingBox()).y).toBeLessThan((await page.locator('.pg-scroll').boundingBox()).y);
+  await expect(help).toContainText('drag it to move it');
+  expect((await help.boundingBox()).y).toBeLessThan((await hours.boundingBox()).y);
 });
 
 test('keyboard: add a time to "vote on a few dates" without the pointer', async ({ page }) => {
@@ -1288,7 +1295,7 @@ test('organizers mark options as available or if needed, drag edges to resize, a
   await page.click('.tv-nav [data-step="1"]');
   const grid = await page.locator('.tg-scroll').boundingBox();
   const col = async (i) => page.locator('.tg-col').nth(i).boundingBox();
-  // A two-hour option (the default length), available.
+  // A one-hour option (the default length), available.
   await page.mouse.click((await col(1)).x + 10, grid.y + 10);
   // Then one that only works if needed.
   await page.click(`[data-pbrush="1"]`);
@@ -1296,7 +1303,7 @@ test('organizers mark options as available or if needed, drag edges to resize, a
   await expect(page.locator('.tg-block.opt-maybe')).toHaveCount(1);
   await expect(page.locator('#options-list .chip.maybe')).toHaveCount(1);
 
-  // Drag the first option's bottom edge down two rows: 2 hours becomes 3.
+  // Drag the first option's bottom edge down two rows: an hour becomes 2.
   const first = page.locator('.tg-block:not(.opt-maybe)');
   await expect(first).toContainText('–');
   const before = await first.textContent();
@@ -1384,39 +1391,71 @@ test.describe('in UTC', () => {
   });
 });
 
-test('organizers paint different hours on different days, and guests mark within them', async ({ page, isMobile }) => {
-  test.skip(isMobile, 'drag to paint with a mouse; phones are covered by the quick fills');
+test('organizers add hours on different days, drag them longer, switch one to if needed, and guests mark within them', async ({
+  page,
+  isMobile,
+}) => {
+  test.skip(isMobile, 'drag with a mouse; phones are covered by the quick fills');
   await page.goto('/new/free');
   await page.fill('#organizer', 'Sam');
   await page.fill('#title', 'Drinks');
   await page.click('[data-level="hours"]');
   await page.click('[data-flength="60"]');
-  await page.click('[data-pstep="1"]'); // next week, so every day is in the future
-  const cell = (r, c) => page.locator(`.pg-cell[data-r="${r}"][data-c="${c}"]`);
-  const drag = async (a, b) => {
-    await a.scrollIntoViewIfNeeded();
-    const p = await a.boundingBox();
-    const q = await b.boundingBox();
-    await page.mouse.move(p.x + 5, p.y + 5);
+  await page.click('#when .tv-nav [data-step="1"]'); // next week, so every day is in the future
+  const col = (i) => page.locator('#when .tg-col').nth(i);
+  // Where a time is in a day's column, scrolled into view.
+  const at = (i, minutes, scroll = true) =>
+    col(i).evaluate(
+      (el, [m, scroll]) => {
+        const row = parseFloat(getComputedStyle(el.closest('.tg')).getPropertyValue('--row')) || 24;
+        if (scroll) {
+          el.closest('.tg-scroll').scrollIntoView({ block: 'center' });
+          el.closest('.tg-scroll').scrollTop = ((m - 420) / 30) * row - 2 * row;
+        }
+        const r = el.getBoundingClientRect();
+        return { x: r.x + r.width / 2, y: r.y + ((m - 420) / 30) * row + row / 2 };
+      },
+      [minutes, scroll],
+    );
+  const tap = async (i, m) => {
+    const p = await at(i, m);
+    await page.mouse.click(p.x, p.y);
+  };
+  const dragBy = async (target, dy) => {
+    const box = await target.boundingBox();
+    await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
     await page.mouse.down();
-    await page.mouse.move(q.x + 5, q.y + 5, { steps: 5 });
+    await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2 + dy, { steps: 4 });
     await page.mouse.up();
   };
-  // 7 – 9 PM (rows 24–27) on the first two days, then 10 – 11 AM (rows 6–7) on the third.
-  await drag(cell(24, 0), cell(27, 1));
-  await drag(cell(6, 2), cell(7, 2));
-  await expect(page.locator('.pg-cell.on')).toHaveCount(10);
+  // A tap adds a time of the length chosen: 7 – 9 PM on the first two days, 10 – 11 AM on the third.
+  await page.click('[data-flength="120"]');
+  await tap(0, 1140);
+  await tap(1, 1140);
+  await page.click('[data-flength="60"]');
+  await tap(2, 600);
+  const blocks = page.locator('#when .tg-block');
+  await expect(blocks).toHaveCount(3);
   const list = page.locator('#free-list .od-row');
-  await expect(list).toHaveCount(2);
+  await expect(list).toHaveCount(2); // the same evening on two days in a row is one row
   await expect(list.first()).toContainText('7 – 9 PM');
   await expect(list.nth(1)).toContainText('10 – 11 AM');
-  // Starting a stroke on a painted time erases.
-  await drag(cell(27, 0), cell(27, 1));
-  await expect(page.locator('.pg-cell.on')).toHaveCount(8);
+  // Drag the morning's bottom edge down two rows: 10 – 11 becomes 10 – 12.
+  await dragBy(page.locator('#when .tg-col').nth(2).locator('.tg-bottom'), 48);
+  await expect(list.nth(1)).toContainText('10 AM – 12 PM');
+  // Drag the second evening down an hour: it moves to 8 – 10 PM.
+  await at(1, 1140); // scroll the evening into view
+  await dragBy(page.locator('#when .tg-col').nth(1).locator('.tg-block'), 48);
+  await expect(list).toHaveCount(3);
+  await expect(list.nth(1)).toContainText('8 – 10 PM');
+  // A tap switches a time to if needed for the organizer, and it says so.
+  await blocks.first().click();
+  await expect(blocks.first().locator('small')).toHaveText('If needed');
+  await expect(page.locator('#free-list .chip.maybe')).toHaveCount(1);
   await page.click('#submit');
 
-  // Guests get a grid with just those hours: 3 + 3 + 2 half hours.
-  await expect(page.locator('#mine .cell[data-slot]')).toHaveCount(8);
+  // Guests get a grid with just those hours: 4 + 4 + 4 half hours.
+  await expect(page.locator('#mine .cell[data-slot]')).toHaveCount(12);
   await expect(page.locator('#ev-details')).toContainText('Looking for 1 hour');
 });
 
@@ -1432,8 +1471,12 @@ test('ask when people are free: zoom from whole days to parts of the day to hour
   await page.click('[data-level="parts"]');
   await expect(page.locator('#summary')).toHaveText('6 times to choose from');
   await expect(page.locator('.pg-cell.part.on')).toHaveCount(isMobile ? 3 : 6); // phones show a day at a time
-  // No morning on the first day: the list shows each day's parts.
-  await page.locator('.pg-cell.part.on').first().click();
+  // A tap makes the first day's morning if needed for the organizer; another takes it away.
+  const morning = page.locator('.pg-cell.part[data-r="0"][data-c="0"]');
+  await morning.click();
+  await expect(morning).toHaveClass(/maybe/);
+  await expect(morning.locator('.pg-tag')).toHaveText('If needed');
+  await morning.click();
   await expect(page.locator('#summary')).toHaveText('5 times to choose from');
   const days = page.locator('#free-list .od-row');
   await expect(days).toHaveCount(2);
@@ -1872,4 +1915,21 @@ test('week view: a day at the top of the week opens it on its own', async ({ pag
   await expect(page.locator('#picker [data-view="day"]')).toHaveAttribute('aria-checked', 'true');
   await expect(page.locator('#picker .tg-col')).toHaveCount(1);
   await expect(page.locator('#picker .tg-col')).toHaveAttribute('data-date', date);
+});
+
+test('vote on a few dates starts at an hour, and Gym, Run, Bike and Golf are kinds of plan', async ({ page }) => {
+  await page.goto('/new/pick');
+  await expect(page.locator('[data-length="60"]')).toHaveAttribute('aria-pressed', 'true');
+  await expect(page.locator('#other-box summary')).toHaveText('Custom');
+  for (const [name, length] of [
+    ['Gym', '1 hour'],
+    ['Run', '1 hour'],
+    ['Bike', 'Custom · 2 hours'],
+    ['Golf', 'Custom · 4 hours'],
+  ]) {
+    await page.getByRole('button', { name, exact: true }).click();
+    await expect(page.locator('#title')).toHaveAttribute('placeholder', name);
+    if (length === '1 hour') await expect(page.locator('[data-length="60"]')).toHaveAttribute('aria-pressed', 'true');
+    else await expect(page.locator('#other-box summary')).toHaveText(length);
+  }
 });
