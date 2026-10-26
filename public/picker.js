@@ -375,12 +375,13 @@ export function timeView(root, opts) {
  *   selected   Set of "YYYY-MM-DD|minutes", changed in place
  *   onChange() after each stroke
  *   from, to   minutes after midnight shown
+ *   startAt    the first day to show (today or later)
  * Returns { render, week() (the 7 days around what's shown), cleanup }.
  */
-export function paintView(root, { selected, onChange, from = 420, to = 1440 }) {
+export function paintView(root, { selected, onChange, from = 420, to = 1440, startAt = null }) {
   const day = isPhone();
-  let anchor = todayStr(); // first day shown; on phones, the day shown
-  let start = todayStr(); // first day of the week strip
+  let start = startAt && startAt > todayStr() ? startAt : todayStr(); // first day of the week strip
+  let anchor = start; // first day shown; on phones, the day shown
   root.innerHTML = `
     <div class="tv-bar">
       <div class="tv-nav">
