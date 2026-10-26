@@ -967,6 +967,7 @@ export async function renderEvent(id, navigate) {
   };
   function setDirty(v) {
     st.dirty = v;
+    if (v) $('#save-err').textContent = ''; // an old error goes once the answer changes
     const el = $('#save-state');
     const need = needs();
     $('#save').dataset.ready = !need;
@@ -1288,7 +1289,7 @@ export async function renderEvent(id, navigate) {
         ${canPick ? `<button class="btn btn-sm" data-pick="${s}">Pick this start time</button>` : ''}
       </div>
       <div class="chips">${chips(yes, 'yes')}${chips(maybe, 'maybe')}${chips(no, 'no')}</div>
-      <p class="hint">${yes.length} free, ${maybe.length} if needed, ${no.length} busy</p>`;
+      <p class="hint">${yes.length} free, ${maybe.length} if needed, ${no.length} not free</p>`;
   }
   if (!listMode) {
     const inspectFrom = (e) => {
@@ -1360,6 +1361,7 @@ export async function renderEvent(id, navigate) {
     const who = (b) => {
       const can = b.yes.length + b.ifNeeded.length;
       if (can === n && !b.ifNeeded.length) return n === 1 ? 'Works for the one person so far' : `Everyone can make it`;
+      if (can === n && n > 1 && !b.yes.length) return `All ${n} can make it if needed`;
       return `${can} of ${n} can make it${b.ifNeeded.length ? `, ${b.ifNeeded.length} if needed` : ''}`;
     };
     const pick = (b) =>
