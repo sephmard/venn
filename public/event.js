@@ -1062,12 +1062,15 @@ export async function renderEvent(id, navigate) {
         heading: created ? 'Answer submitted!' : 'Answer updated!',
         message: ev().isAdmin
           ? 'Your answer is in. Now the fun part: seeing when everyone can make it.'
-          : `So glad you're in. ${host ? `${host} can see it now` : 'Everyone can see it now'}. Thanks for helping bring people together.`,
+          : `Finn is so glad you're in. ${host ? `${host} can see it now` : 'Everyone can see it now'}. Thanks for helping bring people together.`,
         button: hideAll ? 'Done' : 'See everyone’s answers →',
+        // Guests who enjoyed that are the next organizers: one tap to make their own.
+        also: ev().isAdmin ? null : { label: 'Planning something? Make your own poll', href: '/new?from=guest' },
       });
       await p?.shown;
       p?.finish();
       toast(sent);
+      if (!$('#save')) return; // they went to make their own poll
       // After the first save here (an organizer's answer may come with the poll), show the group.
       if ((created || !st.savedHere) && !hideAll) {
         st.savedHere = true;
@@ -1077,7 +1080,7 @@ export async function renderEvent(id, navigate) {
     } catch (ex) {
       err.textContent = ex.message;
     } finally {
-      $('#save').disabled = false;
+      if ($('#save')) $('#save').disabled = false;
     }
   };
 
@@ -1492,7 +1495,8 @@ export async function renderEvent(id, navigate) {
       const end = meetingEnd(ev(), start);
       const info = {
         title: ev().title,
-        description: [ev().description, shareUrl].filter(Boolean).join('\n\n'),
+        // The event's own note says where it was planned: how the next organizer finds Venn.
+        description: [ev().description, shareUrl, `Planned with Venn: ${location.origin}/new`].filter(Boolean).join('\n\n'),
         location: ev().location,
         start,
         end,
@@ -1520,6 +1524,12 @@ export async function renderEvent(id, navigate) {
           ${mailAll ? `<a class="link-btn" id="email-all" href="${esc(mailAll)}">Email everyone</a>` : ''}
           <button type="button" class="link-btn" data-share>${canShare ? 'Share the date' : 'Copy the link'}</button>
           ${ev().isAdmin ? '<button type="button" class="link-btn" id="unpick">Clear the date</button>' : ''}
+          ${
+            // The next plan starts here: the organizer copies this poll, a guest makes their own.
+            ev().isAdmin
+              ? `<a class="link-btn" data-link href="/new/${optionsMode && !partsMode ? 'pick' : 'free'}?copy=${esc(id)}">Plan the next one</a>`
+              : '<a class="link-btn" data-link href="/new?from=set">Make your own poll</a>'
+          }
         </div>
       </section>`;
     }

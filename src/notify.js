@@ -158,9 +158,19 @@ const mascotUrl = (pageUrl) => new URL(MASCOT_PATH, pageUrl).href;
 function emailLayout(bodyHtml, footerHtml, pageUrl) {
   return `<!doctype html><html><body style="margin:0;padding:24px;background:#f7f7f5;font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;color:#1c1d1f">
 <div style="max-width:520px;margin:0 auto;background:#fff;border:1px solid #e2e2dc;border-radius:10px;padding:24px">
-<div style="text-align:center;margin-bottom:12px"><img src="${escHtml(mascotUrl(pageUrl))}" width="80" height="174" alt="" style="display:inline-block;border:0"></div>
+<div style="text-align:center;margin-bottom:12px"><img src="${escHtml(mascotUrl(pageUrl))}" width="80" height="174" alt="Finn, the Venn dog" style="display:inline-block;border:0"></div>
 <div style="font-weight:700;font-size:18px;margin-bottom:16px">Venn</div>${bodyHtml}</div>
-<p style="max-width:520px;margin:12px auto 0;color:#6b6d70;font-size:12px;line-height:1.5">${footerHtml}</p></body></html>`;
+<p style="max-width:520px;margin:12px auto 0;color:#6b6d70;font-size:12px;line-height:1.5">${footerHtml}</p>
+<p style="max-width:520px;margin:8px auto 0;color:#6b6d70;font-size:12px;line-height:1.5">${signature(pageUrl, true)}</p></body></html>`;
+}
+
+/** "Planned with Venn", at the end of every email and calendar event: how the next organizer finds it. */
+export function signature(pageUrl, html = false) {
+  const site = new URL(pageUrl).origin;
+  const make = `${site}/new`;
+  return html
+    ? `Planned with Venn. No sign-up needed: <a href="${escHtml(make)}" style="color:#6b6d70">make your own</a>.`
+    : `Planned with Venn. No sign-up needed: make your own at ${make}`;
 }
 
 const button = (href, label) =>
@@ -196,10 +206,11 @@ const stopFooter = (unsubscribeUrl) =>
 /** To the organizer, the moment their poll exists: well done, and here's the link to share. */
 export function pollReadyEmail({ title, pollUrl, unsubscribeUrl }) {
   const subject = `Your poll “${title}” is ready 🎉`;
-  const text = `Your poll “${title}” is ready!\n\nWe're so proud of you for bringing people together. Here's the link to share with everyone:\n\n${pollUrl}\n\nShare it by text message, WhatsApp or email from the buttons in this email, or paste the link into your group chat.\n\nWe'll email you here whenever someone answers.\n\nStop these emails: ${unsubscribeUrl}\n`;
+  let text = `Your poll “${title}” is ready!\n\nFinn is so proud of you for bringing people together. Here's the link to share with everyone:\n\n${pollUrl}\n\nShare it by text message, WhatsApp or email from the buttons in this email, or paste the link into your group chat.\n\nWe'll email you here whenever someone answers.\n\nStop these emails: ${unsubscribeUrl}\n`;
+  text += `\n${signature(pollUrl)}\n`;
   const html = emailLayout(
     `${heading('Your poll is ready! 🎉')}${para(
-      `We're so proud of you for bringing people together. Here's the link to <strong>${escHtml(title)}</strong>. Share it with everyone:`,
+      `Finn is so proud of you for bringing people together. Here's the link to <strong>${escHtml(title)}</strong>. Share it with everyone:`,
     )}${button(pollUrl, 'Open your poll')}${linkLine(pollUrl)}${shareBlock(title, pollUrl)}${para("We'll email you here whenever someone answers.")}`,
     stopFooter(unsubscribeUrl),
     pollUrl,
@@ -219,7 +230,7 @@ export function responseEmail(s, unsubscribeUrl) {
   const lead = !name
     ? `This is a test notification for “${s.poll.title}”.`
     : isNew
-      ? `${name} just answered “${s.poll.title}”. We're fired up: your plans are coming together!`
+      ? `${name} just answered “${s.poll.title}”. Finn is fired up: your plans are coming together!`
       : `${name} ${VERBS[s.event] || 'responded to'} “${s.poll.title}”.`;
   const can = s.bestTime && s.bestTime.available + s.bestTime.ifNeeded;
   const best = s.bestTime
@@ -227,8 +238,9 @@ export function responseEmail(s, unsubscribeUrl) {
     : s.poll.responses
       ? ''
       : 'No answers yet.';
-  const text = `${lead}${best ? `\n\n${best}` : ''}\n\nSee everyone's answers: ${s.poll.url}\n\n${shareText(s.poll.url)}\n\nStop these emails: ${unsubscribeUrl}\n`;
+  let text = `${lead}${best ? `\n\n${best}` : ''}\n\nSee everyone's answers: ${s.poll.url}\n\n${shareText(s.poll.url)}\n\nStop these emails: ${unsubscribeUrl}\n`;
   const headline = name && isNew ? heading(`${escHtml(name)} just answered! 🎉`) : '';
+  text += `\n${signature(s.poll.url)}\n`;
   const html = emailLayout(
     `${headline}${para(escHtml(lead))}${best ? para(escHtml(best)) : ''}${button(s.poll.url, "See everyone's answers")}${linkLine(s.poll.url)}${shareBlock(s.poll.title, s.poll.url, 'Waiting on anyone? Share the poll again')}`,
     stopFooter(unsubscribeUrl),
@@ -271,7 +283,7 @@ export function answerCopyEmail({ title, name, lines, pollUrl, editUrl, seeAnswe
   const subject = `Your answer to “${title}”`;
   const list = lines.length ? lines : null;
   const pollLabel = seeAnswers ? "See everyone's answers" : 'Open the poll';
-  const text = `Hi ${name}, here's what you told Venn for “${title}”:\n\n${
+  let text = `Hi ${name}, here's what you told Venn for “${title}”:\n\n${
     list ? list.map((l) => `- ${l.label}: ${l.answer}`).join('\n') : 'None of these work.'
   }\n\nYour answer (open it to change it): ${editUrl}\nThis link is just for you, so don't share it.\n\n${pollLabel}: ${pollUrl}\n\nKnow someone else who should answer? Send them the poll: ${pollUrl}\n\nYou asked for this copy when you answered. If that wasn't you, ignore this email.\n`;
   const items = list
@@ -279,6 +291,7 @@ export function answerCopyEmail({ title, name, lines, pollUrl, editUrl, seeAnswe
         .map((l) => `<li>${escHtml(l.label)}: <strong>${escHtml(l.answer)}</strong></li>`)
         .join('')}</ul>`
     : para('None of these work.');
+  text += `\n${signature(pollUrl)}\n`;
   const html = emailLayout(
     `${para(`Hi ${escHtml(name)}, here's what you told Venn for <strong>${escHtml(title)}</strong>:`)}${items}${button(
       editUrl,

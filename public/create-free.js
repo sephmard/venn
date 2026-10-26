@@ -16,7 +16,7 @@ import {
   utcToZoned,
   zonedToUtc,
 } from './core.js';
-import { isPhone, monthView, timeView } from './picker.js';
+import { monthView, timeView } from './picker.js';
 import {
   $,
   $$,
@@ -343,9 +343,7 @@ export function renderFree() {
       return Array.from({ length: 7 }, (_, i) => addDays(from, i));
     };
     painter = { render: view.render, week, cleanup: view.cleanup };
-    $('#when-help').textContent = isPhone()
-      ? 'Tap the calendar to add a time of the length above, or drag down it for longer. Drag a time’s top or bottom edge to change it, or drag it to move it. Tap a time to switch between available and if needed, or × to remove it.'
-      : 'Drag on the calendar to add a time, or click to add one of the length above. Drag a time’s edges to change it, or drag it to move it. Click a time to switch between available and if needed, or × to remove it.';
+    $('#when-help').textContent = 'Tap the calendar to add an option for your date range.';
     $('#quick').innerHTML = fillPills(false) + '<button type="button" class="pill pill-quiet" id="q-clear">Clear all</button>';
   }
 

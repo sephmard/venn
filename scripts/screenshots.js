@@ -79,9 +79,9 @@ const toAvailability = (votes) => Object.fromEntries(OPTIONS.map((o, i) => [o.st
 
 async function seedPoll() {
   const { id, adminToken } = await api('/api/events', {
-    title: 'Dinner at Finn’s',
+    title: 'Dinner at Rosa’s',
     emoji: '🍝',
-    location: 'Finn’s Trattoria, 14 Elm St',
+    location: 'Rosa’s Trattoria, 14 Elm St',
     description: 'Long table in the back. Bring an appetite.',
     organizer: 'Priya Shah',
     timezone: TZ,
@@ -193,9 +193,9 @@ async function stills(dark) {
   await desktop.goto(`${base}/new/pick`);
   await desktop.addStyleTag({ content: HIDE_TOAST });
   await desktop.click('[data-occasion="0"]');
-  await desktop.fill('#title', 'Dinner at Finn’s');
+  await desktop.fill('#title', 'Dinner at Rosa’s');
   await desktop.click('#more-box summary'); // Where is under More details
-  await desktop.fill('#location', 'Finn’s Trattoria, 14 Elm St');
+  await desktop.fill('#location', 'Rosa’s Trattoria, 14 Elm St');
   // Tap 7 PM on two Fridays and Saturdays on the week calendar, then come back to the first week.
   for (const d of [0, 1, 7, 8]) await tapAt(desktop, addDays(fri, d), 19 * 60);
   await showDate(desktop, fri);
@@ -247,7 +247,7 @@ async function stills(dark) {
   await maker.goto(`${base}/new/pick`);
   await maker.addStyleTag({ content: HIDE_TOAST });
   await maker.click('[data-occasion="0"]');
-  await maker.fill('#title', 'Dinner at Finn’s');
+  await maker.fill('#title', 'Dinner at Rosa’s');
   await maker.fill('#organizer', 'Priya');
   for (const d of [0, 1]) await tapAt(maker, addDays(fri, d), 19 * 60);
   await maker.locator('#organizer').blur();
@@ -305,7 +305,7 @@ async function recordDemo() {
   await page.waitForTimeout(700);
   await click('a[href="/new/pick"]', 600);
   await click('[data-occasion="0"]', 300);
-  await type('#title', 'Dinner at Finn’s');
+  await type('#title', 'Dinner at Rosa’s');
   for (const d of [0, 1, 7, 8]) {
     const col = await showDate(page, addDays(fri, d), (sel) => click(sel, 300));
     const y = await rowY(col, 19 * 60);

@@ -350,7 +350,7 @@ export async function handleApi(
       const body = buildIcs({
         id: ev.id,
         title: ev.title,
-        description: ev.description,
+        description: [ev.description, `Planned with Venn: ${url.origin}/new`].filter(Boolean).join('\n\n'),
         location: ev.location,
         start: ev.finalStart,
         end,

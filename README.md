@@ -29,7 +29,7 @@
 
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="docs/screenshots/results-dark.png">
-  <img src="docs/screenshots/results-light.png" alt="A Venn poll for Dinner at Finn's: everyone's answers, and the best evening ranked with who can make it">
+  <img src="docs/screenshots/results-light.png" alt="A Venn poll for Dinner at Rosa's: everyone's answers, and the best evening ranked with who can make it">
 </picture>
 
 ## Why developers like it

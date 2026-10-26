@@ -100,6 +100,7 @@ test('full poll lifecycle', async () => {
   const ics = await call(`/api/events/${id}/event.ics`);
   assert.match(ics.data, /BEGIN:VEVENT/);
   assert.match(ics.data, /DTSTART:20261102T100000Z/);
+  assert.match(ics.data, /DESCRIPTION:.*Planned with Venn: http:\/\/[^/]+\/new/); // where the next organizer finds Venn
 
   // Organizer can remove someone; then delete the poll.
   assert.equal(

@@ -184,7 +184,7 @@ for (const scheme of ['light', 'dark']) {
 async function openPoll(page, { picked = false, names = [], ...fields } = {}) {
   const options = [8, 9, 10].map((d) => ({ start: Date.UTC(2030, 0, d, 18), end: Date.UTC(2030, 0, d, 20) }));
   const res = await page.request.post('/api/events', {
-    data: { title: 'Dinner at Finn’s', timezone: 'UTC', mode: 'options', options, ...fields },
+    data: { title: 'Dinner at Rosa’s', timezone: 'UTC', mode: 'options', options, ...fields },
   });
   const { id, adminToken } = await res.json();
   for (const name of names)

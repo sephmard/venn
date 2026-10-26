@@ -189,9 +189,7 @@ export function renderPick() {
     if (length === 'half') return mountHalf(root);
     if (timed()) {
       buildAddTime();
-      $('#when-hint').textContent = isPhone()
-        ? 'Tap the calendar to add an option of the length above. Drag its top or bottom edge to change the length. Tap an option to switch between available and if needed, or × to remove it.'
-        : 'Drag on the calendar to add an option, or click to add one of the length above. Drag an edge to change the length, or drag it to another time. Click an option to switch between available and if needed, or × to remove it.';
+      $('#when-hint').textContent = 'Tap the calendar to add an option for your date range.';
       view = timeView(root, {
         label: 'Calendar',
         views: ['week', 'day'],
@@ -233,10 +231,7 @@ export function renderPick() {
         else nav.update(shown);
       });
     } else {
-      $('#when-hint').textContent =
-        length === 'days'
-          ? 'Tap the first day of each trip you could take. The highlighted days show how long each one lasts. Tap an option below to switch between available and if needed.'
-          : 'Tap each day you want to suggest. Tap an option below to switch between available and if needed.';
+      $('#when-hint').textContent = length === 'days' ? 'Tap the first day of each trip.' : 'Tap the days you want to suggest.';
       const starts = new Set([...items.values()].filter((it) => it.from == null).map((it) => it.date));
       // The trip a day is part of after its first day, if any.
       const tripOf = (d) =>
@@ -265,8 +260,7 @@ export function renderPick() {
   async function mountHalf(root) {
     const at = mounts;
     root.innerHTML = '';
-    $('#when-hint').textContent =
-      `${isPhone() ? 'Tap a day, then' : 'Click'} the mornings, afternoons and evenings you could do, or drag across several. Tap an option below to switch between available and if needed.`;
+    $('#when-hint').textContent = `${isPhone() ? 'Tap a day, then' : 'Click'} the mornings, afternoons and evenings it could be.`;
     const { halfView } = await import('./half-day.js');
     if (at !== mounts || !root.isConnected) return;
     half = halfView(root, { items, brush: () => brush, onChange: renderList, startAt: sorted()[0]?.[1].date });

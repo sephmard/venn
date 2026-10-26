@@ -42,6 +42,12 @@ test('only known events with known values are counted', () => {
   assert.equal(cleanUsage('poll.created', {}, { client: true }), null); // the browser can't fake server events
   assert.equal(cleanUsage('view', { page: 'poll' }), null);
   assert.equal(cleanUsage('toString', {}, { client: true }), null);
+  // Where someone who goes on to make a poll came from: answering one, or a picked date.
+  assert.deepEqual(cleanUsage('view', { page: 'chooser', from: 'guest' }, { client: true }), {
+    name: 'view',
+    props: '{"from":"guest","page":"chooser"}',
+  });
+  assert.equal(cleanUsage('view', { page: 'chooser', from: 'somewhere' }, { client: true }), null);
 });
 
 test('polls are sorted into kinds', () => {

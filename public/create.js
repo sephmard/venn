@@ -98,7 +98,9 @@ export function fillCommon(ev, src) {
 
 export function renderChooser() {
   document.title = 'New poll · Venn';
-  track('view', { page: 'chooser' });
+  // Where they came from: answering someone's poll, or a poll whose date was picked.
+  const from = new URLSearchParams(location.search).get('from');
+  track('view', { page: 'chooser', ...(['guest', 'set'].includes(from) && { from }) });
   const carry = titleFromUrl() ? `?title=${encodeURIComponent(titleFromUrl())}` : '';
   app.innerHTML = `
     <section class="chooser">
@@ -144,7 +146,7 @@ export function planFields(kind) {
         <span class="emoji-tile" id="emoji-tile" aria-hidden="true">🗓️</span>
         <div class="grow">
           <label for="title">Name of your poll${REQ}</label>
-          <input id="title" type="text" maxlength="120" placeholder="${kind === 'free' ? 'Summer cabin trip' : "Dinner at Finn's"}" aria-required="true">
+          <input id="title" type="text" maxlength="120" placeholder="${kind === 'free' ? 'Summer cabin trip' : "Dinner at Rosa's"}" aria-required="true">
         </div>
       </div>
       <details class="reveal" id="more-box">

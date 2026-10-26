@@ -681,7 +681,7 @@ test('phone: the calendars leave room to scroll the page, and say how to use the
   expect((await hours.boundingBox()).height).toBeLessThanOrEqual(half);
   // The hint comes before the calendar, not after it.
   const help = page.locator('#when-help');
-  await expect(help).toContainText('drag it to move it');
+  await expect(help).toHaveText('Tap the calendar to add an option for your date range.');
   expect((await help.boundingBox()).y).toBeLessThan((await hours.boundingBox()).y);
 });
 
@@ -876,7 +876,7 @@ test('landing page: nav bar with GitHub, and the way to both kinds of poll', asy
     .getByRole('link', { name: /Vote on a few dates/ })
     .click();
   await expect(page).toHaveURL(/\/new\/pick$/);
-  await expect(page.locator('#title')).toHaveAttribute('placeholder', "Dinner at Finn's");
+  await expect(page.locator('#title')).toHaveAttribute('placeholder', "Dinner at Rosa's");
   // /new (linked from the privacy and 404 pages) still offers both kinds of poll.
   await page.goto('/new');
   await expect(page.getByRole('heading', { name: 'What kind of poll?' })).toBeVisible();
@@ -1199,6 +1199,7 @@ test('organizer draws options on the week view, and removes one', async ({ page,
   // Drawing on a week is where it starts.
   await expect(page.locator('[data-view="week"]')).toHaveAttribute('aria-checked', 'true');
   await page.click('.tv-nav [data-step="1"]'); // next week, so every day is in the future
+  await page.locator('.tg-scroll').evaluate((el) => el.scrollIntoView({ block: 'center' })); // clear of the sticky bar
   const grid = await page.locator('.tg-scroll').boundingBox();
   const col = await page.locator('.tg-col').nth(2).boundingBox();
   // Drag down four rows: a two-hour option.
@@ -1716,16 +1717,16 @@ test('optional details sit under More details, placeholders make way on focus, a
   expect(await placeholder('#location')).not.toBe('rgba(0, 0, 0, 0)');
   await page.focus('#location');
   expect(await placeholder('#location')).toBe('rgba(0, 0, 0, 0)');
-  await page.fill('#location', 'Finn’s Trattoria');
+  await page.fill('#location', 'Rosa’s Trattoria');
   await page.fill('#desc', 'Bring a bottle');
   await page.click('#submit');
   await openNewPoll(page);
-  await expect(page.locator('#ev-details')).toContainText('Finn’s Trattoria');
+  await expect(page.locator('#ev-details')).toContainText('Rosa’s Trattoria');
   await expect(page.locator('#ev-details')).toContainText('Bring a bottle');
   // Editing the poll shows them again, open.
   await page.getByRole('link', { name: 'Edit poll' }).click();
   await expect(page.locator('#more-box')).toHaveAttribute('open', '');
-  await expect(page.locator('#location')).toHaveValue('Finn’s Trattoria');
+  await expect(page.locator('#location')).toHaveValue('Rosa’s Trattoria');
 });
 
 test('how long: 30 min, 1 hour, half day, all day, several days, and any other length under Custom', async ({ page }) => {
@@ -2061,4 +2062,42 @@ test('picked times and days say Available or If needed on the calendar, and if-n
     await expect(d.locator('small')).toHaveText('If needed');
     if (i) await expect(d).toHaveClass(/trip-maybe/);
   }
+});
+
+test('guests are one tap from making their own poll: from the celebration, and once the date is set', async ({
+  page,
+  request,
+}) => {
+  const t0 = Date.UTC(2030, 0, 8, 18);
+  const { id, adminToken } = await (
+    await request.post('/api/events', {
+      data: {
+        title: 'Dinner',
+        organizer: 'Sam',
+        timezone: 'UTC',
+        mode: 'options',
+        options: [{ start: t0, end: t0 + 7_200_000 }],
+      },
+    })
+  ).json();
+  await page.goto(`/e/${id}`);
+  await page.locator('#mine .row [data-vote="2"]').first().click();
+  await page.fill('#name', 'Ana');
+  await page.click('#save');
+  await page.click('#sc-yes');
+  // Finn celebrates, and offers the next step.
+  await expect(page.locator('.party [role=status]')).toContainText("Finn is so glad you're in");
+  const own = page.locator('.party-also');
+  await expect(own).toHaveText('Planning something? Make your own poll');
+  await own.click();
+  await expect(page).toHaveURL(/\/new\?from=guest$/);
+  await expect(page.locator('.party')).toHaveCount(0);
+  await expect(page.getByRole('link', { name: /Vote on a few dates/ })).toBeVisible();
+
+  // Once the date is picked: guests can make their own, the organizer can plan the next one.
+  await request.post(`/api/events/${id}/finalize`, { data: { start: t0 }, headers: { 'x-admin-token': adminToken } });
+  await page.goto(`/e/${id}`);
+  await expect(page.locator('.final-more a[href="/new?from=set"]')).toHaveText('Make your own poll');
+  await page.goto(`/e/${id}#admin=${adminToken}`);
+  await expect(page.locator(`.final-more a[href="/new/pick?copy=${id}"]`)).toHaveText('Plan the next one');
 });

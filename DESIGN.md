@@ -81,8 +81,8 @@ Lines stay under 65 characters. Italic serif is the only emphasis inside headlin
   All are drawn on a 16 px grid so they stay sharp in a browser tab. The home-screen icon (`icons/icon.svg`) puts the logo on `--paper`, inside the maskable safe zone. When an icon changes, bump the `?v=` on the icon links so browsers drop their cached copy.
 
 - The GitHub mark (Octicons, official) appears only on links to the repository.
-- **"Less group chat. More plans."** is shown, not screenshotted: a slightly tilted group-chat card going back and forth, an arrow, then a crisp result card ("Dinner at Finn's", the agreed date, everyone's initials, Add to calendar). It's built in HTML and CSS, so it stays sharp and follows dark mode, and it's one `role="img"` with a description for screen readers. The landing page has no product screenshots.
-- Example names: use **Finn's** for the restaurant ("Dinner at Finn's"), and Priya, Marcus, Ana, Jordan and Lee for people.
+- **"Less group chat. More plans."** is shown, not screenshotted: a slightly tilted group-chat card going back and forth, an arrow, then a crisp result card ("Dinner at Rosa's", the agreed date, everyone's initials, Add to calendar). It's built in HTML and CSS, so it stays sharp and follows dark mode, and it's one `role="img"` with a description for screen readers. The landing page has no product screenshots.
+- Example names: use **Rosa's** for the restaurant ("Dinner at Rosa's"), and Priya, Marcus, Ana, Jordan and Lee for people.
 - Benefits use the logo as their bullet. No other icons, no emoji, no stock photos, no gradients on text.
 - Motion: only small hover lifts on the choice buttons.
 

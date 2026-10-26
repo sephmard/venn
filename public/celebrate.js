@@ -20,6 +20,7 @@ const CSS = `
 .party p{margin:0;font-size:19px;line-height:1.4;text-wrap:balance}
 .party .party-go{margin-top:10px;min-height:44px;padding:10px 20px;border:0;border-radius:999px;font:inherit;
   font-size:16px;font-weight:600;background:var(--accent);color:var(--accent-ink);cursor:pointer;max-width:100%;overflow-wrap:anywhere}
+.party .party-also{display:inline-flex;align-items:center}
 .party .party-skip{min-height:44px;padding:8px 16px;border:0;background:none;font:inherit;font-size:16px;font-weight:600;
   color:var(--accent);text-decoration:underline;text-underline-offset:3px;cursor:pointer}
 .party-bit{position:absolute;left:50%;top:50%;pointer-events:none;font-size:28px;line-height:1}
@@ -36,15 +37,17 @@ const SHOW_MS = 3600;
  * Celebrate a new poll (or, with `heading`, `message` and `button`, an answer). With `share`, the main
  * button shares the poll, and "View poll" just opens it. `shown` resolves when it's time to open the
  * poll: after a few seconds, or straight away if the person presses a button or Escape. Then call
- * `finish()` to fade the overlay out over the poll.
+ * `finish()` to fade the overlay out over the poll. With `also` ({ label, href }), a link to go
+ * somewhere else instead, such as making your own poll; it stays up longer then, to be seen.
  */
 export function celebrate({
   emoji = '🎉',
   title = '',
   heading = 'Poll created!',
-  message = 'So proud of you for bringing people together.',
+  message = 'Finn is so proud of you for bringing people together.',
   button = title ? `Open ${title} →` : 'Open my poll →',
   share = null,
+  also = null,
 } = {}) {
   if (!document.getElementById('party-css')) {
     const style = document.createElement('style');
@@ -64,6 +67,7 @@ export function celebrate({
       <div role="status"></div>
       <button type="button" class="party-go"></button>
       <button type="button" class="party-skip" hidden>View poll</button>
+      ${also ? `<a class="party-skip party-also" data-link></a>` : ''}
     </div>`;
   // The toast stays live, so "Link copied" is still heard after sharing.
   const behind = [...document.body.children].filter((n) => !n.inert && n.id !== 'toast');
@@ -214,14 +218,14 @@ export function celebrate({
   let skip;
   const shown = new Promise((resolve) => {
     skip = resolve;
-    setTimeout(resolve, SHOW_MS);
+    setTimeout(resolve, also ? SHOW_MS * 2 : SHOW_MS);
   });
   const onKey = (e) => {
     if (e.key === 'Escape') skip();
     if (e.key !== 'Tab') return;
     // Tab and Shift+Tab go round the dialog's buttons.
     e.preventDefault();
-    const buttons = [...el.querySelectorAll('button:not([hidden])')];
+    const buttons = [...el.querySelectorAll('button:not([hidden]), a.party-also')];
     const i = buttons.indexOf(document.activeElement);
     buttons[i < 0 ? 0 : (i + (e.shiftKey ? buttons.length - 1 : 1)) % buttons.length].focus();
   };
@@ -233,6 +237,12 @@ export function celebrate({
     skip();
   });
   view.addEventListener('click', () => skip());
+  const away = el.querySelector('.party-also');
+  if (away) {
+    away.textContent = also.label;
+    away.href = also.href;
+    away.addEventListener('click', () => skip());
+  }
   addEventListener('keydown', onKey);
 
   return {
