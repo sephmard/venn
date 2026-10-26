@@ -26,7 +26,7 @@ export function editBlocks(root, { blocks, range, minuteAt, rowPx, onResize, onM
     },
     true,
   );
-  const colAt = (x, y) => document.elementFromPoint(x, y)?.closest('.tg-col');
+  const colAt = (x, y) => document.elementFromPoint(x, y)?.closest('.tg-draw'); // not onto days gone by
   root.addEventListener('pointerdown', (e) => {
     const el = e.target.closest('.tg-block[data-key]');
     if (!el || e.button > 0) return;

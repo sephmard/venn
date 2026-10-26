@@ -2369,3 +2369,89 @@ pre.code {
   flex-basis: 100%;
   margin: 0;
 }
+
+/* ---------- create pages: audit fixes ---------- */
+/* Create before it's ready: still focusable and pressable (it says what's missing), so AA colours. */
+.btn-primary.not-ready,
+.btn-primary.not-ready:hover {
+  background: var(--surface-2);
+  border-color: var(--border);
+  color: var(--muted);
+  filter: none;
+}
+/* Phones: the calendars take at most half the screen, and hand the scroll back to the page. */
+@media (pointer: coarse), (max-width: 640px) {
+  .create .tg-scroll,
+  .create .pg-scroll {
+    max-height: 50vh;
+    overscroll-behavior: auto;
+  }
+}
+/* If-needed options keep their amber, and say so in words. */
+.od-row .chip.maybe {
+  background: var(--maybe-soft);
+}
+.chip-tag {
+  margin-left: 4px;
+  padding: 1px 6px;
+  border-radius: 999px;
+  background: var(--maybe);
+  color: var(--maybe-ink);
+  font-size: 0.75rem;
+  font-weight: 700;
+}
+/* "Or add a time", for keyboards */
+.add-time {
+  margin-top: 12px;
+}
+.add-time-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 8px;
+}
+.add-time-row > div {
+  flex: 1 1 130px;
+}
+.tg-past {
+  background-color: var(--surface-2);
+}
+/* Narrow week columns on phones: a short start time ("7p"), at the bottom, clear of the × */
+.tg-narrow .tg-block {
+  padding: 2px;
+  align-items: flex-end;
+  justify-content: center;
+}
+.tg-narrow .tg-block span {
+  white-space: nowrap;
+  font-size: 0.7rem;
+}
+/* Touch: a 44px hit area for the ×, and 24px edges (the grips stay where they were) */
+@media (hover: none), (pointer: coarse) {
+  .tg-x::before {
+    content: '';
+    position: absolute;
+    inset: -10px;
+  }
+  .create .tg-block.opt {
+    overflow: visible;
+  }
+  .create .tg-block.opt > span {
+    max-height: 100%;
+  }
+  .create .tg-handle {
+    height: 24px;
+  }
+  .create .tg-top {
+    top: -12px;
+  }
+  .create .tg-bottom {
+    bottom: -12px;
+  }
+  .create .tg-top::after {
+    top: 14px;
+  }
+  .create .tg-bottom::after {
+    top: 7px;
+  }
+}

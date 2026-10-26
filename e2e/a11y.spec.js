@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test';
-import { addOptions } from './helpers.js';
+import { addOptions, showNextMonth } from './helpers.js';
 import AxeBuilder from '@axe-core/playwright';
 
 // Automated accessibility checks (WCAG 2.2 A/AA rules from axe) on every main screen, in light and
@@ -32,6 +32,7 @@ for (const scheme of ['light', 'dark']) {
     });
 
     test('create pages', async ({ page }) => {
+      page.on('dialog', (d) => d.accept()); // switching to trips clears the options with times, after asking
       await page.goto('/new');
       await audit(page, 'chooser');
       await page.goto('/new/pick');
@@ -39,7 +40,7 @@ for (const scheme of ['light', 'dark']) {
       await addOptions(page, 2);
       await audit(page, 'vote on a few dates (week or day)');
       await page.click('[data-length="days"]');
-      await page.click('[data-nav="1"]');
+      await showNextMonth(page);
       await page.locator('.cal-day').first().click();
       await page.locator('.cal-grid').evaluate((el) => el.scrollIntoView({ block: 'center' })); // clear of the sticky bar
       await audit(page, 'vote on a few dates (trips)');

@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test';
-import { addDays, addOptions, nextMonth, showDate, tapAt } from './helpers.js';
+import { addDays, addOptions, nextMonth, showDate, showNextMonth, tapAt } from './helpers.js';
 
 test.beforeEach(async ({ page }) => {
   page.on('dialog', (d) => d.accept());
@@ -82,7 +82,7 @@ test('a trip: options that last several days become all-day calendar events', as
   await expect(page.locator('[data-length="days"]')).toHaveAttribute('aria-pressed', 'true');
   await expect(page.locator('.tg')).toHaveCount(0); // whole-day options are picked on the month only
   await expect(page.locator('#span')).toHaveValue('3');
-  await page.click('[data-nav="1"]');
+  await showNextMonth(page);
   for (const i of [0, 7, 14, 21, 3, 10, 17]) await page.locator('.cal-day').nth(i).click();
   await expect(page.locator('#summary')).toHaveText('7 options to vote on');
   // Each trip shows as a block on the calendar, and its length can be changed on its own.
@@ -127,14 +127,55 @@ test('ask when people are free: days, looking for a run of days', async ({ page 
   await expect(page.locator('.best-hero')).toContainText('1 of 1 can make it, 1 if needed');
 });
 
+test('ask when people are free: days that never make the run asked for can’t be created', async ({ page }) => {
+  await page.goto('/new/free');
+  await page.fill('#title', 'Cabin weekend');
+  await page.click('#q-weekends'); // Fri – Sun, four times: 3 days in a row at most
+  await page.fill('#span', '4');
+  await expect(page.locator('#summary')).toHaveText('None of your days make 4 in a row. Pick days next to each other');
+  await expect(page.locator('#submit')).toHaveAttribute('aria-disabled', 'true');
+  await page.locator('#submit').click({ force: true }); // Playwright treats aria-disabled as not clickable
+  await expect(page.locator('#err')).toHaveText('None of your days make 4 in a row. Pick days next to each other');
+  await expect(page.locator('#span')).toBeFocused();
+  await page.fill('#span', '3');
+  await expect(page.locator('#summary')).toHaveText('12 days to choose from');
+  // A number out of range is shown as the nearest one that works.
+  await page.fill('#span', '99');
+  await page.locator('#span').blur();
+  await expect(page.locator('#span')).toHaveValue('14');
+  await page.fill('#span', '0');
+  await page.locator('#span').blur();
+  await expect(page.locator('#span')).toHaveValue('1');
+});
+
+test('month calendars open on next month near the end of this one, and quick picks show their month', async ({ page }) => {
+  const shown = () => page.locator('.cal-day').first().getAttribute('data-date');
+  // January 28: four days left, so February is where the choosing is.
+  await page.clock.setFixedTime(new Date(2030, 0, 28, 12));
+  await page.goto('/new/free');
+  expect(await shown()).toBe('2030-02-01');
+  await expect(page.locator('[data-nav="-1"]')).toBeEnabled(); // January is still there
+  // January 20: most of the month is left.
+  await page.clock.setFixedTime(new Date(2030, 0, 20, 12));
+  await page.goto('/new/free');
+  expect(await shown()).toBe('2030-01-01');
+  // The next two weeks are mostly in January; four weekends mostly in February.
+  await page.click('#q-2w');
+  expect(await shown()).toBe('2030-01-01');
+  await page.click('#q-weekends');
+  expect(await shown()).toBe('2030-02-01');
+});
+
 test('ask when people are free: paint hours and see the best time', async ({ page, isMobile }) => {
   await page.goto('/new/free');
   await page.fill('#title', 'Book club');
   await page.click('[data-level="hours"]');
   await page.click('[data-flength="60"]');
-  await expect(page.locator('#submit')).toBeDisabled();
-  await page.click('[data-fill="0"]'); // mornings, 8 AM – 12 PM, all week
-  await expect(page.locator('#free-list')).toContainText('8 AM – 12 PM');
+  await expect(page.locator('#submit')).toHaveAttribute('aria-disabled', 'true');
+  // The quick fills are the same mornings, afternoons and evenings as the parts of the day.
+  await expect(page.locator('[data-fill="2"]')).toContainText('Evenings 6 – 10 PM');
+  await page.click('[data-fill="0"]'); // mornings, all week
+  await expect(page.locator('#free-list')).toContainText('9 AM – 12 PM');
   await page.click('#submit');
   // Guests start with mornings, afternoons and evenings; exact times are one tap away.
   await expect(page.locator('#quick-hours .part-vote').first()).toBeVisible();
@@ -267,16 +308,26 @@ test('guests need a name and an answer to save, and can say none of these work',
 test('organizers add different times on different days, and see the whole poll before creating it', async ({ page }) => {
   await page.goto('/new/pick');
   // Create stays greyed out until the poll has a name and an option.
-  await expect(page.locator('#submit')).toBeDisabled();
+  await expect(page.locator('#submit')).toHaveAttribute('aria-disabled', 'true');
   await expect(page.locator('#summary')).toHaveText('Add at least one option to create the poll');
   await expect(page.locator('#options-list')).toContainText('Nothing yet');
+  // It can still be reached and pressed: it says what's missing, and goes there.
+  await page.locator('#submit').focus();
+  await page.keyboard.press('Enter');
+  await expect(page.locator('#err')).toHaveText('Add at least one option to create the poll');
+  await expect(page).toHaveURL(/\/new\/pick$/);
 
-  // Options appear as soon as there's a day and a time: no Add button.
+  // Options appear as soon as there's a day and a time.
   await addOptions(page, 2, [1140]);
   await expect(page.locator('#options-list .chip')).toHaveCount(2);
-  await expect(page.locator('#summary')).toHaveText('Give your plan a name to create the poll');
+  await expect(page.locator('#summary')).toHaveText('Give your poll a name to create the poll');
+  await page.locator('#submit').focus();
+  await page.keyboard.press('Enter');
+  await expect(page.locator('#err')).toHaveText('Give your poll a name to create the poll');
+  await expect(page.locator('#title')).toBeFocused();
   await page.fill('#title', 'Dinner');
-  await expect(page.locator('#submit')).toBeEnabled();
+  await expect(page.locator('#err')).toBeEmpty();
+  await expect(page.locator('#submit')).toHaveAttribute('aria-disabled', 'false');
 
   // Another time on the first day.
   const first = await nextMonth(page);
@@ -288,6 +339,12 @@ test('organizers add different times on different days, and see the whole poll b
   // Tapping an option in the list switches it to if needed; its × on the calendar removes it.
   await page.locator('#options-list .chip-flip').first().click();
   await expect(page.locator('#options-list .chip.maybe')).toHaveCount(1);
+  // It says so in words, and keeps its amber.
+  await expect(page.locator('#options-list .chip.maybe')).toContainText('If needed');
+  const bg = (l) => l.evaluate((el) => getComputedStyle(el).backgroundColor);
+  expect(await bg(page.locator('#options-list .chip.maybe'))).not.toBe(
+    await bg(page.locator('#options-list .chip:not(.maybe)').first()),
+  );
   await expect(page.locator('.tg-block.opt-maybe')).toHaveCount(1);
   const second = await showDate(page, addDays(first, 1));
   await second.locator('.tg-block').hover();
@@ -300,6 +357,48 @@ test('organizers add different times on different days, and see the whole poll b
   await expect(page.locator('#mine .row[data-v="1"]')).toHaveCount(1);
 });
 
+test('organizers are asked before a change removes several options at once', async ({ page }) => {
+  /** Answer the next confirm() with `yes`, and return its message. */
+  const answer = (yes) => {
+    page.removeAllListeners('dialog');
+    return new Promise((done) =>
+      page.once('dialog', (d) => {
+        done(d.message());
+        yes ? d.accept() : d.dismiss();
+      }),
+    );
+  };
+  await page.goto('/new/pick');
+  await addOptions(page, 2, [1140]);
+  // Times and whole days don't mix, so switching to all day would clear them: saying no keeps both.
+  let asked = answer(false);
+  await page.click('[data-length="allday"]');
+  expect(await asked).toBe("Switching to all day removes the 2 options you've added. Switch anyway?");
+  await expect(page.locator('[data-length="120"]')).toHaveAttribute('aria-pressed', 'true');
+  await expect(page.locator('[data-length="allday"]')).toHaveAttribute('aria-pressed', 'false');
+  await expect(page.locator('#options-list .chip')).toHaveCount(2);
+  asked = answer(true);
+  await page.click('[data-length="allday"]');
+  await asked;
+  await expect(page.locator('#options-list')).toContainText('Nothing yet');
+
+  // On "ask when people are free", one × can stand for a week of evenings.
+  await page.goto('/new/free');
+  await page.click('#q-2w');
+  await page.click('[data-level="parts"]');
+  const rows = page.locator('#free-list .od-row');
+  const before = await page.locator('#free-list .chip').count();
+  const rm = rows.first().locator('[data-rm-window]').last();
+  asked = answer(false);
+  await rm.click();
+  expect(await asked).toMatch(/^Remove these \d+ evenings\?$/);
+  await expect(page.locator('#free-list .chip')).toHaveCount(before);
+  asked = answer(true);
+  await rm.click();
+  await asked;
+  await expect(page.locator('#free-list .chip')).toHaveCount(before - 1);
+});
+
 test('organizers give their email when this server sends email', async ({ page }) => {
   await page.route('**/api/config', async (route) => {
     const res = await route.fetch();
@@ -309,14 +408,41 @@ test('organizers give their email when this server sends email', async ({ page }
   await page.fill('#title', 'Cabin');
   await page.click('#q-2w');
   await expect(page.locator('#notify')).toBeVisible();
-  await expect(page.locator('#submit')).toBeDisabled();
+  await expect(page.locator('#submit')).toHaveAttribute('aria-disabled', 'true');
   await expect(page.locator('#summary')).toHaveText('Add your email to create the poll');
   await page.fill('#notify', 'sam@example');
   await expect(page.locator('#summary')).toHaveText('Check your email address');
   await page.fill('#notify', 'sam@example.com');
-  await expect(page.locator('#submit')).toBeEnabled();
-  // The time zone is the organizer's own; there's nothing to set.
+  await expect(page.locator('#submit')).toHaveAttribute('aria-disabled', 'false');
+});
+
+test('the create pages say which time zone the times are in, and it can be changed', async ({ page, request }) => {
+  const zoneName = (tz) =>
+    page.evaluate(
+      (tz) =>
+        new Intl.DateTimeFormat(undefined, { timeZone: tz, timeZoneName: 'longGeneric' })
+          .formatToParts(new Date())
+          .find((x) => x.type === 'timeZoneName').value,
+      tz,
+    );
+  await startPick(page, 'Call with Tokyo', [1140]);
+  const line = page.locator('#tz-box summary');
+  const local = await page.evaluate(() => Intl.DateTimeFormat().resolvedOptions().timeZone);
+  await expect(line).toHaveText(`Times in ${await zoneName(local)} · Change`);
+  // It's the organizer's own time zone, so the choice stays out of the way until asked for.
   await expect(page.locator('#tz')).toBeHidden();
+  await line.click();
+  await page.selectOption('#tz', 'Asia/Tokyo');
+  await expect(line).toHaveText(`Times in ${await zoneName('Asia/Tokyo')} · Change`);
+  await page.click('#submit');
+  await openNewPoll(page);
+  const ev = await (await request.get(`/api/events/${page.url().split('/e/')[1]}`)).json();
+  expect(ev.timezone).toBe('Asia/Tokyo');
+  // 7 PM in Tokyo.
+  expect(new Date(ev.options[0].start).toISOString()).toMatch(/T10:00:00/);
+
+  await page.goto('/new/free');
+  await expect(page.locator('#tz-box summary')).toHaveText(`Times in ${await zoneName(local)} · Change`);
 });
 
 test('phone: no zoom on focus, tap targets, tap-to-pick dates, Save always in reach', async ({ page, isMobile }) => {
@@ -362,6 +488,81 @@ test('phone: no zoom on focus, tap targets, tap-to-pick dates, Save always in re
   await expect(page.locator('#save-state')).toContainText('21 of 21 answered');
   const save = await page.locator('#save').boundingBox();
   expect(save.y + save.height).toBeLessThanOrEqual(page.viewportSize().height);
+});
+
+test('the week calendar opens at the plan’s time and pages a week at a time', async ({ page, isMobile }) => {
+  await page.goto('/new/pick');
+  const row = () => page.locator('.tg').evaluate((el) => parseFloat(getComputedStyle(el).getPropertyValue('--row')));
+  const opensAt = async () =>
+    420 + Math.round((await page.locator('.tg-scroll').evaluate((el) => el.scrollTop)) / (await row())) * 30;
+  // Coffee is a morning plan: the calendar opens at 8 AM, not the evening.
+  await page.getByRole('button', { name: 'Coffee' }).click();
+  await expect.poll(opensAt).toBe(480);
+  await page.getByRole('button', { name: 'Dinner' }).click();
+  await expect.poll(opensAt).toBeGreaterThan(840); // the evening, as far down as the calendar goes
+
+  // ‹ › go a week at a time, and the week runs Sunday to Saturday.
+  const next = page.getByRole('button', { name: 'Next week' });
+  await expect(page.getByRole('button', { name: 'Previous week' })).toBeDisabled();
+  await next.click();
+  await page.click('[data-view="week"]');
+  const days = page.locator('#picker .tg-col');
+  await expect(days).toHaveCount(7);
+  const first = await days.first().getAttribute('data-date');
+  expect(new Date(`${first}T12:00:00Z`).getUTCDay()).toBe(0);
+  await next.click();
+  await expect(days.first()).toHaveAttribute('data-date', addDays(first, 7));
+  if (!isMobile) return;
+
+  // On a phone, the day view's strip shows the same week, and the next week is one tap away.
+  await page.click('[data-view="day"]');
+  await expect(page.locator('#picker .tv-chip').first()).toHaveAttribute('data-day', addDays(first, 7));
+  await next.click();
+  await expect(page.locator('#picker .tv-chip').first()).toHaveAttribute('data-day', addDays(first, 14));
+  // Narrow week columns get a short label ("7p"), not one broken over three lines.
+  await tapAt(page, addDays(first, 15), 1140);
+  await page.click('[data-view="week"]');
+  await expect(page.locator('.tg-block span')).toHaveText(/^(7p|19)$/);
+  // The × has a 44px hit area: a near miss removes the option instead of switching it to if needed.
+  const x = await page.locator('.tg-x').boundingBox();
+  await page.touchscreen.tap(x.x - 7, x.y + x.height + 7);
+  await expect(page.locator('.tg-block')).toHaveCount(0);
+});
+
+test('phone: the calendars leave room to scroll the page, and say how to use them first', async ({ page, isMobile }) => {
+  test.skip(!isMobile, 'phone-only behaviour');
+  const half = page.viewportSize().height / 2;
+  await page.goto('/new/pick');
+  expect((await page.locator('.tg-scroll').boundingBox()).height).toBeLessThanOrEqual(half);
+  await page.goto('/new/free');
+  await page.click('[data-level="hours"]');
+  expect((await page.locator('.pg-scroll').boundingBox()).height).toBeLessThanOrEqual(half);
+  // The hint comes before the painter, not after it.
+  const help = page.locator('#when-help');
+  await expect(help).toContainText('drag the times on the left');
+  expect((await help.boundingBox()).y).toBeLessThan((await page.locator('.pg-scroll').boundingBox()).y);
+});
+
+test('keyboard: add a time to "vote on a few dates" without the pointer', async ({ page }) => {
+  await page.goto('/new/pick');
+  await page.fill('#title', 'Book club');
+  await page.click('[data-length="90"]');
+  // Pressing Create with no options goes to the day to add one.
+  await page.locator('#submit').focus();
+  await page.keyboard.press('Enter');
+  await expect(page.locator('#at-day')).toBeFocused();
+  await page.getByRole('button', { name: 'Next week' }).click();
+  const day = await page.locator('#picker .tg-col').first().getAttribute('data-date');
+  await page.selectOption('#at-day', day);
+  await page.selectOption('#at-time', '1110'); // 6:30 PM
+  await page.locator('#at-add').focus();
+  await page.keyboard.press('Enter');
+  // The same option a tap makes, of the plan's length.
+  await expect(page.locator('#options-list .chip')).toHaveCount(1);
+  await expect(page.locator('#options-list .chip')).toContainText('6:30 – 8:00 PM');
+  await expect(page.locator('.tg-block')).toHaveCount(1);
+  await expect(page.locator('#at-add')).toBeFocused();
+  await expect(page.locator('#submit')).toHaveAttribute('aria-disabled', 'false');
 });
 
 test('landing page: nav bar with GitHub, and the way to both kinds of poll', async ({ page, isMobile }) => {
@@ -518,8 +719,8 @@ test('"when are you free" polls come back to edit at their level: hours, or part
   await page.getByRole('link', { name: 'Edit poll' }).click();
   await expect(page.locator('#title')).toHaveValue('Book club');
   await expect(page.locator('[data-level="hours"]')).toHaveAttribute('aria-checked', 'true');
-  await expect(page.locator('#free-list')).toContainText('8 AM – 12 PM');
-  await expect(page.locator('#submit')).toBeEnabled();
+  await expect(page.locator('#free-list')).toContainText('9 AM – 12 PM');
+  await expect(page.locator('#submit')).toHaveAttribute('aria-disabled', 'false');
 
   await page.goto('/new/free');
   await page.fill('#title', 'Coffee');
@@ -905,7 +1106,7 @@ test('organizers paint different hours on different days, and guests mark within
 test('ask when people are free: zoom from whole days to parts of the day to hours', async ({ page, isMobile }) => {
   await page.goto('/new/free');
   await page.fill('#title', 'Picnic');
-  await page.click('[data-nav="1"]');
+  await showNextMonth(page);
   for (const i of [0, 1]) await page.locator('.cal-day').nth(i).click();
   await expect(page.locator('#summary')).toHaveText('2 days to choose from');
 
