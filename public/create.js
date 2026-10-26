@@ -15,7 +15,6 @@ import {
   zonedToUtc,
 } from './core.js';
 import { editBlocks } from './block-edit.js';
-import { paintView } from './paint.js';
 import { isPhone, monthView, timeView } from './picker.js';
 import {
   $,
@@ -213,7 +212,7 @@ function youFields() {
 
 /** The time zone the times are in, under the calendar, with a way to change it. */
 const tzLine = () => `
-  <details class="reveal tz-pick" id="tz-box">
+  <details class="reveal tz-line" id="tz-box">
     <summary><span>Times in <span id="tz-name">${esc(tzName(localTz))}</span> · Change</span></summary>
     <label for="tz">Time zone for this poll</label>
     <select id="tz" aria-describedby="tz-hint">${tzOptions(localTz)}</select>
@@ -600,8 +599,8 @@ export function renderPick() {
     $('#add-time').innerHTML = `
       <span class="scope-label" id="at-l">Or add a time</span>
       <div class="add-time-row">
-        <div class="add-time-field"><label for="at-day">Day</label><select id="at-day"></select></div>
-        <div class="add-time-field"><label for="at-time">Starts at</label><select id="at-time">${times.join('')}</select></div>
+        <div><label for="at-day">Day</label><select id="at-day"></select></div>
+        <div><label for="at-time">Starts at</label><select id="at-time">${times.join('')}</select></div>
         <button type="button" class="btn" id="at-add">Add</button>
       </div>`;
     $('#at-add').onclick = () => {
@@ -931,6 +930,7 @@ export function renderFree() {
   let length = 120; // minutes, for hours
   let painter = null;
   let cal = null;
+  let mounts = 0; // the painter loads on demand: only the latest level shows when it arrives
 
   app.innerHTML = `
     <form id="create" class="create" novalidate>
@@ -1056,11 +1056,13 @@ export function renderFree() {
     for (const b of $$('[data-flength]')) b.setAttribute('aria-pressed', +b.dataset.flength === v);
   }
 
-  function mount() {
+  async function mount() {
     painter?.cleanup();
     cal?.cleanup();
     painter = cal = null;
     const root = $('#when');
+    const at = ++mounts;
+    root.innerHTML = $('#quick').innerHTML = '';
     $('#when-help').hidden = level === 'days';
     if (level === 'days') {
       cal = monthView(root, { selected, onChange: update });
@@ -1074,6 +1076,9 @@ export function renderFree() {
     }
     const parts = level === 'parts';
     const set = parts ? partsSel : painted;
+    // Parts of the day and hours need the painter, which most whole-day polls never load.
+    const { paintView } = await import('./paint.js');
+    if (at !== mounts || !root.isConnected) return;
     painter = paintView(root, { selected: set, onChange: update, startAt: datesOf(set)[0], parts: parts && DAY_PARTS });
     const touch = isPhone();
     // How to paint goes above the calendar, where it's read before the first stroke.
@@ -1148,13 +1153,13 @@ export function renderFree() {
       for (const d of ds.split(','))
         if (level === 'parts') partsSel.delete(`${d}|${from}`);
         else for (const m of slots(+from, +to)) painted.delete(`${d}|${m}`);
-      painter.render();
+      painter?.render();
       update();
     }
     const rd = e.target.closest('[data-rm-day]');
     if (rd) {
       selected.delete(rd.dataset.rmDay);
-      cal.render();
+      cal?.render();
       update();
     }
   });
@@ -1297,6 +1302,9 @@ export function renderFree() {
 
   setLength(120);
   setLevel('days');
+  // Fetch the painter as soon as the organizer heads for the levels, so zooming in doesn't wait.
+  const warm = () => import('./paint.js').catch(() => {});
+  for (const ev of ['pointerover', 'focusin']) $('.zoom').addEventListener(ev, warm, { once: true });
   showConfig(update);
   if (src) prefill();
   else prefillTitle();

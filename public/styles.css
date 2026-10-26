@@ -2398,8 +2398,7 @@ pre.code {
 }
 
 /* ---------- create pages: audit fixes ---------- */
-/* Create isn't ready yet: it still works (it says what's missing), but looks quiet. The colours
-   keep AA contrast, since the button can still be focused and pressed. */
+/* Create before it's ready: still focusable and pressable (it says what's missing), so AA colours. */
 .btn-primary.not-ready,
 .btn-primary.not-ready:hover {
   background: var(--surface-2);
@@ -2407,21 +2406,7 @@ pre.code {
   color: var(--muted);
   filter: none;
 }
-/* The time zone line under the calendar: quiet until it's opened. */
-.tz-pick {
-  margin-top: 12px;
-}
-.tz-pick summary {
-  font-size: 0.95rem;
-}
-.tz-pick select {
-  max-width: 360px;
-}
-.tz-pick .hint {
-  margin: 6px 0 0;
-}
-/* Phones: the week calendar and the hours painter take at most half the screen, so a swipe beside
-   them always scrolls the page; and once they reach their end, the page carries on scrolling. */
+/* Phones: the calendars take at most half the screen, and hand the scroll back to the page. */
 @media (pointer: coarse), (max-width: 640px) {
   .create .tg-scroll,
   .create .pg-scroll {
@@ -2429,13 +2414,11 @@ pre.code {
     overscroll-behavior: auto;
   }
 }
-/* "Options in your poll": if-needed options keep their amber (`.od-row .chip` sets the surface),
-   and say so in words too. */
+/* If-needed options keep their amber, and say so in words. */
 .od-row .chip.maybe {
   background: var(--maybe-soft);
 }
 .chip-tag {
-  display: inline-block;
   margin-left: 4px;
   padding: 1px 6px;
   border-radius: 999px;
@@ -2443,9 +2426,8 @@ pre.code {
   color: var(--maybe-ink);
   font-size: 0.75rem;
   font-weight: 700;
-  vertical-align: 1px;
 }
-/* "Or add a time" under the week calendar: a day, a start time and Add, for keyboards. */
+/* "Or add a time", for keyboards */
 .add-time {
   margin-top: 12px;
 }
@@ -2454,24 +2436,14 @@ pre.code {
   flex-wrap: wrap;
   align-items: flex-end;
   gap: 8px;
-  margin-top: 6px;
 }
-.add-time-field {
+.add-time-row > div {
   flex: 1 1 130px;
-  min-width: 0;
 }
-.add-time-field label {
-  font-size: 0.9rem;
-  font-weight: 600;
-}
-.add-time .btn {
-  min-height: 46px;
-}
-/* The week calendar: days gone by can't take options. */
 .tg-past {
   background-color: var(--surface-2);
 }
-/* A phone's narrow week columns: a short start time ("7p") at the bottom, clear of the ×. */
+/* Narrow week columns on phones: a short start time ("7p"), at the bottom, clear of the × */
 .tg-narrow .tg-block {
   padding: 2px;
   align-items: flex-end;
@@ -2481,8 +2453,7 @@ pre.code {
   white-space: nowrap;
   font-size: 0.7rem;
 }
-/* Touch screens: the × gets a 44px hit area around its 24px circle, and the edges a 24px one, so a
-   near miss doesn't switch the option to "if needed" instead. */
+/* Touch: a 44px hit area for the ×, and 24px edges (the grips stay where they were) */
 @media (hover: none), (pointer: coarse) {
   .tg-x::before {
     content: '';
@@ -2490,7 +2461,7 @@ pre.code {
     inset: -10px;
   }
   .create .tg-block.opt {
-    overflow: visible; /* the edges reach a little beyond the option */
+    overflow: visible;
   }
   .create .tg-block.opt > span {
     max-height: 100%;
@@ -2504,7 +2475,6 @@ pre.code {
   .create .tg-bottom {
     bottom: -12px;
   }
-  /* the grips stay just inside the option, where they were */
   .create .tg-top::after {
     top: 14px;
   }
