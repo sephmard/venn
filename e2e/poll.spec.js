@@ -133,6 +133,10 @@ test('ask when people are free: days that never make the run asked for can’t b
   await page.click('#q-weekends'); // Fri – Sun, four times: 3 days in a row at most
   await page.fill('#span', '4');
   await expect(page.locator('#summary')).toHaveText('None of your days make 4 in a row. Pick days next to each other');
+  await expect(page.locator('#submit')).toHaveAttribute('aria-disabled', 'true');
+  await page.locator('#submit').click({ force: true }); // Playwright treats aria-disabled as not clickable
+  await expect(page.locator('#err')).toHaveText('None of your days make 4 in a row. Pick days next to each other');
+  await expect(page.locator('#span')).toBeFocused();
   await page.fill('#span', '3');
   await expect(page.locator('#summary')).toHaveText('12 days to choose from');
   // A number out of range is shown as the nearest one that works.
@@ -149,7 +153,7 @@ test('ask when people are free: paint hours and see the best time', async ({ pag
   await page.fill('#title', 'Book club');
   await page.click('[data-level="hours"]');
   await page.click('[data-flength="60"]');
-  await expect(page.locator('#submit')).toBeDisabled();
+  await expect(page.locator('#submit')).toHaveAttribute('aria-disabled', 'true');
   await page.click('[data-fill="0"]'); // mornings, 8 AM – 12 PM, all week
   await expect(page.locator('#free-list')).toContainText('8 AM – 12 PM');
   await page.click('#submit');
@@ -284,16 +288,26 @@ test('guests need a name and an answer to save, and can say none of these work',
 test('organizers add different times on different days, and see the whole poll before creating it', async ({ page }) => {
   await page.goto('/new/pick');
   // Create stays greyed out until the poll has a name and an option.
-  await expect(page.locator('#submit')).toBeDisabled();
+  await expect(page.locator('#submit')).toHaveAttribute('aria-disabled', 'true');
   await expect(page.locator('#summary')).toHaveText('Add at least one option to create the poll');
   await expect(page.locator('#options-list')).toContainText('Nothing yet');
+  // It can still be reached and pressed: it says what's missing, and goes there.
+  await page.locator('#submit').focus();
+  await page.keyboard.press('Enter');
+  await expect(page.locator('#err')).toHaveText('Add at least one option to create the poll');
+  await expect(page).toHaveURL(/\/new\/pick$/);
 
-  // Options appear as soon as there's a day and a time: no Add button.
+  // Options appear as soon as there's a day and a time.
   await addOptions(page, 2, [1140]);
   await expect(page.locator('#options-list .chip')).toHaveCount(2);
-  await expect(page.locator('#summary')).toHaveText('Give your plan a name to create the poll');
+  await expect(page.locator('#summary')).toHaveText('Give your poll a name to create the poll');
+  await page.locator('#submit').focus();
+  await page.keyboard.press('Enter');
+  await expect(page.locator('#err')).toHaveText('Give your poll a name to create the poll');
+  await expect(page.locator('#title')).toBeFocused();
   await page.fill('#title', 'Dinner');
-  await expect(page.locator('#submit')).toBeEnabled();
+  await expect(page.locator('#err')).toBeEmpty();
+  await expect(page.locator('#submit')).toHaveAttribute('aria-disabled', 'false');
 
   // Another time on the first day.
   const first = await nextMonth(page);
@@ -326,12 +340,12 @@ test('organizers give their email when this server sends email', async ({ page }
   await page.fill('#title', 'Cabin');
   await page.click('#q-2w');
   await expect(page.locator('#notify')).toBeVisible();
-  await expect(page.locator('#submit')).toBeDisabled();
+  await expect(page.locator('#submit')).toHaveAttribute('aria-disabled', 'true');
   await expect(page.locator('#summary')).toHaveText('Add your email to create the poll');
   await page.fill('#notify', 'sam@example');
   await expect(page.locator('#summary')).toHaveText('Check your email address');
   await page.fill('#notify', 'sam@example.com');
-  await expect(page.locator('#submit')).toBeEnabled();
+  await expect(page.locator('#submit')).toHaveAttribute('aria-disabled', 'false');
   // The time zone is the organizer's own; there's nothing to set.
   await expect(page.locator('#tz')).toBeHidden();
 });
@@ -536,7 +550,7 @@ test('"when are you free" polls come back to edit at their level: hours, or part
   await expect(page.locator('#title')).toHaveValue('Book club');
   await expect(page.locator('[data-level="hours"]')).toHaveAttribute('aria-checked', 'true');
   await expect(page.locator('#free-list')).toContainText('8 AM – 12 PM');
-  await expect(page.locator('#submit')).toBeEnabled();
+  await expect(page.locator('#submit')).toHaveAttribute('aria-disabled', 'false');
 
   await page.goto('/new/free');
   await page.fill('#title', 'Coffee');

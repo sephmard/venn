@@ -226,7 +226,7 @@ async function submit(body, occasion, answer = null) {
   err.textContent = '';
   const title = $('#title').value.trim() || occasion()?.label || '';
   if (!title) {
-    err.textContent = 'Give your plan a name.';
+    err.textContent = 'Give your poll a name.';
     $('#title').focus();
     return;
   }
@@ -325,13 +325,37 @@ function emailMissing() {
   return !v ? 'Add your email to create the poll' : !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v) ? 'Check your email address' : '';
 }
 
-/** Grey out Create until the poll can be made, and say what's still missing. */
-function setReady(missing, ready) {
-  $('#submit').disabled = !!missing;
-  $('#summary').textContent = missing || ready;
-  $('#summary').classList.toggle('missing', !!missing);
+/**
+ * Show Create as not ready until the poll can be made, and say what's still missing. It stays a
+ * working button (aria-disabled), so keyboard and screen-reader users can reach it and press it to
+ * hear why. `checks` are [problem?, message, what to focus] in order; the first problem wins.
+ */
+let notReady = null; // { message, focus } while something is missing
+function setReady(ready, ...checks) {
+  const [, message, focus] = checks.find(([bad]) => bad) || [];
+  if (message !== notReady?.message) $('#err').textContent = '';
+  notReady = message ? { message, focus } : null;
+  $('#submit').setAttribute('aria-disabled', String(!!message));
+  $('#submit').classList.toggle('not-ready', !!message);
+  if (!$('#err').textContent) $('#summary').textContent = message || ready;
+  $('#summary').classList.toggle('missing', !!message);
+}
+/** Create was pressed before the poll is ready: say what's missing, and go there. */
+function explainNotReady() {
+  if (!notReady) return false;
+  const { message, focus } = notReady;
+  $('#summary').textContent = '';
+  $('#err').textContent = message;
+  const el = typeof focus === 'function' ? focus() : $(focus);
+  el?.focus();
+  return true;
 }
 const named = (occasion) => !!($('#title').value.trim() || occasion()?.label);
+/** The usual last checks: a name, then the organizer's email when it's needed. */
+const nameAndEmail = (occasion) => [
+  [!named(occasion), 'Give your poll a name to create the poll', '#title'],
+  [!!emailMissing(), emailMissing(), '#notify'],
+];
 
 const createBar = (label) => `
   <div class="create-bar">
@@ -429,6 +453,8 @@ export function renderPick() {
   });
 
   const timed = () => typeof length === 'number' || length === 'custom';
+  // Where to go when Create is pressed with no options: the calendar.
+  const calendarFocus = () => $('#picker .tg-scroll') || $('#picker .cal-day:not(:disabled)');
   const minutes = () => (length === 'custom' ? Math.max(15, Math.min(1440, +$('#custom').value || 60)) : length);
   const onDate = (d) => [...items.values()].filter((it) => it.date === d);
   const mark = (d) => (onDate(d).length ? String(onDate(d).length) : '');
@@ -675,7 +701,7 @@ export function renderPick() {
 
   $('#create').onsubmit = (e) => {
     e.preventDefault();
-    if (!items.size) return ($('#err').textContent = 'Add at least one option to vote on.');
+    if (explainNotReady()) return;
     // The organizer's own answer, from how each option was marked.
     const answer = {};
     options().forEach((o, i) => (answer[o.start] = sorted()[i][1].v || YES));
@@ -721,12 +747,9 @@ export function renderPick() {
   function updateReady() {
     const n = items.size;
     setReady(
-      !n
-        ? 'Add at least one option to create the poll'
-        : !named(occasion)
-          ? 'Give your plan a name to create the poll'
-          : emailMissing(),
       `${plural(n, 'option')} to vote on`,
+      [!n, 'Add at least one option to create the poll', calendarFocus],
+      ...nameAndEmail(occasion),
     );
   }
   $('#title').addEventListener('input', updateReady);
@@ -885,6 +908,8 @@ export function renderFree() {
   });
 
   const span = () => Math.max(1, Math.min(MAX_SPAN_DAYS, +$('#span').value || 1));
+  // Where to go when Create is pressed with nothing picked: the calendar.
+  const gridFocus = () => $('#when .pg-cell[tabindex="0"]') || $('#when .cal-day:not(:disabled)');
   const datesOf = (keys) => [...new Set([...keys].map((k) => k.split('|')[0]))].sort();
   const paintedDates = () => datesOf(painted);
   // The part of the day a painted half hour belongs to (the gaps between parts go to the nearest).
@@ -1102,14 +1127,14 @@ export function renderFree() {
           ${windowList(windows, shortRange)}`
         : '<p class="hint">Nothing yet. Paint some times on the calendar above, or use a quick fill.</p>';
       return setReady(
-        !windows.length
-          ? 'Paint at least one time to create the poll'
-          : !windows.some((w) => w.end - w.start >= length)
-            ? `Your times are shorter than ${lengthLabel(length)}. Paint a longer stretch`
-            : !named(occasion)
-              ? 'Give your plan a name to create the poll'
-              : emailMissing(),
         `${plural(dates.length, 'day')} to choose from`,
+        [!windows.length, 'Paint at least one time to create the poll', gridFocus],
+        [
+          !windows.some((w) => w.end - w.start >= length),
+          `Your times are shorter than ${lengthLabel(length)}. Paint a longer stretch`,
+          gridFocus,
+        ],
+        ...nameAndEmail(occasion),
       );
     }
     if (level === 'parts') {
@@ -1118,12 +1143,9 @@ export function renderFree() {
         ? `<p class="preview-lede">Guests will tap which of these they’re free.</p>${windowList(windows, partLabel)}`
         : '<p class="hint">Nothing yet. Tap mornings, afternoons and evenings on the calendar above, or use a quick fill.</p>';
       return setReady(
-        !windows.length
-          ? 'Pick at least one morning, afternoon or evening'
-          : !named(occasion)
-            ? 'Give your plan a name to create the poll'
-            : emailMissing(),
         `${plural(windows.length, 'time')} to choose from`,
+        [!windows.length, 'Pick at least one morning, afternoon or evening', gridFocus],
+        ...nameAndEmail(occasion),
       );
     }
     const dates = [...selected].sort();
@@ -1134,22 +1156,17 @@ export function renderFree() {
           .join('')}</div>`
       : '<p class="hint">Nothing yet. Pick some days on the calendar above.</p>';
     setReady(
-      !dates.length
-        ? 'Pick at least one day to create the poll'
-        : k > dates.length
-          ? `Pick at least ${k} days, for ${k} in a row`
-          : longestRun(dates) < k
-            ? `None of your days make ${k} in a row. Pick days next to each other`
-            : !named(occasion)
-              ? 'Give your plan a name to create the poll'
-              : emailMissing(),
       `${plural(dates.length, 'day')} to choose from`,
+      [!dates.length, 'Pick at least one day to create the poll', gridFocus],
+      [k > dates.length, `Pick at least ${k} days, for ${k} in a row`, gridFocus],
+      [longestRun(dates) < k, `None of your days make ${k} in a row. Pick days next to each other`, '#span'],
+      ...nameAndEmail(occasion),
     );
   }
 
   $('#create').onsubmit = (e) => {
     e.preventDefault();
-    if ($('#submit').disabled) return;
+    if (explainNotReady()) return;
     if (level === 'hours') return submit({ windows: toWindows(painted), slotMinutes: 30, durationMinutes: length }, occasion);
     if (level === 'parts') {
       const tz = $('#tz').value;

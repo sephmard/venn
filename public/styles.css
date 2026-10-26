@@ -2396,3 +2396,14 @@ pre.code {
   flex-basis: 100%;
   margin: 0;
 }
+
+/* ---------- create pages: audit fixes ---------- */
+/* Create isn't ready yet: it still works (it says what's missing), but looks quiet. The colours
+   keep AA contrast, since the button can still be focused and pressed. */
+.btn-primary.not-ready,
+.btn-primary.not-ready:hover {
+  background: var(--surface-2);
+  border-color: var(--border);
+  color: var(--muted);
+  filter: none;
+}
