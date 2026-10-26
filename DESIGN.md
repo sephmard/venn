@@ -99,4 +99,4 @@ The app (`public/styles.css`, for `/new` and `/e/:id`) uses the same colors and 
 - **Guests see options on a calendar too**: Week on desktop, Day on phones, with overlapping options side by side.
 - **Emoji** mark the kind of plan (🍝 dinner, ✈️ trip…) in the app only; the landing page stays without.
 - **Phones first:** 44px tap targets, 16px inputs, sticky Save and Create bars, and two tabs ("Your answer", "The group") that become two columns on wide screens.
-- **Motion:** one small celebration when the date is picked. Nothing moves under `prefers-reduced-motion`.
+- **Motion:** two celebrations. Picking the date gets a small one. Creating a poll gets a big one (`public/celebrate.js`): the Venn circles slide together behind the dog (`public/img/dog.webp`), confetti flies, and "Poll created! So proud of you for bringing people together." stays up for a few seconds before the poll opens. Its button opens the poll straight away. Under `prefers-reduced-motion` nothing moves: the note just shows, then the poll opens.
