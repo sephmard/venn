@@ -649,17 +649,25 @@ export function renderPick() {
   renderBrush();
 
   // ----- length -----
-  function setLength(v) {
+  /** Returns false when the organizer chose to keep their options rather than switch. */
+  function setLength(v, { ask = true } = {}) {
     const wasTimed = timed();
+    // Options in hours and whole-day options don't mix: switching between them starts over, so ask.
+    const clears = items.size && wasTimed !== (typeof v === 'number' || v === 'custom');
+    const name = LENGTHS.find(([x]) => x === v)?.[1].toLowerCase();
+    if (
+      clears &&
+      ask &&
+      !confirm(`Switching to ${name} removes the ${plural(items.size, 'option')} you've added. Switch anyway?`)
+    ) {
+      for (const b of $$('[data-length]')) b.setAttribute('aria-pressed', b.dataset.length === String(length));
+      return false;
+    }
     length = v;
     for (const b of $$('[data-length]')) b.setAttribute('aria-pressed', b.dataset.length === String(v));
     $('#span-field').hidden = v !== 'days';
     $('#custom-field').hidden = v !== 'custom';
-    // Options in hours and whole-day options don't mix: switching between them starts over.
-    if (wasTimed !== timed() && items.size) {
-      items.clear();
-      toast('Options cleared for the new length');
-    }
+    if (clears) items.clear();
     // A new length applies to the options already added.
     if (timed()) for (const it of items.values()) it.to = Math.min(it.from + minutes(), 1440);
     else for (const it of items.values()) it.days = v === 'days' ? spanDays : 1;
@@ -732,8 +740,8 @@ export function renderPick() {
       }
       const preset = LENGTHS.some(([v]) => v === draft.durationMinutes);
       if (!preset) $('#custom').value = draft.durationMinutes;
+      items.clear(); // the draft's options replace any already added
       setLength(preset ? draft.durationMinutes : 'custom');
-      items.clear();
       for (const o of draft.options) {
         const z = utcToZoned(o.start, tz);
         items.set(`${z.date}|${z.minutes}`, { date: z.date, from: z.minutes, to: Math.min(z.minutes + minutes(), 1440) });
@@ -1059,6 +1067,13 @@ export function renderFree() {
     const rm = e.target.closest('[data-rm-window]');
     if (rm) {
       const [ds, from, to] = rm.dataset.rmWindow.split('|');
+      const n = ds.split(',').length;
+      // One × can stand for a whole week of evenings: ask first.
+      const what =
+        level === 'parts'
+          ? `these ${n} ${DAY_PARTS.find((p) => p.start === +from).label.toLowerCase()}s`
+          : `${shortRange(+from, +to)} on these ${n} days`;
+      if (n > 1 && !confirm(`Remove ${what}?`)) return;
       for (const d of ds.split(','))
         if (level === 'parts') partsSel.delete(`${d}|${from}`);
         else for (const m of slots(+from, +to)) painted.delete(`${d}|${m}`);

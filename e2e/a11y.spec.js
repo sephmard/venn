@@ -29,6 +29,7 @@ for (const scheme of ['light', 'dark']) {
     });
 
     test('create pages', async ({ page }) => {
+      page.on('dialog', (d) => d.accept()); // switching to trips clears the options with times, after asking
       await page.goto('/new');
       await audit(page, 'chooser');
       await page.goto('/new/pick');

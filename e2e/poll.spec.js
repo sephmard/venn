@@ -333,6 +333,48 @@ test('organizers add different times on different days, and see the whole poll b
   await expect(page.locator('#mine .row[data-v="1"]')).toHaveCount(1);
 });
 
+test('organizers are asked before a change removes several options at once', async ({ page }) => {
+  /** Answer the next confirm() with `yes`, and return its message. */
+  const answer = (yes) => {
+    page.removeAllListeners('dialog');
+    return new Promise((done) =>
+      page.once('dialog', (d) => {
+        done(d.message());
+        yes ? d.accept() : d.dismiss();
+      }),
+    );
+  };
+  await page.goto('/new/pick');
+  await addOptions(page, 2, [1140]);
+  // Times and whole days don't mix, so switching to all day would clear them: saying no keeps both.
+  let asked = answer(false);
+  await page.click('[data-length="allday"]');
+  expect(await asked).toBe("Switching to all day removes the 2 options you've added. Switch anyway?");
+  await expect(page.locator('[data-length="120"]')).toHaveAttribute('aria-pressed', 'true');
+  await expect(page.locator('[data-length="allday"]')).toHaveAttribute('aria-pressed', 'false');
+  await expect(page.locator('#options-list .chip')).toHaveCount(2);
+  asked = answer(true);
+  await page.click('[data-length="allday"]');
+  await asked;
+  await expect(page.locator('#options-list')).toContainText('Nothing yet');
+
+  // On "ask when people are free", one × can stand for a week of evenings.
+  await page.goto('/new/free');
+  await page.click('#q-2w');
+  await page.click('[data-level="parts"]');
+  const rows = page.locator('#free-list .od-row');
+  const before = await page.locator('#free-list .chip').count();
+  const rm = rows.first().locator('[data-rm-window]').last();
+  asked = answer(false);
+  await rm.click();
+  expect(await asked).toMatch(/^Remove these \d+ evenings\?$/);
+  await expect(page.locator('#free-list .chip')).toHaveCount(before);
+  asked = answer(true);
+  await rm.click();
+  await asked;
+  await expect(page.locator('#free-list .chip')).toHaveCount(before - 1);
+});
+
 test('organizers give their email when this server sends email', async ({ page }) => {
   await page.route('**/api/config', async (route) => {
     const res = await route.fetch();
