@@ -118,7 +118,7 @@ Time zones, ranking and calendar files live in `public/core.js`, shared by the b
 
 ## What people get
 
-- **Two kinds of poll.** Vote on a few dates, or ask when people are free (parts of the day, whole days, days in a row for a trip, or hours on a grid).
+- **Two kinds of poll.** Vote on a few dates, or ask when people are free: paint the hours on a calendar, or pick whole days, or days in a row for a trip.
 - **Nobody signs up.** Open the link, type a name, tap _Yes_, _If needed_ or _No_. It's built for phones first.
 - **The best date rises to the top,** with everyone who can make it. Pick it and everyone adds it to Google, Apple or Outlook Calendar.
 - **Time zones handled,** and **notifications** by email, Slack, Discord or your own webhook. Checking your calendar is coming soon.

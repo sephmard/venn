@@ -2055,38 +2055,8 @@ details.organizer summary b {
   font-weight: 600;
 }
 
-/* ---------- "ask when people are free": hours without dropdowns ---------- */
-.field-h {
-  font-size: 1rem;
-  margin: 4px 0 0;
-}
 .pill small {
   font-weight: 500;
-}
-.time-steps {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 12px 24px;
-}
-.time-step {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-}
-.time-step .ts-label {
-  font-weight: 650;
-  min-width: 44px;
-}
-.time-step output {
-  min-width: 84px;
-  text-align: center;
-  font-weight: 700;
-}
-.guest-preview {
-  margin: 16px 0 0;
-  padding: 12px 14px;
-  border-radius: var(--radius);
-  background: var(--accent-soft);
 }
 
 /* ---------- guests: what I've picked, and calendar coming soon ---------- */
@@ -2197,5 +2167,77 @@ pre.code {
   }
   .btn-new .short {
     display: inline;
+  }
+}
+
+/* ---------- organizer: paint the times guests can mark ---------- */
+.pg-scroll {
+  position: relative;
+  max-height: min(70vh, 640px);
+  overflow-y: auto;
+  border: 1.5px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface);
+}
+.pg {
+  display: grid;
+  user-select: none;
+}
+.pg-corner,
+.pg-day {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+}
+.pg-day {
+  min-height: 44px;
+  border: 0;
+  border-bottom: 1px solid var(--border);
+  font: inherit;
+  font-size: 0.8rem;
+  color: var(--text);
+  cursor: pointer;
+  line-height: 1.2;
+}
+.pg-day b {
+  display: block;
+}
+.pg-day:hover {
+  background: var(--surface-2);
+}
+.pg-time {
+  font-size: 0.7rem;
+  color: var(--muted);
+  text-align: right;
+  padding-right: 6px;
+  transform: translateY(-0.5em);
+  touch-action: pan-y; /* phones scroll by dragging the times */
+}
+.pg-cell {
+  height: 22px;
+  border-left: 1px solid var(--border);
+  border-top: 1px dashed var(--cell-empty);
+  touch-action: none;
+  cursor: crosshair;
+}
+.pg-cell.hour {
+  border-top: 1px solid var(--border);
+}
+.pg-cell.on {
+  background: var(--accent);
+  border-top-color: transparent;
+}
+.pg-cell.on + .pg-cell.on {
+  border-left-color: rgb(255 255 255 / 0.35);
+}
+.pg-cell:focus-visible {
+  outline: 2px solid var(--text);
+  outline-offset: -2px;
+}
+@media (max-width: 640px) {
+  .pg-cell {
+    height: 28px;
   }
 }
