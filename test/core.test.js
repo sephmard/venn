@@ -6,7 +6,10 @@ import {
   availabilityFromBusy,
   buildIcs,
   buildSlots,
+  dayRuns,
   eventWindows,
+  hostAnswer,
+  keySlot,
   meetingEnd,
   parseIcsBusy,
   rankTimes,
@@ -269,4 +272,43 @@ test('"All day" and each part cycle all their times together: yes, if needed, cl
   assert.deepEqual(cycleGroup(a, slots), { 1: IF_NEEDED, 2: IF_NEEDED, 3: IF_NEEDED, 9: IF_NEEDED });
   assert.deepEqual(cycleGroup(a, slots), { 9: IF_NEEDED }); // other days are left alone
   assert.deepEqual(cycleGroup({ 1: YES, 2: IF_NEEDED }, slots), { 1: YES, 2: YES, 3: YES });
+});
+
+test('days in a row: runs of dates, in order, across months and years', () => {
+  assert.deepEqual(dayRuns([]), []);
+  assert.deepEqual(dayRuns(['2026-11-08', '2026-11-06', '2026-11-07', '2026-11-11', '2026-11-07']), [
+    ['2026-11-06', '2026-11-07', '2026-11-08'],
+    ['2026-11-11'],
+  ]);
+  assert.deepEqual(dayRuns(['2026-12-31', '2027-01-01', '2026-11-30', '2026-12-01']), [
+    ['2026-11-30', '2026-12-01'],
+    ['2026-12-31', '2027-01-01'],
+  ]);
+});
+
+test("the organizer's answer for a free poll: each pick's slot, yes or if needed, across DST", () => {
+  const tz = 'America/New_York';
+  // Whole days start at midnight, times at their minute, in the poll's time zone.
+  assert.equal(keySlot('2026-11-06', tz), Date.UTC(2026, 10, 6, 5));
+  assert.equal(keySlot('2026-11-06|1080', tz), Date.UTC(2026, 10, 6, 23));
+  // 2:30 AM doesn't exist on the night the clocks go forward: no slot, like buildSlots.
+  assert.equal(keySlot('2026-03-08|150', tz), null);
+
+  const days = ['2026-10-31', '2026-11-01', '2026-11-02'];
+  assert.deepEqual(hostAnswer(days, new Set(['2026-11-01']), tz), {
+    [Date.UTC(2026, 9, 31, 4)]: YES,
+    [Date.UTC(2026, 10, 1, 4)]: IF_NEEDED,
+    [Date.UTC(2026, 10, 2, 5)]: YES, // after the clocks went back
+  });
+  // Every key is a slot of the poll the page creates, on the days the clocks change too.
+  const ev = { timezone: tz, dates: days, startMinute: 0, endMinute: 1440, slotMinutes: 1440 };
+  assert.deepEqual(Object.keys(hostAnswer(days, new Set(), tz)).map(Number), buildSlots(ev));
+  for (const date of ['2026-03-08', '2026-11-01']) {
+    const hours = [60, 90, 120, 150, 180].map((m) => `${date}|${m}`);
+    const answer = hostAnswer(hours, new Set([`${date}|180`]), tz);
+    const windows = [{ date, start: 60, end: 210 }];
+    assert.deepEqual(Object.keys(answer).map(Number), buildSlots({ timezone: tz, windows, slotMinutes: 30 }));
+    assert.equal(answer[keySlot(`${date}|180`, tz)], IF_NEEDED); // 3 AM
+    assert.equal(Object.values(answer).filter((v) => v === IF_NEEDED).length, 1);
+  }
 });
