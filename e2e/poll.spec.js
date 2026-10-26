@@ -1899,6 +1899,18 @@ test('usage stats: counted as people use Venn, and shown to whoever has the toke
   await expect(page.locator('h2', { hasText: 'What happens to polls' })).toBeVisible();
   await expect(page.locator('.tile').first()).toContainText('polls created');
   await expect(page.locator('section', { hasText: 'From visit to poll' })).toContainText('Ask when people are available');
+  // The trend: a column a day, switched between metrics, folded into weeks over a year.
+  await expect(page.locator('.cols .col')).toHaveCount(30);
+  await expect(page.locator('h2', { hasText: 'Polls created by day of the week' })).toBeVisible();
+  await page.click('[data-metric="views"]');
+  await expect(page.locator('[data-metric="views"]')).toHaveAttribute('aria-checked', 'true');
+  await expect(page.locator('h2', { hasText: 'Poll views by day of the week' })).toBeVisible();
+  await page.locator('.cols .col').last().hover();
+  await expect(page.locator('.chart-tip')).toBeVisible();
+  await page.click('[data-days="365"]');
+  await expect(page.locator('.cols .col')).toHaveCount(53);
+  await page.click('#refresh');
+  await expect(page.locator('#updated')).toContainText('Updated at');
   // The token is remembered on this device, until it's forgotten.
   await page.reload();
   await expect(page.locator('.tile')).toHaveCount(5);
