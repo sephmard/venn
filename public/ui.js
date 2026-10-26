@@ -63,8 +63,7 @@ export function rememberEmail(e) {
 
 // ---------- feedback ----------
 
-// The toast is a status region that stays on the page (empty when there's nothing to say), so screen
-// readers announce each message: it's cleared first, then filled a moment later.
+// A status region that stays on the page, emptied then filled, so every message is announced.
 let toastTimer;
 export function toast(msg) {
   const t = document.getElementById('toast');
@@ -88,7 +87,7 @@ export async function copy(text, done = 'Link copied') {
 
 // ---------- API ----------
 
-/** Errors keep the HTTP `status` (0 when Venn couldn't be reached), so callers can tell a 404 from the rest. */
+/** Errors carry the HTTP `status`, or 0 when Venn can't be reached. */
 export async function api(path, { method = 'GET', body, headers = {} } = {}) {
   const fail = (status, message, cause) => Object.assign(new Error(message, { cause }), { status });
   let res;
@@ -103,7 +102,7 @@ export async function api(path, { method = 'GET', body, headers = {} } = {}) {
   }
   const data = await res.json().catch(() => ({}));
   if (!res.ok) {
-    // A crash (500) or a proxy error page says nothing useful; a 503 says what's unavailable.
+    // A 500 or a proxy's error page says nothing useful; a 503 says what's unavailable.
     const s = res.status;
     throw fail(
       s,
