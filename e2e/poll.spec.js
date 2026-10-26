@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test';
-import { addDays, addOptions, nextMonth, showDate, showNextMonth, tapAt } from './helpers.js';
+import { addDays, addOptions, nextMonth, showDate, showNextMonth, tapAt, todayIn } from './helpers.js';
 
 test.beforeEach(async ({ page }) => {
   page.on('dialog', (d) => d.accept());
@@ -654,11 +654,13 @@ test('the week calendar opens at the plan’s time and pages a week at a time', 
   await expect(days.first()).toHaveAttribute('data-date', addDays(first, 7));
   if (!isMobile) return;
 
-  // On a phone, the day view's strip shows the same week, and the next week is one tap away.
+  // On a phone, the day view shows a day of that week, and the next week is still one tap away.
   await page.click('[data-view="day"]');
-  await expect(page.locator('#picker .tv-chip').first()).toHaveAttribute('data-day', addDays(first, 7));
+  const picked = page.locator('#picker .tv-chip[aria-pressed="true"]');
+  const day = await picked.getAttribute('data-day');
+  expect(day >= addDays(first, 7) && day <= addDays(first, 13)).toBe(true);
   await next.click();
-  await expect(page.locator('#picker .tv-chip').first()).toHaveAttribute('data-day', addDays(first, 14));
+  await expect(picked).toHaveAttribute('data-day', addDays(day, 7));
   // Narrow week columns get a short label ("7p"), not one broken over three lines.
   await tapAt(page, addDays(first, 15), 1140);
   await page.click('[data-view="week"]');
@@ -674,6 +676,7 @@ test('phone: the calendars leave room to scroll the page, and say how to use the
   const half = page.viewportSize().height / 2;
   await page.goto('/new/pick');
   await page.fill('#organizer', 'Sam');
+  await page.locator('#picker .tv-pick').waitFor(); // drawn again once day-nav.js is in
   expect((await page.locator('.tg-scroll').boundingBox()).height).toBeLessThanOrEqual(half);
   await page.goto('/new/free');
   await page.fill('#organizer', 'Sam');
@@ -696,7 +699,7 @@ test('keyboard: add a time to "vote on a few dates" without the pointer', async 
   await expect(page.locator('#at-day')).toBeFocused();
   await page.getByRole('button', { name: 'Next week' }).click();
   const day = await page.locator('#picker .tg-col').first().getAttribute('data-date');
-  await page.selectOption('#at-day', day);
+  await expect(page.locator('#at-day')).toHaveValue(day); // the day follows the calendar
   await page.selectOption('#at-time', '1110'); // 6:30 PM
   await page.locator('#at-add').focus();
   await page.keyboard.press('Enter');
@@ -706,6 +709,146 @@ test('keyboard: add a time to "vote on a few dates" without the pointer', async 
   await expect(page.locator('.tg-block')).toHaveCount(1);
   await expect(page.locator('#at-add')).toBeFocused();
   await expect(page.locator('#submit')).toHaveAttribute('aria-disabled', 'false');
+});
+
+test('phones and touch screens open the calendar on one day, with Week a tap away', async ({ page, browser, isMobile }) => {
+  await page.goto('/new/pick');
+  await expect(page.locator('#picker [data-view="day"]')).toHaveAttribute('aria-checked', String(isMobile));
+  await expect(page.locator('#picker .tg-col')).toHaveCount(isMobile ? 1 : 7);
+  await page.click('#picker [data-view="week"]');
+  await expect(page.locator('#picker .tg-col')).toHaveCount(7);
+  // A tablet, or a big phone on its side: a touch screen wider than a phone opens on Day too.
+  const tablet = await browser.newContext({ viewport: { width: 900, height: 700 }, hasTouch: true });
+  const tab = await tablet.newPage();
+  await tab.goto(new URL('/new/pick', page.url()).href);
+  await expect(tab.locator('#picker [data-view="day"]')).toHaveAttribute('aria-checked', 'true');
+  await expect(tab.locator('#picker .tg-col')).toHaveCount(1);
+  await tablet.close();
+});
+
+test('the day strip scrolls through the months ahead; › goes a week and » 30 days', async ({ page, isMobile }) => {
+  await page.goto('/new/pick');
+  const today = await todayIn(page);
+  if (!isMobile) await page.click('#picker [data-view="day"]');
+  const strip = page.locator('#picker .tv-strip');
+  const picked = strip.locator('[aria-pressed="true"]');
+  const shown = page.locator('#picker .tg-col');
+  await expect.poll(() => strip.locator('.tv-chip').count()).toBeGreaterThan(180); // about six months
+  await expect(strip.locator('.tv-chip').first()).toHaveAttribute('data-day', today);
+  await expect(picked).toHaveAttribute('data-day', today);
+  // It scrolls inside itself, never the page.
+  const [scrollW, clientW, pageW, viewW] = await strip.evaluate((el) => [
+    el.scrollWidth,
+    el.clientWidth,
+    document.documentElement.scrollWidth,
+    innerWidth,
+  ]);
+  expect(scrollW).toBeGreaterThan(clientW * 10);
+  expect(pageW).toBeLessThanOrEqual(viewW);
+  // A swipe scrolls the strip and leaves the day alone.
+  await strip.scrollIntoViewIfNeeded();
+  const box = await strip.boundingBox();
+  if (isMobile) {
+    const cdp = await page.context().newCDPSession(page);
+    const y = Math.round(box.y + box.height / 2);
+    const touch = (type, x) => cdp.send('Input.dispatchTouchEvent', { type, touchPoints: x == null ? [] : [{ x, y }] });
+    let x = Math.round(box.x + box.width - 30);
+    await touch('touchStart', x);
+    for (let i = 0; i < 10; i++) await touch('touchMove', (x -= 25));
+    await touch('touchEnd');
+  } else await strip.evaluate((el) => el.scrollBy(250, 0));
+  await expect.poll(() => strip.evaluate((el) => el.scrollLeft)).toBeGreaterThan(100);
+  await expect(picked).toHaveAttribute('data-day', today);
+  await expect(shown).toHaveAttribute('data-date', today);
+  // A tap on a day picks it.
+  const later = addDays(today, 20);
+  await strip.locator(`[data-day="${later}"]`).click();
+  await expect(picked).toHaveAttribute('data-day', later);
+  await expect(shown).toHaveAttribute('data-date', later);
+  // » skips 30 days and « goes back; ‹ › still go a week. The day shown stays in view in the strip.
+  await page.getByRole('button', { name: 'Forward 30 days' }).click();
+  await expect(shown).toHaveAttribute('data-date', addDays(later, 30));
+  const inView = async () => {
+    const [c, s] = [await picked.boundingBox(), await strip.boundingBox()];
+    return c.x >= s.x - 1 && c.x + c.width <= s.x + s.width + 1;
+  };
+  await expect.poll(inView).toBe(true);
+  await page.getByRole('button', { name: 'Next week' }).click();
+  await expect(picked).toHaveAttribute('data-day', addDays(later, 37));
+  await expect.poll(inView).toBe(true);
+  await page.getByRole('button', { name: 'Back 30 days' }).click();
+  await expect(picked).toHaveAttribute('data-day', addDays(later, 7));
+  // An option shows on its day's chip.
+  await tapAt(page, addDays(later, 7), 1140);
+  await expect(picked.locator('i')).toHaveText('1');
+  // Not before today: « goes back to today, then it's off.
+  await page.getByRole('button', { name: 'Back 30 days' }).click();
+  await expect(picked).toHaveAttribute('data-day', today);
+  await expect(page.getByRole('button', { name: 'Back 30 days' })).toBeDisabled();
+  await expect(page.getByRole('button', { name: 'Previous week' })).toBeDisabled();
+});
+
+test('the date heading opens a month, to jump to any day ahead', async ({ page, isMobile }) => {
+  await page.goto('/new/pick');
+  const today = await todayIn(page);
+  const heading = page.getByRole('button', { name: /jump to a day/ });
+  const jump = page.locator('#jump');
+  await expect(jump).toBeHidden();
+  await heading.click();
+  await expect(jump).toBeVisible();
+  // The keyboard goes to the calendar; days gone by are off.
+  await expect(jump.locator('.cal-day:focus')).toHaveCount(1);
+  await expect(jump.locator(`[data-date="${today}"]`)).toBeEnabled();
+  if (!today.endsWith('-01')) await expect(jump.locator(`[data-date="${addDays(today, -1)}"]`)).toBeDisabled();
+  // Three months on, in a few taps.
+  for (let i = 0; i < 3; i++) await jump.locator('[data-nav="1"]').click();
+  const target = await jump.locator('.cal-day').nth(9).getAttribute('data-date');
+  await jump.locator(`[data-date="${target}"]`).click();
+  await expect(jump).toBeHidden();
+  await expect(page.locator(`#picker .tg-col[data-date="${target}"]`)).toHaveCount(1);
+  await expect(page.locator('#picker .tg-col')).toHaveCount(isMobile ? 1 : 7); // the day, or its week
+  if (isMobile) {
+    await expect(page.locator('#picker .tv-chip[aria-pressed="true"]')).toHaveAttribute('data-day', target);
+    await expect(heading).toContainText(new Date(`${target}T12:00:00Z`).getUTCDate().toString());
+  }
+  // It opens on the day shown; Escape, or a tap elsewhere, closes it.
+  await heading.click();
+  if (isMobile) await expect(jump.locator(`[data-date="${target}"]`)).toHaveAttribute('aria-current', 'date');
+  else await expect(jump.locator(`[data-date="${target}"]`)).toBeVisible();
+  await page.keyboard.press('Escape');
+  await expect(jump).toBeHidden();
+  await expect(heading).toBeFocused();
+  await heading.click();
+  await page.mouse.click(5, 5);
+  await expect(jump).toBeHidden();
+});
+
+test('"Or add a time" adds an option on any day ahead, and the calendar goes there', async ({ page }) => {
+  await page.goto('/new/pick');
+  await page.fill('#title', 'Book club');
+  const today = await todayIn(page);
+  const day = page.locator('#at-day');
+  await expect(day).toHaveAttribute('type', 'date');
+  await expect(day).toHaveAttribute('min', today);
+  await expect(day).toHaveValue(today); // the day the calendar shows
+  await expect(day).toHaveCSS('font-size', '16px');
+  // A day six weeks on: the calendar goes to it, and Add puts the option there.
+  const far = addDays(today, 45);
+  await day.fill(far);
+  await expect(page.locator(`#picker .tg-col[data-date="${far}"]`)).toHaveCount(1);
+  await page.selectOption('#at-time', '1140');
+  await page.click('#at-add');
+  await expect(page.locator('#options-list .chip')).toHaveCount(1);
+  await expect(page.locator(`#picker .tg-col[data-date="${far}"] .tg-block`)).toHaveCount(1);
+  // The day follows the calendar when it moves.
+  await page.getByRole('button', { name: 'Forward 30 days' }).click();
+  const shown = await page.locator('#picker .tg-col').first().getAttribute('data-date');
+  await expect(day).toHaveValue(shown);
+  // A day gone by isn't added.
+  await day.fill(addDays(today, -2));
+  await page.click('#at-add');
+  await expect(page.locator('#options-list .chip')).toHaveCount(1);
+  await expect(day).toBeFocused();
 });
 
 test('landing page: nav bar with GitHub, and the way to both kinds of poll', async ({ page, isMobile }) => {

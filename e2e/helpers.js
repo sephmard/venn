@@ -14,6 +14,13 @@ export async function showNextMonth(page) {
   if (!(await page.locator(`.cal-day[data-date="${first}"]`).count())) await page.click('[data-nav="1"]');
 }
 
+/** Today, in the browser's time zone. */
+export const todayIn = (page) =>
+  page.evaluate(() => {
+    const d = new Date();
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+  });
+
 export const addDays = (date, n) => {
   const d = new Date(`${date}T12:00:00Z`);
   d.setUTCDate(d.getUTCDate() + n);
@@ -22,6 +29,8 @@ export const addDays = (date, n) => {
 
 /** On the create page's week (or day) calendar, go forward until `date` is shown. */
 export async function showDate(page, date) {
+  // The calendar's extra navigation loads just after the page (day-nav.js) and draws it again.
+  await page.locator('#picker .tv-pick').waitFor();
   const col = page.locator(`#picker .tg-col[data-date="${date}"]`);
   for (let i = 0; i < 60 && !(await col.count()); i++) {
     // ‹ › go a week at a time; on the day view, the strip's chips pick the day in that week.

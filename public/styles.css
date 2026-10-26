@@ -408,6 +408,7 @@ input[type='email'],
 input[type='url'],
 input[type='number'],
 input[type='time'],
+input[type='date'],
 textarea,
 select {
   width: 100%;
