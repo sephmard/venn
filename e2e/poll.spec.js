@@ -1970,6 +1970,63 @@ test('when everyone gave their email, the organizer invites them all with the ca
   await guest.close();
 });
 
+test('a picked date can be saved as a picture, with who can make it unless the poll keeps that private', async ({
+  page,
+  request,
+}) => {
+  const t0 = Date.UTC(2030, 0, 8, 18);
+  /** A picked poll that Ana and Jo can make. */
+  async function picked(extra = {}) {
+    const { id, adminToken } = await (
+      await request.post('/api/events', {
+        data: {
+          title: 'Dinner at Finn’s',
+          emoji: '🍝',
+          timezone: 'UTC',
+          mode: 'options',
+          options: [{ start: t0, end: t0 + 7_200_000 }],
+          ...extra,
+        },
+      })
+    ).json();
+    for (const name of ['Ana', 'Jo'])
+      await request.post(`/api/events/${id}/participants`, { data: { name, availability: { [t0]: 2 } } });
+    await request.post(`/api/events/${id}/finalize`, { data: { start: t0 }, headers: { 'x-admin-token': adminToken } });
+    return { id, adminToken };
+  }
+  /** Press the button and read the downloaded picture from disk: its name, width and height. */
+  async function save(button) {
+    const [download] = await Promise.all([page.waitForEvent('download'), button.click()]);
+    const png = readFileSync(await download.path());
+    expect(png.subarray(1, 4).toString()).toBe('PNG');
+    return { name: download.suggestedFilename(), size: [png.readUInt32BE(16), png.readUInt32BE(20)] };
+  }
+
+  const { id } = await picked();
+  await page.goto(`/e/${id}`);
+  const button = page.locator('.final-more').getByRole('button', { name: /as a picture$/ });
+  await expect(button).toBeVisible();
+  expect((await button.boundingBox()).height).toBeGreaterThanOrEqual(44);
+  expect(await save(button)).toEqual({ name: 'dinner-at-finns-its-set.png', size: [1080, 1920] });
+  await expect(page.locator('#toast')).toContainText('Picture saved');
+  await expect(button).toHaveAttribute('data-card-faces', '2');
+  // Keyboard works too.
+  await button.focus();
+  const [again] = await Promise.all([page.waitForEvent('download'), page.keyboard.press('Enter')]);
+  expect(again.suggestedFilename()).toBe('dinner-at-finns-its-set.png');
+
+  // Answers hidden from guests: the picture has no faces.
+  const hidden = await picked({ hideResults: true });
+  await page.goto(`/e/${hidden.id}`);
+  expect((await save(button)).size).toEqual([1080, 1920]);
+  await expect(button).toHaveAttribute('data-card-faces', '0');
+  // Names hidden: not even the organizer's picture shows them.
+  const anonymous = await picked({ hideNames: true });
+  await page.goto(`/e/${anonymous.id}#admin=${anonymous.adminToken}`);
+  await save(button);
+  await expect(button).toHaveAttribute('data-card-faces', '0');
+});
+
 test('organizers mark options as available or if needed, drag edges to resize, and their answer is saved', async ({
   page,
   isMobile,

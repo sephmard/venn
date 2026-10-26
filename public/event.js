@@ -1519,12 +1519,20 @@ export async function renderEvent(id, navigate) {
         <div class="final-more">
           ${mailAll ? `<a class="link-btn" id="email-all" href="${esc(mailAll)}">Email everyone</a>` : ''}
           <button type="button" class="link-btn" data-share>${canShare ? 'Share the date' : 'Copy the link'}</button>
+          <button type="button" class="link-btn" id="share-card">${canShare ? 'Share as a picture' : 'Save as a picture'}</button>
           ${ev().isAdmin ? '<button type="button" class="link-btn" id="unpick">Clear the date</button>' : ''}
         </div>
       </section>`;
     }
     if (org) h += '<div id="org-tools"></div>';
     $('#banners').innerHTML = h;
+    // The "It's set" picture is drawn by a module that loads when it's asked for.
+    const card = $('#share-card');
+    if (card)
+      card.onclick = () =>
+        import('./share-card.js')
+          .then((m) => m.shareCard({ ev: ev(), when: when(ev().finalStart, meetingEnd(ev(), ev().finalStart)), button: card }))
+          .catch(() => toast("Couldn't make the picture. Try again."));
     st.celebrate = false;
     org?.tools($('#org-tools'), {
       id,
