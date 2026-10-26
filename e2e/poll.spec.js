@@ -339,6 +339,12 @@ test('organizers add different times on different days, and see the whole poll b
   // Tapping an option in the list switches it to if needed; its × on the calendar removes it.
   await page.locator('#options-list .chip-flip').first().click();
   await expect(page.locator('#options-list .chip.maybe')).toHaveCount(1);
+  // It says so in words, and keeps its amber.
+  await expect(page.locator('#options-list .chip.maybe')).toContainText('If needed');
+  const bg = (l) => l.evaluate((el) => getComputedStyle(el).backgroundColor);
+  expect(await bg(page.locator('#options-list .chip.maybe'))).not.toBe(
+    await bg(page.locator('#options-list .chip:not(.maybe)').first()),
+  );
   await expect(page.locator('.tg-block.opt-maybe')).toHaveCount(1);
   const second = await showDate(page, addDays(first, 1));
   await second.locator('.tg-block').hover();

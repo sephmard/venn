@@ -2429,6 +2429,22 @@ pre.code {
     overscroll-behavior: auto;
   }
 }
+/* "Options in your poll": if-needed options keep their amber (`.od-row .chip` sets the surface),
+   and say so in words too. */
+.od-row .chip.maybe {
+  background: var(--maybe-soft);
+}
+.chip-tag {
+  display: inline-block;
+  margin-left: 4px;
+  padding: 1px 6px;
+  border-radius: 999px;
+  background: var(--maybe);
+  color: var(--maybe-ink);
+  font-size: 0.75rem;
+  font-weight: 700;
+  vertical-align: 1px;
+}
 /* "Or add a time" under the week calendar: a day, a start time and Add, for keyboards. */
 .add-time {
   margin-top: 12px;

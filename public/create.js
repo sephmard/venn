@@ -640,7 +640,7 @@ export function renderPick() {
     const removeBtn = (k, label) => `<button type="button" data-remove="${esc(k)}" aria-label="Remove ${esc(label)}">×</button>`;
     // The option's label switches it between available and if needed.
     const flipBtn = (k, it, label) =>
-      `<button type="button" class="chip-flip" data-flip="${esc(k)}" aria-label="${esc(`${label}, ${ifNeeded(it) ? 'if needed' : 'available'} for you. Switch to ${ifNeeded(it) ? 'available' : 'if needed'}`)}">${ifNeeded(it) ? '~ ' : ''}${esc(itemLabel(it))}</button>`;
+      `<button type="button" class="chip-flip" data-flip="${esc(k)}" aria-label="${esc(`${label}, ${ifNeeded(it) ? 'if needed' : 'available'} for you. Switch to ${ifNeeded(it) ? 'available' : 'if needed'}`)}">${esc(itemLabel(it))}${ifNeeded(it) ? ' <small class="chip-tag">If needed</small>' : ''}</button>`;
     let rows;
     if (length === 'days') {
       rows = list
@@ -675,7 +675,7 @@ export function renderPick() {
         )
         .join('');
     }
-    box.innerHTML = `<p class="preview-lede">Guests will choose from <b>${plural(list.length, 'option')}</b>. <span class="muted">~ means if needed for you.</span></p>
+    box.innerHTML = `<p class="preview-lede">Guests will choose from <b>${plural(list.length, 'option')}</b>. <span class="muted">Tap one to switch it between available and if needed for you.</span></p>
       <ul class="od-list">${rows}</ul>
       <button type="button" class="link-btn" id="clear-options">Remove all</button>`;
   }
