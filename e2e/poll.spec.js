@@ -505,6 +505,20 @@ test('the week calendar opens at the plan’s time and pages a week at a time', 
   await expect(page.locator('.tg-block')).toHaveCount(0);
 });
 
+test('phone: the calendars leave room to scroll the page, and say how to use them first', async ({ page, isMobile }) => {
+  test.skip(!isMobile, 'phone-only behaviour');
+  const half = page.viewportSize().height / 2;
+  await page.goto('/new/pick');
+  expect((await page.locator('.tg-scroll').boundingBox()).height).toBeLessThanOrEqual(half);
+  await page.goto('/new/free');
+  await page.click('[data-level="hours"]');
+  expect((await page.locator('.pg-scroll').boundingBox()).height).toBeLessThanOrEqual(half);
+  // The hint comes before the painter, not after it.
+  const help = page.locator('#when-help');
+  await expect(help).toContainText('drag the times on the left');
+  expect((await help.boundingBox()).y).toBeLessThan((await page.locator('.pg-scroll').boundingBox()).y);
+});
+
 test('keyboard: add a time to "vote on a few dates" without the pointer', async ({ page }) => {
   await page.goto('/new/pick');
   await page.fill('#title', 'Book club');

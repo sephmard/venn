@@ -960,6 +960,7 @@ export function renderFree() {
             ${HOUR_LENGTHS.map((m) => `<button type="button" class="pill" data-flength="${m}" aria-pressed="false">${lengthLabel(m)}</button>`).join('')}
           </div>
         </div>
+        <p class="hint" id="when-help" hidden></p>
         <div id="when"></div>
         <div class="pills quick" role="group" aria-label="Quick picks" id="quick"></div>
         ${tzLine()}
@@ -1060,6 +1061,7 @@ export function renderFree() {
     cal?.cleanup();
     painter = cal = null;
     const root = $('#when');
+    $('#when-help').hidden = level === 'days';
     if (level === 'days') {
       cal = monthView(root, { selected, onChange: update });
       const first = [...selected].sort()[0];
@@ -1074,13 +1076,13 @@ export function renderFree() {
     const set = parts ? partsSel : painted;
     painter = paintView(root, { selected: set, onChange: update, startAt: datesOf(set)[0], parts: parts && DAY_PARTS });
     const touch = isPhone();
-    $('#quick').innerHTML = `<p class="hint pg-help">${
-      parts
-        ? `${touch ? 'Tap' : 'Click'} a morning, afternoon or evening to add it or take it away, or drag across several. ${touch ? 'Tap' : 'Click'} a day name for the whole day.`
-        : touch
-          ? 'Drag down the calendar to paint; start on a painted time to erase. Tap a day name for the whole day. Scroll with the times on the left.'
-          : 'Drag across the calendar to paint; start on a painted time to erase. Click a day name for the whole day.'
-    }</p><span class="scope-label">Fill this week:</span>${FILLS.map(
+    // How to paint goes above the calendar, where it's read before the first stroke.
+    $('#when-help').textContent = parts
+      ? `${touch ? 'Tap' : 'Click'} a morning, afternoon or evening to add it or take it away, or drag across several. ${touch ? 'Tap' : 'Click'} a day name for the whole day.`
+      : touch
+        ? 'Drag down the calendar to paint; start on a painted time to erase. Tap a day name for the whole day. To scroll, drag the times on the left, or the page around the calendar.'
+        : 'Drag across the calendar to paint; start on a painted time to erase. Click a day name for the whole day.';
+    $('#quick').innerHTML = `<span class="scope-label">Fill this week:</span>${FILLS.map(
       ([l, a, b], i) =>
         `<button type="button" class="pill" data-fill="${i}">${l}${parts ? '' : ` <small>${esc(shortRange(a, b))}</small>`}</button>`,
     ).join('')}<button type="button" class="pill pill-quiet" id="q-clear">Clear all</button>`;

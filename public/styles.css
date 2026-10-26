@@ -2420,6 +2420,15 @@ pre.code {
 .tz-pick .hint {
   margin: 6px 0 0;
 }
+/* Phones: the week calendar and the hours painter take at most half the screen, so a swipe beside
+   them always scrolls the page; and once they reach their end, the page carries on scrolling. */
+@media (pointer: coarse), (max-width: 640px) {
+  .create .tg-scroll,
+  .create .pg-scroll {
+    max-height: 50vh;
+    overscroll-behavior: auto;
+  }
+}
 /* "Or add a time" under the week calendar: a day, a start time and Add, for keyboards. */
 .add-time {
   margin-top: 12px;
