@@ -18,6 +18,12 @@ export const addDays = (date, n) => {
 export async function showDate(page, date) {
   const col = page.locator(`#picker .tg-col[data-date="${date}"]`);
   for (let i = 0; i < 60 && !(await col.count()); i++) {
+    // ‹ › go a week at a time; on the day view, the strip's chips pick the day in that week.
+    const chip = page.locator(`#picker .tv-chip[data-day="${date}"]`);
+    if (await chip.isVisible()) {
+      await chip.click();
+      continue;
+    }
     const shown = await page.locator('#picker .tg-col').first().getAttribute('data-date');
     await page.click(`#picker .tv-nav [data-step="${date < shown ? -1 : 1}"]`);
   }

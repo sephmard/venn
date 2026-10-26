@@ -401,6 +401,15 @@ const LENGTHS = [
   ['custom', 'Other'],
 ];
 const timeRange = shortRange;
+// Where the calendar opens for a kind of plan, by its usual part of the day.
+const PART_OPENS = { morning: 480, afternoon: 720, evening: 1020 };
+const h23 = new Intl.DateTimeFormat(undefined, { hour: 'numeric' }).resolvedOptions().hourCycle === 'h23';
+/** A start time that fits a phone's narrow week column: "7p", "7:30p", or "19" with a 24-hour clock. */
+function tinyTime(m) {
+  const h = Math.floor(m / 60) % 24;
+  const mm = m % 60 ? `:${String(m % 60).padStart(2, '0')}` : '';
+  return h23 ? `${h}${mm}` : `${h % 12 || 12}${mm}${h < 12 ? 'a' : 'p'}`;
+}
 
 export function renderPick() {
   document.title = 'Vote on a few dates · Venn';
@@ -413,6 +422,7 @@ export function renderPick() {
   let brush = YES; // new options are marked as working for the organizer, or only if needed
   let view = null; // the week / day picker, for options with times
   let month = null; // the month, for all-day options and trips
+  let lastFrom = null; // the start of the option added or moved last, where other days open
 
   app.innerHTML = `
     <form id="create" class="create" novalidate>
@@ -473,6 +483,7 @@ export function renderPick() {
       $('#span').value = spanDays;
     }
     setLength(o.length);
+    view?.home(); // open at the plan's usual time: a morning for coffee, an evening for dinner
   });
 
   const timed = () => typeof length === 'number' || length === 'custom';
@@ -486,6 +497,7 @@ export function renderPick() {
 
   // ----- adding and removing options -----
   function add(it) {
+    lastFrom = it.from;
     items.set(`${it.date}|${it.from}`, { ...it, v: brush }); // one option per start time
     changed();
   }
@@ -498,6 +510,7 @@ export function renderPick() {
   /** An option dragged to a new length, time or day. */
   function reshape(k, date, from, to) {
     const it = items.get(k);
+    lastFrom = from;
     items.delete(k);
     items.set(`${date}|${from}`, { ...it, date, from, to });
     changed();
@@ -528,6 +541,7 @@ export function renderPick() {
         views: ['week', 'day'],
         range: () => [420, 1440],
         tapLength: minutes,
+        startAt: () => lastFrom ?? PART_OPENS[occasion()?.part] ?? null,
         blocks: () =>
           [...items.entries()]
             .filter(([, it]) => it.from != null)
@@ -539,6 +553,7 @@ export function renderPick() {
               cls: ifNeeded(it) ? 'opt opt-maybe' : 'opt',
               label: `${ifNeeded(it) ? '~ ' : ''}${timeRange(it.from, it.to)}`,
               short: shortTime(it.from),
+              tiny: `${ifNeeded(it) ? '~' : ''}${tinyTime(it.from)}`,
               title: `${timeRange(it.from, it.to)}, ${dayLabel(it.date)}, ${ifNeeded(it) ? 'if needed' : 'available'} for you. Tap to make it ${ifNeeded(it) ? 'available' : 'if needed'}`,
               remove: `Remove ${timeRange(it.from, it.to)}, ${dayLabel(it.date)}`,
             })),

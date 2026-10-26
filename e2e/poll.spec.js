@@ -466,6 +466,45 @@ test('phone: no zoom on focus, tap targets, tap-to-pick dates, Save always in re
   expect(save.y + save.height).toBeLessThanOrEqual(page.viewportSize().height);
 });
 
+test('the week calendar opens at the plan’s time and pages a week at a time', async ({ page, isMobile }) => {
+  await page.goto('/new/pick');
+  const row = () => page.locator('.tg').evaluate((el) => parseFloat(getComputedStyle(el).getPropertyValue('--row')));
+  const opensAt = async () =>
+    420 + Math.round((await page.locator('.tg-scroll').evaluate((el) => el.scrollTop)) / (await row())) * 30;
+  // Coffee is a morning plan: the calendar opens at 8 AM, not the evening.
+  await page.getByRole('button', { name: 'Coffee' }).click();
+  await expect.poll(opensAt).toBe(480);
+  await page.getByRole('button', { name: 'Dinner' }).click();
+  await expect.poll(opensAt).toBeGreaterThan(840); // the evening, as far down as the calendar goes
+
+  // ‹ › go a week at a time, and the week runs Sunday to Saturday.
+  const next = page.getByRole('button', { name: 'Next week' });
+  await expect(page.getByRole('button', { name: 'Previous week' })).toBeDisabled();
+  await next.click();
+  await page.click('[data-view="week"]');
+  const days = page.locator('#picker .tg-col');
+  await expect(days).toHaveCount(7);
+  const first = await days.first().getAttribute('data-date');
+  expect(new Date(`${first}T12:00:00Z`).getUTCDay()).toBe(0);
+  await next.click();
+  await expect(days.first()).toHaveAttribute('data-date', addDays(first, 7));
+  if (!isMobile) return;
+
+  // On a phone, the day view's strip shows the same week, and the next week is one tap away.
+  await page.click('[data-view="day"]');
+  await expect(page.locator('#picker .tv-chip').first()).toHaveAttribute('data-day', addDays(first, 7));
+  await next.click();
+  await expect(page.locator('#picker .tv-chip').first()).toHaveAttribute('data-day', addDays(first, 14));
+  // Narrow week columns get a short label ("7p"), not one broken over three lines.
+  await tapAt(page, addDays(first, 15), 1140);
+  await page.click('[data-view="week"]');
+  await expect(page.locator('.tg-block span')).toHaveText(/^~?(7p|19)$/);
+  // The × has a 44px hit area: a near miss removes the option instead of switching it to if needed.
+  const x = await page.locator('.tg-x').boundingBox();
+  await page.touchscreen.tap(x.x - 7, x.y + x.height + 7);
+  await expect(page.locator('.tg-block')).toHaveCount(0);
+});
+
 test('landing page: nav bar with GitHub, and the way to both kinds of poll', async ({ page, isMobile }) => {
   await page.goto('/');
   const nav = page.getByRole('navigation', { name: 'Main' });
