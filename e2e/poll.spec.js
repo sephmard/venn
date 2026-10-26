@@ -225,6 +225,8 @@ test('guests need a name and an answer to save, and can say none of these work',
     await request.post('/api/events', { data: { title: 'Dinner', timezone: 'UTC', mode: 'options', options } })
   ).json();
   await page.goto(`/e/${id}`);
+  // This test server has no email, so the optional "email me a copy" field stays hidden.
+  await expect(page.locator('#copy-field')).toBeHidden();
   // Checking a calendar is coming later.
   await expect(page.locator('#cal-btn')).toBeDisabled();
   await expect(page.locator('#cal-btn')).toContainText('Coming soon');

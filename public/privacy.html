@@ -65,6 +65,10 @@
           <li><b>Polls:</b> the title, place, note, organizer name, time zone and proposed dates and times.</li>
           <li><b>Responses:</b> the name each person types and their answers.</li>
           <li>
+            <b>Not your email, if you ask for a copy of your answer:</b> the address is used to send that one email, then dropped.
+            It isn't stored with the poll or shown to anyone.
+          </li>
+          <li>
             <b>Notification settings, if the organizer turns them on:</b> an email address or a webhook URL. These are never shown
             to people answering the poll.
           </li>
@@ -91,7 +95,10 @@
         <h2>Who processes data</h2>
         <ul>
           <li><b>Cloudflare</b> hosts the site and the database.</li>
-          <li><b>Resend</b> sends notification emails, only to addresses that confirmed they want them.</li>
+          <li>
+            <b>Cloudflare Email</b> (or Resend) sends emails: notifications, only to addresses that confirmed they want them, and
+            copies of an answer, only to the address the person gave.
+          </li>
         </ul>
         <p>We never sell or share poll data with anyone else.</p>
 

@@ -47,6 +47,7 @@ import {
   minutesLabel,
   plural,
   reducedMotion,
+  rememberEmail,
   rememberName,
   save,
   saved,
@@ -167,6 +168,11 @@ export async function renderEvent(id, navigate) {
           <div>
             <label for="name">Your name</label>
             <input id="name" type="text" maxlength="80" autocomplete="name">
+          </div>
+          <div id="copy-field" hidden>
+            <label for="copy-to">Your email <span class="muted">(optional)</span></label>
+            <input id="copy-to" type="email" inputmode="email" autocomplete="email" maxlength="254" placeholder="you@example.com">
+            <label class="check"><input type="checkbox" id="copy-me" checked> Email me a copy of my answer and a link to change it</label>
           </div>
           <div class="quick-actions">
             ${calMenu}
@@ -742,6 +748,9 @@ export async function renderEvent(id, navigate) {
   // ----- AI: answer for me, and the organizer's summary -----
   let aiOn = false;
   getConfig().then((c) => {
+    // Guests can get their answer by email. Optional, and on by default once they give an address.
+    $('#copy-field').hidden = !c.email;
+    $('#copy-to').value = lastEmail();
     if (!c.ai) return;
     aiOn = true;
     if (optionsMode) $('#ai-answer-btn').hidden = false;
@@ -855,6 +864,11 @@ export async function renderEvent(id, navigate) {
     $('#save').disabled = true;
     try {
       const body = { name, availability: st.mine };
+      const copyTo = !$('#copy-field').hidden && $('#copy-me').checked && $('#copy-to').value.trim();
+      if (copyTo) {
+        body.copyTo = copyTo;
+        rememberEmail(copyTo);
+      }
       const s = saved(id);
       let created = false;
       if (s.participantId) {
@@ -877,7 +891,9 @@ export async function renderEvent(id, navigate) {
       await load();
       setDirty(false);
       renderAll();
-      toast(created ? "Saved. Here's how everyone's answers line up." : 'Saved');
+      toast(
+        `${created ? "Saved. Here's how everyone's answers line up." : 'Saved.'}${copyTo ? ` A copy is on its way to ${copyTo}.` : ''}`,
+      );
       // After the first save, show the group: that's what people want to see next.
       if (created) {
         showTab('group');
