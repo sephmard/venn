@@ -225,8 +225,15 @@ test("the organizer's own answer, and editing a poll until someone else answers"
   assert.equal(ev.slots.length, 4);
   assert.deepEqual(Object.keys(ev.participants[0].availability).map(Number), ev.slots);
 
+  // With the organizer link alone (another device), the organizer can change their own answer, but no one else's.
+  const hostPut = (pid) =>
+    call(`/api/events/${id}/participants/${pid}`, { method: 'PUT', body: { name: 'Sam', availability: {} }, headers: admin });
+  assert.equal((await hostPut(participant.id)).status, 200);
+
   // Once someone else answers, the poll can't be changed any more.
   await call(`/api/events/${id}/participants`, { method: 'POST', body: { name: 'Ann', availability: {} } });
+  const ann = (await call(`/api/events/${id}`, { headers: admin })).data.participants.find((p) => p.name === 'Ann');
+  assert.equal((await hostPut(ann.id)).status, 403);
   const refused = await edit({ ...changed, title: 'Too late' });
   assert.equal(refused.status, 409);
   assert.match(refused.data.error, /Duplicate it instead/);

@@ -100,6 +100,9 @@ export async function renderEvent(id, navigate) {
   async function load() {
     st.ev = await api(`events/${id}`, { headers: authHeaders() });
     if (!st.ev.isAdmin && saved(id).adminToken) forget(id, 'adminToken');
+    // With the organizer link on another device, the organizer's own answer is still theirs.
+    if (st.ev.isAdmin && !saved(id).participantId && st.ev.participants.some((p) => p.id === st.ev.hostId))
+      save(id, { participantId: st.ev.hostId });
     const mine = st.ev.participants.find((p) => p.id === saved(id).participantId);
     if (!mine && saved(id).participantId) forget(id, 'participantId', 'editToken');
     return mine;
@@ -108,10 +111,16 @@ export async function renderEvent(id, navigate) {
   try {
     const mine = await load();
     if (mine) st.mine = { ...mine.availability };
+    // Everything in a saved answer counts as answered, its "no"s included.
+    if (mine) for (const s of st.ev.slots) st.touched.add(String(s));
     // A saved answer with nothing marked means "none of these work".
     st.declined = !!mine && !Object.keys(mine.availability).length;
   } catch (e) {
-    app.innerHTML = `<div class="sheet empty"><h1>Poll not found</h1><p class="muted">${esc(e.message)}</p><a class="btn btn-primary" href="/new" data-link>Start a new poll</a></div>`;
+    document.title = e.status === 404 ? 'Poll not found · Venn' : 'Venn';
+    app.innerHTML =
+      e.status === 404
+        ? `<div class="sheet empty"><h1>Poll not found</h1><p class="muted">${esc(e.message)}.</p><a class="btn btn-primary" href="/new" data-link>Create a poll</a></div>`
+        : `<div class="sheet empty"><h1>Couldn't open this poll</h1><p class="muted">${esc(e.message)}</p><button class="btn btn-primary" onclick="location.reload()">Try again</button></div>`;
     return () => {};
   }
 
@@ -151,9 +160,6 @@ export async function renderEvent(id, navigate) {
   // A new poll opens on the organizer's own answer.
   st.tab = !st.fresh && (me() || (ev().isAdmin && ev().participants.length)) ? 'group' : 'mine';
 
-  // Reading busy times from Google, Outlook or a calendar file comes back later.
-  const calMenu = `<button type="button" class="pill soon" id="cal-btn" disabled aria-describedby="cal-soon">Check my calendar <span class="badge-soon" id="cal-soon">Coming soon</span></button>`;
-
   app.innerHTML = `
     <article id="event-root" class="poll">
       <header class="poll-head">
@@ -164,7 +170,7 @@ export async function renderEvent(id, navigate) {
           <div id="ev-details"></div>
         </div>
         <div class="poll-share">
-          <button class="btn btn-primary" id="copy">${canShare ? 'Share the poll' : 'Copy invite link'}</button>
+          <button class="btn${ev().isAdmin ? ' btn-primary' : ''}" id="copy">${canShare ? 'Share the poll' : 'Copy invite link'}</button>
         </div>
       </header>
       <div id="banners"></div>
@@ -177,9 +183,16 @@ export async function renderEvent(id, navigate) {
       </div>
       <div class="panels">
         <section class="panel sheet" id="panel-mine" role="tabpanel" aria-labelledby="tab-mine">
-          <h2 class="panel-title">${listMode ? (daysMode ? 'Which days are you free?' : 'Which of these work for you?') : 'When are you free?'}</h2>
+          <h2 class="panel-title">${
+            ev().finalStart != null
+              ? 'The date is picked. Can you make it?'
+              : listMode
+                ? daysMode
+                  ? `Which days are you free?${ev().durationMinutes > 1440 ? ` We need ${lengthLabel(ev().durationMinutes)} in a row.` : ''}`
+                  : 'Which of these work for you?'
+                : 'When are you free?'
+          }</h2>
           <div class="quick-actions">
-            ${calMenu}
             ${optionsMode ? '<button type="button" class="pill" id="ai-answer-btn" hidden aria-expanded="false" aria-controls="ai-answer">Answer for me</button>' : ''}
             <button type="button" class="pill pill-quiet" id="fill">${listMode ? 'Yes to all' : 'All'}</button>
             <button type="button" class="pill pill-quiet" id="decline">None of these work</button>
@@ -284,10 +297,11 @@ export async function renderEvent(id, navigate) {
       </details>
     </article>`;
 
-  $('#copy').onclick = () =>
-    canShare
-      ? navigator.share({ title: ev().title, text: `When works for you? ${ev().title}`, url: shareUrl }).catch(() => {})
-      : copy(shareUrl, 'Invite link copied');
+  $('#copy').onclick = () => {
+    const f = ev().finalStart;
+    const text = f == null ? `When works for you? ${ev().title}` : `It's set: ${ev().title}, ${when(f, meetingEnd(ev(), f))}`;
+    canShare ? navigator.share({ title: ev().title, text, url: shareUrl }).catch(() => {}) : copy(shareUrl, 'Invite link copied');
+  };
   $('#name').value = me()?.name || lastName();
   $('#name').oninput = () => setDirty(true);
   $('#tz').onchange = (e) => {
@@ -335,7 +349,7 @@ export async function renderEvent(id, navigate) {
     // Phones paint one day at a time, picked from a strip of days.
     const oneDay = isPhone() && LG.dates.length > 1;
     if (oneDay && !LG.dates.includes(st.hourDay)) st.hourDay = LG.dates[0];
-    L = oneDay ? { ...LG, dates: [st.hourDay] } : LG;
+    L = oneDay ? { ...LG, dates: [st.hourDay], mins: LG.mins.filter((m) => LG.at.has(`${st.hourDay}|${m}`)) } : LG;
     const strip = $('#hour-days');
     strip.hidden = !oneDay;
     if (oneDay)
@@ -428,7 +442,9 @@ export async function renderEvent(id, navigate) {
     const counts = [yes.length ? `${yes.length} yes` : '', maybe.length ? `${maybe.length} if needed` : '']
       .filter(Boolean)
       .join(', ');
-    box.innerHTML = `<p><b>Your answer:</b> ${esc(counts)}${listMode ? `, no to the other ${windows.length - yes.length - maybe.length}` : ''}</p>
+    const rest = windows.length - yes.length - maybe.length;
+    const left = ev().slots.filter((x) => !st.mine[x] && !st.touched.has(String(x))).length;
+    box.innerHTML = `<p><b>Your answer:</b> ${esc(counts)}${listMode && rest ? `, no to ${rest === 1 ? 'the other one' : `the other ${rest}`}` : ''}${listMode && left ? ` <span class="dirty">(${left} not answered, counted as no)</span>` : ''}</p>
       <div class="chips">${shown}${chips.length > max ? `<span class="chip">+${chips.length - max} more</span>` : ''}</div>`;
   }
 
@@ -718,7 +734,16 @@ export async function renderEvent(id, navigate) {
 
   // ----- painting (hours polls) -----
   let drag = null;
+  let tap = null; // a touch on a time, which marks it if the finger doesn't move
   const pos = (el) => ({ r: +el.dataset.r, c: +el.dataset.c });
+  /** Mark one time with the brush, or clear it when it already has that mark. */
+  function markCell(el) {
+    const s = el.dataset.slot;
+    if ((st.mine[s] || 0) === st.brush || !st.brush) delete st.mine[s];
+    else st.mine[s] = st.brush;
+    refreshMine();
+    changed();
+  }
   function paintRect(a, b) {
     st.mine = { ...drag.snapshot };
     const [r0, r1] = [Math.min(a.r, b.r), Math.max(a.r, b.r)];
@@ -732,7 +757,8 @@ export async function renderEvent(id, navigate) {
       }
     refreshMine();
   }
-  const endPaint = () => {
+  const endPaint = (e) => {
+    if (e.type === 'pointercancel') tap = null;
     if (!drag) return;
     drag = null;
     changed();
@@ -776,9 +802,17 @@ export async function renderEvent(id, navigate) {
       const slots = ev().slots.filter((s) => utcToZoned(s, st.tz).date === b.dataset.fillDay);
       markAll(slots, st.brush);
     });
+    // On touch screens a swipe scrolls the page, so a tap marks one time; mice and pens drag.
+    if (matchMedia('(pointer: coarse)').matches) mineEl.style.touchAction = 'pan-y';
+    mineEl.addEventListener('pointerup', (e) => {
+      const t = tap;
+      tap = null;
+      if (t && Math.hypot(e.clientX - t.x, e.clientY - t.y) < 10) markCell(t.el);
+    });
     mineEl.addEventListener('pointerdown', (e) => {
       const el = e.target.closest('.cell[data-slot]');
       if (!el || e.button > 0) return;
+      if (e.pointerType === 'touch') return (tap = { el, x: e.clientX, y: e.clientY });
       e.preventDefault();
       const cur = st.mine[el.dataset.slot] || 0;
       drag = { anchor: pos(el), snapshot: { ...st.mine }, value: cur === st.brush ? 0 : st.brush };
@@ -811,11 +845,7 @@ export async function renderEvent(id, navigate) {
         }
       } else if (e.key === ' ' || e.key === 'Enter') {
         e.preventDefault();
-        const s = el.dataset.slot;
-        if ((st.mine[s] || 0) === st.brush || !st.brush) delete st.mine[s];
-        else st.mine[s] = st.brush;
-        refreshMine();
-        changed();
+        markCell(el);
       }
     });
     for (const b of $$('[data-brush]'))
@@ -968,6 +998,27 @@ export async function renderEvent(id, navigate) {
       $('#mine').scrollIntoView({ behavior: reducedMotion() ? 'auto' : 'smooth', block: 'center' });
       return;
     }
+    const mail = $('#copy-to');
+    // The same check as the server's: something@something.something.
+    const okMail = /^[^\s@<>"',;]+@[^\s@<>"',;]+\.[^\s@<>"',;]+$/.test(mail.value.trim());
+    const badMail = mail.value.trim() ? !okMail : ev().requireEmail;
+    mail.setAttribute('aria-invalid', !!badMail);
+    if (badMail) {
+      err.textContent = mail.value.trim()
+        ? 'Check your email address, like name@example.com.'
+        : 'Add your email. The organizer asked everyone for one.';
+      mail.focus();
+      return;
+    }
+    // Someone answering again from another phone would otherwise be counted twice.
+    const twin = !me() && ev().participants.find((p) => p.name.trim().toLowerCase() === name.toLowerCase());
+    if (
+      twin &&
+      !confirm(
+        `Someone called ${twin.name} has already answered. If that's you, open your personal link from that phone to change your answer. Answer again as a new person?`,
+      )
+    )
+      return;
     rememberName(name);
     $('#save').disabled = true;
     try {
@@ -986,7 +1037,7 @@ export async function renderEvent(id, navigate) {
           await api(`events/${id}/participants/${s.participantId}`, {
             method: 'PUT',
             body,
-            headers: { 'x-edit-token': s.editToken },
+            headers: authHeaders(),
           });
         } catch (ex) {
           if (ex.status !== 404 && ex.status !== 403) throw ex;
@@ -1010,14 +1061,14 @@ export async function renderEvent(id, navigate) {
           emoji: ev().emoji || '🎉',
           heading: 'Answer sent!',
           message: `${host ? `${host} can see it now` : 'Everyone can see it now'}. Thanks for helping find a time.`,
-          button: 'See everyone’s answers →',
+          button: hideAll ? 'Done' : 'See everyone’s answers →',
         });
         await p?.shown;
         p?.finish();
       }
       toast(sent);
       // After the first save here (an organizer's answer may come with the poll), show the group.
-      if (created || !st.savedHere) {
+      if ((created || !st.savedHere) && !hideAll) {
         st.savedHere = true;
         showTab('group');
         $('#panel-group').scrollIntoView({ behavior: reducedMotion() ? 'auto' : 'smooth', block: 'start' });
@@ -1033,7 +1084,7 @@ export async function renderEvent(id, navigate) {
     if (!confirm('Remove your answer from this poll?')) return;
     const s = saved(id);
     try {
-      await api(`events/${id}/participants/${s.participantId}`, { method: 'DELETE', headers: { 'x-edit-token': s.editToken } });
+      await api(`events/${id}/participants/${s.participantId}`, { method: 'DELETE', headers: authHeaders() });
     } catch (ex) {
       if (ex.status !== 404) return toast(ex.message);
     }
@@ -1044,6 +1095,7 @@ export async function renderEvent(id, navigate) {
     await load();
     setDirty(false);
     renderAll();
+    toast('Your answer was removed');
   };
 
   const beforeUnload = (e) => {
@@ -1246,6 +1298,7 @@ export async function renderEvent(id, navigate) {
       el.classList.add('active');
       st.inspect = el.dataset.slot;
       renderInspect();
+      if (e.type === 'click') $('#inspect').scrollIntoView({ behavior: reducedMotion() ? 'auto' : 'smooth', block: 'nearest' });
     };
     groupEl.addEventListener('pointerover', inspectFrom);
     groupEl.addEventListener('click', inspectFrom);
@@ -1256,7 +1309,7 @@ export async function renderEvent(id, navigate) {
     $('#people').innerHTML = ev()
       .participants.map((p) => {
         const canDelete = p.id === myId || ev().isAdmin;
-        return `<span class="chip person${p.id === myId ? ' me' : ''}" data-person="${esc(p.id)}" role="button" tabindex="0" aria-pressed="${p.id === st.focus}">${avatar(p.name, 'av-xs')}${esc(p.name)}${p.id === myId ? ' (you)' : ''}${canDelete && p.id !== myId ? `<button data-remove="${esc(p.id)}" aria-label="Remove ${esc(p.name)}'s answer" title="Remove">×</button>` : ''}</span>`;
+        return `<span class="chip person${p.id === myId ? ' me' : ''}"><button type="button" class="person-btn" data-person="${esc(p.id)}" aria-pressed="${p.id === st.focus}">${avatar(p.name, 'av-xs')}${esc(p.name)}${p.id === myId ? ' (you)' : ''}</button>${canDelete && p.id !== myId ? `<button type="button" data-remove="${esc(p.id)}" aria-label="Remove ${esc(p.name)}'s answer" title="Remove">×</button>` : ''}</span>`;
       })
       .join('');
   }
@@ -1283,18 +1336,14 @@ export async function renderEvent(id, navigate) {
       renderGroup();
     }
   });
-  $('#people').addEventListener('keydown', (e) => {
-    if ((e.key === 'Enter' || e.key === ' ') && e.target.matches('[data-person]')) {
-      e.preventDefault();
-      e.target.click();
-    }
-  });
 
   // ----- best options -----
   function renderBest() {
     const people = others();
     const best = rankTimes(ev(), ev().slots, people, 5);
     const n = people.length;
+    // Until a guest answers, the only answer is the organizer's own.
+    const guests = people.some((p) => p.id !== ev().hostId);
     if (!n) {
       $('#best').innerHTML = `<div class="empty-state">
         <div class="venn-art" aria-hidden="true"><i></i><i></i><i></i></div>
@@ -1314,15 +1363,25 @@ export async function renderEvent(id, navigate) {
       return `${can} of ${n} can make it${b.ifNeeded.length ? `, ${b.ifNeeded.length} if needed` : ''}`;
     };
     const pick = (b) =>
-      ev().isAdmin && ev().finalStart !== b.start ? `<button class="btn btn-sm" data-pick="${b.start}">Pick</button>` : '';
-    // Everyone by their full name, so the host knows exactly who can come.
+      ev().finalStart === b.start
+        ? '<span class="badge-final">✓ Picked</span>'
+        : ev().isAdmin
+          ? `<button class="btn btn-sm" data-pick="${b.start}">Pick</button>`
+          : '';
+    // Everyone by their full name, so the organizer knows exactly who can come; long lists fold.
     const names = (b) => {
       const list = [...b.yes.map(esc), ...b.ifNeeded.map((x) => `${esc(x)} <span class="muted">(if needed)</span>`)];
-      return list.length ? `<p class="names"><span class="sr-only">Can make it: </span>${list.join(', ')}</p>` : '';
+      const shown = list.length > 9 ? [...list.slice(0, 8), `+${list.length - 8} more`] : list;
+      return list.length ? `<p class="names"><span class="sr-only">Can make it: </span>${shown.join(', ')}</p>` : '';
     };
     const missing = (b) => (b.no.length ? `<p class="hint">Can't make it: ${b.no.map(esc).join(', ')}</p>` : '');
     const lenNote = !optionsMode && ev().durationMinutes > ev().slotMinutes ? ` (${lengthLabel(ev().durationMinutes)})` : '';
     $('#best').innerHTML = `
+      ${
+        ev().isAdmin && !guests
+          ? `<p class="hint only-you">So far it's only your own answer. <button class="link-btn" data-share>Share the poll</button> to hear from everyone.</p>`
+          : ''
+      }
       <div class="best-hero${ev().finalStart === first.start ? ' final' : ''}">
         <div class="best-when">${esc(when(first.start, first.end))}${esc(lenNote)}</div>
         <div class="best-who">${avatarStack([...first.yes, ...first.ifNeeded], 7)}<span>${esc(who(first))}</span></div>
@@ -1360,7 +1419,9 @@ export async function renderEvent(id, navigate) {
       st.celebrate = start != null;
       renderAll();
       if (start != null) $('#banners').scrollIntoView({ behavior: reducedMotion() ? 'auto' : 'smooth', block: 'start' });
-      toast(start == null ? 'Final date cleared' : "It's set. Share the link so everyone can add it to their calendar.");
+      toast(
+        start == null ? 'Date cleared. Pick another one below.' : "It's set. Share it so everyone can add it to their calendar.",
+      );
     } catch (ex) {
       toast(ex.message);
     }
@@ -1409,7 +1470,7 @@ export async function renderEvent(id, navigate) {
     $('#tz-summary').textContent =
       st.tz === ev().timezone
         ? `Times are in ${tzName(st.tz)}`
-        : `Times are in your time zone, ${tzName(st.tz)}. The host is in ${tzName(ev().timezone)}.`;
+        : `Times are in your time zone, ${tzName(st.tz)}. The organizer is in ${tzName(ev().timezone)}.`;
   }
 
   function renderBanners() {
@@ -1432,14 +1493,15 @@ export async function renderEvent(id, navigate) {
           <a class="btn btn-sm" href="${esc(googleCalendarUrl(info))}" target="_blank" rel="noopener">Google Calendar</a>
           <a class="btn btn-sm" href="${esc(outlookCalendarUrl(info))}" target="_blank" rel="noopener">Outlook</a>
           <a class="btn btn-sm" href="/api/events/${esc(id)}/event.ics">Apple / other (.ics)</a>
-          ${ev().isAdmin ? '<button class="link-btn" id="unpick">Change the date</button>' : ''}
+          <button class="btn btn-sm" data-share>${canShare ? 'Share the date' : 'Copy the link'}</button>
+          ${ev().isAdmin ? '<button class="link-btn" id="unpick">Clear the date</button>' : ''}
         </div>
       </section>`;
     }
     if (ev().isAdmin) {
       const fresh = st.fresh;
       h += `<details class="organizer"${(st.orgOpen ?? fresh) ? ' open' : ''}>
-        <summary><b>${fresh ? 'Your poll is ready.' : "You're the host."}</b> ${fresh ? 'Share the invite link with your group.' : 'Organizer tools'}</summary>
+        <summary><b>${fresh ? 'Your poll is ready.' : "You're the organizer."}</b> ${fresh ? 'Share the invite link with your group.' : 'Organizer tools'}</summary>
         <p class="hint">When you're ready, press <b>Pick</b> on the best ${listMode && !daysMode ? 'option' : 'date'} in the group view. To manage this poll from another device, keep your private organizer link, and don't share it.</p>
         ${fresh && saved(id).notifyPending ? '<p class="hint"><b>Check your inbox</b> for your poll\'s link. We\'ll email you when people answer.</p>' : ''}
         <div class="btn-row">
@@ -1453,7 +1515,7 @@ export async function renderEvent(id, navigate) {
               ev().participants.some((p) => p.id !== ev().hostId),
             )
           }
-          <button class="btn btn-sm" id="copy-admin">Copy organizer link</button>
+          <button class="btn btn-sm" id="copy-admin">Copy private organizer link</button>
           <button class="link-btn danger" id="delete-poll">Delete poll</button>
         </div>
       </details>`;
@@ -1463,7 +1525,11 @@ export async function renderEvent(id, navigate) {
     // Keep the organizer tools open or closed across re-renders.
     $('details.organizer')?.addEventListener('toggle', (e) => (st.orgOpen = e.target.open));
     if ($('#copy-admin'))
-      $('#copy-admin').onclick = () => copy(`${shareUrl}#admin=${saved(id).adminToken}`, 'Organizer link copied');
+      $('#copy-admin').onclick = () =>
+        copy(
+          `${shareUrl}#admin=${saved(id).adminToken}`,
+          'Organizer link copied. Keep it private: anyone with it can change or delete the poll.',
+        );
     for (const name of ['notify', 'privacy', 'writer'])
       if ($(`#${name}-open`)) $(`#${name}-open`).onclick = () => panel(name, !panels[name]);
     if ($('#delete-poll'))
@@ -1489,8 +1555,10 @@ export async function renderEvent(id, navigate) {
     const link = $('#edit-link');
     if (mine) {
       link.hidden = false;
-      link.innerHTML = `Answering as <b>${esc(mine.name)}</b>. To change it from another device, <button type="button" class="link-btn" id="copy-edit">copy your personal link</button>.`;
-      $('#copy-edit').onclick = () => copy(`${shareUrl}#edit=${s.participantId}.${s.editToken}`, 'Personal link copied');
+      // Organizers have their organizer link for other devices; guests get a personal link.
+      link.innerHTML = `Answering as <b>${esc(mine.name)}</b>.${ev().isAdmin ? '' : ' To change it from another device, <button type="button" class="link-btn" id="copy-edit">copy your personal link</button>.'}`;
+      if (!ev().isAdmin)
+        $('#copy-edit').onclick = () => copy(`${shareUrl}#edit=${s.participantId}.${s.editToken}`, 'Personal link copied');
     } else link.hidden = true;
     // Guests who just answered are the people most likely to plan the next thing.
     $('#grow').hidden = !mine || ev().isAdmin;

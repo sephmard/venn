@@ -229,9 +229,9 @@ test('guests need a name and an answer to save, and can say none of these work',
   await page.goto(`/e/${id}`);
   // This test server has no email, so the optional "email me a copy" field stays hidden.
   await expect(page.locator('#copy-field')).toBeHidden();
-  // Checking a calendar is coming later.
-  await expect(page.locator('#cal-btn')).toBeDisabled();
-  await expect(page.locator('#cal-btn')).toContainText('Coming soon');
+  // Checking a calendar is coming later; until then guests don't see it, and answering comes first.
+  await expect(page.locator('#cal-btn')).toHaveCount(0);
+  await expect(page.locator('#copy')).not.toHaveClass(/btn-primary/);
 
   await expect(page.locator('#save')).toHaveAttribute('data-ready', 'false');
   await page.click('#save');
@@ -243,7 +243,7 @@ test('guests need a name and an answer to save, and can say none of these work',
   // Picks are listed in words; a no is red.
   await page.locator('#mine .row').nth(0).locator('[data-vote="2"]').click();
   await page.locator('#mine .row').nth(1).locator('[data-vote="0"]').click();
-  await expect(page.locator('#my-picks')).toContainText('1 yes, no to the other 1');
+  await expect(page.locator('#my-picks')).toContainText('1 yes, no to the other one');
   const no = page.locator('#mine .row').nth(1).locator('[data-vote="0"]');
   expect(await no.evaluate((b) => getComputedStyle(b).backgroundColor)).not.toBe(
     await page
@@ -533,6 +533,110 @@ test('"when are you free" polls come back to edit at their level: hours, or part
   await page.getByRole('link', { name: 'Edit poll' }).click();
   await expect(page.locator('[data-level="parts"]')).toHaveAttribute('aria-checked', 'true');
   await expect(page.locator('#summary')).toHaveText('35 times to choose from');
+});
+
+test('on a phone, a tap marks a time on the exact grid and a swipe scrolls instead', async ({ page, request, isMobile }) => {
+  test.skip(!isMobile, 'touch only');
+  const { id } = await (
+    await request.post('/api/events', {
+      data: {
+        title: 'Call',
+        timezone: 'UTC',
+        dates: ['2030-01-08'],
+        startMinute: 540,
+        endMinute: 1260,
+        slotMinutes: 30,
+        durationMinutes: 60,
+      },
+    })
+  ).json();
+  await page.goto(`/e/${id}`);
+  await page.click('[data-hview="exact"]');
+  const grid = page.locator('#mine');
+  await expect(grid).toHaveCSS('touch-action', 'pan-y');
+  const cell = page.locator('#mine .cell[data-slot]').nth(4);
+  await cell.scrollIntoViewIfNeeded();
+  await cell.tap();
+  await expect(page.locator('#mine .cell.yes')).toHaveCount(1);
+  // The phone shows only the day's own times, from the first one.
+  await expect(page.locator('#mine .cell[data-slot]')).toHaveCount(24);
+});
+
+test('guests are told before answering twice, and a bad email is caught on the phone', async ({ page, request }) => {
+  const H = 3_600_000;
+  const t0 = Date.UTC(2030, 0, 8, 18);
+  const options = [0, 24].map((h) => ({ start: t0 + h * H, end: t0 + (h + 2) * H }));
+  const { id } = await (
+    await request.post('/api/events', {
+      data: { title: 'Dinner', timezone: 'UTC', mode: 'options', options, requireEmail: true },
+    })
+  ).json();
+  await request.post(`/api/events/${id}/participants`, {
+    data: { name: 'Marcus', availability: { [t0]: 2 }, email: 'm@example.com' },
+  });
+  await page.goto(`/e/${id}`);
+  await page.locator('#mine .row').first().locator('[data-vote="2"]').click();
+  await page.fill('#name', 'Marcus');
+  await page.fill('#copy-to', 'marcus@gmail');
+  await page.click('#save');
+  await expect(page.locator('#save-err')).toHaveText(/Check your email address/);
+  await expect(page.locator('#copy-to')).toBeFocused();
+  await expect(page.locator('#copy-to')).toHaveAttribute('aria-invalid', 'true');
+  await page.fill('#copy-to', 'marcus@example.com');
+  // Every dialog in these tests is accepted: answering again as a new person is still allowed.
+  const asked = page.waitForEvent('dialog');
+  await page.click('#save');
+  expect((await asked).message()).toContain('Someone called Marcus has already answered');
+  await expect(page.locator('#save-state')).toHaveText('Saved');
+});
+
+test("the organizer link on another device finds the organizer's own answer", async ({ page, browser }) => {
+  await startPick(page, 'Dinner', [1140]);
+  await page.click('#submit');
+  await openNewPoll(page);
+  await expect(page.locator('#mine .row').first()).toBeVisible();
+  const url = page.url();
+  const token = await page.evaluate((id) => JSON.parse(localStorage.getItem(`venn:${id}`)).adminToken, url.split('/e/')[1]);
+  const other = await (await browser.newContext()).newPage();
+  await other.goto(`${url}#admin=${token}`);
+  await expect(other.locator('#edit-link')).toContainText('Answering as Sam.');
+  await expect(other.locator('#edit-link')).not.toContainText('personal link');
+  if (await other.locator('#tab-mine').isVisible()) await other.click('#tab-mine');
+  await other.locator('#mine .row').first().locator('[data-vote="0"]').click();
+  await other.click('#save');
+  await expect(other.locator('#save-state')).toHaveText('Saved');
+  const ev = await (await other.request.get(`/api/events/${url.split('/e/')[1]}`)).json();
+  expect(ev.participants).toHaveLength(1); // the same answer, changed, not a second one
+  await other.context().close();
+});
+
+test('with answers hidden, a guest stays on their own answer after sending it; a picked date says so', async ({
+  page,
+  request,
+}) => {
+  const t0 = Date.UTC(2030, 0, 8, 18);
+  const { id, adminToken } = await (
+    await request.post('/api/events', {
+      data: {
+        title: 'Dinner',
+        timezone: 'UTC',
+        mode: 'options',
+        options: [{ start: t0, end: t0 + 7_200_000 }],
+        hideResults: true,
+      },
+    })
+  ).json();
+  await page.emulateMedia({ reducedMotion: 'reduce' });
+  await page.goto(`/e/${id}`);
+  await page.locator('#mine .row').first().locator('[data-vote="2"]').click();
+  await page.fill('#name', 'Ana');
+  await page.click('#save');
+  await page.getByRole('button', { name: 'Done' }).click();
+  await expect(page.locator('#panel-mine')).toBeVisible();
+  await request.post(`/api/events/${id}/finalize`, { data: { start: t0 }, headers: { 'x-admin-token': adminToken } });
+  await page.reload();
+  if (await page.locator('#tab-mine').isVisible()) await page.click('#tab-mine');
+  await expect(page.locator('#panel-mine h2')).toHaveText('The date is picked. Can you make it?');
 });
 
 test('installable: manifest and icons are served', async ({ request }) => {
