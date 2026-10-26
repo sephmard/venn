@@ -5,8 +5,11 @@ import { createApp } from '../server.js';
 import { existsSync } from 'node:fs';
 import {
   MASCOT_PATH,
-  confirmationEmail,
+  MAX_ORGANIZER_EMAILS,
+  answerCopyEmail,
   isPrivateAddress,
+  notifyResponse,
+  pollReadyEmail,
   responseEmail,
   summaryText,
   validateWebhookUrl,
@@ -17,8 +20,12 @@ import {
 
 test("every notification email shows Venn's dog, from the instance's own site", () => {
   assert.ok(existsSync(new URL(`../public${MASCOT_PATH}`, import.meta.url)));
-  const confirm = confirmationEmail('Dinner', 'https://venn.example/e/abc#confirm-email=t');
-  assert.match(confirm.html, /<img src="https:\/\/venn\.example\/img\/venn-dog\.png"/);
+  const ready = pollReadyEmail({
+    title: 'Dinner',
+    pollUrl: 'https://venn.example/e/abc',
+    unsubscribeUrl: 'https://venn.example/e/abc#unsubscribe=u',
+  });
+  assert.match(ready.html, /<img src="https:\/\/venn\.example\/img\/venn-dog\.png"/);
   const s = {
     event: 'test',
     poll: { title: 'Dinner', url: 'https://venn.example/e/abc', responses: 0 },
@@ -26,6 +33,71 @@ test("every notification email shows Venn's dog, from the instance's own site", 
     bestTime: null,
   };
   assert.match(responseEmail(s, 'https://venn.example/e/abc#unsubscribe=u').html, /venn\.example\/img\/venn-dog\.png/);
+});
+
+test("the emails: a proud poll-ready email, an excited one per answer, and the guest's own link", () => {
+  const pollUrl = 'https://venn.example/e/abc';
+  const ready = pollReadyEmail({ title: 'Dinner <3', pollUrl, unsubscribeUrl: `${pollUrl}#unsubscribe=u` });
+  assert.equal(ready.subject, 'Your poll “Dinner <3” is ready 🎉');
+  assert.match(ready.text, /proud of you for bringing people together/);
+  assert.ok(ready.text.includes(pollUrl));
+  assert.match(ready.html, /Dinner &lt;3/);
+  assert.doesNotMatch(ready.html, /Dinner <3/);
+
+  const s = {
+    event: 'response.created',
+    poll: { title: 'Dinner', url: pollUrl, responses: 1 },
+    response: { name: 'Ana' },
+    bestTime: null,
+  };
+  const mail = responseEmail(s, `${pollUrl}#unsubscribe=u`);
+  assert.equal(mail.subject, '🎉 Ana just answered “Dinner”');
+  assert.match(mail.text, /Ana just answered “Dinner”\. We're fired up/);
+  assert.ok(mail.text.includes(`See everyone's answers: ${pollUrl}`));
+  assert.equal(responseEmail({ ...s, event: 'response.updated' }, '').subject, 'Ana updated their answers to “Dinner”');
+
+  const editUrl = `${pollUrl}#edit=p1.secret`;
+  const copy = answerCopyEmail({ title: 'Dinner', name: 'Ana', lines: [], pollUrl, editUrl });
+  assert.ok(copy.text.includes(`Your answer (open it to change it): ${editUrl}`));
+  assert.match(copy.html, /View or change your answer/);
+  assert.match(copy.html, /See everyone's answers/);
+  assert.match(
+    answerCopyEmail({ title: 'Dinner', name: 'Ana', lines: [], pollUrl, editUrl, seeAnswers: false }).html,
+    /Open the poll/,
+  );
+});
+
+test("a poll can only send so many emails to the organizer, since addresses aren't confirmed", async () => {
+  const sentTo = [];
+  let settings = { email: 'sam@example.com', unsubscribeToken: 'u', emailsSent: MAX_ORGANIZER_EMAILS - 1 };
+  const store = {
+    getNotify: async () => settings,
+    setNotify: async (_id, next) => (settings = next),
+    listParticipants: async () => [],
+  };
+  const env = { RESEND_API_KEY: 'k', EMAIL_FROM: 'Venn <venn@example.com>' };
+  const fetchImpl = async (url, init) => {
+    sentTo.push(JSON.parse(init.body).to);
+    return new Response('{}', { status: 200 });
+  };
+  const ev = { id: 'abc', title: 'Dinner', timezone: 'UTC', mode: 'options', options: [] };
+  const answer = (participantId) =>
+    notifyResponse({
+      store,
+      env,
+      fetchImpl,
+      now: Date.now,
+      origin: 'https://venn.example',
+      ev,
+      kind: 'response.created',
+      participantId,
+      name: 'Ana',
+    });
+  await answer('p1');
+  assert.equal(sentTo.length, 1);
+  assert.equal(settings.emailsSent, MAX_ORGANIZER_EMAILS);
+  await answer('p2');
+  assert.equal(sentTo.length, 1);
 });
 
 test('webhook URLs must be public https endpoints', async () => {
@@ -113,29 +185,26 @@ const poll = {
 };
 const emails = () => sent.filter((s) => s.url === 'https://api.resend.com/emails');
 
-test('email notifications need confirming, then arrive, and can be stopped', async () => {
+test('the organizer gets their poll link straight away, then an email per answer, and can stop them', async () => {
   assert.equal((await call('/api/config')).data.email, true);
 
   const { data } = await call('/api/events', { method: 'POST', body: { ...poll, notifyEmail: 'Sam@Example.com' } });
   const { id, adminToken } = data;
   const admin = { 'x-admin-token': adminToken };
 
-  // A confirmation email goes out first.
+  // No confirmation step: the first email is the poll's link.
   assert.equal(emails().length, 1);
   assert.deepEqual(emails()[0].body.to, ['sam@example.com']);
-  assert.match(emails()[0].body.subject, /Confirm notifications/);
-  const token = emails()[0].body.text.match(/#confirm-email=(\w+)/)[1];
+  assert.equal(emails()[0].body.subject, 'Your poll “Design review” is ready 🎉');
+  assert.ok(emails()[0].body.text.includes(`/e/${id}\n`));
+  assert.doesNotMatch(emails()[0].body.text, /confirm/i);
 
-  // Nothing is sent about responses until the address is confirmed.
+  // Each answer triggers an email naming who answered, with an unsubscribe link.
   sent = [];
   const slot = poll.options[0].start;
   await call(`/api/events/${id}/participants`, { method: 'POST', body: { name: 'Ana', availability: { [slot]: 2 } } });
-  assert.equal(emails().length, 0);
-
-  assert.equal((await call(`/api/events/${id}/notifications/confirm`, { method: 'POST', body: { token } })).status, 200);
-  assert.equal((await call(`/api/events/${id}/notifications/confirm`, { method: 'POST', body: { token } })).status, 400);
-
-  // Now a response triggers an email with an unsubscribe link.
+  assert.equal(emails().length, 1);
+  assert.equal(emails()[0].body.subject, '🎉 Ana just answered “Design review”');
   sent = [];
   const lee = await call(`/api/events/${id}/participants`, {
     method: 'POST',
@@ -143,7 +212,7 @@ test('email notifications need confirming, then arrive, and can be stopped', asy
   });
   assert.equal(emails().length, 1);
   const mail = emails()[0].body;
-  assert.equal(mail.subject, 'Lee responded to “Design review”');
+  assert.equal(mail.subject, '🎉 Lee just answered “Design review”');
   assert.match(mail.text, /Best time so far: Wed, Nov 4, 3:00 PM – 4:00 PM EST \(2 of 2 can make it\)/);
   assert.match(mail.headers['List-Unsubscribe'], /#unsubscribe=/);
 
@@ -161,10 +230,10 @@ test('email notifications need confirming, then arrive, and can be stopped', asy
   assert.equal((await call(`/api/events/${id}/notifications`)).status, 403);
   const settings = (await call(`/api/events/${id}/notifications`, { headers: admin })).data;
   assert.equal(settings.email, 'sam@example.com');
-  assert.equal(settings.emailConfirmed, true);
+  assert.equal(settings.emailConfirmed, undefined);
   assert.equal(settings.lastDelivery.email.ok, true);
   const pub = JSON.stringify((await call(`/api/events/${id}`)).data);
-  assert.doesNotMatch(pub, /sam@example\.com|unsubscribe|confirm/i);
+  assert.doesNotMatch(pub, /sam@example\.com|unsubscribe/i);
 
   // Unsubscribing stops the emails.
   const unsub = mail.text.match(/#unsubscribe=(\w+)/)[1];

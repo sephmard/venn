@@ -4,16 +4,15 @@ import { LIMITS, ValidationError, allDaySpan, buildIcs, isValidTimeZone, buildSl
 import { normalizeAvailability, normalizeEventInput, normalizeName } from './validate.js';
 import { SECURITY_HEADERS } from './security-headers.js';
 import {
-  MAX_CONFIRMATIONS,
   MAX_COPIES_PER_ANSWER,
   MAX_COPIES_PER_POLL,
   answerCopyEmail,
   answerLines,
   buildSummary,
-  confirmationEmail,
   emailEnabled,
   normalizeEmail,
   notifyResponse,
+  pollReadyEmail,
   sendEmail,
   sendWebhook,
   validateWebhookUrl,
@@ -118,37 +117,22 @@ function notifyView(settings, env) {
   return {
     emailAvailable: emailEnabled(env),
     email: s.email || null,
-    emailConfirmed: Boolean(s.emailConfirmed),
     webhookUrl: s.webhookUrl || null,
     webhookSecret: s.webhookUrl ? s.webhookSecret : null,
     lastDelivery: s.lastDelivery || {},
   };
 }
 
-/**
- * Point notifications at a new email address. Returns a function that sends the confirmation
- * email, so callers can choose whether to wait for it.
- */
-async function changeEmail(settings, value, { env, origin, ev, fetchImpl }) {
+/** Point the organizer's notifications at an email address, or turn them off with an empty one. */
+function setNotifyEmail(settings, value, env) {
   const email = normalizeEmail(value);
-  if (email === (settings.email || null)) return null;
-  if (!email) {
-    Object.assign(settings, { email: null, emailConfirmed: false, confirmHash: null });
-    return null;
-  }
-  if (!emailEnabled(env)) throw new ValidationError("Email notifications aren't set up on this server");
-  if ((settings.confirmationsSent || 0) >= MAX_CONFIRMATIONS)
-    throw new ValidationError('Too many confirmation emails for this poll. Try a webhook instead.');
-  const token = randomId(24);
-  Object.assign(settings, {
-    email,
-    emailConfirmed: false,
-    confirmHash: await sha256(token),
-    confirmationsSent: (settings.confirmationsSent || 0) + 1,
-    unsubscribeToken: settings.unsubscribeToken || randomId(24),
-  });
-  const msg = confirmationEmail(ev.title, `${origin}/e/${ev.id}#confirm-email=${token}`);
-  return () => sendEmail(env, { to: email, ...msg }, { fetchImpl });
+  if (email && !emailEnabled(env)) throw new ValidationError("Email notifications aren't set up on this server");
+  settings.email = email;
+  if (email) settings.unsubscribeToken ||= randomId(24);
+  // From before emails needed no confirmation.
+  delete settings.emailConfirmed;
+  delete settings.confirmHash;
+  delete settings.confirmationsSent;
 }
 
 export async function handleApi(
@@ -188,6 +172,7 @@ export async function handleApi(
       lines: answerLines(ev, availability),
       pollUrl,
       editUrl: `${pollUrl}#edit=${participantId}.${editToken}`,
+      seeAnswers: !ev.hideResults,
     });
     waitUntil(sendEmail(env, { to, ...msg }, { fetchImpl }).catch((e) => console.error('answer copy failed', e)));
   }
@@ -233,10 +218,16 @@ export async function handleApi(
       const adminToken = randomId(24);
       await store.createEvent({ id, event, adminHash: await sha256(adminToken), now: now() });
       if (notifyEmail) {
-        const settings = {};
-        const send = await changeEmail(settings, notifyEmail, { env, origin, ev: { id, ...event }, fetchImpl });
+        // No confirmation step: the organizer gets their poll's link straight away, then an email per answer.
+        const settings = { emailsSent: 1 };
+        setNotifyEmail(settings, notifyEmail, env);
         await store.setNotify(id, settings);
-        waitUntil(send().catch((e) => console.error('confirmation email failed', e)));
+        const msg = pollReadyEmail({
+          title: event.title,
+          pollUrl: `${origin}/e/${id}`,
+          unsubscribeUrl: `${origin}/e/${id}#unsubscribe=${settings.unsubscribeToken}`,
+        });
+        waitUntil(sendEmail(env, { to: notifyEmail, ...msg }, { fetchImpl }).catch((e) => console.error('poll email failed', e)));
       }
       return json({ id, adminToken }, 201);
     }
@@ -292,18 +283,12 @@ export async function handleApi(
       const action = parts[3];
 
       // Links from emails land on the poll page, which posts the token here. Using the page
-      // (not a GET link) means email scanners that pre-open links can't confirm or unsubscribe.
-      if ((action === 'confirm' || action === 'unsubscribe') && parts.length === 4 && method === 'POST') {
+      // (not a GET link) means email scanners that pre-open links can't unsubscribe.
+      if (action === 'unsubscribe' && parts.length === 4 && method === 'POST') {
         const { token } = await readJson(request);
-        if (action === 'confirm') {
-          if (!settings.confirmHash || !(await tokenMatches(token, settings.confirmHash)))
-            throw new ValidationError('This confirmation link is invalid or has expired');
-          await store.setNotify(ev.id, { ...settings, emailConfirmed: true, confirmHash: null });
-          return json({ ok: true, email: settings.email });
-        }
         if (!settings.unsubscribeToken || typeof token !== 'string' || !timingSafeEqual(token, settings.unsubscribeToken))
           throw new ValidationError('This unsubscribe link is invalid');
-        await store.setNotify(ev.id, { ...settings, email: null, emailConfirmed: false, confirmHash: null });
+        await store.setNotify(ev.id, { ...settings, email: null });
         return json({ ok: true });
       }
 
@@ -313,20 +298,13 @@ export async function handleApi(
 
       if (parts.length === 3 && method === 'PUT') {
         const body = await readJson(request);
-        const send = 'email' in body ? await changeEmail(settings, body.email, { env, origin, ev, fetchImpl }) : null;
+        if ('email' in body) setNotifyEmail(settings, body.email, env);
         if ('webhookUrl' in body) {
           const webhookUrl = await validateWebhookUrl(body.webhookUrl, { resolveHost });
           if (webhookUrl && (webhookUrl !== settings.webhookUrl || !settings.webhookSecret))
             settings.webhookSecret = `whsec_${randomId(32)}`;
           settings.webhookUrl = webhookUrl;
           if (!webhookUrl) settings.webhookSecret = null;
-        }
-        if (send) {
-          try {
-            await send();
-          } catch {
-            throw new ValidationError("Couldn't send the confirmation email. Check the address and try again.");
-          }
         }
         await store.setNotify(ev.id, settings);
         return json(notifyView(settings, env));
