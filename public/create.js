@@ -142,6 +142,7 @@ function wirePlan(onOccasion) {
     $('#emoji-tile').textContent = current?.emoji || '🗓️';
     if (current) $('#title').placeholder = current.label;
     onOccasion(current);
+    $('#title').dispatchEvent(new Event('input')); // a kind of plan also names it
   });
   return () => current;
 }
@@ -195,6 +196,14 @@ function showConfig() {
   });
 }
 
+/** Grey out Create until the poll can be made, and say what's still missing. */
+function setReady(missing, ready) {
+  $('#submit').disabled = !!missing;
+  $('#summary').textContent = missing || ready;
+  $('#summary').classList.toggle('missing', !!missing);
+}
+const named = (occasion) => !!($('#title').value.trim() || occasion()?.label);
+
 const createBar = (label) => `
   <div class="create-bar">
     <div class="create-sum">
@@ -232,8 +241,10 @@ export function renderPick() {
   let spanDays = 3;
   let mode = 'compose'; // 'compose' (days, then times) or 'calendar' (draw on a week)
   let timeGroup = 'evening';
-  const draftDays = new Set(); // days picked in the composer, not added yet
-  const draftTimes = new Set(); // start times picked in the composer
+  // The composer: options appear as soon as there's a day and a start time.
+  const days = new Set(); // days picked on the composer's month
+  const times = new Set(); // start times used for every picked day
+  let focus = null; // a day whose times are being changed on their own, or null for all days
   let view = null; // the week / day picker
   let month = null; // the composer's month
 
@@ -305,20 +316,25 @@ export function renderPick() {
   const key = (it) => `${it.date}|${it.from ?? 'day'}`;
   function toggle(it) {
     const k = key(it);
-    if (items.has(k) && items.get(k).to === it.to) items.delete(k);
-    else items.set(k, it); // one option per start time
+    if (items.has(k) && items.get(k).to === it.to) return remove(k);
+    items.set(k, it); // one option per start time
     changed();
   }
-  const remove = (k) => {
+  /** Take an option away; a day left with none is no longer picked. */
+  function remove(k) {
+    const date = items.get(k)?.date;
     items.delete(k);
+    if (!onDate(date).length) days.delete(date);
     changed();
-  };
+  }
 
   function changed() {
+    // Options drawn on the week, or filled in by AI, put their days on the composer's month too.
+    for (const it of items.values()) if (it.from != null) days.add(it.date);
     view?.render();
     month?.render();
     renderList();
-    renderComposerBar();
+    renderComposer();
   }
 
   // ----- the pickers -----
@@ -369,21 +385,29 @@ export function renderPick() {
             <div class="seg time-groups" role="radiogroup" aria-label="Part of the day">
               ${TIME_GROUPS.map((g) => `<button type="button" role="radio" data-tgroup="${g.key}">${g.label}</button>`).join('')}
             </div>
+            <div class="pills day-scope" id="day-scope" role="group" aria-label="Which days the times are for" hidden></div>
             <div class="pills times" id="times" role="group" aria-label="Start times"></div>
           </div>
-          <div class="composer-bar">
-            <span class="hint" id="draft-sum" aria-live="polite"></span>
-            <button type="button" class="btn btn-primary" id="add-draft">Add options</button>
-          </div>
+          <p class="composer-sum hint" id="draft-sum" aria-live="polite"></p>
         </div>`;
+      let before = new Set(days);
       month = monthView($('#draft-cal'), {
-        selected: draftDays,
-        onChange: renderComposerBar,
+        selected: days,
+        onChange: () => {
+          // A new day gets the start times picked so far; a day taken away loses its options.
+          for (const d of days) if (!before.has(d)) for (const m of times) addTime(d, m);
+          for (const d of before)
+            if (!days.has(d)) {
+              for (const [k, it] of items) if (it.date === d && it.from != null) items.delete(k);
+              if (focus === d) focus = null;
+            }
+          before = new Set(days);
+          changed();
+        },
         marks: mark,
-        markLabel: 'options already',
+        markLabel: 'options',
       });
-      renderTimes();
-      renderComposerBar();
+      renderComposer();
     } else {
       $('#when-hint').textContent =
         length === 'days'
@@ -408,56 +432,57 @@ export function renderPick() {
   }
 
   // ----- the composer: days × start times -----
-  function renderTimes() {
+  const addTime = (date, from) => items.set(`${date}|${from}`, { date, from, to: Math.min(from + minutes(), 1440) });
+  const timeOn = (m) => (focus ? items.has(`${focus}|${m}`) : times.has(m));
+  function renderComposer() {
+    if (!$('#times')) return;
+    if (focus && !days.has(focus)) focus = null;
     for (const b of $$('[data-tgroup]')) b.setAttribute('aria-checked', b.dataset.tgroup === timeGroup);
     const g = TIME_GROUPS.find((x) => x.key === timeGroup);
     let h = '';
     for (let m = g.from; m < g.to; m += 30)
-      h += `<button type="button" class="pill time" data-time="${m}" aria-pressed="${draftTimes.has(m)}">${esc(shortTime(m))}</button>`;
+      h += `<button type="button" class="pill time" data-time="${m}" aria-pressed="${timeOn(m)}">${esc(shortTime(m))}</button>`;
     $('#times').innerHTML = h;
-  }
-  function renderComposerBar() {
-    const btn = $('#add-draft');
-    if (!btn) return;
-    const n = draftDays.size * draftTimes.size;
-    const times = [...draftTimes].sort((a, b) => a - b).map(shortTime);
-    $('#draft-sum').textContent = !draftDays.size
+    // With several days picked, the times can apply to all of them or to one day.
+    const picked = [...days].sort();
+    $('#day-scope').hidden = picked.length < 2;
+    $('#day-scope').innerHTML =
+      picked.length < 2
+        ? ''
+        : `<span class="scope-label" aria-hidden="true">Times for</span><button type="button" class="pill" data-scope="" aria-pressed="${!focus}">All days</button>${picked
+            .map(
+              (d) =>
+                `<button type="button" class="pill" data-scope="${d}" aria-pressed="${focus === d}">${esc(dayLabel(d))}</button>`,
+            )
+            .join('')}`;
+    const n = [...items.values()].filter((it) => it.from != null).length;
+    $('#draft-sum').textContent = !days.size
       ? 'Pick at least one day.'
-      : !draftTimes.size
-        ? `${plural(draftDays.size, 'day')} picked. Now pick a start time.`
-        : `${plural(draftDays.size, 'day')} × ${times.join(', ')}, ${lengthLabel(minutes())} each`;
-    btn.textContent = n ? `Add ${plural(n, 'option')}` : 'Add options';
-    btn.disabled = !n;
-  }
-  function addDraft() {
-    let added = 0;
-    for (const date of draftDays)
-      for (const from of draftTimes) {
-        const k = `${date}|${from}`;
-        if (!items.has(k)) added++;
-        items.set(k, { date, from, to: Math.min(from + minutes(), 1440) });
-      }
-    draftDays.clear();
-    changed();
-    toast(
-      added ? `Added ${plural(added, 'option')}. Pick more days to add other times.` : 'Those options are already in your poll',
-    );
+      : !n
+        ? 'Now pick a start time. Options appear below as you go.'
+        : focus
+          ? `Changing the times on ${dayLabel(focus)} only. ${plural(n, 'option')} in your poll.`
+          : `${plural(n, 'option')} in your poll, ${lengthLabel(minutes())} each.`;
   }
   $('#picker').addEventListener('click', (e) => {
     const g = e.target.closest('[data-tgroup]');
     if (g) {
       timeGroup = g.dataset.tgroup;
-      return renderTimes();
+      return renderComposer();
+    }
+    const sc = e.target.closest('[data-scope]');
+    if (sc) {
+      focus = sc.dataset.scope || null;
+      return renderComposer();
     }
     const t = e.target.closest('[data-time]');
-    if (t) {
-      const m = +t.dataset.time;
-      if (draftTimes.has(m)) draftTimes.delete(m);
-      else draftTimes.add(m);
-      t.setAttribute('aria-pressed', draftTimes.has(m));
-      return renderComposerBar();
-    }
-    if (e.target.closest('#add-draft')) addDraft();
+    if (!t) return;
+    const m = +t.dataset.time;
+    const on = !timeOn(m);
+    const targets = focus ? [focus] : [...days];
+    if (!focus) on ? times.add(m) : times.delete(m);
+    for (const d of targets) on ? addTime(d, m) : items.delete(`${d}|${m}`);
+    changed();
   });
 
   // ----- the options in the poll, by day -----
@@ -472,7 +497,7 @@ export function renderPick() {
   function renderList() {
     const list = sorted();
     const box = $('#options-list');
-    $('#summary').textContent = list.length ? `${plural(list.length, 'option')} to vote on` : '';
+    updateReady();
     if (!list.length) {
       box.innerHTML = `<p class="hint">Nothing yet. ${timed() ? 'Pick days and start times above, then press Add.' : 'Tap days on the calendar above.'} Everyone will say yes, if needed or no to each option you add.</p>`;
       return;
@@ -528,17 +553,18 @@ export function renderPick() {
     }
     const add = e.target.closest('[data-add-to]');
     if (add) {
-      // Another time on this day: open the composer with just this day picked.
+      // Change the times on this day only.
       if (mode !== 'compose') setMode('compose');
-      draftDays.clear();
-      draftDays.add(add.dataset.addTo);
-      month?.show(add.dataset.addTo);
-      renderComposerBar();
+      focus = add.dataset.addTo;
+      month?.show(focus);
+      renderComposer();
       $('#times')?.scrollIntoView({ behavior: 'smooth', block: 'center' });
       $('#times .pill')?.focus({ preventScroll: true });
     }
     if (e.target.closest('#clear-options') && confirm('Remove all the options?')) {
       items.clear();
+      days.clear();
+      focus = null;
       changed();
     }
     if (!timed() && (rm || e.target.closest('#clear-options'))) mountPicker();
@@ -611,13 +637,7 @@ export function renderPick() {
 
   $('#create').onsubmit = (e) => {
     e.preventDefault();
-    if (!items.size) {
-      $('#err').textContent =
-        draftDays.size && draftTimes.size
-          ? 'Press "Add options" to put them in your poll.'
-          : 'Add at least one option to vote on.';
-      return;
-    }
+    if (!items.size) return ($('#err').textContent = 'Add at least one option to vote on.');
     submit({ mode: 'options', options: options() }, occasion);
   };
 
@@ -656,6 +676,15 @@ export function renderPick() {
       btn.textContent = 'Fill it in';
     }
   };
+
+  function updateReady() {
+    const n = items.size;
+    setReady(
+      !n ? 'Add at least one option to create the poll' : !named(occasion) ? 'Give your plan a name to create the poll' : '',
+      `${plural(n, 'option')} to vote on`,
+    );
+  }
+  $('#title').addEventListener('input', updateReady);
 
   setLength(120);
   showConfig();
@@ -837,11 +866,21 @@ export function renderFree() {
     const k = span();
     $('#span-hint').textContent =
       k === 1 ? 'Venn finds the days the most people are free.' : `Venn finds ${k} days in a row that work for the most people.`;
-    $('#summary').textContent = !n
-      ? ''
-      : mark === 'parts' && parts.size
-        ? `${plural(n * parts.size, 'time')} to choose from`
-        : `${plural(n, 'day')} to choose from`;
+    const short = Math.min(hours.end - hours.start, 1440) < hours.duration;
+    setReady(
+      !n
+        ? 'Pick at least one day to create the poll'
+        : mark === 'parts' && !parts.size
+          ? 'Pick at least one part of the day'
+          : mark === 'days' && k > n
+            ? `Pick at least ${k} days, for ${k} in a row`
+            : mark === 'hours' && short
+              ? `The hours are shorter than ${lengthLabel(hours.duration)}`
+              : !named(occasion)
+                ? 'Give your plan a name to create the poll'
+                : '',
+      mark === 'parts' ? `${plural(n * parts.size, 'time')} to choose from` : `${plural(n, 'day')} to choose from`,
+    );
     // Say plainly what guests will be asked, before the poll exists.
     const dates = [...selected].sort();
     const on = n ? ` on ${plural(n, 'day')} (${dayRange(dates)})` : '';
@@ -909,6 +948,7 @@ export function renderFree() {
     submit(body, occasion);
   };
 
+  $('#title').addEventListener('input', renderSummary);
   setMark('parts');
   setWindow('all');
   showConfig();

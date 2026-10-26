@@ -1996,15 +1996,23 @@ details.organizer summary b {
   min-width: 84px;
   justify-content: center;
 }
-.composer-bar {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  justify-content: space-between;
-  gap: 10px;
+.composer-sum {
+  margin: 0;
   padding: 12px 14px;
   border-radius: var(--radius);
   background: var(--surface-2);
+}
+.day-scope {
+  align-items: center;
+  margin-bottom: 10px;
+}
+.scope-label {
+  font-weight: 650;
+  margin-right: 2px;
+}
+#summary.missing {
+  color: var(--muted);
+  font-weight: 500;
 }
 .cal-day.in-trip {
   background: var(--accent-soft);
