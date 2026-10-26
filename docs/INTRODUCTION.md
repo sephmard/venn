@@ -33,7 +33,9 @@ public/            the whole front end, served as-is
   index.html       landing page (/); privacy.html and 404.html sit beside it
   app.html         app shell, served for /new and /e/:id
   app.js           router
-  create.js        the create pages: "vote on a few dates" and "ask when people are free"
+  create.js        the create pages' chooser and shared form parts
+  create-pick.js   "vote on a few dates", loaded only on that page
+  create-free.js   "ask when people are available", loaded only on that page
   event.js         the poll page: answering, the group's results, organizer tools
   organizer.js     the organizer's tools, Notifications and Privacy panels and AI summary, loaded only for organizers
   add-to-calendar.js  "Add to your calendar", loaded once a date is picked

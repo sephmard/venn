@@ -4,17 +4,27 @@
 //              Organizers draw options on it; guests see the options next to their busy times.
 
 import { addDays } from './core.js';
-import { $, $$, dateParts, dayLabel, esc, fmtDow, fmtMonthDay, shortRange, shortTime, todayStr } from './ui.js';
+import {
+  $,
+  $$,
+  dateParts,
+  dayChip,
+  dayLabel,
+  esc,
+  fmtDow,
+  fmtMonth,
+  fmtMonthDay,
+  isPhone,
+  shortRange,
+  shortTime,
+  todayStr,
+} from './ui.js';
+
+export { dayChip, isPhone };
 
 const STEP = 30;
-export const isPhone = () => matchMedia('(max-width: 640px)').matches;
 /** Phones, and touch screens up to a tablet's width: the calendars open on one day. */
 const touchFirst = () => matchMedia('(max-width: 640px), (pointer: coarse) and (max-width: 1024px)').matches;
-
-/** A day chip's content: "Sat 7" on screen, "Sat 7 Nov, 2" for screen readers. */
-export const dayChip = (d, mark = '') =>
-  `<small>${esc(fmtDow.format(dateParts(d)))}</small> <b>${dateParts(d).getUTCDate()}</b><span class="sr-only"> ${esc(fmtMonth.format(dateParts(d)))}${mark ? `, ${esc(mark)}` : ''}</span>${mark ? `<i aria-hidden="true">${esc(mark)}</i>` : ''}`;
-const fmtMonth = new Intl.DateTimeFormat(undefined, { month: 'short', timeZone: 'UTC' });
 
 const ymd = (y, m, d) => `${y}-${String(m + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
 

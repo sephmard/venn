@@ -154,6 +154,7 @@ test('ask when people are free: days that never make the run asked for can’t b
 test('ask when people are available: a tap picks days in a row, shown as one band and as a range', async ({ page }) => {
   await page.goto('/new/free');
   await page.fill('#title', 'Cabin weekend');
+  await page.fill('#organizer', 'Sam');
   await page.fill('#span', '3');
   await expect(page.locator('#when-help')).toHaveText(
     'Tap a day to pick 3 days in a row from it. Tap a picked day to take just that day away.',
@@ -192,7 +193,7 @@ test('ask when people are available: a tap picks days in a row, shown as one ban
   await expect(page.locator('.cal-day[aria-pressed="true"]')).toHaveCount(2);
   await expect(rows).toHaveCount(2);
   await expect(rows.first()).toContainText('1 day · too short');
-  await expect(page.locator('#summary')).toHaveText('Pick at least 3 days, for 3 in a row');
+  await expect(page.locator('#summary')).toHaveText('Pick at least 3 days, for 3 in a row (and 1 more thing)');
 
   // The keyboard does what a tap does, and stays on the day.
   await day(9).focus();
@@ -216,6 +217,7 @@ test('ask when people are available: what the organizer picks is available or if
 }) => {
   await page.goto('/new/free');
   await page.fill('#title', 'Picnic');
+  await page.fill('#organizer', 'Sam');
   await showNextMonth(page);
   const first = await nextMonth(page);
   const day = (n) => page.locator(`.cal-day[data-date="${addDays(first, n)}"]`);

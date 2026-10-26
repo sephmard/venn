@@ -2,48 +2,22 @@
 //   /new/pick  You suggest some dates (and times). Everyone votes on each one.
 //   /new/free  You pick a range of days. Everyone marks when they're available; Venn finds the overlap.
 
-import {
-  DAY_PARTS,
-  IF_NEEDED,
-  LIMITS,
-  MINUTE,
-  MAX_SPAN_DAYS,
-  YES,
-  addDays,
-  isEmail,
-  lengthChip,
-  dayRuns,
-  hostAnswer,
-  keySlot,
-  longestRun,
-  weekdayOf,
-  utcToZoned,
-  zonedToUtc,
-} from './core.js';
-import { editBlocks } from './block-edit.js';
-import { isPhone, monthView, timeView } from './picker.js';
+import { isEmail } from './core.js';
 import {
   $,
   $$,
   api,
   app,
-  dateParts,
-  dayLabel,
   esc,
-  fmtDay,
   getConfig,
   lastEmail,
   lastName,
-  lengthLabel,
   localTz,
   plural,
   rememberEmail,
   rememberName,
-  shortRange,
-  shortTime,
   save,
   toast,
-  todayStr,
   tzName,
   tzOptions,
 } from './ui.js';
@@ -65,7 +39,7 @@ const PRIVACY = [
 
 // Kinds of plans, with sensible defaults. `length` is minutes, or 'days' for a trip; `part` is the
 // part of the day it usually happens in, for "ask when people are available" polls.
-const OCCASIONS = [
+export const OCCASIONS = [
   { emoji: '🍝', label: 'Dinner', length: 120, part: 'evening' },
   { emoji: '🍻', label: 'Drinks', length: 120, part: 'evening' },
   { emoji: '☕', label: 'Coffee', length: 60, part: 'morning' },
@@ -80,7 +54,7 @@ const OCCASIONS = [
 // The landing page's "What are you planning?" box sends its text as ?title=. The chooser passes
 // it on, and the form puts it in the Name field.
 const titleFromUrl = () => (new URLSearchParams(location.search).get('title') || '').trim().slice(0, 120);
-function prefillTitle() {
+export function prefillTitle() {
   const title = titleFromUrl();
   if (!title) return;
   $('#title').value = title;
@@ -92,8 +66,10 @@ function prefillTitle() {
 // ?edit=<id> changes that poll (only while nobody else has answered); ?copy=<id> starts a new poll
 // from it. The organizer tools on the poll page link here.
 let editing = null; // the poll being changed, or null when creating one
+/** A create page starts a new form: not editing anything yet. */
+export const startForm = () => (editing = null);
 
-function source() {
+export function source() {
   const q = new URLSearchParams(location.search);
   const id = q.get('edit') || q.get('copy');
   // Poll ids are letters and digits; anything else isn't a poll and must not reach the API path.
@@ -103,12 +79,12 @@ function source() {
 let editPoll = null; // the code for editing and duplicating, loaded with the poll to start from
 
 /** The poll to start from (see edit-poll.js), or null. */
-async function loadSource(src) {
+export async function loadSource(src) {
   editPoll = await import('./edit-poll.js').catch(() => null);
   return editPoll?.loadSource(src) ?? null;
 }
 /** Fill in everything both kinds of poll share: the plan, the organizer and the privacy options. */
-function fillCommon(ev, src) {
+export function fillCommon(ev, src) {
   editPoll.fillCommon(ev, src, { occasions: OCCASIONS, privacy: PRIVACY, showTz });
   if (src.edit) editing = src.id;
 }
@@ -144,7 +120,7 @@ export function renderChooser() {
 // Required fields say so next to their label (screen readers hear aria-required instead).
 const REQ = ' <span class="req" aria-hidden="true">Required</span>';
 
-function planFields(kind) {
+export function planFields(kind) {
   // Asking when people are available suits trips best, so the trip comes first there.
   const order = kind === 'free' ? [...OCCASIONS.filter((o) => o.days), ...OCCASIONS.filter((o) => !o.days)] : OCCASIONS;
   return `
@@ -175,7 +151,7 @@ function planFields(kind) {
     </section>`;
 }
 
-function youFields() {
+export function youFields() {
   return `
     <section class="sheet" aria-labelledby="you-h">
       <h2 id="you-h">About you</h2>
@@ -202,7 +178,7 @@ function youFields() {
 }
 
 /** The time zone the times are in, under the calendar, with a way to change it. */
-const tzLine = () => `
+export const tzLine = () => `
   <details class="reveal tz-line" id="tz-box">
     <summary><span>Times in <span id="tz-name">${esc(tzName(localTz))}</span> · Change</span></summary>
     <label for="tz">Time zone for this poll</label>
@@ -212,7 +188,7 @@ const tzLine = () => `
 const showTz = () => ($('#tz-name').textContent = tzName($('#tz').value));
 
 /** Wire up the plan fields: occasion presets fill in sensible defaults. */
-function wirePlan(onOccasion) {
+export function wirePlan(onOccasion) {
   let current = null;
   $('#tz').addEventListener('change', showTz);
   $('#create').addEventListener('click', (e) => {
@@ -233,7 +209,7 @@ function wirePlan(onOccasion) {
  * Create the poll. `answer` (option start → yes or if needed) is the organizer's own answer,
  * saved with the poll so they don't have to vote on their own options.
  */
-async function submit(body, occasion, answer = null) {
+export async function submit(body, occasion, answer = null) {
   $('#err').textContent = '';
   const title = $('#title').value.trim() || occasion()?.label || '';
   Object.assign(body, {
@@ -292,7 +268,7 @@ async function submit(body, occasion, answer = null) {
 }
 
 /** Show the email field when this server sends email; the organizer's email is then required. */
-function showConfig(update) {
+export function showConfig(update) {
   tried = false;
   $('#organizer').addEventListener('input', update);
   getConfig().then((c) => {
@@ -338,7 +314,7 @@ function flag(el, message) {
  */
 let notReady = null; // { message, focus } while something is missing
 let tried = false; // Create was pressed: missing fields say so under them, until they're filled in
-function setReady(ready, ...checks) {
+export function setReady(ready, ...checks) {
   checks.sort((a, b) => (b[2] === '#title') - (a[2] === '#title'));
   const bad = checks.filter(([x]) => x);
   const [, first, focus] = bad[0] || [];
@@ -355,7 +331,7 @@ const markFields = (checks) => {
   for (const [x, , el, under] of checks) if (under != null && $(el)) flag($(el), tried && x ? under : '');
 };
 /** Create was pressed before the poll is ready: say what's missing, mark each field, and go to the first. */
-function explainNotReady() {
+export function explainNotReady() {
   if (!notReady) return false;
   tried = true;
   const { message, focus, checks } = notReady;
@@ -366,9 +342,9 @@ function explainNotReady() {
   el?.focus();
   return true;
 }
-const named = (occasion) => !!($('#title').value.trim() || occasion()?.label);
+export const named = (occasion) => !!($('#title').value.trim() || occasion()?.label);
 /** The form's own checks: the poll's name, then the organizer's name and (when it's needed) email. */
-const nameAndEmail = (occasion) => [
+export const nameAndEmail = (occasion) => [
   [!named(occasion), 'Give your poll a name to create the poll', '#title', 'Give your poll a name'],
   [!$('#organizer').value.trim(), 'Add your name to create the poll', '#organizer', 'Add your name'],
   [
@@ -379,7 +355,7 @@ const nameAndEmail = (occasion) => [
   ],
 ];
 
-const createBar = (label) => `
+export const createBar = (label) => `
   <div class="create-bar">
     <div class="create-sum">
       <span id="summary" aria-live="polite"></span>
@@ -387,916 +363,3 @@ const createBar = (label) => `
     </div>
     <button class="btn btn-primary btn-lg" type="submit" id="submit">${esc(label)}</button>
   </div>`;
-
-// ---------- "Vote on a few dates" ----------
-
-// How long an option is: minutes (30 min, 1 hour, or any other length), 'half' for a morning,
-// afternoon or evening, 'allday', or 'days' for a trip.
-const LENGTHS = [
-  [30, '30 min'],
-  [60, '1 hour'],
-  ['half', 'Half day'],
-  ['allday', 'All day'],
-  ['days', 'Several days'],
-  ['custom', 'Other'],
-];
-// The lengths "Other" offers: 15-minute steps up to 4 hours, then half hours up to 12.
-const OTHER_LENGTHS = Array.from({ length: 32 }, (_, i) => (i < 16 ? 15 + i * 15 : 270 + (i - 16) * 30));
-const otherOptions = (v) =>
-  [...new Set([...OTHER_LENGTHS, v])]
-    .sort((a, b) => a - b)
-    .map((m) => `<option value="${m}"${m === v ? ' selected' : ''}>${lengthLabel(m)}</option>`)
-    .join('');
-const timeRange = shortRange;
-// Where the calendar opens for a kind of plan, by its usual part of the day.
-const PART_OPENS = { morning: 480, afternoon: 720, evening: 1020 };
-const h23 = new Intl.DateTimeFormat(undefined, { hour: 'numeric' }).resolvedOptions().hourCycle === 'h23';
-/** A start time that fits a phone's narrow week column: "7p", "7:30p", or "19" with a 24-hour clock. */
-function tinyTime(m) {
-  const h = Math.floor(m / 60) % 24;
-  const mm = m % 60 ? `:${String(m % 60).padStart(2, '0')}` : '';
-  return h23 ? `${h}${mm}` : `${h % 12 || 12}${mm}${h < 12 ? 'a' : 'p'}`;
-}
-
-export function renderPick() {
-  document.title = 'Vote on a few dates · Venn';
-  const src = source();
-  editing = null;
-  // The options so far, in local time: { date, from, to } in minutes, or { date, days } for all day or longer.
-  const items = new Map();
-  let length = 120;
-  let spanDays = 3;
-  let brush = YES; // new options are marked as working for the organizer, or only if needed
-  let view = null; // the week / day picker, for options with times
-  let month = null; // the month, for all-day options and trips
-  let lastFrom = null; // the start of the option added or moved last, where other days open
-  let half = null; // the mornings, afternoons and evenings, for half-day options
-  let mounts = 0; // the half-day picker loads on demand: only the latest calendar shows when it arrives
-  let nav = null; // more ways around the calendar (day-nav.js), loaded after the page
-  let shown = []; // the days the calendar shows
-
-  app.innerHTML = `
-    <form id="create" class="create" novalidate>
-      <a class="back" href="/new" data-link>‹ Both kinds of poll</a>
-      <h1>Vote on a few dates</h1>
-      ${planFields('pick')}
-      <section class="sheet" aria-labelledby="length-h">
-        <h2 id="length-h">How long is it?</h2>
-        <div class="pills" role="group" aria-labelledby="length-h">
-          ${LENGTHS.map(([v, l]) => `<button type="button" class="pill" data-length="${v}" aria-pressed="false">${l}</button>`).join('')}
-        </div>
-        <div class="inline-field" id="span-field" hidden>
-          <label for="span">How many days is the trip?</label>
-          <div class="stepper">
-            <button type="button" class="icon-btn" data-step="-1" aria-label="One day fewer">−</button>
-            <input id="span" type="number" min="2" max="${MAX_SPAN_DAYS}" value="3" inputmode="numeric">
-            <button type="button" class="icon-btn" data-step="1" aria-label="One day more">+</button>
-          </div>
-        </div>
-        <div class="inline-field" id="custom-field" hidden>
-          <label for="custom">Length</label>
-          <select id="custom">${otherOptions(90)}</select>
-        </div>
-      </section>
-      <section class="sheet" aria-labelledby="when-h">
-        <h2 id="when-h">When could it be?</h2>
-        <div class="pick-brush">
-          <span class="scope-label" id="brush-l">For you, new options are</span>
-          <div class="seg brush" role="radiogroup" aria-labelledby="brush-l">
-            <button type="button" role="radio" data-pbrush="${YES}"><span class="swatch swatch-yes"></span>Available</button>
-            <button type="button" role="radio" data-pbrush="${IF_NEEDED}"><span class="swatch swatch-maybe"></span>If needed</button>
-          </div>
-        </div>
-        <p class="hint" id="when-hint"></p>
-        <div id="picker"></div>
-        <div class="add-time" id="add-time" role="group" aria-labelledby="at-l" hidden></div>
-        ${tzLine()}
-      </section>
-      <section class="sheet poll-preview" aria-labelledby="preview-h">
-        <h2 id="preview-h">Options in your poll</h2>
-        <div id="options-list" class="opt-list" aria-live="polite"></div>
-      </section>
-      ${youFields()}
-      ${createBar('Create poll')}
-    </form>`;
-
-  const occasion = wirePlan((o) => {
-    if (!o) return;
-    if (o.days) {
-      spanDays = o.days;
-      $('#span').value = spanDays;
-    }
-    setLength(o.length);
-    view?.home(); // open at the plan's usual time: a morning for coffee, an evening for dinner
-    if (lastFrom == null && PART_OPENS[o.part] && $('#at-time')) $('#at-time').value = PART_OPENS[o.part];
-  });
-
-  // Options with times of their own (any length in minutes), parts of the day, or whole days.
-  const kindOf = (v) => (typeof v === 'number' ? 'time' : v === 'half' ? 'half' : 'day');
-  const timed = () => kindOf(length) === 'time';
-  // Where to go when Create is pressed with no options: the calendar.
-  const calendarFocus = () =>
-    $('#at-day:not([disabled])') || $('#picker .pg-cell[tabindex="0"]') || $('#picker .cal-day:not(:disabled)');
-  const minutes = () => length;
-  const onDate = (d) => [...items.values()].filter((it) => it.date === d);
-  const mark = (d) => (onDate(d).length ? String(onDate(d).length) : '');
-  const ifNeeded = (it) => it.v === IF_NEEDED;
-  const tripDays = (it) => it.days || spanDays;
-
-  // ----- adding and removing options -----
-  function add(it) {
-    lastFrom = it.from;
-    items.set(`${it.date}|${it.from}`, { ...it, v: brush }); // one option per start time
-    changed();
-  }
-  /** Tapping an option switches it between available and if needed (for the organizer). */
-  function flip(k) {
-    const it = items.get(k);
-    it.v = ifNeeded(it) ? YES : IF_NEEDED;
-    changed();
-  }
-  /** An option dragged to a new length, time or day. */
-  function reshape(k, date, from, to) {
-    const it = items.get(k);
-    lastFrom = from;
-    items.delete(k);
-    items.set(`${date}|${from}`, { ...it, date, from, to });
-    changed();
-  }
-  function remove(k) {
-    items.delete(k);
-    changed();
-  }
-
-  function changed() {
-    view?.render();
-    month?.render();
-    half?.render();
-    renderList();
-  }
-
-  // ----- the pickers -----
-  function mountPicker() {
-    view?.cleanup();
-    nav?.cleanup();
-    nav = null;
-    month?.cleanup();
-    half?.cleanup();
-    view = month = half = null;
-    mounts++;
-    const root = $('#picker');
-    $('#add-time').hidden = !timed();
-    if (length === 'half') return mountHalf(root);
-    if (timed()) {
-      buildAddTime();
-      $('#when-hint').textContent = isPhone()
-        ? 'Tap the calendar to add an option of the length above. Drag its top or bottom edge to change the length. Tap an option to switch between available and if needed, or × to remove it.'
-        : 'Drag on the calendar to add an option, or click to add one of the length above. Drag an edge to change the length, or drag it to another time. Click an option to switch between available and if needed, or × to remove it.';
-      view = timeView(root, {
-        label: 'Calendar',
-        views: ['week', 'day'],
-        range: () => [420, 1440],
-        tapLength: minutes,
-        startAt: () => lastFrom ?? PART_OPENS[occasion()?.part] ?? null,
-        blocks: () =>
-          [...items.entries()]
-            .filter(([, it]) => it.from != null)
-            .map(([k, it]) => ({
-              key: k,
-              date: it.date,
-              from: it.from,
-              to: Math.min(it.to, 1440),
-              cls: ifNeeded(it) ? 'opt opt-maybe' : 'opt',
-              label: `${ifNeeded(it) ? '~ ' : ''}${timeRange(it.from, it.to)}`,
-              short: shortTime(it.from),
-              tiny: tinyTime(it.from), // amber, and named "if needed", when it is: no room for "~"
-              title: `${timeRange(it.from, it.to)}, ${dayLabel(it.date)}, ${ifNeeded(it) ? 'if needed' : 'available'} for you. Tap to make it ${ifNeeded(it) ? 'available' : 'if needed'}`,
-              remove: `Remove ${timeRange(it.from, it.to)}, ${dayLabel(it.date)}`,
-            })),
-        onCreate: (date, from, to) => add({ date, from, to }),
-        onBlock: flip,
-        onResize: (k, from, to) => reshape(k, items.get(k).date, from, to),
-        onMove: reshape,
-        editBlocks: (el, o) => editBlocks(el, { ...o, onRemove: remove }),
-        marks: mark,
-        strip: (d) => nav?.strip(d),
-        onRender: (ds) => (showAddDays((shown = ds)), nav?.update(ds)),
-      });
-      const v = view;
-      import('./day-nav.js').then(({ dayNav }) => {
-        if (view !== v) return; // the calendar changed meanwhile
-        nav = dayNav(root, v, mark);
-        // The day view's strip gets its months ahead; a week only needs « set.
-        if (shown.length === 1) v.render();
-        else nav.update(shown);
-      });
-    } else {
-      $('#when-hint').textContent =
-        length === 'days'
-          ? 'Tap the first day of each trip you could take. The highlighted days show how long each one lasts. Tap an option below to switch between available and if needed.'
-          : 'Tap each day you want to suggest. Tap an option below to switch between available and if needed.';
-      const starts = new Set([...items.values()].filter((it) => it.from == null).map((it) => it.date));
-      const covered = (d) =>
-        length === 'days' &&
-        [...items.values()].some((it) => it.from == null && d > it.date && d < addDays(it.date, tripDays(it)));
-      month = monthView(root, {
-        selected: starts,
-        dayClass: (d) => `${covered(d) ? 'in-trip' : ''}${items.get(`${d}|day`)?.v === IF_NEEDED ? ' day-maybe' : ''}`,
-        onChange: () => {
-          for (const [k, it] of items) if (it.from == null && !starts.has(it.date)) items.delete(k);
-          for (const d of starts)
-            if (!items.has(`${d}|day`)) items.set(`${d}|day`, { date: d, days: length === 'days' ? spanDays : 1, v: brush });
-          month.render();
-          renderList();
-        },
-      });
-    }
-  }
-
-  // ----- half days: a morning, an afternoon or an evening, on a week of days -----
-  // The "parts of the day" picker from the other create page, loaded when it's first needed.
-  async function mountHalf(root) {
-    const at = mounts;
-    root.innerHTML = '';
-    $('#when-hint').textContent =
-      `${isPhone() ? 'Tap a day, then' : 'Click'} the mornings, afternoons and evenings you could do, or drag across several. Tap an option below to switch between available and if needed.`;
-    const { halfView } = await import('./half-day.js');
-    if (at !== mounts || !root.isConnected) return;
-    half = halfView(root, { items, brush: () => brush, onChange: renderList, startAt: sorted()[0]?.[1].date });
-  }
-
-  // ----- adding a time without a pointer: a day, a start time and Add -----
-  function buildAddTime() {
-    const at = lastFrom ?? PART_OPENS[occasion()?.part] ?? 1080;
-    const times = [];
-    for (let m = 420; m < 1440; m += 30)
-      times.push(`<option value="${m}"${m === at ? ' selected' : ''}>${esc(shortTime(m))}</option>`);
-    $('#add-time').innerHTML = `
-      <span class="scope-label" id="at-l">Or add a time</span>
-      <div class="add-time-row">
-        <div><label for="at-day">Day</label><input id="at-day" type="date" min="${todayStr()}"></div>
-        <div><label for="at-time">Starts at</label><select id="at-time">${times.join('')}</select></div>
-        <button type="button" class="btn" id="at-add">Add</button>
-      </div>`;
-    // Any day from today on; the calendar goes to the day picked.
-    const day = () => ($('#at-day').value >= todayStr() ? $('#at-day').value : '');
-    $('#at-day').onchange = () => day() && view.show(day());
-    $('#at-add').onclick = () => {
-      const date = day();
-      const from = +$('#at-time').value;
-      if (!date) return $('#at-day').focus();
-      view.show(date);
-      add({ date, from, to: Math.min(from + minutes(), 1440) }); // the same as a tap
-    };
-  }
-  /** The day follows the calendar: the day it shows, or the first one to come in the week shown. */
-  function showAddDays(ds) {
-    const el = $('#at-day');
-    if (el && !ds.includes(el.value)) el.value = ds.find((d) => d >= todayStr()) || todayStr();
-  }
-
-  // ----- the options in the poll, by day -----
-  const partOfItem = (it) => length === 'half' && DAY_PARTS.find((p) => p.start === it.from && p.end === it.to);
-  const itemLabel = (it) =>
-    it.from != null
-      ? `${partOfItem(it) ? `${partOfItem(it).label} ` : ''}${timeRange(it.from, it.to)}`
-      : length === 'days'
-        ? `${dayLabel(it.date)} – ${dayLabel(addDays(it.date, tripDays(it) - 1))}`
-        : 'All day';
-  const sorted = () =>
-    [...items.entries()].sort(([, a], [, b]) => a.date.localeCompare(b.date) || (a.from ?? -1) - (b.from ?? -1));
-  function renderList() {
-    const list = sorted();
-    const box = $('#options-list');
-    updateReady();
-    if (!list.length) {
-      box.innerHTML = `<p class="hint">Nothing yet. ${timed() ? 'Add times on the calendar above.' : length === 'half' ? 'Pick mornings, afternoons or evenings above.' : 'Tap days on the calendar above.'} Everyone will say yes, if needed or no to each option you add.</p>`;
-      return;
-    }
-    const removeBtn = (k, label) => `<button type="button" data-remove="${esc(k)}" aria-label="Remove ${esc(label)}">×</button>`;
-    // The option's label switches it between available and if needed.
-    const flipBtn = (k, it, label) =>
-      `<button type="button" class="chip-flip" data-flip="${esc(k)}" aria-label="${esc(`${label}, ${ifNeeded(it) ? 'if needed' : 'available'} for you. Switch to ${ifNeeded(it) ? 'available' : 'if needed'}`)}">${esc(itemLabel(it))}${ifNeeded(it) ? ' <small class="chip-tag">If needed</small>' : ''}</button>`;
-    let rows;
-    if (length === 'days') {
-      rows = list
-        .map(
-          ([k, it]) => `<li class="od-row">
-            <span class="chip trip ${ifNeeded(it) ? 'maybe' : 'yes'}">${flipBtn(k, it, itemLabel(it))}${removeBtn(k, itemLabel(it))}</span>
-            <span class="od-len">
-              <button type="button" class="icon-btn" data-trip="${esc(k)}" data-d="-1" aria-label="One day shorter, ${esc(itemLabel(it))}"${tripDays(it) <= 2 ? ' disabled' : ''}>−</button>
-              <span>${plural(tripDays(it), 'day')}</span>
-              <button type="button" class="icon-btn" data-trip="${esc(k)}" data-d="1" aria-label="One day longer, ${esc(itemLabel(it))}"${tripDays(it) >= MAX_SPAN_DAYS ? ' disabled' : ''}>+</button>
-            </span>
-          </li>`,
-        )
-        .join('');
-    } else {
-      const days = new Map();
-      for (const [k, it] of list) {
-        if (!days.has(it.date)) days.set(it.date, []);
-        days.get(it.date).push([k, it]);
-      }
-      rows = [...days]
-        .map(
-          ([d, its]) => `<li class="od-row">
-            <span class="od-date">${esc(dayLabel(d))}</span>
-            <span class="chips">${its
-              .map(
-                ([k, it]) =>
-                  `<span class="chip ${ifNeeded(it) ? 'maybe' : 'yes'}">${flipBtn(k, it, `${dayLabel(d)}, ${itemLabel(it)}`)}${removeBtn(k, `${dayLabel(d)}, ${itemLabel(it)}`)}</span>`,
-              )
-              .join('')}</span>
-          </li>`,
-        )
-        .join('');
-    }
-    box.innerHTML = `<p class="preview-lede">Guests will choose from <b>${plural(list.length, 'option')}</b>. <span class="muted">Tap one to switch it between available and if needed for you.</span></p>
-      <ul class="od-list">${rows}</ul>
-      <button type="button" class="link-btn" id="clear-options">Remove all</button>`;
-  }
-  $('#options-list').addEventListener('click', (e) => {
-    const rm = e.target.closest('[data-remove]');
-    if (rm) remove(rm.dataset.remove);
-    const fl = e.target.closest('[data-flip]');
-    if (fl) {
-      flip(fl.dataset.flip);
-      $(`[data-flip="${fl.dataset.flip}"]`)?.focus();
-    }
-    const trip = e.target.closest('[data-trip]');
-    if (trip) {
-      const it = items.get(trip.dataset.trip);
-      it.days = Math.max(2, Math.min(MAX_SPAN_DAYS, tripDays(it) + +trip.dataset.d));
-      changed();
-      $(`[data-trip="${trip.dataset.trip}"][data-d="${trip.dataset.d}"]`)?.focus();
-    }
-    if (e.target.closest('#clear-options') && confirm('Remove all the options?')) {
-      items.clear();
-      changed();
-    }
-    if (kindOf(length) === 'day' && (rm || e.target.closest('#clear-options'))) mountPicker();
-  });
-
-  const renderBrush = () => {
-    for (const b of $$('[data-pbrush]')) b.setAttribute('aria-checked', +b.dataset.pbrush === brush);
-  };
-  $('#create').addEventListener('click', (e) => {
-    const b = e.target.closest('[data-pbrush]');
-    if (!b) return;
-    brush = +b.dataset.pbrush;
-    renderBrush();
-  });
-  renderBrush();
-
-  // ----- length -----
-  /**
-   * Change how long the options are: minutes, 'half', 'allday', 'days', or 'custom' for "Other" at
-   * the length it shows. Returns false when the organizer chose to keep their options rather than switch.
-   */
-  function setLength(v, { ask = true } = {}) {
-    if (v === 'custom') v = +$('#custom').value;
-    const was = kindOf(length);
-    // Options of different kinds don't mix: switching between them starts over, so ask.
-    const clears = items.size && was !== kindOf(v);
-    const name = LENGTHS.find(([x]) => x === lengthChip(v))?.[1].toLowerCase();
-    if (
-      clears &&
-      ask &&
-      !confirm(`Switching to ${name} removes the ${plural(items.size, 'option')} you've added. Switch anyway?`)
-    ) {
-      showLength();
-      return false;
-    }
-    length = v;
-    showLength();
-    if (clears) items.clear();
-    // A new length applies to the options already added.
-    if (timed()) for (const it of items.values()) it.to = Math.min(it.from + minutes(), 1440);
-    else if (length !== 'half') for (const it of items.values()) it.days = v === 'days' ? spanDays : 1;
-    // Keep the calendar (and the week it shows) when only the number of hours changes.
-    if (was !== kindOf(length) || kindOf(length) === 'day' || (!view && !month && !half)) mountPicker();
-    else changed();
-    renderList();
-  }
-  /** The chip for the length, and "Other" with its length when it's another number of minutes. */
-  function showLength() {
-    const chip = lengthChip(length);
-    for (const b of $$('[data-length]')) b.setAttribute('aria-pressed', b.dataset.length === chip);
-    const other = chip === 'custom';
-    $('[data-length="custom"]').textContent = other ? `Other · ${lengthLabel(length)}` : 'Other';
-    if (other) $('#custom').innerHTML = otherOptions(length);
-    $('#span-field').hidden = length !== 'days';
-    $('#custom-field').hidden = !other;
-  }
-  $('#create').addEventListener('click', (e) => {
-    const b = e.target.closest('[data-length]');
-    if (b) setLength(Number.isNaN(+b.dataset.length) ? b.dataset.length : +b.dataset.length);
-    const st = e.target.closest('#span-field [data-step]');
-    if (st) {
-      $('#span').value = Math.max(2, Math.min(MAX_SPAN_DAYS, (+$('#span').value || 3) + +st.dataset.step));
-      setSpan();
-    }
-  });
-  // The trip length applies to every trip, unless one was changed on its own.
-  function setSpan() {
-    spanDays = Math.max(2, Math.min(MAX_SPAN_DAYS, +$('#span').value || 2));
-    for (const it of items.values()) if (it.from == null) it.days = spanDays;
-    month?.render();
-    renderList();
-  }
-  $('#span').oninput = setSpan;
-  $('#span').onchange = () => {
-    $('#span').value = spanDays;
-  };
-  $('#custom').onchange = () => setLength('custom');
-
-  function options() {
-    const tz = $('#tz').value;
-    return sorted().map(([, it]) => {
-      if (it.from == null)
-        return {
-          start: zonedToUtc(it.date, 0, tz),
-          end: zonedToUtc(addDays(it.date, length === 'days' ? tripDays(it) : 1), 0, tz),
-        };
-      const start = zonedToUtc(it.date, it.from, tz);
-      return { start, end: start + (it.to - it.from) * MINUTE };
-    });
-  }
-
-  $('#create').onsubmit = (e) => {
-    e.preventDefault();
-    if (explainNotReady()) return;
-    // The organizer's own answer, from how each option was marked.
-    const answer = {};
-    options().forEach((o, i) => (answer[o.start] = sorted()[i][1].v || YES));
-    submit({ mode: 'options', options: options() }, occasion, answer);
-  };
-
-  function updateReady() {
-    const n = items.size;
-    setReady(
-      `${plural(n, 'option')} to vote on`,
-      [!n, 'Add at least one option to create the poll', calendarFocus],
-      ...nameAndEmail(occasion),
-    );
-  }
-  $('#title').addEventListener('input', updateReady);
-
-  /**
-   * Fill in these options ({ start, end }), with the length that fits them: all day, several days,
-   * half days or a number of minutes. Each keeps the organizer's mark: available, or only if needed.
-   */
-  async function load(opts, tz, mark = () => YES) {
-    const { length: len, days: n } = (await import('./lengths.js')).optionsLength(opts, tz);
-    items.clear(); // they replace any already added
-    if (len === 'days') $('#span').value = spanDays = n[0];
-    setLength(len, { ask: false });
-    opts.forEach((o, i) => {
-      const { date, minutes: from } = utcToZoned(o.start, tz);
-      const v = mark(o.start);
-      if (n) items.set(`${date}|day`, { date, days: len === 'days' ? n[i] : 1, v });
-      else items.set(`${date}|${from}`, { date, from, to: Math.min(from + (o.end - o.start) / MINUTE, 1440), v });
-    });
-    mountPicker();
-    const first = sorted()[0]?.[1].date;
-    if (first) (view || month)?.show(first);
-    renderList();
-  }
-
-  /** Start from an existing poll's options. */
-  async function prefill() {
-    const ev = await loadSource(src);
-    if (!ev || ev.mode !== 'options' || !$('#create')) return;
-    fillCommon(ev, src);
-    const host = ev.participants.find((p) => p.id === ev.hostId);
-    load(ev.options, ev.timezone, (start) => (host?.availability[start] === IF_NEEDED ? IF_NEEDED : YES));
-  }
-
-  setLength(120);
-  showConfig(updateReady);
-  // Describing the plan in words, when this server has AI.
-  getConfig().then((c) => c.ai && !src && import('./ai-draft.js').then((m) => $('#create') && m.aiDraft($('#create'), load)));
-  if (src) prefill();
-  else prefillTitle();
-  $('#title').focus();
-  return () => {
-    mounts++;
-    view?.cleanup();
-    month?.cleanup();
-    half?.cleanup();
-  };
-}
-
-// ---------- "Ask when people are available" ----------
-
-const HOUR_LENGTHS = [30, 60, 90, 120, 180, 240];
-// How detailed guests' answers are, from the broadest to the finest.
-const LEVELS = [
-  ['days', 'Whole days'],
-  ['parts', 'Parts of the day'],
-  ['hours', 'Hours'],
-];
-// Parts of the day and hours: the painter, and what the page does with what's painted. Most
-// whole-day polls never load it.
-let pt = null;
-const loadPaint = async () => (pt ??= await import('./paint.js'));
-
-export function renderFree() {
-  document.title = 'Ask when people are available · Venn';
-  const src = source();
-  editing = null;
-  // What's picked at each level. Zooming in or out carries it to the next level.
-  const selected = new Set(); // days, for whole days
-  const partsSel = new Set(); // "YYYY-MM-DD|<part start>", for parts of the day
-  const painted = new Set(); // "YYYY-MM-DD|minutes", for hours
-  // What's only "if needed" for the organizer, at each level; the rest of what's picked works for them.
-  const maybe = { days: new Set(), parts: new Set(), hours: new Set() };
-  const st = { days: selected, parts: partsSel, hours: painted, maybe, defaultParts: new Set(DAY_PARTS.map((p) => p.key)) };
-  let brush = YES; // what new picks are for the organizer
-  let before = new Set(); // what the level had at the last update, to see what's new
-  let level = 'days';
-  let length = 120; // minutes, for hours
-  let painter = null;
-  let cal = null;
-  let mounts = 0; // the painter loads on demand: only the latest level shows when it arrives
-
-  app.innerHTML = `
-    <form id="create" class="create" novalidate>
-      <a class="back" href="/new" data-link>‹ Both kinds of poll</a>
-      <h1>Ask when people are available</h1>
-      ${planFields('free')}
-      <section class="sheet" aria-labelledby="when-h">
-        <h2 id="when-h">When could it be?</h2>
-        <div class="zoom">
-          <span class="scope-label" id="level-l">Guests answer with</span>
-          <div class="seg" role="radiogroup" aria-labelledby="level-l">
-            ${LEVELS.map(([k, l]) => `<button type="button" role="radio" data-level="${k}">${l}</button>`).join('')}
-          </div>
-        </div>
-        <p class="hint" id="level-hint"></p>
-        <div class="inline-field" data-for="days">
-          <label for="span">How many days in a row do you need?</label>
-          <div class="stepper">
-            <button type="button" class="icon-btn" data-step="-1" aria-label="One day fewer">−</button>
-            <input id="span" type="number" min="1" max="${MAX_SPAN_DAYS}" value="1" inputmode="numeric">
-            <button type="button" class="icon-btn" data-step="1" aria-label="One day more">+</button>
-          </div>
-        </div>
-        <div class="inline-field" data-for="hours">
-          <h3 class="sub-h" id="len-h">How long is it?</h3>
-          <div class="pills" role="group" aria-labelledby="len-h">
-            ${HOUR_LENGTHS.map((m) => `<button type="button" class="pill" data-flength="${m}" aria-pressed="false">${lengthLabel(m)}</button>`).join('')}
-          </div>
-        </div>
-        <div class="pick-brush">
-          <span class="scope-label" id="fbrush-l">For you, new days and times are</span>
-          <div class="seg brush" role="radiogroup" aria-labelledby="fbrush-l">
-            <button type="button" role="radio" data-fbrush="${YES}"><span class="swatch swatch-yes"></span>Available</button>
-            <button type="button" role="radio" data-fbrush="${IF_NEEDED}"><span class="swatch swatch-maybe"></span>If needed</button>
-          </div>
-        </div>
-        <p class="hint" id="when-help" hidden></p>
-        <div id="when"></div>
-        <div class="pills quick" role="group" aria-label="Quick picks" id="quick"></div>
-        ${tzLine()}
-      </section>
-      <section class="sheet poll-preview" aria-labelledby="preview-h">
-        <h2 id="preview-h">What your guests will mark</h2>
-        <div id="free-list" class="opt-list" aria-live="polite"></div>
-      </section>
-      ${youFields()}
-      ${createBar('Create poll')}
-    </form>`;
-
-  const occasion = wirePlan((o) => {
-    if (!o) return;
-    if (o.days) {
-      $('#span').value = o.days;
-      return setLevel('days');
-    }
-    if (typeof o.length === 'number') setLength(o.length);
-    // Days picked from now on get the plan's usual part of the day.
-    if (o.part) st.defaultParts = new Set([o.part]);
-    update();
-  });
-
-  const span = () => Math.max(1, Math.min(MAX_SPAN_DAYS, +$('#span').value || 1));
-  // Where to go when Create is pressed with nothing picked: the calendar.
-  const gridFocus = () => $('#when .pg-cell[tabindex="0"]') || $('#when .cal-day:not(:disabled)');
-
-  /** Zoom between whole days, parts of the day and hours. */
-  async function setLevel(next) {
-    if (next === level && (painter || cal)) return;
-    if (!pt && (next !== 'days' || (level && level !== 'days'))) await loadPaint();
-    pt?.zoom(st, level, next);
-    before = new Set(st[next]);
-    level = next;
-    for (const b of $$('[data-level]')) b.setAttribute('aria-checked', b.dataset.level === level);
-    for (const el of $$('[data-for]')) el.hidden = el.dataset.for !== level;
-    $('#level-hint').textContent = {
-      days: 'Guests tap the days they’re available. Start broad. Switch to parts of the day or hours if timing matters; we’ll keep what you’ve picked.',
-      parts: 'Guests tap the mornings, afternoons and evenings they’re available. Pick which ones to ask about on each day.',
-      hours: 'Guests mark the hours they’re available, in 30-minute steps, within the times you paint.',
-    }[level];
-    mount();
-    update();
-  }
-  function setLength(v) {
-    length = v;
-    for (const b of $$('[data-flength]')) b.setAttribute('aria-pressed', +b.dataset.flength === v);
-  }
-
-  /** A tap (or click, Enter, Space, or a mouse drag) on the month calendar. With days in a row to
-   * find, a tap on a day that isn't picked picks that many days from it; on a picked one, it takes
-   * just that day away. */
-  function tapped() {
-    const added = [...selected].filter((d) => !before.has(d));
-    if (added.length === 1)
-      for (let i = 1, d = added[0]; i < span() && selected.size < LIMITS.dates; i++) selected.add((d = addDays(d, 1)));
-    const focused = document.activeElement?.dataset?.date;
-    update();
-    cal.render();
-    if (focused) $(`#when [data-date="${focused}"]`)?.focus();
-  }
-  /** Days in a row read as one band: joined to the day before (l) and after (r) on the same line of
-   * the calendar, or carrying on over a line or month break (cl, cr). If needed days are amber. */
-  function band(d) {
-    if (!selected.has(d)) return '';
-    const [prev, next, wd] = [addDays(d, -1), addDays(d, 1), weekdayOf(d)];
-    const month = (x) => x.slice(0, 7) === d.slice(0, 7);
-    return [
-      maybe.days.has(d) && 'day-maybe',
-      selected.has(prev) && (wd && month(prev) ? 'run-l' : 'run-cl'),
-      selected.has(next) && (wd < 6 && month(next) ? 'run-r' : 'run-cr'),
-    ]
-      .filter(Boolean)
-      .join(' ');
-  }
-
-  async function mount() {
-    painter?.cleanup();
-    cal?.cleanup();
-    painter = cal = null;
-    const root = $('#when');
-    const at = ++mounts;
-    root.innerHTML = $('#quick').innerHTML = '';
-    $('#when-help').hidden = level === 'days';
-    const clear = '<button type="button" class="pill pill-quiet" id="q-clear">Clear all</button>';
-    if (level === 'days') {
-      cal = monthView(root, { selected, onChange: tapped, dayClass: band });
-      const first = [...selected].sort()[0];
-      if (first) cal.show(first);
-      $('#quick').innerHTML = `
-        <button type="button" class="pill" id="q-2w">Next 2 weeks</button>
-        <button type="button" class="pill" id="q-weekends">Next 4 weekends</button>${clear}`;
-      return;
-    }
-    const parts = level === 'parts';
-    const set = st[level];
-    // Parts of the day and hours need the painter, which most whole-day polls never load.
-    const { paintView, datesOf, paintHelp, fillPills } = await loadPaint();
-    if (at !== mounts || !root.isConnected) return;
-    painter = paintView(root, {
-      selected: set,
-      onChange: update,
-      startAt: datesOf(set)[0],
-      parts: parts && DAY_PARTS,
-      maybe: maybe[level],
-      marking: () => brush === IF_NEEDED,
-    });
-    $('#when-help').textContent = paintHelp(parts);
-    $('#quick').innerHTML = fillPills(parts) + clear;
-  }
-
-  const fill = (n, keep) => {
-    selected.clear();
-    for (let d = todayStr(), i = 0; selected.size < n && i < 120; d = addDays(d, 1), i++)
-      if (keep(dateParts(d).getUTCDay())) selected.add(d);
-    // Show the month that got most of the days picked.
-    const months = new Map();
-    for (const d of selected) months.set(d.slice(0, 7), (months.get(d.slice(0, 7)) || 0) + 1);
-    const [best] = [...months].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))[0] || [todayStr().slice(0, 7)];
-    cal.show(`${best}-01`);
-    update();
-  };
-  /** After the picks change from outside the calendars: show them there too. */
-  const redraw = () => {
-    update();
-    painter?.render();
-    cal?.render();
-  };
-  $('#create').addEventListener('click', (e) => {
-    const lv = e.target.closest('[data-level]');
-    if (lv) setLevel(lv.dataset.level);
-    const l = e.target.closest('[data-flength]');
-    if (l) {
-      setLength(+l.dataset.flength);
-      update();
-    }
-    const s = e.target.closest('[data-step]');
-    if (s) {
-      $('#span').value = Math.max(1, Math.min(MAX_SPAN_DAYS, span() + +s.dataset.step));
-      update();
-    }
-    const f = e.target.closest('[data-fill]');
-    if (f) {
-      pt.fillWeek(st[level], level === 'parts', +f.dataset.fill, painter.week());
-      redraw();
-    }
-    if (e.target.closest('#q-2w')) fill(14, () => true);
-    if (e.target.closest('#q-weekends')) fill(12, (wd) => wd === 5 || wd === 6 || wd === 0);
-    if (e.target.closest('#q-clear')) {
-      painted.clear();
-      partsSel.clear();
-      selected.clear();
-      redraw();
-    }
-    // One × can stand for a whole week of evenings, or a run of days: ask first.
-    const rm = e.target.closest('[data-rm-window]')?.dataset.rmWindow;
-    if (rm) {
-      if (rm.includes(',') && !confirm(`Remove ${pt.windowWhat(level, rm)}?`)) return;
-      for (const k of pt.windowKeys(level, rm)) st[level].delete(k);
-      redraw();
-    }
-    const rd = e.target.closest('[data-rm-days]')?.dataset.rmDays.split(',');
-    if (rd) {
-      if (rd.length > 1 && !confirm(`Remove these ${rd.length} days?`)) return;
-      for (const d of rd) selected.delete(d);
-      redraw();
-    }
-    // A day, or times, in the list switch between available and if needed for the organizer.
-    const fl = e.target.closest('[data-flip-days], [data-flip-window]');
-    if (fl) {
-      const { flipDays: fd, flipWindow: fw } = fl.dataset;
-      const keys = fd ? fd.split(',') : pt.windowKeys(level, fw);
-      const may = maybe[level];
-      const all = keys.every((k) => may.has(k));
-      for (const k of keys) all ? may.delete(k) : may.add(k);
-      redraw();
-      ($(`#free-list [${fd ? `data-flip-days="${fd}"` : `data-flip-window="${fw}"`}]`) || $('#free-list .chip-flip'))?.focus();
-    }
-    const b = e.target.closest('[data-fbrush]');
-    if (b) {
-      brush = +b.dataset.fbrush;
-      renderBrush();
-    }
-  });
-  const renderBrush = () => {
-    for (const b of $$('[data-fbrush]')) b.setAttribute('aria-checked', +b.dataset.fbrush === brush);
-  };
-  renderBrush();
-  $('#span').oninput = update;
-  // Typing 0 or 99 counts as the nearest number that works; show it.
-  $('#span').onchange = () => {
-    $('#span').value = span();
-    update();
-  };
-  $('#title').addEventListener('input', update);
-
-  /** "Fri, Nov 6 – Sun, Nov 8" (or "Fri 6 – Sun 8 Nov", by language), or "Sat, Nov 7". */
-  const dayRange = (dates) =>
-    dates.length === 1 ? dayLabel(dates[0]) : fmtDay.formatRange(dateParts(dates[0]), dateParts(dates.at(-1)));
-  /** A chip in the list: tap it to switch between available and if needed for you, × to remove it. */
-  const chip = (flip, rm, text, label, m) =>
-    `<span class="chip${m ? ' maybe' : ''}"><button type="button" class="chip-flip" ${flip} aria-label="${esc(`${label}, ${m ? 'if needed' : 'available'} for you. Switch to ${m ? 'available' : 'if needed'}`)}">${esc(text)}${m ? ' <small class="chip-tag">If needed</small>' : ''}</button><button type="button" ${rm} aria-label="Remove ${esc(label)}">×</button></span>`;
-  const flipHint = '<span class="muted">Tap one to switch it between available and if needed for you.</span>';
-
-  /** Days in a row, each run as a range with its length: is it long enough for the days in a row
-   * asked for? Inside a run, the days that are if needed for the organizer are a chip of their own. */
-  const runList = (dates, k) =>
-    `<ul class="od-list">${dayRuns(dates)
-      .map((run) => {
-        const parts = [];
-        for (const d of run)
-          if (parts.at(-1) && maybe.days.has(parts.at(-1)[0]) === maybe.days.has(d)) parts.at(-1).push(d);
-          else parts.push([d]);
-        const ok = run.length >= k;
-        const len =
-          run.length > 1 || k > 1
-            ? `<span class="od-len${ok ? '' : ' short'}">${plural(run.length, 'day')}${k > 1 ? (ok ? ' · long enough' : ` · too short`) : ''}</span>`
-            : '';
-        return `<li class="od-row"><span class="chips">${parts
-          .map((p) => {
-            const at = `="${p.join(',')}"`;
-            return chip(`data-flip-days${at}`, `data-rm-days${at}`, dayRange(p), dayRange(p), maybe.days.has(p[0]));
-          })
-          .join('')}</span>${len}</li>`;
-      })
-      .join('')}</ul>`;
-
-  // What guests will be able to mark, and whether the poll can be created yet.
-  function update() {
-    // What's new takes the brush: available or if needed for the organizer.
-    const may = maybe[level];
-    for (const k of st[level]) if (!before.has(k)) brush === IF_NEEDED ? may.add(k) : may.delete(k);
-    for (const l in maybe) for (const k of [...maybe[l]]) if (!st[l].has(k)) maybe[l].delete(k);
-    before = new Set(st[level]);
-    const box = $('#free-list');
-    if (level === 'hours') {
-      const windows = pt.toWindows(painted);
-      const dates = pt.datesOf(painted);
-      box.innerHTML = windows.length
-        ? `<p class="preview-lede">Guests will mark when they’re available in these times. Venn looks for <b>${esc(lengthLabel(length))}</b> that work${length === 60 ? 's' : ''} for the most people. ${flipHint}</p>
-          ${pt.windowList(pt.windowsAt(st, level), level, chip, dayRange)}`
-        : '<p class="hint">Nothing yet. Paint some times on the calendar above, or use a quick fill.</p>';
-      return setReady(
-        `${plural(dates.length, 'day')} to choose from`,
-        [!windows.length, 'Paint at least one time to create the poll', gridFocus],
-        [
-          !windows.some((w) => w.end - w.start >= length),
-          `Your times are shorter than ${lengthLabel(length)}. Paint a longer stretch`,
-          gridFocus,
-        ],
-        ...nameAndEmail(occasion),
-      );
-    }
-    if (level === 'parts') {
-      const windows = pt.windowsAt(st, level);
-      box.innerHTML = windows.length
-        ? `<p class="preview-lede">Guests will tap which of these they’re available. ${flipHint}</p>${pt.windowList(windows, level, chip, dayRange)}`
-        : '<p class="hint">Nothing yet. Tap mornings, afternoons and evenings on the calendar above, or use a quick fill.</p>';
-      return setReady(
-        `${plural(windows.length, 'time')} to choose from`,
-        [!windows.length, 'Pick at least one morning, afternoon or evening', gridFocus],
-        ...nameAndEmail(occasion),
-      );
-    }
-    const dates = [...selected].sort();
-    const k = span();
-    $('#when-help').hidden = k < 2;
-    $('#when-help').textContent = `Tap a day to pick ${k} days in a row from it. Tap a picked day to take just that day away.`;
-    box.innerHTML = dates.length
-      ? `<p class="preview-lede">On ${plural(dates.length, 'day')} (${esc(dayRange([dates[0], dates.at(-1)]))}), guests will mark the whole days they’re available. ${k > 1 ? `Venn looks for <b>${k} days in a row</b> that work for the most people.` : 'Venn finds the days the most people are available.'} ${flipHint}</p>${runList(dates, k)}`
-      : '<p class="hint">Nothing yet. Pick some days on the calendar above.</p>';
-    setReady(
-      `${plural(dates.length, 'day')} to choose from`,
-      [!dates.length, 'Pick at least one day to create the poll', gridFocus],
-      [k > dates.length, `Pick at least ${k} days, for ${k} in a row`, gridFocus],
-      [longestRun(dates) < k, `None of your days make ${k} in a row. Pick days next to each other`, '#span'],
-      ...nameAndEmail(occasion),
-    );
-  }
-
-  $('#create').onsubmit = (e) => {
-    e.preventDefault();
-    if (explainNotReady()) return;
-    const tz = $('#tz').value;
-    // The organizer's own answer: what they picked, available or if needed.
-    const answer = hostAnswer(st[level], maybe[level], tz);
-    if (level === 'hours')
-      return submit({ windows: pt.toWindows(painted), slotMinutes: 30, durationMinutes: length }, occasion, answer);
-    if (level === 'parts') {
-      const options = pt
-        .windowsAt(st, level)
-        .map((w) => ({ start: zonedToUtc(w.date, w.start, tz), end: zonedToUtc(w.date, w.end, tz) }));
-      return submit({ mode: 'options', layout: 'parts', options }, occasion, answer);
-    }
-    const dates = [...selected].sort();
-    submit({ dates, startMinute: 0, endMinute: 1440, slotMinutes: 1440, durationMinutes: span() * 1440 }, occasion, answer);
-  };
-
-  /** Start from an existing poll's days, parts of the day or painted times. */
-  async function prefill() {
-    const ev = await loadSource(src);
-    if (!ev || (ev.mode === 'options' && ev.layout !== 'parts') || !$('#create')) return;
-    fillCommon(ev, src);
-    painted.clear();
-    partsSel.clear();
-    selected.clear();
-    let next = 'days';
-    if (ev.layout === 'parts') {
-      next = 'parts';
-      for (const o of ev.options) {
-        const z = utcToZoned(o.start, ev.timezone);
-        if (DAY_PARTS.some((x) => x.start === z.minutes)) partsSel.add(`${z.date}|${z.minutes}`);
-      }
-    } else if (ev.slotMinutes === 1440) {
-      $('#span').value = ev.durationMinutes / 1440;
-      for (const d of ev.dates) selected.add(d);
-    } else {
-      next = 'hours';
-      setLength(ev.durationMinutes);
-      const ranges = ev.windows || ev.dates.map((date) => ({ date, start: ev.startMinute, end: ev.endMinute }));
-      for (const w of ranges) for (let m = w.start - (w.start % 30); m < w.end; m += 30) painted.add(`${w.date}|${m}`);
-    }
-    // What the organizer answered: the times that are only if needed for them.
-    const mine = ev.participants?.find((p) => p.id === ev.hostId)?.availability || {};
-    for (const k of st[next]) if (mine[keySlot(k, ev.timezone)] === IF_NEEDED) maybe[next].add(k);
-    level = null; // show the level again, from the poll's days or times
-    setLevel(next);
-  }
-
-  setLength(120);
-  setLevel('days');
-  // Fetch the painter as soon as the organizer heads for the levels, so zooming in doesn't wait.
-  const warm = () => loadPaint().catch(() => {});
-  for (const ev of ['pointerover', 'focusin']) $('.zoom').addEventListener(ev, warm, { once: true });
-  showConfig(update);
-  if (src) prefill();
-  else prefillTitle();
-  $('#title').focus();
-  return () => {
-    painter?.cleanup();
-    cal?.cleanup();
-  };
-}

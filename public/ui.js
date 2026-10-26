@@ -134,6 +134,13 @@ export const fmtDow = fmt({ weekday: 'short' });
 export const fmtDowLong = fmt({ weekday: 'long' });
 export const fmtMonthDay = fmt({ month: 'short', day: 'numeric' });
 export const fmtDay = fmt({ weekday: 'short', month: 'short', day: 'numeric' });
+export const fmtMonth = fmt({ month: 'short' });
+
+export const isPhone = () => matchMedia('(max-width: 640px)').matches;
+
+/** A day chip's content: "Sat 7" on screen, "Sat 7 Nov, 2" for screen readers. */
+export const dayChip = (d, mark = '') =>
+  `<small>${esc(fmtDow.format(dateParts(d)))}</small> <b>${dateParts(d).getUTCDate()}</b><span class="sr-only"> ${esc(fmtMonth.format(dateParts(d)))}${mark ? `, ${esc(mark)}` : ''}</span>${mark ? `<i aria-hidden="true">${esc(mark)}</i>` : ''}`;
 const fmtMinutes = fmt({ hour: 'numeric', minute: '2-digit' });
 export const minutesLabel = (m) => fmtMinutes.format(new Date(Date.UTC(2000, 0, 1, 0, m)));
 const at = (m) => new Date(Date.UTC(2000, 0, 1, 0, m));

@@ -20,7 +20,6 @@ import {
   isEmail,
 } from './core.js';
 import { cycleGroup, fitsParts, groupState, partKey } from './day-parts.js';
-import { dayChip, isPhone, timeView } from './picker.js';
 import {
   $,
   $$,
@@ -55,6 +54,8 @@ import {
   toast,
   tzName,
   tzOptions,
+  dayChip,
+  isPhone,
 } from './ui.js';
 
 const VOTES = [
@@ -556,6 +557,7 @@ export async function renderEvent(id, navigate) {
 
   // ----- the calendar view of the options -----
   let calView = null;
+  let timeView = null;
   st.mineView = 'list';
   const pieces = (start, end) => {
     // Split an interval into per-day pieces in the viewer's time zone.
@@ -577,6 +579,8 @@ export async function renderEvent(id, navigate) {
     $('#mine-cal').hidden = !cal;
     if (!cal) return;
     if (calView) return calView.render();
+    // The calendar's code loads the first time someone opens it; most people answer on the list.
+    if (!timeView) return void import('./picker.js').then((m) => ((timeView = m.timeView), renderMineView()));
     const days = [...new Set(windows.map((w) => utcToZoned(w.start, st.tz).date))].sort();
     const mins = windows.flatMap((w) => [utcToZoned(w.start, st.tz).minutes, utcToZoned(w.end, st.tz).minutes || 1440]);
     const from = Math.max(0, Math.floor((Math.min(...mins) - 60) / 60) * 60);
