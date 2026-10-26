@@ -1092,7 +1092,11 @@ export function renderFree() {
     selected.clear();
     for (let d = todayStr(), i = 0; selected.size < n && i < 120; d = addDays(d, 1), i++)
       if (keep(dateParts(d).getUTCDay())) selected.add(d);
-    cal.show(todayStr());
+    // Show the month that got most of the days picked.
+    const months = new Map();
+    for (const d of selected) months.set(d.slice(0, 7), (months.get(d.slice(0, 7)) || 0) + 1);
+    const [best] = [...months].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))[0] || [todayStr().slice(0, 7)];
+    cal.show(`${best}-01`);
     update();
   };
   $('#create').addEventListener('click', (e) => {

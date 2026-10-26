@@ -8,6 +8,12 @@ export const nextMonth = (page) =>
     return `${first.getFullYear()}-${String(first.getMonth() + 1).padStart(2, '0')}-01`;
   });
 
+/** On a month calendar, show next month (it may open there already, late in a month). */
+export async function showNextMonth(page) {
+  const first = await nextMonth(page);
+  if (!(await page.locator(`.cal-day[data-date="${first}"]`).count())) await page.click('[data-nav="1"]');
+}
+
 export const addDays = (date, n) => {
   const d = new Date(`${date}T12:00:00Z`);
   d.setUTCDate(d.getUTCDate() + n);

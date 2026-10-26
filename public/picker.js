@@ -38,8 +38,10 @@ export function monthView(
 ) {
   const today = todayStr();
   const toggle = !!selected;
-  let cursor = new Date();
-  cursor = new Date(cursor.getFullYear(), cursor.getMonth(), 1);
+  // Open on this month, or on next month when fewer than 7 days of this one are left.
+  const now = new Date();
+  const left = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate() - now.getDate() + 1;
+  let cursor = new Date(now.getFullYear(), now.getMonth() + (left < 7 ? 1 : 0), 1);
   root.innerHTML = `
     <div class="cal-head">
       <button type="button" class="icon-btn" data-nav="-1" aria-label="Previous month">‹</button>

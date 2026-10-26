@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test';
-import { addDays, addOptions, nextMonth, showDate, tapAt } from './helpers.js';
+import { addDays, addOptions, nextMonth, showDate, showNextMonth, tapAt } from './helpers.js';
 
 test.beforeEach(async ({ page }) => {
   page.on('dialog', (d) => d.accept());
@@ -82,7 +82,7 @@ test('a trip: options that last several days become all-day calendar events', as
   await expect(page.locator('[data-length="days"]')).toHaveAttribute('aria-pressed', 'true');
   await expect(page.locator('.tg')).toHaveCount(0); // whole-day options are picked on the month only
   await expect(page.locator('#span')).toHaveValue('3');
-  await page.click('[data-nav="1"]');
+  await showNextMonth(page);
   for (const i of [0, 7, 14, 21, 3, 10, 17]) await page.locator('.cal-day').nth(i).click();
   await expect(page.locator('#summary')).toHaveText('7 options to vote on');
   // Each trip shows as a block on the calendar, and its length can be changed on its own.
@@ -146,6 +146,24 @@ test('ask when people are free: days that never make the run asked for can’t b
   await page.fill('#span', '0');
   await page.locator('#span').blur();
   await expect(page.locator('#span')).toHaveValue('1');
+});
+
+test('month calendars open on next month near the end of this one, and quick picks show their month', async ({ page }) => {
+  const shown = () => page.locator('.cal-day').first().getAttribute('data-date');
+  // January 28: four days left, so February is where the choosing is.
+  await page.clock.setFixedTime(new Date(2030, 0, 28, 12));
+  await page.goto('/new/free');
+  expect(await shown()).toBe('2030-02-01');
+  await expect(page.locator('[data-nav="-1"]')).toBeEnabled(); // January is still there
+  // January 20: most of the month is left.
+  await page.clock.setFixedTime(new Date(2030, 0, 20, 12));
+  await page.goto('/new/free');
+  expect(await shown()).toBe('2030-01-01');
+  // The next two weeks are mostly in January; four weekends mostly in February.
+  await page.click('#q-2w');
+  expect(await shown()).toBe('2030-01-01');
+  await page.click('#q-weekends');
+  expect(await shown()).toBe('2030-02-01');
 });
 
 test('ask when people are free: paint hours and see the best time', async ({ page, isMobile }) => {
@@ -979,7 +997,7 @@ test('organizers paint different hours on different days, and guests mark within
 test('ask when people are free: zoom from whole days to parts of the day to hours', async ({ page, isMobile }) => {
   await page.goto('/new/free');
   await page.fill('#title', 'Picnic');
-  await page.click('[data-nav="1"]');
+  await showNextMonth(page);
   for (const i of [0, 1]) await page.locator('.cal-day').nth(i).click();
   await expect(page.locator('#summary')).toHaveText('2 days to choose from');
 
