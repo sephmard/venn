@@ -231,6 +231,18 @@ test("the organizer's own answer, and editing a poll until someone else answers"
   assert.equal(refused.status, 409);
   assert.match(refused.data.error, /Duplicate it instead/);
 
+  // The organizer can mark their own answer: only some times, or only if needed.
+  const [t0, t1] = (await call(`/api/events/${(await call('/api/events', { method: 'POST', body: newEvent })).data.id}`)).data
+    .slots;
+  const marked = (
+    await call('/api/events', {
+      method: 'POST',
+      body: { ...newEvent, hostAnswers: true, hostAvailability: { [t0]: 1, [t1]: 2, 123: 2 } }, // 123 isn't a time: ignored
+    })
+  ).data;
+  ev = (await call(`/api/events/${marked.id}`, { headers: { 'x-admin-token': marked.adminToken } })).data;
+  assert.deepEqual(ev.participants[0].availability, { [ev.slots[0]]: 1, [ev.slots[1]]: 2 });
+
   // Without hostAnswers, nobody has answered a new poll.
   const plain = (await call('/api/events', { method: 'POST', body: newEvent })).data;
   assert.equal(plain.participant, undefined);
