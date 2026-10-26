@@ -48,6 +48,12 @@ test('only known events with known values are counted', () => {
     props: '{"from":"guest","page":"chooser"}',
   });
   assert.equal(cleanUsage('view', { page: 'chooser', from: 'somewhere' }, { client: true }), null);
+  // The "It's set" picture, shared from the share sheet or downloaded.
+  assert.deepEqual(cleanUsage('share', { from: 'card', how: 'download' }, { client: true }), {
+    name: 'share',
+    props: '{"from":"card","how":"download"}',
+  });
+  assert.equal(cleanUsage('share', { from: 'card', how: 'print' }, { client: true }), null);
 });
 
 test('polls are sorted into kinds', () => {

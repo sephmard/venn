@@ -234,6 +234,7 @@ function render({ days, since, counts, outcomes }, earlier) {
     ${breakdown('Sharing', [
       { label: 'From "Poll created!"', n: of('share', { from: 'created' }) },
       { label: 'From the poll page', n: of('share', { from: 'poll' }) },
+      { label: 'As a picture of the date', n: of('share', { from: 'card' }) },
     ])}
     ${breakdown('AI', by(counts, 'ai.used', 'feature'))}
     <p><button type="button" class="link-btn" id="logout">Forget the token on this device</button></p>`;

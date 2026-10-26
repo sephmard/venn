@@ -229,7 +229,7 @@ export function ago(ms) {
 
 // ---------- people ----------
 
-const initials = (name) =>
+export const initials = (name) =>
   String(name)
     .trim()
     .split(/\s+/)
@@ -239,7 +239,7 @@ const initials = (name) =>
     .toUpperCase() || '?';
 
 /** A hue from the name, so each person keeps the same colour everywhere. */
-function hue(name) {
+export function hue(name) {
   let h = 0;
   for (const c of String(name)) h = (h * 31 + c.codePointAt(0)) % 360;
   return h;
