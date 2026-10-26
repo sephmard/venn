@@ -48,18 +48,19 @@ for (const scheme of ['light', 'dark']) {
       await page.locator('.cal-grid').evaluate((el) => el.scrollIntoView({ block: 'center' })); // clear of the sticky bar
       await audit(page, 'vote on a few dates (trips)');
       await page.goto('/new/free');
-      await page.click('[data-fill="2"]');
-      await audit(page, 'ask when people are free (painting hours)');
-      await page.click('[data-flength="days"]');
       await page.click('#q-2w');
       await audit(page, 'ask when people are free (whole days)');
+      await page.click('[data-level="parts"]');
+      await audit(page, 'ask when people are free (parts of the day)');
+      await page.click('[data-level="hours"]');
+      await audit(page, 'ask when people are free (painting hours)');
     });
 
     test('the poll created celebration', async ({ page }) => {
       await page.emulateMedia({ reducedMotion: 'reduce' }); // no confetti over the text
       await page.goto('/new/free');
       await page.fill('#title', 'Celebration check');
-      await page.click('[data-fill="2"]');
+      await page.click('#q-2w');
       await page.click('#submit');
       await expect(page.locator('.party [role=status]')).toContainText('Poll created!');
       await audit(page, 'poll created', { party: true });
@@ -94,13 +95,13 @@ for (const scheme of ['light', 'dark']) {
     test('days and hours polls', async ({ page }) => {
       await page.goto('/new/free');
       await page.fill('#title', 'Days check');
-      await page.click('[data-flength="allday"]');
       await page.click('#q-2w');
       await page.click('#submit');
       await expect(page.locator('#mine .row').first()).toBeVisible();
       await audit(page, 'days poll');
       await page.goto('/new/free');
       await page.fill('#title', 'Grid check');
+      await page.click('[data-level="hours"]');
       await page.click('[data-fill="3"]');
       await page.click('#submit');
       await expect(page.locator('#mine .cell[data-slot]').first()).toBeVisible();
