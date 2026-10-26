@@ -124,6 +124,7 @@ Time zones, ranking and calendar files live in `public/core.js`, shared by the b
 - **Nobody signs up.** Open the link, type a name, tap _Yes_, _If needed_ or _No_. It's built for phones first.
 - **The organizer's poll is their answer:** the times they offer count as theirs. They can edit the poll until someone answers, then duplicate it.
 - **The best date rises to the top,** with everyone who can make it. Pick it and everyone adds it to Google, Apple or Outlook Calendar.
+- **Plans that repeat.** Book club, run club, game night: "Plan next month's" copies the poll with its dates moved on (the 2nd Tuesday stays the 2nd Tuesday), then one tap emails last time's group. With email on, the organizer gets a nudge when it's time.
 - **Privacy controls for organizers:** ask everyone for their email, hide names, or hide everyone's answers so only you see them.
 - **Time zones handled,** and **notifications** by email, Slack, Discord or your own webhook. Checking your calendar is coming soon.
 - **Accessible:** keyboard and screen-reader friendly, with WCAG AA contrast in light and dark mode.

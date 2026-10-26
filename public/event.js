@@ -1067,9 +1067,9 @@ export async function renderEvent(id, navigate) {
         message: ev().isAdmin
           ? 'Your answer is in. Now the fun part: seeing when everyone can make it.'
           : `Finn is so glad you're in. ${host ? `${host} can see it now` : 'Everyone can see it now'}. Thanks for helping bring people together.`,
-        button: hideAll ? 'Done' : 'See everyone’s answers →',
+        button: hideAll ? 'Back to the poll' : 'See everyone’s answers',
         // Guests who enjoyed that are the next organizers: one tap to make their own.
-        also: ev().isAdmin ? null : { label: 'Planning something? Make your own poll', href: '/new?from=guest' },
+        also: ev().isAdmin ? null : { label: 'Planning something? Make yours in 30 seconds', href: '/new?from=guest' },
       });
       await p?.shown;
       p?.finish();
@@ -1533,12 +1533,12 @@ export async function renderEvent(id, navigate) {
           ${
             // The next plan starts here: the organizer copies this poll, a guest makes their own.
             ev().isAdmin
-              ? `<a class="link-btn" data-link href="/new/${optionsMode && !partsMode ? 'pick' : 'free'}?copy=${esc(id)}">Plan the next one</a>`
+              ? `<span id="plan-next"><a class="link-btn" data-link href="/new/${optionsMode && !partsMode ? 'pick' : 'free'}?copy=${esc(id)}">Plan the next one</a></span>`
               : '<a class="link-btn" data-link href="/new?from=set">Make your own poll</a>'
           }
         </div>
       </section>`;
-    }
+    } else if (ev().isAdmin && ev().seriesOf) h += '<div id="series-box"></div>'; // bring last time's group back
     if (org) h += '<div id="org-tools"></div>';
     $('#banners').innerHTML = h;
     // The "It's set" picture is drawn by a module that loads when it's asked for.
@@ -1549,6 +1549,11 @@ export async function renderEvent(id, navigate) {
           .then((m) => m.shareCard({ ev: ev(), when: when(ev().finalStart, meetingEnd(ev(), ev().finalStart)), button: card }))
           .catch(() => toast("Couldn't make the picture. Try again."));
     st.celebrate = false;
+    // Plans that repeat: "Plan next month's", and last time's group (plan-next.js, for organizers).
+    if ($('#plan-next, #series-box'))
+      import('./plan-next.js')
+        .then((m) => m.planNext({ id, ev: ev(), headers: authHeaders(), kind: optionsMode && !partsMode ? 'pick' : 'free' }))
+        .catch(() => {});
     org?.tools($('#org-tools'), {
       id,
       ev: ev(),
