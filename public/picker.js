@@ -134,9 +134,11 @@ export function monthView(
  *   busy()     [{ date, from, to }] shown behind the blocks
  *   onCreate(date, from, to)  drag (mouse) or tap (touch, keyboard-free) on an empty spot; omit for read-only
  *   onBlock(key)              tap a block
+ *   onResize(key, from, to)   drag a block's top or bottom edge
+ *   onMove(key, date, from, to)  drag a block somewhere else (mouse)
  *   tapLength()               minutes for a tap
  */
-function timeGrid(root, { dates, range, blocks, busy = () => [], onCreate, onBlock, tapLength = () => 60 }) {
+function timeGrid(root, { dates, range, blocks, busy = () => [], onCreate, onBlock, onResize, onMove, tapLength = () => 60 }) {
   let scrollTop = null;
   let shownDates = '';
   function render() {
@@ -178,7 +180,7 @@ function timeGrid(root, { dates, range, blocks, busy = () => [], onCreate, onBlo
         const bl = day
           .map(
             (b, i) =>
-              `<button type="button" class="tg-block ${b.cls || ''}" data-key="${esc(b.key)}" style="${pos(b.from, b.to)};left:calc(3px + (100% - 6px) * ${lane[i]} / ${n});width:calc((100% - 6px) / ${n} - 2px)" aria-label="${esc(b.title || b.label)}"><span>${esc(n > 1 && b.short ? b.short : b.label)}</span></button>`,
+              `<button type="button" class="tg-block ${b.cls || ''}" data-key="${esc(b.key)}" style="${pos(b.from, b.to)};left:calc(3px + (100% - 6px) * ${lane[i]} / ${n});width:calc((100% - 6px) / ${n} - 2px)" aria-label="${esc(b.title || b.label)}">${onResize ? '<i class="tg-handle tg-top" data-edge="top" aria-hidden="true"></i>' : ''}<span>${esc(n > 1 && b.short ? b.short : b.label)}</span>${onResize ? '<i class="tg-handle tg-bottom" data-edge="bottom" aria-hidden="true"></i>' : ''}</button>`,
           )
           .join('');
         return `<div class="tg-col${onCreate ? ' tg-draw' : ''}" data-date="${d}">${bz}${bl}</div>`;
@@ -187,7 +189,7 @@ function timeGrid(root, { dates, range, blocks, busy = () => [], onCreate, onBlo
     root.innerHTML = `
       <div class="tg" style="--cols:${ds.length};--rows:${rows}">
         ${ds.length > 1 ? `<div class="tg-head" aria-hidden="true"><span></span>${head}</div>` : ''}
-        <div class="tg-scroll">
+        <div class="tg-scroll" tabindex="0" role="region" aria-label="Calendar times">
           <div class="tg-body"><div class="tg-times" aria-hidden="true">${times}</div>${cols}</div>
         </div>
       </div>`;
@@ -207,11 +209,63 @@ function timeGrid(root, { dates, range, blocks, busy = () => [], onCreate, onBlo
     return Math.min(to - STEP, Math.max(from, from + r * STEP));
   };
 
+  // Changing a block: drag an edge to make it longer or shorter (mouse or touch), or drag the
+  // block itself to another time or day (mouse).
+  let edit = null;
+  let suppressClick = false;
+  const colAt = (x, y) => document.elementFromPoint(x, y)?.closest('.tg-col');
+  root.addEventListener('pointerdown', (e) => {
+    const el = e.target.closest('.tg-block[data-key]');
+    if (!el || e.button > 0) return;
+    const b = blocks().find((x) => x.key === el.dataset.key);
+    const edge = e.target.closest('[data-edge]')?.dataset.edge;
+    if (!b || !(edge ? onResize : onMove && e.pointerType === 'mouse')) return;
+    e.preventDefault();
+    e.stopPropagation();
+    el.setPointerCapture?.(e.pointerId);
+    edit = { el, b, edge, y: e.clientY, from: b.from, to: b.to, date: b.date, moved: false };
+  });
+  root.addEventListener('pointermove', (e) => {
+    if (!edit) return;
+    const [from, to] = range();
+    const col = colAt(e.clientX, e.clientY) || edit.el.closest('.tg-col');
+    if (edit.edge) {
+      const m = minuteAt(edit.el.closest('.tg-col'), e.clientY);
+      if (edit.edge === 'top') edit.from = Math.min(m, edit.b.to - STEP);
+      else edit.to = Math.max(m + STEP, edit.b.from + STEP);
+    } else {
+      const shift = Math.round((e.clientY - edit.y) / rowPx(root)) * STEP;
+      const len = edit.b.to - edit.b.from;
+      edit.from = Math.max(from, Math.min(to - len, edit.b.from + shift));
+      edit.to = edit.from + len;
+      if (col?.dataset.date && col.dataset.date !== edit.date) {
+        edit.date = col.dataset.date;
+        col.append(edit.el);
+      }
+    }
+    edit.moved ||= edit.from !== edit.b.from || edit.to !== edit.b.to || edit.date !== edit.b.date;
+    edit.el.style.top = `calc(${(edit.from - from) / STEP} * var(--row))`;
+    edit.el.style.height = `calc(${(edit.to - edit.from) / STEP} * var(--row))`;
+    const text = $('span', edit.el);
+    if (text) text.textContent = shortRange(edit.from, edit.to);
+  });
+  const finishEdit = () => {
+    if (!edit) return;
+    const { b, edge, moved, date, from, to } = edit;
+    edit = null;
+    if (!moved) return;
+    suppressClick = true; // the click that follows the drag isn't a tap
+    if (edge) onResize(b.key, from, to);
+    else onMove(b.key, date, from, to);
+  };
+  window.addEventListener('pointerup', finishEdit);
+
   // Mouse: drag to draw a block. Touch: a tap drops a block of the chosen length (dragging scrolls).
   let drag = null;
   let pointer = null;
   root.addEventListener('pointerdown', (e) => {
     pointer = e.pointerType;
+    if (edit) return;
     const col = e.target.closest('.tg-draw');
     if (!onCreate || !col || e.target.closest('.tg-block') || e.pointerType !== 'mouse' || e.button > 0) return;
     e.preventDefault();
@@ -247,6 +301,10 @@ function timeGrid(root, { dates, range, blocks, busy = () => [], onCreate, onBlo
   };
   window.addEventListener('pointerup', up);
   root.addEventListener('click', (e) => {
+    if (suppressClick) {
+      suppressClick = false;
+      return;
+    }
     const block = e.target.closest('.tg-block[data-key]');
     if (block) return onBlock?.(block.dataset.key);
     const col = e.target.closest('.tg-draw');
@@ -254,7 +312,13 @@ function timeGrid(root, { dates, range, blocks, busy = () => [], onCreate, onBlo
     const a = minuteAt(col, e.clientY);
     onCreate(col.dataset.date, a, Math.min(a + tapLength(), 1440));
   });
-  return { render, cleanup: () => window.removeEventListener('pointerup', up) };
+  return {
+    render,
+    cleanup() {
+      window.removeEventListener('pointerup', up);
+      window.removeEventListener('pointerup', finishEdit);
+    },
+  };
 }
 
 /**

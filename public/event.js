@@ -137,7 +137,8 @@ export async function renderEvent(id, navigate) {
   };
   const canShare = !!navigator.share && matchMedia('(pointer: coarse)').matches;
   const me = () => ev().participants.find((p) => p.id === saved(id).participantId);
-  st.tab = me() || (ev().isAdmin && ev().participants.length) ? 'group' : 'mine';
+  // A poll just made opens on the organizer's own answer; after that, on the group.
+  st.tab = !st.fresh && (me() || (ev().isAdmin && ev().participants.length)) ? 'group' : 'mine';
 
   // Reading busy times from Google, Outlook or a calendar file comes back later.
   const calMenu = `<button type="button" class="pill soon" id="cal-btn" disabled aria-describedby="cal-soon">Check my calendar <span class="badge-soon" id="cal-soon">Coming soon</span></button>`;
@@ -894,8 +895,10 @@ export async function renderEvent(id, navigate) {
       toast(
         `${created ? "Saved. Here's how everyone's answers line up." : 'Saved.'}${copyTo ? ` A copy is on its way to ${copyTo}.` : ''}`,
       );
-      // After the first save, show the group: that's what people want to see next.
-      if (created) {
+      // After the first save here, show the group: that's what people want to see next. (An organizer's
+      // answer may already be saved with the poll, so this isn't only after a new answer.)
+      if (created || !st.savedHere) {
+        st.savedHere = true;
         showTab('group');
         $('#panel-group').scrollIntoView({ behavior: reducedMotion() ? 'auto' : 'smooth', block: 'start' });
       }
