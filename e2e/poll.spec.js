@@ -27,6 +27,9 @@ async function addOptions(page, days, times = [1140]) {
   }
 }
 
+/** Skip the "Poll created!" celebration and open the new poll. */
+const openNewPoll = (page) => page.getByRole('button', { name: /^(View poll|Open .+ →)$/ }).click();
+
 /** Start a "vote on a few dates" poll: 7 days, at the given start times. */
 async function startPick(page, title, times = [1140]) {
   await page.goto('/new/pick');
@@ -456,7 +459,7 @@ test('organizer privacy: required emails, hidden names, then hidden answers', as
 test('organizers edit a poll until someone answers, then duplicate it', async ({ page, request }) => {
   await startPick(page, 'Dinner', [1140]);
   await page.click('#submit');
-  await page.getByRole('button', { name: /^Open Dinner/ }).click();
+  await openNewPoll(page);
   const url = page.url();
 
   // Nobody else has answered, so the poll can still be changed.
@@ -485,7 +488,7 @@ test('organizers edit a poll until someone answers, then duplicate it', async ({
   await expect(page.locator('#title')).toHaveValue('Dinner, take two');
   await expect(page.locator('#options-list')).toContainText('Guests will choose from 6 options');
   await page.click('#submit');
-  await page.getByRole('button', { name: /^Open Dinner, take two/ }).click();
+  await openNewPoll(page);
   await expect(page).not.toHaveURL(url);
   await expect(page.locator('#ev-meta')).toContainText('1 person answered'); // a new poll, with only the organizer
 });
@@ -496,7 +499,7 @@ test('"when are you free" polls come back to edit at their level: hours, or part
   await page.click('[data-level="hours"]');
   await page.click('[data-fill="0"]'); // mornings, all week
   await page.click('#submit');
-  await page.getByRole('button', { name: /^Open Book club/ }).click();
+  await openNewPoll(page);
   await page.getByRole('link', { name: 'Edit poll' }).click();
   await expect(page.locator('#title')).toHaveValue('Book club');
   await expect(page.locator('[data-level="hours"]')).toHaveAttribute('aria-checked', 'true');
@@ -509,7 +512,7 @@ test('"when are you free" polls come back to edit at their level: hours, or part
   await page.click('#q-2w');
   await page.click('[data-ask="evening"]'); // mornings and afternoons only
   await page.click('#submit');
-  await page.getByRole('button', { name: /^Open Coffee/ }).click();
+  await openNewPoll(page);
   await page.getByRole('link', { name: 'Edit poll' }).click();
   await expect(page.locator('[data-level="parts"]')).toHaveAttribute('aria-checked', 'true');
   await expect(page.locator('[data-ask="evening"]')).toHaveAttribute('aria-pressed', 'false');
