@@ -20,6 +20,8 @@ const CSS = `
 .party p{margin:0;font-size:19px;line-height:1.4;text-wrap:balance}
 .party .party-go{margin-top:10px;min-height:44px;padding:10px 20px;border:0;border-radius:999px;font:inherit;
   font-size:16px;font-weight:600;background:var(--accent);color:var(--accent-ink);cursor:pointer;max-width:100%;overflow-wrap:anywhere}
+.party .party-skip{min-height:44px;padding:8px 16px;border:0;background:none;font:inherit;font-size:16px;font-weight:600;
+  color:var(--accent);text-decoration:underline;text-underline-offset:3px;cursor:pointer}
 .party-bit{position:absolute;left:50%;top:50%;pointer-events:none;font-size:28px;line-height:1}
 .party-ring{position:absolute;left:50%;top:50%;width:180px;height:180px;margin:-90px;border-radius:50%;
   border:3px solid var(--accent);pointer-events:none}
@@ -31,9 +33,10 @@ const rand = (min, max) => min + Math.random() * (max - min);
 const SHOW_MS = 3600;
 
 /**
- * Celebrate a new poll (or, with `heading`, `message` and `button`, an answer). `shown` resolves when it's time to open the poll: after a few seconds, or
- * straight away if the person presses the button or Escape. Then call `finish()` to fade the
- * overlay out over the poll.
+ * Celebrate a new poll (or, with `heading`, `message` and `button`, an answer). With `share`, the main
+ * button shares the poll, and "View poll" just opens it. `shown` resolves when it's time to open the
+ * poll: after a few seconds, or straight away if the person presses a button or Escape. Then call
+ * `finish()` to fade the overlay out over the poll.
  */
 export function celebrate({
   emoji = '🎉',
@@ -41,6 +44,7 @@ export function celebrate({
   heading = 'Poll created!',
   message = 'So proud of you for bringing people together.',
   button = title ? `Open ${title} →` : 'Open my poll →',
+  share = null,
 } = {}) {
   if (!document.getElementById('party-css')) {
     const style = document.createElement('style');
@@ -55,6 +59,7 @@ export function celebrate({
       <div class="party-hero" aria-hidden="true"><i></i><i></i><i></i><img src="${DOG}" alt="" width="92" height="200" /></div>
       <div role="status"></div>
       <button type="button" class="party-go"></button>
+      <button type="button" class="party-skip" hidden>View poll</button>
     </div>`;
   document.body.append(el);
   // Filled in after it's on the page, so screen readers announce it.
@@ -65,7 +70,10 @@ export function celebrate({
   p.textContent = message;
   status.append(h2, p);
   const go = el.querySelector('.party-go');
-  go.textContent = button;
+  // Sharing is the next step for a new poll, so it's the main button when it's offered.
+  go.textContent = share ? 'Share poll' : button;
+  const view = el.querySelector('.party-skip');
+  view.hidden = !share;
   go.focus({ preventScroll: true });
 
   const still = reducedMotion();
@@ -201,7 +209,11 @@ export function celebrate({
     setTimeout(resolve, SHOW_MS);
   });
   const onKey = (e) => e.key === 'Escape' && skip();
-  go.addEventListener('click', () => skip());
+  go.addEventListener('click', () => {
+    share?.();
+    skip();
+  });
+  view.addEventListener('click', () => skip());
   addEventListener('keydown', onKey);
 
   return {

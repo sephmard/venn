@@ -134,9 +134,13 @@ export function monthView(
  *   busy()     [{ date, from, to }] shown behind the blocks
  *   onCreate(date, from, to)  drag (mouse) or tap (touch, keyboard-free) on an empty spot; omit for read-only
  *   onBlock(key)              tap a block
+ *   editBlocks, onResize(key, from, to), onMove(key, date, from, to)  dragging blocks (block-edit.js)
  *   tapLength()               minutes for a tap
  */
-function timeGrid(root, { dates, range, blocks, busy = () => [], onCreate, onBlock, tapLength = () => 60 }) {
+function timeGrid(
+  root,
+  { dates, range, blocks, busy = () => [], onCreate, onBlock, onResize, onMove, editBlocks, tapLength = () => 60 },
+) {
   let scrollTop = null;
   let shownDates = '';
   function render() {
@@ -178,7 +182,7 @@ function timeGrid(root, { dates, range, blocks, busy = () => [], onCreate, onBlo
         const bl = day
           .map(
             (b, i) =>
-              `<button type="button" class="tg-block ${b.cls || ''}" data-key="${esc(b.key)}" style="${pos(b.from, b.to)};left:calc(3px + (100% - 6px) * ${lane[i]} / ${n});width:calc((100% - 6px) / ${n} - 2px)" aria-label="${esc(b.title || b.label)}"><span>${esc(n > 1 && b.short ? b.short : b.label)}</span></button>`,
+              `<button type="button" class="tg-block ${b.cls || ''}" data-key="${esc(b.key)}" style="${pos(b.from, b.to)};left:calc(3px + (100% - 6px) * ${lane[i]} / ${n});width:calc((100% - 6px) / ${n} - 2px)" aria-label="${esc(b.title || b.label)}">${editor?.top || ''}<span>${esc(n > 1 && b.short ? b.short : b.label)}</span>${editor?.bottom || ''}</button>`,
           )
           .join('');
         return `<div class="tg-col${onCreate ? ' tg-draw' : ''}" data-date="${d}">${bz}${bl}</div>`;
@@ -187,7 +191,7 @@ function timeGrid(root, { dates, range, blocks, busy = () => [], onCreate, onBlo
     root.innerHTML = `
       <div class="tg" style="--cols:${ds.length};--rows:${rows}">
         ${ds.length > 1 ? `<div class="tg-head" aria-hidden="true"><span></span>${head}</div>` : ''}
-        <div class="tg-scroll">
+        <div class="tg-scroll" tabindex="0" role="region" aria-label="Calendar times">
           <div class="tg-body"><div class="tg-times" aria-hidden="true">${times}</div>${cols}</div>
         </div>
       </div>`;
@@ -207,11 +211,14 @@ function timeGrid(root, { dates, range, blocks, busy = () => [], onCreate, onBlo
     return Math.min(to - STEP, Math.max(from, from + r * STEP));
   };
 
+  const editor = editBlocks?.(root, { blocks, range, minuteAt, rowPx, onResize, onMove });
+
   // Mouse: drag to draw a block. Touch: a tap drops a block of the chosen length (dragging scrolls).
   let drag = null;
   let pointer = null;
   root.addEventListener('pointerdown', (e) => {
     pointer = e.pointerType;
+    if (editor?.active()) return;
     const col = e.target.closest('.tg-draw');
     if (!onCreate || !col || e.target.closest('.tg-block') || e.pointerType !== 'mouse' || e.button > 0) return;
     e.preventDefault();
@@ -247,6 +254,7 @@ function timeGrid(root, { dates, range, blocks, busy = () => [], onCreate, onBlo
   };
   window.addEventListener('pointerup', up);
   root.addEventListener('click', (e) => {
+    if (editor?.takeClick()) return;
     const block = e.target.closest('.tg-block[data-key]');
     if (block) return onBlock?.(block.dataset.key);
     const col = e.target.closest('.tg-draw');
@@ -254,7 +262,13 @@ function timeGrid(root, { dates, range, blocks, busy = () => [], onCreate, onBlo
     const a = minuteAt(col, e.clientY);
     onCreate(col.dataset.date, a, Math.min(a + tapLength(), 1440));
   });
-  return { render, cleanup: () => window.removeEventListener('pointerup', up) };
+  return {
+    render,
+    cleanup() {
+      window.removeEventListener('pointerup', up);
+      editor?.cleanup();
+    },
+  };
 }
 
 /**

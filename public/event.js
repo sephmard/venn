@@ -148,7 +148,7 @@ export async function renderEvent(id, navigate) {
         ? 'Only the organizer sees who answered.'
         : '';
   const me = () => ev().participants.find((p) => p.id === saved(id).participantId);
-  // A new poll opens on the organizer's own answer, ready to adjust; after that, on the group.
+  // A new poll opens on the organizer's own answer.
   st.tab = !st.fresh && (me() || (ev().isAdmin && ev().participants.length)) ? 'group' : 'mine';
 
   // Reading busy times from Google, Outlook or a calendar file comes back later.
@@ -170,7 +170,7 @@ export async function renderEvent(id, navigate) {
       <div id="banners"></div>
       <div id="notify-box"></div>
       <div id="privacy-box"></div>
-      <div id="ai-box"></div>
+      <div id="writer-box"></div>
       <div class="tabs" role="tablist" aria-label="Poll">
         <button type="button" role="tab" id="tab-mine" aria-controls="panel-mine" data-tab="mine">Your answer</button>
         <button type="button" role="tab" id="tab-group" aria-controls="panel-group" data-tab="group">The group <span class="count" id="group-count"></span></button>
@@ -1016,11 +1016,9 @@ export async function renderEvent(id, navigate) {
         p?.finish();
       }
       toast(sent);
-      // After the first save of a visit, show the group: that's what people want to see next. An
-      // organizer's answer already exists when the poll is new, so their first save counts too.
-      const first = created || !st.saved;
-      st.saved = true;
-      if (first) {
+      // After the first save here (an organizer's answer may come with the poll), show the group.
+      if (created || !st.savedHere) {
+        st.savedHere = true;
         showTab('group');
         $('#panel-group').scrollIntoView({ behavior: reducedMotion() ? 'auto' : 'smooth', block: 'start' });
       }
@@ -1369,7 +1367,7 @@ export async function renderEvent(id, navigate) {
   });
 
   // ----- organizer: notifications and privacy, from a module only organizers load -----
-  const panels = {}; // which organizer panels are open: notify, privacy
+  const panels = {}; // which organizer panels are open: notify, privacy, writer
   async function panel(name, open) {
     panels[name] = open;
     $(`#${name}-open`)?.setAttribute('aria-expanded', open);
@@ -1382,47 +1380,6 @@ export async function renderEvent(id, navigate) {
       close: () => panel(name, false),
       reload: () => load().then(() => (renderAll(), ev())),
     });
-  }
-
-  // ----- organizer: AI-written messages -----
-  function toggleWriter() {
-    const box = $('#ai-box');
-    if (box.innerHTML) return (box.innerHTML = '');
-    const kinds = [
-      ['invite', 'Invite'],
-      ['reminder', 'Reminder'],
-      ['announcement', 'Final date'],
-    ];
-    box.innerHTML = `
-      <section class="sheet" aria-labelledby="ai-write-h">
-        <div class="sheet-head">
-          <h2 id="ai-write-h">Write a message</h2>
-          <button type="button" class="link-btn" id="ai-write-close">Close</button>
-        </div>
-        <p class="hint">AI drafts a message to paste into your group chat or an email.</p>
-        <div class="seg" role="group" aria-label="Message type">
-          ${kinds.map(([k, l]) => `<button type="button" data-kind="${k}"${k === 'announcement' && ev().finalStart == null ? ' disabled title="Pick the final date first"' : ''}>${l}</button>`).join('')}
-        </div>
-        <div id="ai-write-out"></div>
-      </section>`;
-    $('#ai-write-close').onclick = () => (box.innerHTML = '');
-    for (const b of $$('[data-kind]', box))
-      b.onclick = async () => {
-        for (const x of $$('[data-kind]', box)) x.setAttribute('aria-pressed', x === b);
-        const out = $('#ai-write-out');
-        out.innerHTML = '<p class="hint">Writing…</p>';
-        try {
-          const { message } = await api(`events/${id}/ai/message`, {
-            method: 'POST',
-            body: { kind: b.dataset.kind },
-            headers: authHeaders(),
-          });
-          out.innerHTML = `<label for="ai-msg" class="sr-only">Message</label><textarea id="ai-msg" rows="5">${esc(message)}</textarea><div class="btn-row"><button type="button" class="btn btn-sm btn-primary" id="ai-msg-copy">Copy</button></div>`;
-          $('#ai-msg-copy').onclick = () => copy($('#ai-msg').value, 'Message copied');
-        } catch (ex) {
-          out.innerHTML = `<p class="error">${esc(ex.message)}</p>`;
-        }
-      };
   }
 
   // ----- header, banners -----
@@ -1487,13 +1444,14 @@ export async function renderEvent(id, navigate) {
         ${fresh && saved(id).notifyPending ? '<p class="hint"><b>Check your inbox</b> for your poll\'s link. We\'ll email you when people answer.</p>' : ''}
         <div class="btn-row">
           <button class="btn btn-sm${fresh ? ' btn-primary' : ''}" id="notify-open" aria-expanded="${!!panels.notify}" aria-controls="notify-box">${fresh ? 'Get notified when people answer' : 'Notifications'}</button>
-          ${aiOn ? '<button class="btn btn-sm" id="ai-write-open" aria-controls="ai-box">Write a message</button>' : ''}
+          ${aiOn ? '<button class="btn btn-sm" id="writer-open" aria-controls="writer-box">Write a message</button>' : ''}
           <button class="btn btn-sm" id="privacy-open" aria-expanded="${!!panels.privacy}" aria-controls="privacy-box">Privacy</button>
           ${
             // Edit until someone else answers; after that, start a new poll from this one.
-            ev().participants.some((p) => p.id !== ev().hostId)
-              ? `<a class="btn btn-sm" href="/new/${optionsMode && !partsMode ? 'pick' : 'free'}?copy=${id}" data-link>Duplicate poll</a>`
-              : `<a class="btn btn-sm" href="/new/${optionsMode && !partsMode ? 'pick' : 'free'}?edit=${id}" data-link>Edit poll</a>`
+            ((copy) =>
+              `<a class="btn btn-sm" href="/new/${optionsMode && !partsMode ? 'pick' : 'free'}?${copy ? 'copy' : 'edit'}=${id}" data-link>${copy ? 'Duplicate' : 'Edit'} poll</a>`)(
+              ev().participants.some((p) => p.id !== ev().hostId),
+            )
           }
           <button class="btn btn-sm" id="copy-admin">Copy organizer link</button>
           <button class="link-btn danger" id="delete-poll">Delete poll</button>
@@ -1506,9 +1464,8 @@ export async function renderEvent(id, navigate) {
     $('details.organizer')?.addEventListener('toggle', (e) => (st.orgOpen = e.target.open));
     if ($('#copy-admin'))
       $('#copy-admin').onclick = () => copy(`${shareUrl}#admin=${saved(id).adminToken}`, 'Organizer link copied');
-    for (const name of ['notify', 'privacy'])
+    for (const name of ['notify', 'privacy', 'writer'])
       if ($(`#${name}-open`)) $(`#${name}-open`).onclick = () => panel(name, !panels[name]);
-    if ($('#ai-write-open')) $('#ai-write-open').onclick = () => toggleWriter();
     if ($('#delete-poll'))
       $('#delete-poll').onclick = async () => {
         if (!confirm("Delete this poll and everyone's answers? This cannot be undone.")) return;

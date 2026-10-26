@@ -175,3 +175,46 @@ export function privacy(ctx) {
     }
   };
 }
+
+// ----- AI-written messages -----
+
+const KINDS = [
+  ['invite', 'Invite'],
+  ['reminder', 'Reminder'],
+  ['announcement', 'Final date'],
+];
+
+/** ctx: { id, ev, headers, close } */
+export function writer(ctx) {
+  const box = $('#writer-box');
+  box.innerHTML = `
+    <section class="sheet" aria-labelledby="ai-write-h">
+      <div class="sheet-head">
+        <h2 id="ai-write-h">Write a message</h2>
+        <button type="button" class="link-btn" id="ai-write-close">Close</button>
+      </div>
+      <p class="hint">AI drafts a message to paste into your group chat or an email.</p>
+      <div class="seg" role="group" aria-label="Message type">
+        ${KINDS.map(([k, l]) => `<button type="button" data-kind="${k}"${k === 'announcement' && ctx.ev.finalStart == null ? ' disabled title="Pick the final date first"' : ''}>${l}</button>`).join('')}
+      </div>
+      <div id="ai-write-out"></div>
+    </section>`;
+  $('#ai-write-close').onclick = () => ctx.close();
+  for (const b of box.querySelectorAll('[data-kind]'))
+    b.onclick = async () => {
+      for (const x of box.querySelectorAll('[data-kind]')) x.setAttribute('aria-pressed', x === b);
+      const out = $('#ai-write-out');
+      out.innerHTML = '<p class="hint">Writing…</p>';
+      try {
+        const { message } = await api(`events/${ctx.id}/ai/message`, {
+          method: 'POST',
+          body: { kind: b.dataset.kind },
+          headers: ctx.headers,
+        });
+        out.innerHTML = `<label for="ai-msg" class="sr-only">Message</label><textarea id="ai-msg" rows="5">${esc(message)}</textarea><div class="btn-row"><button type="button" class="btn btn-sm btn-primary" id="ai-msg-copy">Copy</button></div>`;
+        $('#ai-msg-copy').onclick = () => copy($('#ai-msg').value, 'Message copied');
+      } catch (ex) {
+        out.innerHTML = `<p class="error">${esc(ex.message)}</p>`;
+      }
+    };
+}

@@ -104,8 +104,12 @@ function publicEvent(ev, participants, { isAdmin, ownHash = null, emails = new M
   };
 }
 
-/** The organizer's own answer: yes to every time they offered. */
-const hostAvailability = (ev) => Object.fromEntries(buildSlots(ev).map((s) => [s, YES]));
+/**
+ * The organizer's own answer: what they marked for each time (`hostAvailability`, yes or if
+ * needed), or yes to every time they offered.
+ */
+const hostAvailability = (ev, marked) =>
+  marked != null ? normalizeAvailability(marked, buildSlots(ev)) : Object.fromEntries(buildSlots(ev).map((s) => [s, YES]));
 
 /** The email someone answers with, when the organizer asks everyone for one. */
 function participantEmail(ev, body) {
@@ -229,7 +233,7 @@ export async function handleApi(
           id: host.id,
           eventId: id,
           name: event.organizer || 'Organizer',
-          availability: hostAvailability(event),
+          availability: hostAvailability(event, body.hostAvailability),
           editHash: await sha256(host.editToken),
           now: now(),
         });
@@ -280,7 +284,7 @@ export async function handleApi(
             id: host.id,
             eventId: ev.id,
             name: next.organizer || host.name,
-            availability: hostAvailability(next),
+            availability: hostAvailability(next, body.hostAvailability),
             now: now(),
           });
         return json({ ok: true });

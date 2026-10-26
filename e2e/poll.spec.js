@@ -45,7 +45,8 @@ test('vote on a few dates: collect votes, pick the final date', async ({ page, r
   await page.click('#submit');
   // A celebration, then the new poll.
   await expect(page.locator('.party [role=status]')).toHaveText(/Poll created!.*bringing people together/);
-  await expect(page.getByRole('button', { name: 'Open Dinner →' })).toBeFocused();
+  // Sharing is the next step, so it's the main button.
+  await expect(page.getByRole('button', { name: 'Share poll' })).toBeFocused();
   await expect(page.locator('#mine .row')).toHaveCount(14);
   await expect(page.locator('.party')).toHaveCount(0);
   await expect(page.locator('details.organizer')).toHaveAttribute('open', '');
@@ -112,6 +113,7 @@ test('a trip: options that last several days become all-day calendar events', as
   await page.fill('#name', 'Sam');
   await page.click('#save');
   await page.locator('.best-hero [data-pick]').click();
+  await expect(page.locator('.banner-final')).toBeVisible(); // the date is saved
   const id = page.url().split('/e/')[1];
   const ics = await (await request.get(`/api/events/${id}/event.ics`)).text();
   expect(ics).toMatch(/DTSTART;VALUE=DATE:\d{8}/);
@@ -347,7 +349,8 @@ test('phone: no zoom on focus, tap targets, tap-to-pick dates, Save always in re
   await addOptions(page, 7, [600, 780, 1140]);
   await page.click('#submit');
   await page.locator('#mine .row').first().locator('[data-vote="2"]').tap();
-  await expect(page.locator('#save-state')).toContainText('1 of 21 answered');
+  // The organizer's own answer was saved with the poll; changing one shows Save in reach.
+  await expect(page.locator('#save-state')).toContainText('21 of 21 answered');
   const save = await page.locator('#save').boundingBox();
   expect(save.y + save.height).toBeLessThanOrEqual(page.viewportSize().height);
 });
@@ -387,7 +390,7 @@ test('landing page: nav bar with GitHub, and the way to both kinds of poll', asy
   await expect(page).toHaveURL(/\/$/);
 });
 
-test('the poll created celebration shows the dog, and its button skips ahead', async ({ page }) => {
+test('the poll created celebration shows the dog; Share poll copies the link and opens the poll', async ({ page, context }) => {
   await page.emulateMedia({ reducedMotion: 'reduce' });
   await page.goto('/new/pick');
   await page.getByRole('button', { name: 'Book club' }).click();
@@ -395,8 +398,11 @@ test('the poll created celebration shows the dog, and its button skips ahead', a
   await page.click('#submit');
   await expect(page.locator('.party [role=status]')).toContainText('Poll created!');
   await expect.poll(() => page.locator('.party-hero img').evaluate((img) => img.naturalWidth)).toBeGreaterThan(0);
-  await page.getByRole('button', { name: 'Open Book club →' }).click();
+  await context.grantPermissions(['clipboard-read', 'clipboard-write']);
+  await page.evaluate(() => (navigator.share = undefined)); // no share sheet here: the link is copied
+  await page.getByRole('button', { name: 'Share poll' }).click();
   await expect(page).toHaveURL(/\/e\/\w+$/);
+  await expect(page.locator('#toast')).toContainText('Invite link copied');
   await expect(page.locator('.party')).toHaveCount(0);
 });
 
@@ -409,7 +415,7 @@ test('organizer privacy: required emails, hidden names, then hidden answers', as
   await page.getByRole('switch', { name: 'Ask everyone for their email' }).check();
   await page.getByRole('switch', { name: 'Hide names from guests' }).check();
   await page.click('#submit');
-  await page.getByRole('button', { name: /^Open Secret supper/ }).click();
+  await page.getByRole('button', { name: 'View poll' }).click();
   await expect(page.locator('#mine .row').first()).toBeVisible();
   const url = page.url();
 
@@ -556,7 +562,7 @@ test('AI: describe a poll in words, then summarize and write messages as the org
   await page.locator('.ai-card [data-pick]').click();
   await expect(page.locator('.banner-final')).toBeVisible();
 
-  await page.click('#ai-write-open');
+  await page.click('#writer-open');
   await page.click('[data-kind="announcement"]');
   await expect(page.locator('#ai-msg')).toHaveValue(/Hi team! .*\/e\/\w+/);
 });
@@ -584,7 +590,8 @@ test('organizer draws options on the week view, and removes one', async ({ page,
   test.skip(isMobile, 'drag to draw is for a mouse; phones tap (see the phone test)');
   await page.goto('/new/pick');
   await page.fill('#title', 'Drinks');
-  await page.click('[data-pick-mode="calendar"]');
+  // Drawing on a week is where it starts.
+  await expect(page.locator('[data-pick-mode="calendar"]')).toHaveAttribute('aria-checked', 'true');
   await expect(page.locator('[data-view="week"]')).toHaveAttribute('aria-checked', 'true');
   await page.click('.tv-nav [data-step="1"]'); // next week, so every day is in the future
   const grid = await page.locator('.tg-scroll').boundingBox();
@@ -657,6 +664,45 @@ test('guests can see the options on a calendar and answer there', async ({ page,
   await page.click('[data-mine-view="list"]');
   await expect(page.locator('#mine .row').nth(0)).toHaveAttribute('data-v', '2');
   await expect(page.locator('#mine .row').nth(1)).toHaveAttribute('data-v', '1');
+});
+
+test('organizers mark options as available or if needed, drag edges to resize, and their answer is saved', async ({
+  page,
+  isMobile,
+}) => {
+  test.skip(isMobile, 'drag with a mouse');
+  await page.goto('/new/pick');
+  await page.fill('#title', 'Dinner');
+  await page.fill('#organizer', 'Sam');
+  await page.click('.tv-nav [data-step="1"]');
+  const grid = await page.locator('.tg-scroll').boundingBox();
+  const col = async (i) => page.locator('.tg-col').nth(i).boundingBox();
+  // A two-hour option (the default length), available.
+  await page.mouse.click((await col(1)).x + 10, grid.y + 10);
+  // Then one that only works if needed.
+  await page.click(`[data-pbrush="1"]`);
+  await page.mouse.click((await col(3)).x + 10, grid.y + 10);
+  await expect(page.locator('.tg-block.opt-maybe')).toHaveCount(1);
+  await expect(page.locator('#options-list .chip.maybe')).toHaveCount(1);
+
+  // Drag the first option's bottom edge down two rows: 2 hours becomes 3.
+  const first = page.locator('.tg-block:not(.opt-maybe)');
+  await expect(first).toContainText('–');
+  const before = await first.textContent();
+  const handle = await first.locator('.tg-bottom').boundingBox();
+  await page.mouse.move(handle.x + handle.width / 2, handle.y + handle.height / 2);
+  await page.mouse.down();
+  await page.mouse.move(handle.x + handle.width / 2, handle.y + handle.height / 2 + 48, { steps: 4 });
+  await page.mouse.up();
+  await expect(first).not.toHaveText(before);
+  await expect(page.locator('.tg-block')).toHaveCount(2); // a drag is not a tap: nothing removed
+
+  await page.click('#submit');
+  // The organizer's answer came with the poll: yes to one, if needed to the other.
+  await expect(page.locator('#mine .row').nth(0)).toHaveAttribute('data-v', '2');
+  await expect(page.locator('#mine .row').nth(1)).toHaveAttribute('data-v', '1');
+  await expect(page.locator('#edit-link')).toContainText('Answering as Sam');
+  await expect(page.locator('#mine .row').nth(0)).toContainText(/3 hours|– \d/);
 });
 
 test.describe('in UTC', () => {

@@ -32,6 +32,7 @@ for (const scheme of ['light', 'dark']) {
       await audit(page, 'chooser');
       await page.goto('/new/pick');
       await page.click('[data-occasion="0"]');
+      await page.click('[data-pick-mode="compose"]');
       await page.click('#draft-cal [data-nav="1"]');
       await page.locator('#draft-cal .cal-day').first().click();
       await page.locator('#draft-cal .cal-day').nth(1).click();
@@ -65,7 +66,7 @@ for (const scheme of ['light', 'dark']) {
         await page.getByRole('switch', { name }).check();
       await audit(page, 'create (privacy options)');
       await page.click('#submit');
-      await page.getByRole('button', { name: /^Open Privacy check/ }).click();
+      await page.getByRole('button', { name: 'View poll' }).click();
       await expect(page.locator('details.organizer')).toBeVisible();
       if (!(await page.locator('#privacy-open').isVisible())) await page.locator('details.organizer summary').click();
       await page.click('#privacy-open');
@@ -93,6 +94,7 @@ for (const scheme of ['light', 'dark']) {
       page.on('dialog', (d) => d.accept());
       await page.goto('/new/pick');
       await page.fill('#title', 'Accessibility check');
+      await page.click('[data-pick-mode="compose"]');
       await page.click('#draft-cal [data-nav="1"]');
       for (const i of [0, 1]) await page.locator('#draft-cal .cal-day').nth(i).click();
       await page.click('[data-time="1140"]');
