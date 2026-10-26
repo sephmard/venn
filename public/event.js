@@ -211,14 +211,21 @@ export async function renderEvent(id, navigate) {
                 ${partsMode ? '<p class="hint">Tap each time you\'re free. Tap again for "if needed", and once more to clear it.</p>' : ''}
                 <div id="mine" class="rows"></div>
                 <div id="mine-cal" hidden></div>`
-              : `<div class="seg brush" role="group" aria-label="Brush">
+              : `<div class="seg hview" role="radiogroup" aria-label="How to answer">
+                  <button type="button" role="radio" data-hview="quick">Mornings, afternoons…</button>
+                  <button type="button" role="radio" data-hview="exact">Exact times</button>
+                </div>
+                <div id="quick-hours" class="rows"></div>
+                <div id="exact-hours" class="stack-sm">
+                <div class="seg brush" role="group" aria-label="Brush">
                   <button type="button" data-brush="${YES}"><span class="swatch swatch-yes"></span>Free</button>
                   <button type="button" data-brush="${IF_NEEDED}"><span class="swatch swatch-maybe"></span>If needed</button>
                   <button type="button" data-brush="0"><span class="swatch swatch-no"></span>Busy</button>
                 </div>
                 <p class="hint">Drag across the times you're free. On a phone, tap or drag.</p>
                 <div class="tv-strip" id="hour-days" role="group" aria-label="Days" hidden></div>
-                <div class="grid-scroll"><div class="grid" id="mine" role="group" aria-label="Your availability. Use the arrow keys to move and Space to mark a time."></div></div>`
+                <div class="grid-scroll"><div class="grid" id="mine" role="group" aria-label="Your availability. Use the arrow keys to move and Space to mark a time."></div></div>
+                </div>`
           }
           <div class="my-picks" id="my-picks" aria-live="polite" hidden></div>
           <div class="mine-footer">
@@ -619,9 +626,72 @@ export async function renderEvent(id, navigate) {
       changed();
     });
 
+  // ----- hours polls, quickly: a day's morning, afternoon, evening or all of it at once -----
+  st.hview = 'quick';
+  const BUCKETS = [
+    ['morning', 'Morning', (m) => m < 720],
+    ['afternoon', 'Afternoon', (m) => m >= 720 && m < 1020],
+    ['evening', 'Evening', (m) => m >= 1020],
+  ];
+  /** The slots of a day in a bucket ('all' for the whole day), in the viewer's time zone. */
+  const quickSlots = (d, key) =>
+    ev().slots.filter((s) => {
+      const z = utcToZoned(s, st.tz);
+      return z.date === d && (key === 'all' || BUCKETS.find((b) => b[0] === key)[2](z.minutes));
+    });
+  const quickState = (slots) =>
+    slots.every((s) => st.mine[s] === YES)
+      ? YES
+      : slots.every((s) => st.mine[s])
+        ? IF_NEEDED
+        : slots.some((s) => st.mine[s])
+          ? 'some'
+          : 0;
+  function renderQuick() {
+    const box = $('#quick-hours');
+    for (const b of $$('[data-hview]')) b.setAttribute('aria-checked', b.dataset.hview === st.hview);
+    box.hidden = st.hview !== 'quick';
+    $('#exact-hours').hidden = st.hview === 'quick';
+    if (box.hidden) return;
+    box.innerHTML = LG.dates
+      .map((d) => {
+        const keys = BUCKETS.filter((b) => quickSlots(d, b[0]).length).map((b) => [b[0], b[1]]);
+        if (keys.length > 1) keys.push(['all', 'All day']);
+        return `<div class="row parts-row">${dateBlock(d)}
+          <div class="row-main"><div class="row-when">${esc(fmtDowLong.format(dateParts(d)))}</div></div>
+          <div class="part-votes quick-votes">${keys
+            .map(([k, l]) => {
+              const sl = quickSlots(d, k);
+              const a = utcToZoned(sl[0], st.tz).minutes;
+              const z = utcToZoned(slotEnd(ev(), sl.at(-1)), st.tz);
+              return `<button type="button" class="part-vote" data-quick="${d}|${k}"><b>${l}</b><small>${esc(shortRange(a, z.date === d ? z.minutes : 1440))}</small><span class="pv-state"></span></button>`;
+            })
+            .join('')}</div></div>`;
+      })
+      .join('');
+    refreshQuick();
+  }
+  function refreshQuick() {
+    for (const b of $$('[data-quick]')) {
+      const [d, k] = b.dataset.quick.split('|');
+      const v = quickState(quickSlots(d, k));
+      b.dataset.v = v;
+      b.setAttribute('aria-pressed', v === YES ? 'true' : v === IF_NEEDED ? 'mixed' : 'false');
+      $('.pv-state', b).innerHTML =
+        v === YES
+          ? '✓ Free'
+          : v === IF_NEEDED
+            ? '~ If needed'
+            : v === 'some'
+              ? 'Some times'
+              : '<span class="sr-only">Not marked</span>';
+    }
+  }
+
   function renderMine() {
     if (partsMode) return renderMineParts();
     if (listMode) return renderMineList();
+    renderQuick();
     mineEl.style.gridTemplateColumns = gridCols();
     const pressed = (s) => (st.mine[s] === YES ? 'true' : st.mine[s] === IF_NEEDED ? 'mixed' : 'false');
     mineEl.innerHTML = gridHtml(
@@ -637,6 +707,7 @@ export async function renderEvent(id, navigate) {
     calView?.render();
     if (partsMode) return refreshMineParts();
     if (listMode) return refreshMineList();
+    refreshQuick();
     for (const el of $$('.cell[data-slot]', mineEl)) {
       const v = st.mine[el.dataset.slot];
       el.classList.toggle('yes', v === YES);
@@ -678,6 +749,27 @@ export async function renderEvent(id, navigate) {
     changed();
   }
   if (!listMode) {
+    $('#panel-mine').addEventListener('click', (e) => {
+      const hv = e.target.closest('[data-hview]');
+      if (hv) {
+        st.hview = hv.dataset.hview;
+        return renderMine();
+      }
+      // Free → if needed → not marked, for the whole morning, afternoon, evening or day.
+      const q = e.target.closest('[data-quick]');
+      if (!q) return;
+      const [d, k] = q.dataset.quick.split('|');
+      const slots = quickSlots(d, k);
+      const v = quickState(slots);
+      for (const s of slots) {
+        if (v === YES) st.mine[s] = IF_NEEDED;
+        else if (v === IF_NEEDED) delete st.mine[s];
+        else st.mine[s] = YES;
+        st.touched.add(String(s));
+      }
+      refreshMine();
+      changed();
+    });
     mineEl.addEventListener('click', (e) => {
       const b = e.target.closest('[data-fill-day]');
       if (!b) return;
@@ -901,6 +993,8 @@ export async function renderEvent(id, navigate) {
           forget(id, 'participantId', 'editToken');
         }
       }
+      // A first answer gets a little party; it loads while the answer is sent.
+      const party = saved(id).participantId ? null : import('./celebrate.js').catch(() => null);
       if (!saved(id).participantId) {
         const r = await api(`events/${id}/participants`, { method: 'POST', body });
         save(id, { participantId: r.id, editToken: r.editToken });
@@ -909,13 +1003,23 @@ export async function renderEvent(id, navigate) {
       await load();
       setDirty(false);
       renderAll();
+      const sent = `${created ? 'Submitted.' : 'Saved.'}${copyTo ? ` A copy is on its way to ${copyTo}.` : ''}`;
+      if (created && !ev().isAdmin) {
+        const host = ev().organizer;
+        const p = (await party)?.celebrate({
+          emoji: ev().emoji || '🎉',
+          heading: 'Answer sent!',
+          message: `${host ? `${host} can see it now` : 'Everyone can see it now'}. Thanks for helping find a time.`,
+          button: 'See everyone’s answers →',
+        });
+        await p?.shown;
+        p?.finish();
+      }
+      toast(sent);
       // After the first save of a visit, show the group: that's what people want to see next. An
       // organizer's answer already exists when the poll is new, so their first save counts too.
       const first = created || !st.saved;
       st.saved = true;
-      toast(
-        `${first ? "Saved. Here's how everyone's answers line up." : 'Saved.'}${copyTo ? ` A copy is on its way to ${copyTo}.` : ''}`,
-      );
       if (first) {
         showTab('group');
         $('#panel-group').scrollIntoView({ behavior: reducedMotion() ? 'auto' : 'smooth', block: 'start' });
@@ -1423,7 +1527,7 @@ export async function renderEvent(id, navigate) {
   function renderMeState() {
     const mine = me();
     $('#leave').hidden = !mine;
-    $('#save').textContent = mine ? 'Save changes' : 'Save my answer';
+    $('#save').textContent = mine ? 'Save changes' : 'Submit';
     const s = saved(id);
     const link = $('#edit-link');
     if (mine) {

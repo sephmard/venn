@@ -116,6 +116,8 @@ for (const scheme of ['light', 'dark']) {
     });
 
     test('days and hours polls', async ({ page }) => {
+      test.setTimeout(60_000); // three polls, each with its celebration, and five scans
+      page.on('dialog', (d) => d.accept()); // leaving a poll with unsaved answers asks first
       await page.goto('/new/free');
       await page.fill('#title', 'Days check');
       await page.click('#q-2w');
@@ -127,8 +129,12 @@ for (const scheme of ['light', 'dark']) {
       await page.click('[data-level="hours"]');
       await page.click('[data-fill="3"]');
       await page.click('#submit');
+      await expect(page.locator('#quick-hours .part-vote').first()).toBeVisible({ timeout: 10_000 }); // after the celebration
+      await page.locator('#quick-hours .part-vote').first().click();
+      await audit(page, 'hours poll (quick answers)');
+      await page.click('[data-hview="exact"]');
       await expect(page.locator('#mine .cell[data-slot]').first()).toBeVisible();
-      await audit(page, 'hours poll');
+      await audit(page, 'hours poll (exact times)');
       // Older polls ask about mornings, afternoons and evenings.
       const day = (d, h) => Date.UTC(2030, 0, d, h);
       const options = [8, 9].flatMap((d) => [
