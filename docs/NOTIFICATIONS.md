@@ -7,6 +7,11 @@ Organizers can be told whenever someone responds to a poll, changes their answer
 
 Organizers set these up from the **Notifications** button on their poll. Email can also be turned on when creating a poll.
 
+## What the organizer gets
+
+- **When the poll is created,** if they gave an email: "Your poll is ready 🎉", with the link to share. There's no confirmation step.
+- **Each time someone answers:** "🎉 Ana just answered…", with the best time so far and a link to everyone's answers. Changes and removals get a plainer email.
+
 ## Copies for people who answer
 
 When email is on, the poll page asks people who answer for their email, as an optional field. "Email me a copy of my answer" is ticked by default, so anyone who gives an address gets an email listing their answers, with a link to the poll and their personal link to change their answer. They can untick it, or leave the address out.
@@ -83,10 +88,9 @@ A new sending domain has no reputation yet, so the first emails can land in spam
 
 ### How email stays safe
 
-- **Double opt-in.** Entering an address only sends a confirmation email. Nothing else is sent until someone opens that link, so a poll can't be used to put someone on a mailing list.
-- **Limited retries.** A poll can trigger at most 3 confirmation emails.
+- **A cap per poll.** Addresses aren't confirmed, so a poll sends the organizer at most 200 emails. That keeps a poll from being used to flood someone else's inbox.
 - **One-click unsubscribe.** Every notification includes an unsubscribe link, plus a `List-Unsubscribe` header that mail apps show as a button.
-- **Scanner-safe links.** Confirm and unsubscribe links open the poll page, which finishes the action. Security scanners that pre-open links in emails can't trigger them by accident.
+- **Scanner-safe links.** Unsubscribe links open the poll page, which finishes the action. Security scanners that pre-open links in emails can't trigger them by accident.
 - **No inbox flooding.** If the same person edits their answers several times within 10 minutes, the organizer gets one email.
 
 ## Webhooks

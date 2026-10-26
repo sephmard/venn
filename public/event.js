@@ -72,8 +72,7 @@ export async function renderEvent(id, navigate) {
     const [participantId, editToken] = hash.get('edit').split('.');
     if (participantId && editToken) save(id, { participantId, editToken });
   }
-  // Links in notification emails: confirm the address, or stop the emails.
-  const confirmToken = hash.get('confirm-email');
+  // Links in notification emails: stop the emails.
   const unsubscribeToken = hash.get('unsubscribe');
   if (location.hash) history.replaceState(null, '', location.pathname);
 
@@ -1481,7 +1480,7 @@ export async function renderEvent(id, navigate) {
       h += `<details class="organizer"${(st.orgOpen ?? fresh) ? ' open' : ''}>
         <summary><b>${fresh ? 'Your poll is ready.' : "You're the host."}</b> ${fresh ? 'Share the invite link with your group.' : 'Organizer tools'}</summary>
         <p class="hint">When you're ready, press <b>Pick</b> on the best ${listMode && !daysMode ? 'option' : 'date'} in the group view. To manage this poll from another device, keep your private organizer link, and don't share it.</p>
-        ${fresh && saved(id).notifyPending ? '<p class="hint"><b>Check your inbox</b> to confirm email notifications.</p>' : ''}
+        ${fresh && saved(id).notifyPending ? '<p class="hint"><b>Check your inbox</b> for your poll\'s link. We\'ll email you when people answer.</p>' : ''}
         <div class="btn-row">
           <button class="btn btn-sm${fresh ? ' btn-primary' : ''}" id="notify-open" aria-expanded="${!!panels.notify}" aria-controls="notify-box">${fresh ? 'Get notified when people answer' : 'Notifications'}</button>
           ${aiOn ? '<button class="btn btn-sm" id="ai-write-open" aria-controls="ai-box">Write a message</button>' : ''}
@@ -1570,10 +1569,6 @@ export async function renderEvent(id, navigate) {
   renderAll();
   if (saved(id).justCreated) forget(id, 'justCreated');
 
-  if (confirmToken)
-    api(`events/${id}/notifications/confirm`, { method: 'POST', body: { token: confirmToken } })
-      .then((r) => toast(`Confirmed. We'll email ${r.email} when people answer.`))
-      .catch((ex) => toast(ex.message));
   if (unsubscribeToken)
     api(`events/${id}/notifications/unsubscribe`, { method: 'POST', body: { token: unsubscribeToken } })
       .then(() => toast("Done. You won't get more emails about this poll."))
