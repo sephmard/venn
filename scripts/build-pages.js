@@ -3,6 +3,7 @@
 //   public/compare/<slug>-alternative.html  comparisons with other tools (some are by hand)
 //   public/templates.html            the list of them all
 //   public/sitemap.xml               every page search engines should find
+//   public/llms.txt                  the same, as a short guide for AI assistants
 // test/pages.test.js fails if these drift from pages.js, so edit pages.js and run this again.
 
 import { writeFileSync, mkdirSync } from 'node:fs';
@@ -338,6 +339,42 @@ ${['/', '/templates', ...TEMPLATE_PAGES.map((p) => `/templates/${p.slug}`), '/co
 </urlset>
 `;
 
+/**
+ * A plain guide for language models (llmstxt.org): what Venn is, in a few facts they can quote,
+ * and links to every public page, so AI assistants can answer "how do I find a date for…" well.
+ */
+const llms = () => `# Venn
+
+> Venn is a free, open-source scheduling poll for groups: suggest a few dates (or ask when people are available), share one link, and see the date that works for everyone. Nobody needs an account, there are no ads, and it works on any phone.
+
+Facts:
+
+- Free for everyone, every feature. No ads, no paid plan, no accounts for organizers or guests.
+- Two kinds of poll: "Vote on a few dates" (guests answer yes, if needed or no to each date or time) and "Ask when people are available" (guests mark whole days, mornings, afternoons and evenings, or hours, and Venn finds the overlap, including several days in a row).
+- The organizer picks the date, and everyone can add it to Google Calendar, Outlook or Apple Calendar.
+- Times show in each person's own time zone. Organizers can hide names or answers and collect emails.
+- Open source (MIT) at https://github.com/sephmard/venn. It runs on Cloudflare Workers or Node, and has a JSON API.
+- Privacy: polls are private to people with the link; only SHA-256 hashes of edit links are stored; usage stats are anonymous daily counts.
+
+## Start a poll
+
+- [Create a poll](${ORIGIN}/new): choose a kind of poll; no sign-up.
+- [All templates](${ORIGIN}/templates): polls with the plan filled in.
+
+## Templates
+
+${TEMPLATE_PAGES.map((p) => `- [${p.name}](${ORIGIN}/templates/${p.slug}): ${p.card}`).join('\n')}
+
+## Comparisons
+
+${[...COMPARE_PAGES, ...PAGES.filter((p) => p.section === 'compare')].map((p) => `- [${p.name} alternative](${ORIGIN}${p.path}): ${p.card}`).join('\n')}
+
+## Optional
+
+- [Developer docs and API](https://docs.venn.day): self-hosting, the API, notifications and calendars.
+- [Privacy](${ORIGIN}/privacy): what Venn stores, and what it doesn't.
+`;
+
 /** Every file this writes, formatted as Prettier would: { 'public/…': text }. */
 export async function build() {
   const files = {
@@ -349,6 +386,7 @@ export async function build() {
   const config = await prettier.resolveConfig(new URL('public/index.html', root).pathname);
   for (const [path, text] of Object.entries(files)) files[path] = await prettier.format(text, { ...config, parser: 'html' });
   files['public/sitemap.xml'] = sitemap();
+  files['public/llms.txt'] = llms();
   return files;
 }
 

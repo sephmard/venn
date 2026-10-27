@@ -63,3 +63,32 @@ test('pages: usage stats keep where people came from when it is known, and drop 
   // An unknown one doesn't lose the visit, only where it came from.
   assert.equal(cleanUsage('view', { page: 'pick', from: 'spam-site' }, { client: true }).props, '{"page":"pick"}');
 });
+
+test('the home page tells search engines and AI assistants what Venn is, with the questions it shows', () => {
+  const html = readFileSync(file('public/index.html'), 'utf8');
+  const blocks = [...html.matchAll(/<script type="application\/ld\+json">([\s\S]*?)<\/script>/g)].map((m) => JSON.parse(m[1]));
+  for (const type of ['WebSite', 'Organization', 'SoftwareApplication', 'FAQPage'])
+    assert.ok(
+      blocks.some((b) => b['@type'] === type),
+      type,
+    );
+  // Structured questions must be on the page too, word for word.
+  const shown = html.replace(/&quot;/g, '"').replace(/\s+/g, ' ');
+  for (const q of blocks.find((b) => b['@type'] === 'FAQPage').mainEntity) {
+    assert.ok(shown.includes(`<summary>${q.name}</summary>`), q.name);
+    assert.ok(shown.includes(q.acceptedAnswer.text), q.name);
+  }
+});
+
+test('robots.txt keeps polls private and welcomes AI crawlers to the public pages; llms.txt links them', async () => {
+  const robots = readFileSync(file('public/robots.txt'), 'utf8');
+  for (const bot of ['GPTBot', 'ClaudeBot', 'PerplexityBot', 'Google-Extended'])
+    assert.match(robots, new RegExp(`User-agent: ${bot}`));
+  // Every group keeps polls and the API out, and nothing disallows the whole site.
+  const count = (re) => robots.match(re)?.length ?? 0;
+  assert.equal(count(/^Disallow: \/e\/$/gm), 2);
+  assert.equal(count(/^Disallow: \/api\/$/gm), 2);
+  assert.doesNotMatch(robots, /Disallow: \/\s*$/m);
+  const llms = (await build())['public/llms.txt'];
+  for (const p of PAGES) assert.ok(llms.includes(`https://venn.day${p.path}`), p.path);
+});
