@@ -21,6 +21,7 @@ import {
   sendWebhook,
   unsubscribeHeaders,
   unsubscribeLink,
+  smsPage,
   validateWebhookUrl,
 } from './notify.js';
 import { pollKind, planOf, recordUsage, sizeOf, usageEnabled, usageReport } from './usage.js';
@@ -465,6 +466,18 @@ export async function handleApi(
         return json({ ok: true });
       }
       return error(405, 'Method not allowed');
+    }
+
+    // GET /api/events/:id/sms: from an email's "Text message" button, on to the phone's messages.
+    if (parts.length === 3 && parts[2] === 'sms' && method === 'GET') {
+      const page = smsPage({
+        title: ev.title,
+        pollUrl: `${origin}/e/${ev.id}`,
+        userAgent: request.headers.get('user-agent') || '',
+      });
+      return new Response(page, {
+        headers: { ...SECURITY_HEADERS, 'content-type': 'text/html; charset=utf-8', 'cache-control': 'no-store' },
+      });
     }
 
     // GET /api/events/:id/event.ics

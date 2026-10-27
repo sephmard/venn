@@ -12,6 +12,7 @@ import {
   pollReadyEmail,
   responseEmail,
   signature,
+  smsHref,
   summaryText,
   validateWebhookUrl,
   webhookBody,
@@ -565,4 +566,34 @@ test('no "It\'s happening" email for polls that didn\'t ask for emails', async (
     headers: { 'x-admin-token': data.adminToken },
   });
   assert.equal(emails().length, 0);
+});
+
+test('the "Text message" link: an sms: link in the form each phone wants', () => {
+  const body = 'When works for you? “Dinner & drinks”: https://venn.example/e/abc';
+  const iphone = 'Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) AppleWebKit/605.1.15';
+  const android = 'Mozilla/5.0 (Linux; Android 15; Pixel 9) AppleWebKit/537.36 Chrome/130.0 Mobile Safari/537.36';
+  assert.equal(smsHref(body, iphone), `sms:&body=${encodeURIComponent(body)}`);
+  assert.equal(smsHref(body, android), `sms:?body=${encodeURIComponent(body)}`);
+  assert.equal(smsHref(body), `sms:?body=${encodeURIComponent(body)}`);
+});
+
+test("an email's Text message button opens the poll's own message, never anything else", async () => {
+  const { data } = await call('/api/events', { method: 'POST', body: { ...poll, title: 'Dinner <b>& drinks</b>' } });
+  const page = async (ua) => {
+    const res = await fetch(`${base}/api/events/${data.id}/sms`, { headers: { 'user-agent': ua } });
+    assert.equal(res.status, 200);
+    assert.match(res.headers.get('content-type'), /^text\/html/);
+    assert.ok(res.headers.get('content-security-policy'));
+    return res.text();
+  };
+  const html = await page('Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X)');
+  const body = encodeURIComponent(`When works for you? “Dinner <b>& drinks</b>”: ${base}/e/${data.id}`);
+  // Straight on to messages, with a button in case that can't open, and the message to copy.
+  assert.ok(html.includes(`<meta http-equiv="refresh" content="0;url=sms:&amp;body=${body}">`));
+  assert.ok(html.includes(`href="sms:&amp;body=${body}"`));
+  assert.ok(html.includes('Dinner &lt;b&gt;&amp; drinks&lt;/b&gt;'));
+  assert.ok(!html.includes('<b>&'));
+  assert.ok(html.includes('<meta name="robots" content="noindex">'));
+  assert.match(await page('Mozilla/5.0 (Linux; Android 15)'), /url=sms:\?body=/);
+  assert.equal((await fetch(`${base}/api/events/nope/sms`)).status, 404);
 });

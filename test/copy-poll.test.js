@@ -137,3 +137,15 @@ test('the email to last time’s group', () => {
   assert.match(mail, /^mailto:\?bcc=a%40x\.com,b%2Bc%40y\.com&subject=Book%20club%20%26%20wine&body=/);
   assert.match(decodeURIComponent(mail.split('body=')[1]), /https:\/\/venn\.day\/e\/x/);
 });
+
+test('moved on by whole weeks, options stay the same distance apart, even when the first try lands earlier today', () => {
+  // Two Tuesdays a week apart at 6pm UTC, long gone; copied on a Tuesday at 6:20pm, so the first
+  // try puts the first one 20 minutes ago and it takes one more week.
+  const UTC = 'UTC';
+  const ev = options(UTC, ['2025-01-07', 1080, 60], ['2025-01-14', 1080, 60]);
+  const next = freshPoll(ev, Date.UTC(2026, 9, 27, 18, 20));
+  assert.deepEqual(wall(next), [
+    ['2026-11-03', 1080],
+    ['2026-11-10', 1080],
+  ]);
+});
