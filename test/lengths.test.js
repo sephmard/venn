@@ -2,6 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { isEmail, lengthChip, zonedToUtc } from '../public/core.js';
 import { optionsLength } from '../public/lengths.js';
+import { TEMPLATES } from '../public/templates.js';
 import { normalizeEmail } from '../src/notify.js';
 
 const tz = 'America/New_York';
@@ -37,11 +38,11 @@ test('a poll’s options map onto the create page’s lengths', () => {
   assert.deepEqual(optionsLength([], tz), { length: 120 });
 });
 
-test('length chips: 30 min and 1 hour, other minutes as Other, and the named lengths', () => {
-  assert.equal(lengthChip(30), '30');
-  assert.equal(lengthChip(60), '60');
-  for (const m of [15, 90, 120, 180, 240, 720]) assert.equal(lengthChip(m), 'custom');
-  for (const l of ['half', 'allday', 'days']) assert.equal(lengthChip(l), l);
+test('length chips: every length a template uses has one; half days and other minutes are under Custom', () => {
+  for (const m of [60, 120, 180, 240]) assert.equal(lengthChip(m), String(m));
+  for (const l of ['allday', 'days']) assert.equal(lengthChip(l), l);
+  for (const m of [15, 30, 45, 90, 300, 720, 'half']) assert.equal(lengthChip(m), 'custom');
+  for (const t of TEMPLATES) assert.notEqual(lengthChip(t.length), 'custom', t.label);
 });
 
 test('the create page checks the organizer’s email with the server’s rule', () => {

@@ -34,7 +34,8 @@ public/            the whole front end, served as-is
   app.html         app shell, served for /new and /e/:id
   og.png, og-set.png  link-preview images: asking, and once the date is picked
   app.js           router
-  create.js        the create pages' chooser and shared form parts
+  chooser.js       the chooser (/new): which kind of poll
+  create.js        the create pages' shared form parts
   create-pick.js   "vote on a few dates", loaded only on that page
   create-free.js   "ask when people are available", loaded only on that page
   event.js         the poll page: answering, the group's results, organizer tools

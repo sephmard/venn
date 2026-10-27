@@ -15,10 +15,10 @@ async function route() {
   let off;
   if (poll) off = await (await import('./event.js')).renderEvent(poll[1], navigate);
   else {
-    // Each kind of poll has its own module; the shared form parts and the chooser are in create.js.
+    // Each kind of poll has its own module, as does the chooser; the shared form parts are in create.js.
     if (path === '/new/pick') off = (await import('./create-pick.js')).renderPick();
     else if (path === '/new/free') off = (await import('./create-free.js')).renderFree();
-    else off = (await import('./create.js')).renderChooser();
+    else off = (await import('./chooser.js')).renderChooser();
   }
   if (typeof off === 'function') cleanup = off;
 }
