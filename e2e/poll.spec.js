@@ -34,6 +34,13 @@ async function startPick(page, title, times = [1140]) {
   await addOptions(page, 7, times);
 }
 
+/** The same day `n` months on, or that month's last day (as the calendar's « » go). */
+const addMonths = (date, n) => {
+  const [y, m, d] = date.split('-').map(Number);
+  const last = new Date(Date.UTC(y, m + n, 0)).getUTCDate();
+  return new Date(Date.UTC(y, m - 1 + n, Math.min(d, last))).toISOString().slice(0, 10);
+};
+
 test('vote on a few dates: collect votes, pick the final date', async ({ page, request }) => {
   await startPick(page, 'Dinner', [780, 1140]);
   await expect(page.locator('#summary')).toHaveText('14 options to vote on');
@@ -790,7 +797,7 @@ test('phones and touch screens open the calendar on one day, with Week a tap awa
   await tablet.close();
 });
 
-test('the day strip scrolls through the months ahead; › goes a week and » 30 days', async ({ page, isMobile }) => {
+test('the day strip scrolls through the months ahead; › goes a week and » a month', async ({ page, isMobile }) => {
   await page.goto('/new/pick');
   const today = await todayIn(page);
   if (!isMobile) await page.click('#picker [data-view="day"]');
@@ -829,26 +836,28 @@ test('the day strip scrolls through the months ahead; › goes a week and » 30 
   await strip.locator(`[data-day="${later}"]`).click();
   await expect(picked).toHaveAttribute('data-day', later);
   await expect(shown).toHaveAttribute('data-date', later);
-  // » skips 30 days and « goes back; ‹ › still go a week. The day shown stays in view in the strip.
-  await page.getByRole('button', { name: 'Forward 30 days' }).click();
-  await expect(shown).toHaveAttribute('data-date', addDays(later, 30));
+  // » goes on a month and « back; ‹ › still go a week. The day shown stays in view in the strip.
+  await page.getByRole('button', { name: 'Forward a month' }).click();
+  const month = addMonths(later, 1);
+  await expect(shown).toHaveAttribute('data-date', month);
   const inView = async () => {
     const [c, s] = [await picked.boundingBox(), await strip.boundingBox()];
     return c.x >= s.x - 1 && c.x + c.width <= s.x + s.width + 1;
   };
   await expect.poll(inView).toBe(true);
   await page.getByRole('button', { name: 'Next week' }).click();
-  await expect(picked).toHaveAttribute('data-day', addDays(later, 37));
+  await expect(picked).toHaveAttribute('data-day', addDays(month, 7));
   await expect.poll(inView).toBe(true);
-  await page.getByRole('button', { name: 'Back 30 days' }).click();
-  await expect(picked).toHaveAttribute('data-day', addDays(later, 7));
+  await page.getByRole('button', { name: 'Back a month' }).click();
+  const back = addMonths(addDays(month, 7), -1);
+  await expect(picked).toHaveAttribute('data-day', back);
   // An option shows on its day's chip.
-  await tapAt(page, addDays(later, 7), 1140);
+  await tapAt(page, back, 1140);
   await expect(picked.locator('i')).toHaveText('1');
   // Not before today: « goes back to today, then it's off.
-  await page.getByRole('button', { name: 'Back 30 days' }).click();
+  await page.getByRole('button', { name: 'Back a month' }).click();
   await expect(picked).toHaveAttribute('data-day', today);
-  await expect(page.getByRole('button', { name: 'Back 30 days' })).toBeDisabled();
+  await expect(page.getByRole('button', { name: 'Back a month' })).toBeDisabled();
   await expect(page.getByRole('button', { name: 'Previous week' })).toBeDisabled();
 });
 
@@ -905,7 +914,7 @@ test('"Or add a time" adds an option on any day ahead, and the calendar goes the
   await expect(page.locator('#options-list .chip')).toHaveCount(1);
   await expect(page.locator(`#picker .tg-col[data-date="${far}"] .tg-block`)).toHaveCount(1);
   // The day follows the calendar when it moves.
-  await page.getByRole('button', { name: 'Forward 30 days' }).click();
+  await page.getByRole('button', { name: 'Forward a month' }).click();
   const shown = await page.locator('#picker .tg-col').first().getAttribute('data-date');
   await expect(day).toHaveValue(shown);
   // A day gone by isn't added.
@@ -2122,10 +2131,15 @@ test('ask when people are available: a template’s length is one of the pills, 
   await page.click('#q-2w');
   await expect(page.locator('#summary')).toHaveText('14 days to choose from');
   await page.click('[data-level="hours"]');
+  // Hours are for short plans: 30 minutes, an hour or two. Longer ones suit parts of the day.
+  await expect(page.locator('[data-flength]')).toHaveText(['30 min', '1 hour', '2 hours']);
   await expect(page.locator('[data-flength="120"]')).toHaveAttribute('aria-pressed', 'true');
   await expect(page.locator('[data-flength][aria-pressed="true"]')).toHaveCount(1);
-  await page.click('[data-occasion="5"]'); // Game night: three hours
-  await expect(page.locator('[data-flength="180"]')).toHaveAttribute('aria-pressed', 'true');
+  await page.click('[data-occasion="0"]'); // off again
+  await page.click('[data-occasion="2"]'); // Coffee: an hour
+  await expect(page.locator('[data-flength="60"]')).toHaveAttribute('aria-pressed', 'true');
+  await page.click('[data-occasion="5"]'); // Game night: three hours, so the longest there is
+  await expect(page.locator('[data-flength="120"]')).toHaveAttribute('aria-pressed', 'true');
   await expect(page.locator('[data-flength][aria-pressed="true"]')).toHaveCount(1);
 });
 
@@ -2895,4 +2909,47 @@ test("everyone's answers: each time shows its mix of available, if needed and un
   expect(await no.evaluate((el) => el.style.background)).toMatch(/var\(--no-cell\) 50%/);
   await expect(page.locator('#legend')).toContainText('If needed');
   await expect(page.locator('#legend')).toContainText('Unavailable');
+});
+
+test('a copied "when are you free" poll keeps its own length, even one there is no button for any more', async ({
+  page,
+  request,
+}) => {
+  const { id } = await (
+    await request.post('/api/events', {
+      data: {
+        title: 'Game night',
+        timezone: 'UTC',
+        windows: [{ date: '2030-01-08', start: 1080, end: 1380 }],
+        slotMinutes: 30,
+        durationMinutes: 180,
+      },
+    })
+  ).json();
+  await page.goto(`/new/free?copy=${id}`);
+  await expect(page.locator('[data-level="hours"]')).toHaveAttribute('aria-checked', 'true');
+  await expect(page.locator('[data-flength="180"]')).toHaveText('3 hours');
+  await expect(page.locator('[data-flength="180"]')).toHaveAttribute('aria-pressed', 'true');
+  await expect(page.locator('[data-flength]')).toHaveCount(4);
+});
+
+test('the week view goes a week with ‹ › and a month with « », never before this week', async ({ page }) => {
+  await page.goto('/new/free');
+  await page.click('[data-level="hours"]');
+  await page.click('#when [data-view="week"]');
+  const first = () => page.locator('#when .tg-col').first().getAttribute('data-date');
+  const today = await todayIn(page);
+  const sunday = await first();
+  expect(sunday <= today).toBe(true);
+  await expect(page.getByRole('button', { name: 'Back a month' })).toBeDisabled();
+  await page.getByRole('button', { name: 'Next week' }).click();
+  expect(await first()).toBe(addDays(sunday, 7));
+  await page.getByRole('button', { name: 'Forward a month' }).click();
+  // The week with the same day a month on.
+  const shown = await first();
+  const target = addMonths(addDays(sunday, 7), 1);
+  expect(shown <= target && target < addDays(shown, 7)).toBe(true);
+  await page.getByRole('button', { name: 'Back a month' }).click();
+  await page.getByRole('button', { name: 'Back a month' }).click();
+  expect(await first()).toBe(sunday); // back to this week, not before
 });
