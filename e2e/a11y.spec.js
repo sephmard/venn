@@ -332,7 +332,6 @@ for (const scheme of ['light', 'dark']) {
     await page.fill('#name', 'Ana');
     await page.fill('#copy-to', 'ana@example.com');
     await page.click('#save');
-    await page.click('#sc-yes');
     await expect(page.getByRole('link', { name: 'Planning something? Make yours in 30 seconds' })).toBeVisible();
     await audit(page, `guest celebration (${scheme})`, { party: true });
 
@@ -343,5 +342,33 @@ for (const scheme of ['light', 'dark']) {
     await expect(page.getByRole('link', { name: 'Email last time’s group' })).toBeVisible();
     expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(375);
     await audit(page, `last time's group (${scheme})`);
+  });
+}
+
+for (const scheme of ['light', 'dark']) {
+  test(`a guest answering a whole-day poll on its calendar passes the checks at 375px (${scheme})`, async ({ page }) => {
+    await page.emulateMedia({ colorScheme: scheme });
+    await page.setViewportSize({ width: 375, height: 812 });
+    const dates = Array.from({ length: 14 }, (_, i) => `2030-01-${String(6 + i).padStart(2, '0')}`);
+    const res = await page.request.post('/api/events', {
+      data: {
+        title: 'Cabin weekend',
+        timezone: 'UTC',
+        dates,
+        startMinute: 0,
+        endMinute: 1440,
+        slotMinutes: 1440,
+        durationMinutes: 1440,
+      },
+    });
+    await page.goto(`/e/${(await res.json()).id}`);
+    const days = page.locator('button.dcal-day');
+    await days.nth(1).click();
+    await days.nth(2).click();
+    await days.nth(2).click();
+    await days.nth(3).focus();
+    expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(375);
+    for (const b of await days.all()) expect((await b.boundingBox()).height).toBeGreaterThanOrEqual(44);
+    await audit(page, `days calendar (${scheme})`);
   });
 }

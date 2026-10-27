@@ -681,8 +681,8 @@ test('phone: no zoom on focus, tap targets, tap-to-pick dates, Save always in re
   await addOptions(page, 7, [600, 780, 1140]);
   await page.click('#submit');
   await page.locator('#mine .row').first().locator('[data-vote="2"]').tap();
-  // Answering one shows Save in reach, and how far along the answer is.
-  await expect(page.locator('#save-state')).toContainText('1 of 21 answered');
+  // Answering shows Save in reach, and how far along the answer is: the organizer's own answer has them all.
+  await expect(page.locator('#save-state')).toHaveText('Ready to submit');
   const save = await page.locator('#save').boundingBox();
   expect(save.y + save.height).toBeLessThanOrEqual(page.viewportSize().height);
 });
@@ -1218,7 +1218,6 @@ test('with answers hidden, a guest stays on their own answer after sending it; a
   await page.locator('#mine .row').first().locator('[data-vote="2"]').click();
   await page.fill('#name', 'Ana');
   await page.click('#save');
-  await page.click('#sc-yes');
   // Answers are hidden from guests, so the celebration goes back to the poll.
   await page.getByRole('button', { name: 'Back to the poll' }).click();
   await expect(page.locator('#panel-mine')).toBeVisible();
@@ -1362,6 +1361,8 @@ test('guests can see the options on a calendar and answer there', async ({ page,
     { start: t0, end: t0 + 2 * H },
     { start: t0 + H, end: t0 + 3 * H },
     { start: t0 + 24 * H, end: t0 + 26 * H },
+    // Guests get the calendar once there are more than six options; shorter polls are just their list.
+    ...[2, 3, 4, 5].map((d) => ({ start: t0 + d * 24 * H, end: t0 + (d * 24 + 2) * H })),
   ];
   const { id } = await (
     await request.post('/api/events', { data: { title: 'Dinner', timezone: 'UTC', mode: 'options', options } })
@@ -1452,21 +1453,12 @@ test.describe('in UTC', () => {
 
     await page.fill('#name', 'Ana');
     await expect(page.locator('#save')).toHaveText('Submit');
-    // Submit asks first, showing who's answering and what; Go back changes nothing.
+    // A painted answer is a whole answer: Submit sends it straight away, with the same celebration organizers get.
+    await expect(page.locator('#save-state')).toHaveText('Ready to submit');
     await page.click('#save');
     const check = page.locator('#submit-check');
-    await expect(check).toBeVisible();
-    await expect(check.locator('h2')).toHaveText('Submit your answer?');
-    await expect(check).toContainText('Answering as Ana.');
-    await expect(check.locator('.chip').first()).toBeVisible();
-    await expect(check.locator('#sc-yes')).toBeFocused();
-    await check.locator('#sc-no').click();
-    await expect(check).toBeHidden();
-    await expect(page.locator('#save-state')).toContainText('Not submitted yet');
-    // Then Submit sends it, with the same celebration organizers get.
-    await page.click('#save');
-    await check.locator('#sc-yes').click();
     await expect(page.locator('.party [role=status]')).toContainText(/Answer submitted!.*Sam can see it now/);
+    await expect(check).toBeHidden();
     await expect(page.locator('.party-hero img')).toHaveCount(1);
     await expect(page.locator('.party')).toHaveCount(0, { timeout: 10_000 }); // it goes by itself
     await expect(page.locator('#save')).toHaveText('Submit');
@@ -1474,8 +1466,6 @@ test.describe('in UTC', () => {
     // Changing it later says so. (Phones show the group after the first answer; go back to yours.)
     if (await page.locator('#tab-mine').isVisible()) await page.click('#tab-mine');
     await page.click('#save');
-    await expect(check).toContainText('This replaces your last answer.');
-    await check.locator('#sc-yes').click();
     await expect(page.locator('.party [role=status]')).toContainText('Answer updated!');
     await page.click('.party-go');
   });
@@ -2413,7 +2403,6 @@ test('guests are one tap from making their own poll: from the celebration, and o
   await page.locator('#mine .row [data-vote="2"]').first().click();
   await page.fill('#name', 'Ana');
   await page.click('#save');
-  await page.click('#sc-yes');
   // Finn celebrates, with two real buttons: everyone's answers, and making your own poll.
   await expect(page.locator('.party [role=status]')).toContainText("Finn is so glad you're in");
   const go = page.locator('.party-go');
@@ -2558,4 +2547,197 @@ test('a copy of a poll whose dates have passed moves them on by whole weeks', as
   }
   expect(ev.options[1].start - ev.options[0].start).toBe(7 * 24 * H);
   expect(ev.repeat).toBeUndefined();
+});
+
+/** A whole-day poll through the API: `n` days from `from` (a Sunday, Jan 6, 2030), in UTC. */
+async function daysPoll(request, { n = 14, days = 1, from = '2030-01-06' } = {}) {
+  const dates = Array.from({ length: n }, (_, i) => addDays(from, i));
+  const res = await request.post('/api/events', {
+    data: {
+      title: 'Cabin weekend',
+      organizer: 'Sam',
+      timezone: 'UTC',
+      dates,
+      startMinute: 0,
+      endMinute: 1440,
+      slotMinutes: 1440,
+      durationMinutes: days * 1440,
+    },
+  });
+  return res.json();
+}
+const dayKey = (date) => String(Date.parse(`${date}T00:00:00Z`));
+
+test('guests answer a whole-day poll on a calendar of its days: tap, tap again, tap to clear; blank days are a no', async ({
+  page,
+  request,
+}) => {
+  const { id, adminToken } = await daysPoll(request, { days: 2, from: '2030-01-08' }); // a Tuesday
+  await page.goto(`/e/${id}`);
+  const day = (d) => page.locator(`button.dcal-day[data-date="${d}"]`);
+  // The calendar is the guest's way to answer, with the create page's key; the list is a tap away.
+  await expect(page.locator('[data-mine-view="calendar"]')).toHaveAttribute('aria-checked', 'true');
+  await expect(page.locator('#mine')).toBeHidden();
+  await expect(page.locator('.tap-key')).toHaveText(/Tap: available\s*Tap again: if needed\s*Left blank: no/);
+  await expect(page.locator('button.dcal-day')).toHaveCount(14);
+  await expect(page.locator('.dcal-off').first()).toBeVisible(); // other days of those weeks, dimmed
+  await expect(page.locator('.dcal-month')).toHaveText(['January 2030']);
+  await expect(day('2030-01-08')).toHaveAccessibleName(/Tuesday 8 Jan/);
+  // Yes to all, None of these work and Clear wait under the days.
+  const lastDay = await day('2030-01-21').boundingBox();
+  expect((await page.locator('#fill').boundingBox()).y).toBeGreaterThan(lastDay.y);
+
+  await day('2030-01-08').click();
+  await expect(day('2030-01-08')).toHaveAttribute('aria-pressed', 'true');
+  await expect(day('2030-01-08')).toContainText('Yes');
+  await day('2030-01-09').click();
+  await day('2030-01-10').click();
+  await day('2030-01-10').click();
+  await expect(day('2030-01-10')).toHaveAttribute('aria-pressed', 'mixed');
+  await expect(day('2030-01-10')).toContainText('If needed');
+  for (let i = 0; i < 3; i++) await day('2030-01-11').click(); // available, if needed, cleared
+  await expect(day('2030-01-11')).toHaveAttribute('aria-pressed', 'false');
+  await expect(page.locator('#my-picks')).toContainText('2 yes, 1 if needed, no to the other 11');
+  await expect(page.locator('#save-state')).toHaveText('Add your name to submit.');
+  await page.fill('#name', 'Ana');
+  await expect(page.locator('#save-state')).toHaveText('Ready to submit');
+  // Every day has an answer (blank is no), so Submit sends it without asking first.
+  await page.click('#save');
+  await expect(page.locator('.party [role=status]')).toContainText('Answer submitted!');
+  await expect(page.locator('#submit-check')).toBeHidden();
+  await page.click('.party-go');
+  const ev = await (await request.get(`/api/events/${id}`, { headers: { 'x-admin-token': adminToken } })).json();
+  const ana = ev.participants.find((p) => p.name === 'Ana');
+  expect(ana.availability).toEqual({ [dayKey('2030-01-08')]: 2, [dayKey('2030-01-09')]: 2, [dayKey('2030-01-10')]: 1 });
+  // Two days in a row still find each other.
+  await expect(page.locator('.best-hero')).toContainText('(2 days)');
+
+  // The organizer answers on the list, as before.
+  await page.goto(`/e/${id}#admin=${adminToken}`);
+  if (await page.locator('#tab-mine').isVisible()) await page.click('#tab-mine');
+  await expect(page.locator('#mine .row')).toHaveCount(14);
+  await expect(page.locator('.poll-head #copy')).toBeVisible();
+});
+
+test('the days calendar works from the keyboard, says each day and its answer, and the list shows the same', async ({
+  page,
+  request,
+}) => {
+  const { id, adminToken } = await daysPoll(request);
+  await page.goto(`/e/${id}`);
+  const day = (d) => page.locator(`button.dcal-day[data-date="${d}"]`);
+  // One tab stop for the whole calendar: arrows move, Space and Enter answer.
+  await expect(page.locator('button.dcal-day[tabindex="0"]')).toHaveCount(1);
+  await day('2030-01-06').focus();
+  await page.keyboard.press('ArrowRight');
+  await expect(day('2030-01-07')).toBeFocused();
+  await page.keyboard.press('ArrowDown');
+  await expect(day('2030-01-14')).toBeFocused();
+  await page.keyboard.press('Space');
+  await expect(day('2030-01-14')).toHaveAttribute('aria-pressed', 'true');
+  await expect(day('2030-01-14')).toHaveAccessibleName(/Monday 14 Jan\s?, Yes/);
+  await page.keyboard.press('Enter');
+  await expect(day('2030-01-14')).toHaveAttribute('aria-pressed', 'mixed');
+  await expect(day('2030-01-14')).toHaveAccessibleName(/If needed/);
+  await expect(day('2030-01-14')).toBeFocused();
+  await page.keyboard.press('End');
+  await expect(day('2030-01-19')).toBeFocused();
+  await page.keyboard.press('Home');
+  await expect(day('2030-01-06')).toBeFocused();
+  // The list says the same: if needed on the 14th, no on the days left blank.
+  await page.click('[data-mine-view="list"]');
+  await expect(page.locator('#mine .row')).toHaveCount(14);
+  await expect(page.locator('#mine .row').nth(8)).toHaveAttribute('data-v', '1');
+  await expect(page.locator('#mine .row').nth(0)).toHaveAttribute('data-v', '0');
+  await page.click('[data-mine-view="calendar"]');
+  await expect(day('2030-01-14')).toHaveAttribute('aria-pressed', 'mixed');
+
+  // "None of these work" still answers, straight away.
+  await page.click('#decline');
+  await expect(day('2030-01-14')).toHaveAttribute('aria-pressed', 'false');
+  await expect(page.locator('#my-picks')).toContainText('none of these work');
+  await page.fill('#name', 'Jo');
+  await expect(page.locator('#save-state')).toHaveText('Ready to submit');
+  await submit(page);
+  await expect(page.locator('#save-state')).toHaveText('Submitted');
+  const ev = await (await request.get(`/api/events/${id}`, { headers: { 'x-admin-token': adminToken } })).json();
+  expect(ev.participants.find((p) => p.name === 'Jo').availability).toEqual({});
+});
+
+test('Submit asks "are you sure?" only when some options have no answer, and the bar says how far along it is', async ({
+  page,
+  request,
+}) => {
+  const t0 = Date.UTC(2030, 0, 8, 18);
+  const options = [0, 1, 2].map((d) => ({ start: t0 + d * 86_400_000, end: t0 + d * 86_400_000 + 7_200_000 }));
+  const { id } = await (
+    await request.post('/api/events', { data: { title: 'Dinner', timezone: 'UTC', mode: 'options', options } })
+  ).json();
+  await page.goto(`/e/${id}`);
+  const row = (i) => page.locator('#mine .row').nth(i);
+  const state = page.locator('#save-state');
+  const check = page.locator('#submit-check');
+  await row(0).locator('[data-vote="2"]').click();
+  await expect(state).toHaveText('1 of 3 answered. Add your name to submit.');
+  await page.fill('#name', 'Ana');
+  await expect(state).toHaveText('1 of 3 answered');
+  // A partial answer: asked first, showing who's answering and what; Go back changes nothing.
+  await page.click('#save');
+  await expect(check).toBeVisible();
+  await expect(check.locator('h2')).toHaveText('Submit your answer?');
+  await expect(check).toContainText('Answering as Ana.');
+  await expect(check).toContainText('2 not answered, counted as no');
+  await expect(check.locator('#sc-yes')).toBeFocused();
+  await check.locator('#sc-no').click();
+  await expect(check).toBeHidden();
+  await expect(state).toHaveText('1 of 3 answered');
+  // Every option answered: ready, and Submit sends it straight away.
+  await row(1).locator('[data-vote="0"]').click();
+  await row(2).locator('[data-vote="1"]').click();
+  await expect(state).toHaveText('Ready to submit');
+  await expect(state).toHaveClass('ok');
+  await page.click('#save');
+  await expect(page.locator('.party [role=status]')).toContainText('Answer submitted!');
+  await expect(check).toBeHidden();
+  await page.click('.party-go');
+  await expect(state).toHaveText('Submitted');
+  // Changing it later: still no question when everything has an answer.
+  if (await page.locator('#tab-mine').isVisible()) await page.click('#tab-mine');
+  await row(2).locator('[data-vote="2"]').click();
+  await expect(state).toHaveText('Ready to submit');
+  await page.click('#save');
+  await expect(page.locator('.party [role=status]')).toContainText('Answer updated!');
+});
+
+test('guests see the first option sooner: share at the bottom, no view switch for a short poll, quick answers under the options', async ({
+  page,
+  request,
+}) => {
+  const t0 = Date.UTC(2030, 0, 8, 18);
+  const options = [0, 1, 2].map((d) => ({ start: t0 + d * 86_400_000, end: t0 + d * 86_400_000 + 7_200_000 }));
+  const { id, adminToken } = await (
+    await request.post('/api/events', { data: { title: 'Dinner', timezone: 'UTC', mode: 'options', options } })
+  ).json();
+  await page.goto(`/e/${id}`);
+  await expect(page.locator('#mine .row')).toHaveCount(3);
+  // The invite link is under everything else, not in the header.
+  await expect(page.locator('.poll-head #copy')).toHaveCount(0);
+  const share = page.locator('.guest-share #copy');
+  await expect(share).toHaveText(/Copy invite link|Share the poll/);
+  const panels = await page.locator('.panels').boundingBox();
+  expect((await share.boundingBox()).y).toBeGreaterThan(panels.y + panels.height - 1);
+  expect((await share.boundingBox()).height).toBeGreaterThanOrEqual(44);
+  // Three options are just a list, and "Yes to all" and the rest come after them.
+  await expect(page.locator('[data-mine-view]')).toHaveCount(0);
+  const last = await page.locator('#mine .row').nth(2).boundingBox();
+  for (const b of ['#fill', '#decline', '#none']) expect((await page.locator(b).boundingBox()).y).toBeGreaterThan(last.y);
+  await page.click('#fill');
+  await expect(page.locator('#mine .row[data-v="2"]')).toHaveCount(3);
+
+  // The organizer's view keeps Share at the top, and the calendar switch.
+  await page.goto(`/e/${id}#admin=${adminToken}`);
+  if (await page.locator('#tab-mine').isVisible()) await page.click('#tab-mine');
+  await expect(page.locator('.poll-head #copy')).toBeVisible();
+  await expect(page.locator('.guest-share')).toHaveCount(0);
+  await expect(page.locator('[data-mine-view]')).toHaveCount(2);
 });

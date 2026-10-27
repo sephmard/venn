@@ -151,6 +151,10 @@ export async function renderEvent(id, navigate) {
     windows.every(
       (w) => !allDaySpan(w.start, w.end, ev().timezone) && utcToZoned(w.start, st.tz).date === utcToZoned(w.end - 1, st.tz).date,
     );
+  // Guests see what they need first: a short poll is just its list, and whole days are answered on a
+  // calendar of the poll's days (day-answer.js), with the list a tap away.
+  const guest = !ev().isAdmin;
+  const viewSwitch = (calendarOk && (!guest || windows.length > 6)) || daysMode;
   /** How an option reads: "Sat, Nov 7, evening (6 – 10 PM)" in parts polls, otherwise its date and time. */
   const when = (s, e) => {
     const p = partsMode && partOf(s, e, ev().timezone);
@@ -174,6 +178,10 @@ export async function renderEvent(id, navigate) {
 
   // The poll's own picture (poll-image.js), in place of its emoji.
   const picture = ev().image && `/api/events/${encodeURIComponent(id)}/icon.jpg?v=${ev().image.v}`;
+  // "Yes to all", "None of these work" and "Clear": above the options for the organizer, under them for guests.
+  const quickPills = `<button type="button" class="pill pill-quiet" id="fill">${listMode ? 'Yes to all' : 'All'}</button>
+    <button type="button" class="pill pill-quiet" id="decline">None of these work</button>
+    <button type="button" class="pill pill-quiet" id="none">Clear</button>`;
   app.innerHTML = `
     <article id="event-root" class="poll">
       <header class="poll-head">
@@ -183,9 +191,7 @@ export async function renderEvent(id, navigate) {
           <p class="poll-meta" id="ev-meta"></p>
           <div id="ev-details"></div>
         </div>
-        <div class="poll-share">
-          <button class="btn${ev().isAdmin ? ' btn-primary' : ''}" id="copy">${canShare ? 'Share the poll' : 'Copy invite link'}</button>
-        </div>
+        ${guest ? '' : `<div class="poll-share"><button class="btn btn-primary" id="copy">${canShare ? 'Share the poll' : 'Copy invite link'}</button></div>`}
       </header>
       <div id="banners"></div>
       <div id="notify-box"></div>
@@ -206,17 +212,15 @@ export async function renderEvent(id, navigate) {
                   : 'Which of these work for you?'
                 : 'When are you available?'
           }</h2>
-          <div class="quick-actions">
+          <div class="quick-actions" id="quick-top"${guest ? ' hidden' : ''}>
             ${optionsMode ? '<button type="button" class="pill" id="ai-answer-btn" hidden aria-expanded="false" aria-controls="ai-answer">Answer for me</button>' : ''}
-            <button type="button" class="pill pill-quiet" id="fill">${listMode ? 'Yes to all' : 'All'}</button>
-            <button type="button" class="pill pill-quiet" id="decline">None of these work</button>
-            <button type="button" class="pill pill-quiet" id="none">Clear</button>
+            ${guest ? '' : quickPills}
           </div>
           ${optionsMode ? '<div id="ai-answer" class="ai-panel" hidden></div>' : ''}
           ${
             listMode
               ? `${
-                  calendarOk
+                  viewSwitch
                     ? `<div class="seg mine-view" role="radiogroup" aria-label="Show the options as">
                         <button type="button" role="radio" data-mine-view="list">List</button>
                         <button type="button" role="radio" data-mine-view="calendar">Calendar</button>
@@ -243,6 +247,7 @@ export async function renderEvent(id, navigate) {
                 <div class="grid-scroll"><div class="grid" id="mine" role="group" aria-label="Your availability. Use the arrow keys to move and Space to mark a time."></div></div>
                 </div>`
           }
+          ${guest ? `<div class="quick-actions">${quickPills}</div>` : ''}
           <div class="my-picks" id="my-picks" aria-live="polite" hidden></div>
           <div class="mine-footer">
             <p class="hint" id="edit-link" hidden></p>
@@ -294,6 +299,12 @@ export async function renderEvent(id, navigate) {
           </aside>
         </section>
       </div>
+      ${
+        // Guests came to answer: passing the link on waits at the bottom, under everything else.
+        guest
+          ? `<p class="poll-share guest-share muted" style="text-align:center;margin:20px 0 0">Know someone who should answer too? <button type="button" class="link-btn" id="copy">${canShare ? 'Share the poll' : 'Copy invite link'}</button></p>`
+          : ''
+      }
       <details class="tz-line">
         <summary id="tz-summary"></summary>
         <label for="tz">Show times in</label>
@@ -576,7 +587,7 @@ export async function renderEvent(id, navigate) {
   // ----- the calendar view of the options -----
   let calView = null;
   let timeView = null;
-  st.mineView = 'list';
+  st.mineView = daysMode && guest ? 'calendar' : 'list';
   const pieces = (start, end) => {
     // Split an interval into per-day pieces in the viewer's time zone.
     const out = [];
@@ -590,13 +601,14 @@ export async function renderEvent(id, navigate) {
     return out;
   };
   function renderMineView() {
-    if (!calendarOk) return;
+    if (!viewSwitch) return;
     for (const b of $$('[data-mine-view]')) b.setAttribute('aria-checked', b.dataset.mineView === st.mineView);
     const cal = st.mineView === 'calendar';
     mineEl.hidden = cal;
     $('#mine-cal').hidden = !cal;
     if (!cal) return;
     if (calView) return calView.render();
+    if (daysMode) return renderDays();
     // The calendar's code loads the first time someone opens it; most people answer on the list.
     if (!timeView) return void import('./picker.js').then((m) => ((timeView = m.timeView), renderMineView()));
     const days = [...new Set(windows.map((w) => utcToZoned(w.start, st.tz).date))].sort();
@@ -631,6 +643,32 @@ export async function renderEvent(id, navigate) {
       onBlock: cycle,
       marks: (d) => String(windows.filter((w) => utcToZoned(w.start, st.tz).date === d).length),
     });
+  }
+  // ----- whole days, on a month calendar of the poll's days (day-answer.js, loaded when shown) -----
+  let dayJs = null;
+  function renderDays() {
+    if (!dayJs)
+      return void import('./day-answer.js').then(
+        (m) => ((dayJs = m), $('#mine-cal') && renderMineView()),
+        () => ((st.mineView = 'list'), renderMineView()),
+      );
+    calView = dayJs.dayAnswer($('#mine-cal'), {
+      days: windows.map((w) => ({ key: w.start, date: utcToZoned(w.start, ev().timezone).date })),
+      value: (s) => st.mine[s] || 0,
+      onTap: dayTap,
+      final: (s) => finalSet().has(+s),
+    });
+  }
+  /** A day on the calendar: available → if needed → blank. Once any day is marked, the blank ones are a no. */
+  function dayTap(s) {
+    const v = st.mine[s] || 0;
+    if (v === YES) st.mine[s] = IF_NEEDED;
+    else if (v === IF_NEEDED) delete st.mine[s];
+    else st.mine[s] = YES;
+    st.touched.clear();
+    if (Object.values(st.mine).some((x) => x > 0)) for (const x of ev().slots) st.touched.add(String(x));
+    refreshMine();
+    changed();
   }
   $('#panel-mine').addEventListener('click', (e) => {
     const v = e.target.closest('[data-mine-view]');
@@ -918,7 +956,7 @@ export async function renderEvent(id, navigate) {
     needMail();
     if (!c.ai) return;
     aiOn = true;
-    if (optionsMode) $('#ai-answer-btn').hidden = false;
+    if (optionsMode) $('#ai-answer-btn').hidden = $('#quick-top').hidden = false;
     if (ev().isAdmin) $('#ai-summary-btn').hidden = false;
     renderBanners();
   });
@@ -938,6 +976,9 @@ export async function renderEvent(id, navigate) {
   $('#ai-summary-btn').onclick = (e) => org?.summary(e.target, { id, ev: ev(), headers: authHeaders(), when });
 
   // ----- saving -----
+  /** How many options have no answer yet (they'd count as no). Hours polls are painted, so never any. */
+  const unanswered = () =>
+    !listMode || st.declined ? 0 : ev().slots.filter((s) => !st.mine[s] && !st.touched.has(String(s))).length;
   /** What's still missing before the answer can be saved, or '' when it can. */
   const needs = () => {
     const name = !$('#name').value.trim();
@@ -954,13 +995,12 @@ export async function renderEvent(id, navigate) {
     const need = needs();
     $('#save').dataset.ready = !need;
     if (v) {
-      el.className = 'dirty';
-      el.textContent = 'Not submitted yet';
-      if (listMode) {
-        const answered = ev().slots.filter((s) => st.mine[s] || st.touched.has(String(s))).length;
-        el.textContent += `, ${answered} of ${ev().slots.length} answered`;
-      }
-      if (need) el.textContent += `. ${need}`;
+      // "2 of 14 answered" until every option has an answer, then "Ready to submit" (or what's missing).
+      const total = ev().slots.length;
+      const answered = listMode ? total - unanswered() : total;
+      const count = answered && answered < total ? `${answered} of ${total} answered` : '';
+      el.className = need || count ? 'dirty' : 'ok';
+      el.textContent = [count, need].filter(Boolean).join('. ') || 'Ready to submit';
     } else {
       el.className = 'hint';
       el.textContent = me() ? 'Submitted' : need;
@@ -1005,7 +1045,10 @@ export async function renderEvent(id, navigate) {
     }
     if (!hasAnswer()) {
       err.textContent = `Pick at least one ${listMode ? 'option' : 'time'} that works, or choose "None of these work".`;
-      $('#mine').scrollIntoView({ behavior: reducedMotion() ? 'auto' : 'smooth', block: 'center' });
+      (mineEl.hidden ? $('#mine-cal') : mineEl).scrollIntoView({
+        behavior: reducedMotion() ? 'auto' : 'smooth',
+        block: 'center',
+      });
       return;
     }
     const mail = $('#copy-to');
@@ -1031,7 +1074,8 @@ export async function renderEvent(id, navigate) {
       )
     )
       return;
-    if (!(await confirmSubmit(name))) return;
+    // "Are you sure?" only when some options were left without an answer; a full answer goes straight in.
+    if (unanswered() && !(await confirmSubmit(name))) return;
     rememberName(name);
     $('#save').disabled = true;
     try {
