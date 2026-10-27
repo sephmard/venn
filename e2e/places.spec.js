@@ -67,7 +67,11 @@ test('Where suggests places as you type; arrow keys and Enter pick one', async (
   await addOptions(page, 1);
   await page.click('#submit');
   await expect(page.locator('.where a')).toHaveText("Rosa's Cantina, Mission Street 12, San Francisco");
-  await expect(page.locator('.where a')).toHaveAttribute('href', /google\.com\/maps\/search\/.*Rosa/);
+  const place = "Rosa's Cantina, Mission Street 12, San Francisco";
+  await expect(page.locator('.where a')).toHaveAttribute(
+    'href',
+    `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(place)}`,
+  );
 });
 
 test('Where: a tap picks a place, and on a phone the suggestions fit', async ({ page }, testInfo) => {
