@@ -179,7 +179,8 @@ function timeGrid(
       )
       .join('');
     let times = '';
-    for (let m = from; m < to; m += 60) times += `<span style="top:calc(${at(m)} * var(--row))">${esc(shortTime(m))}</span>`;
+    for (let m = from; m < to; m += 60)
+      times += `<span style="top:calc(${at(m)} * var(--row))">${esc(narrow ? tinyTime(m) : shortTime(m))}</span>`;
     const pos = (a, b) =>
       `top:calc(${at(Math.max(a, from))} * var(--row));height:calc(${(Math.min(b, to) - Math.max(a, from)) / STEP} * var(--row))`;
     const all = blocks();
@@ -304,6 +305,21 @@ function timeGrid(
   };
 }
 
+/** The same day `n` months on, or the month's last day. */
+function addMonths(date, n) {
+  const [y, m, d] = date.split('-').map(Number);
+  const last = new Date(Date.UTC(y, m - 1 + n + 1, 0)).getUTCDate();
+  return new Date(Date.UTC(y, m - 1 + n, Math.min(d, last))).toISOString().slice(0, 10);
+}
+
+const h23 = new Intl.DateTimeFormat(undefined, { hour: 'numeric' }).resolvedOptions().hourCycle === 'h23';
+/** "7p", "7:30p", or "19" on a 24-hour clock: for a phone's narrow week. */
+export function tinyTime(m) {
+  const h = Math.floor(m / 60) % 24;
+  const mm = m % 60 ? `:${String(m % 60).padStart(2, '0')}` : '';
+  return h23 ? `${h}${mm}` : `${h % 12 || 12}${mm}${h < 12 ? 'a' : 'p'}`;
+}
+
 /**
  * Week and Day views with navigation.
  *   days       fixed list of days to page through (guests), or null to roam freely from today (organizers)
@@ -324,9 +340,11 @@ export function timeView(root, opts) {
         ${views.map((v) => `<button type="button" role="radio" data-view="${v}">${v[0].toUpperCase() + v.slice(1)}</button>`).join('')}
       </div>
       <div class="tv-nav">
+        ${days ? '' : '<button type="button" class="icon-btn" data-month="-1" aria-label="Back a month">«</button>'}
         <button type="button" class="icon-btn" data-step="-1" aria-label="Earlier">‹</button>
         <span class="tv-label" aria-live="polite"></span>
         <button type="button" class="icon-btn" data-step="1" aria-label="Later">›</button>
+        ${days ? '' : '<button type="button" class="icon-btn" data-month="1" aria-label="Forward a month">»</button>'}
       </div>
     </div>
     <div class="tv-strip" role="group" aria-label="Days"></div>
@@ -348,6 +366,7 @@ export function timeView(root, opts) {
       ds.length > 1 ? `${fmtMonthDay.format(dateParts(ds[0]))} – ${fmtMonthDay.format(dateParts(ds.at(-1)))}` : dayLabel(ds[0]);
     const first = days ? anchor === 0 : weekOf(anchor) <= todayStr();
     $('[data-step="-1"]', root).disabled = first;
+    if ($('[data-month="-1"]', root)) $('[data-month="-1"]', root).disabled = first;
     if (!days) {
       $('[data-step="-1"]', root).setAttribute('aria-label', 'Previous week');
       $('[data-step="1"]', root).setAttribute('aria-label', 'Next week');
@@ -372,6 +391,13 @@ export function timeView(root, opts) {
     const v = e.target.closest('[data-view]');
     if (v && root.contains(v)) {
       view = v.dataset.view;
+      return render();
+    }
+    // « » a month (never before today)
+    const mo = e.target.closest('.tv-nav [data-month]');
+    if (mo) {
+      anchor = addMonths(anchor, +mo.dataset.month);
+      if (anchor < todayStr()) anchor = todayStr();
       return render();
     }
     const st = e.target.closest('.tv-nav [data-step]');

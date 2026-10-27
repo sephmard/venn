@@ -1718,6 +1718,15 @@ details.organizer > .danger {
 .tg-narrow .tg-day b {
   font-size: 0.75rem;
 }
+/* A phone's week: a slim time column ("9a"), so the seven days get the width. */
+.tg-narrow .tg-head,
+.tg-narrow .tg-body {
+  grid-template-columns: 30px repeat(var(--cols), minmax(0, 1fr));
+}
+.tg-narrow .tg-times span {
+  right: 4px;
+  font-size: 0.68rem;
+}
 .tg-scroll {
   max-height: 460px;
   overflow-y: auto;
