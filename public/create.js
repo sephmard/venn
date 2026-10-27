@@ -257,6 +257,7 @@ export async function submit(body, occasion, answer = null) {
   if (fromUrl()) body.from = fromUrl();
   // The celebration (and its picture) load while the poll is saved.
   const celebration = import('./celebrate.js').catch(() => null);
+  const invite = import('./invite.js').catch(() => null);
   try {
     const { id, adminToken, participant } = await api('events', { method: 'POST', body });
     const picture = icon?.upload(id, adminToken, title); // the poll's own picture, while the party plays
@@ -271,8 +272,9 @@ export async function submit(body, occasion, answer = null) {
     // The main button shares the poll: the phone's share sheet, or the link copied.
     const url = `${location.origin}/e/${id}`;
     let copying = null; // the link being copied, so its toast can show once the poll is open
+    const text = (await invite)?.inviteText({ ...body, pick: body.mode === 'options' && body.layout !== 'parts' });
     const share = () => {
-      if (navigator.share && matchMedia('(pointer: coarse)').matches) navigator.share({ title, url }).catch(() => {});
+      if (navigator.share && matchMedia('(pointer: coarse)').matches) navigator.share({ title, text, url }).catch(() => {});
       else
         copying = navigator.clipboard.writeText(url).then(
           () => true,

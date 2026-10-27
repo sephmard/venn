@@ -48,7 +48,7 @@ const PLANS = {
  * Where someone came from, carried in links as ?from=: a guest answering a poll, a poll whose date
  * is picked, or one of the website's landing pages (pages/pages.js).
  */
-const FROM = ['guest', 'set', ...PAGE_SLUGS];
+const FROM = ['guest', 'set', 'email', ...PAGE_SLUGS];
 
 /**
  * Every event Venn counts, with the values each property may take. `client: true` events come

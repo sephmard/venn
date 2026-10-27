@@ -313,6 +313,7 @@ button.emoji-tile:focus-visible {
   height: clamp(52px, 13vw, 58px);
 }
 .create .cal-day.marked {
+  container-type: inline-size;
   padding: 0 1px;
   font-size: 0.95rem;
   line-height: 1;
@@ -321,9 +322,11 @@ button.emoji-tile:focus-visible {
 .create .cal-day.marked small {
   margin: 0;
   font-family: var(--display);
-  font-size: 0.56rem;
-  letter-spacing: -0.01em;
+  font-size: min(0.56rem, 19cqi); /* "Available" fits on one line in any font */
+  font-weight: 600;
+  letter-spacing: -0.02em;
   line-height: 1;
+  white-space: nowrap;
   color: inherit;
   overflow: hidden;
 }

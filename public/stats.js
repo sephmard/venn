@@ -55,7 +55,7 @@ const scroller = (label, table) =>
 /** Rows of { label, n } as a table with bars, biggest first. */
 /** Names for where people came from (?from=); the website's pages are named by their address. */
 const FROM_LABELS = new Proxy(
-  { guest: 'A guest making their own', set: 'After a date was picked' },
+  { guest: 'A guest making their own', set: 'After a date was picked', email: 'An “It’s happening” email' },
   { get: (o, k) => o[k] || (k === '(none)' ? k : `The ${k} page`) },
 );
 
