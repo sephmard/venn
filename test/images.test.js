@@ -13,7 +13,8 @@ import { SECURITY_HEADERS } from '../src/security-headers.js';
 // ui.js looks up the page's elements when it loads; a stand-in document is enough here.
 globalThis.document ??= { getElementById: () => null };
 const { drawCard, layoutCard } = await import('../public/share-card.js');
-const { CARD, drawPreview, layoutPreview } = await import('../public/poll-image.js');
+const { CARD, PREVIEW_STICKERS, drawPreview, layoutPreview, stickerButtons, stickerPicture } =
+  await import('../public/poll-image.js');
 
 // Just enough of each kind of picture for its first bytes to say what it is.
 const JPEG = Buffer.concat([Buffer.from([0xff, 0xd8, 0xff, 0xe0]), Buffer.alloc(60, 7)]);
@@ -352,6 +353,14 @@ test('pictures: the card draws Venn’s name, the poll’s name, a line about Ve
     calls.filter((c) => c[0] === 'drawImage').map((c) => c[1]),
     [picture],
   );
+  // A Finn sticker the organizer chose goes on after the picture, over its corner.
+  const finn = fakeContext();
+  const sticker = { sticker: true };
+  drawPreview(finn.ctx, layoutPreview(measure, 'Dinner'), picture, sticker);
+  assert.deepEqual(
+    finn.calls.filter((c) => c[0] === 'drawImage').map((c) => c[1]),
+    [picture, sticker],
+  );
   // The "It's set" picture sticks the poll's picture on instead of its emoji.
   const set = fakeContext();
   drawCard(set.ctx, layoutCard(measure, { title: 'Dinner', when: 'Sat', emoji: '🍝', picture: true }), { picture });
@@ -360,4 +369,17 @@ test('pictures: the card draws Venn’s name, the poll’s name, a line about Ve
     set.calls.filter((c) => c[0] === 'drawImage').map((c) => c[1]),
     [picture],
   );
+});
+
+test('pictures: Finn stickers for a poll still asking, and none unless one is chosen', async () => {
+  const keys = PREVIEW_STICKERS.map((x) => x.key);
+  assert.ok(keys.length >= 4);
+  assert.ok(!keys.includes('its-set')); // that one's for once the date is picked
+  for (const key of ['', undefined, 'its-set', 'no-such-sticker']) assert.equal(await stickerPicture(key), null, String(key));
+  // The choices: "No Finn" first, and only the chosen one pressed.
+  const html = stickerButtons('im-in');
+  assert.match(html, /^<button type="button" class="pill" data-sticker="" aria-pressed="false">No Finn<\/button>/);
+  assert.equal(html.match(/aria-pressed="true"/g).length, 1);
+  assert.match(html, /data-sticker="im-in" aria-pressed="true">I’m in</);
+  assert.match(stickerButtons(), /data-sticker="" aria-pressed="true">No Finn/);
 });

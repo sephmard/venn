@@ -1,5 +1,5 @@
 // Renders the link-preview images (1200×630): `npm run og`.
-//   public/og.png      the home page, and polls still asking (src/preview.js)
+//   public/og.png      the home page, and polls still asking (src/preview.js), without Finn
 //   public/og-set.png  polls whose date is picked
 //   public/og/<section>-<slug>.png  the landing pages in pages/pages.js
 // Needs Playwright's Chromium (`npx playwright install chromium`, or set CHROMIUM_PATH). Matches
@@ -19,7 +19,7 @@ const serifItalic = asset('fonts/instrument-serif-latin-400-italic.woff2');
 const logo = `data:image/svg+xml;base64,${asset('favicon.svg')}`;
 const dog = `data:image/webp;base64,${asset('img/dog.webp')}`;
 
-const page = ({ headline, line, extra = '', cls = '' }) => `<!doctype html>
+const page = ({ headline, line, extra = '', cls = '', finn = true }) => `<!doctype html>
 <style>
   @font-face { font-family: S; src: url(data:font/woff2;base64,${serif}); }
   @font-face { font-family: S; font-style: italic; src: url(data:font/woff2;base64,${serifItalic}); }
@@ -45,7 +45,7 @@ const page = ({ headline, line, extra = '', cls = '' }) => `<!doctype html>
 <div class="glow"></div>
 <img class="venn" src="${logo}" alt="">
 ${extra}
-<img class="finn" src="${dog}" alt="">
+${finn ? `<img class="finn" src="${dog}" alt="">` : ''}
 <div class="text ${cls}">
   <div class="brand"><img src="${logo}" width="44" height="44" alt="">Venn</div>
   <h1>${headline}</h1>
@@ -66,9 +66,11 @@ const confetti = [
   .join('');
 
 const IMAGES = {
+  // The site's own preview: just the circles, no Finn.
   'og.png': page({
     headline: 'Find the day that works for <em>everyone.</em>',
     line: '<p>Free group polls. No sign-up.</p>',
+    finn: false,
   }),
   'og-set.png': page({
     headline: 'It’s <em>set.</em>',
