@@ -1316,8 +1316,50 @@ ol.best .when {
 .final-more {
   display: flex;
   flex-wrap: wrap;
+  align-items: flex-start;
   gap: 0 20px;
   margin-top: 8px;
+}
+/* The organizer's one big next step once the date is set: telling everyone. */
+.final-tell {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 8px;
+  margin-top: 16px;
+}
+.final-tell .btn {
+  width: 100%;
+  background: var(--surface);
+  color: var(--accent);
+  border-color: transparent;
+}
+.final-tell .btn:hover {
+  background: var(--surface-2);
+}
+.final-extras summary {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+  font-weight: 600;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  cursor: pointer;
+}
+.final-extras summary::after {
+  content: ' ▾';
+  white-space: pre;
+}
+.final-extras[open] summary::after {
+  content: ' ▴';
+}
+.final-extras-body {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0 20px;
+}
+.poll-share[hidden] {
+  display: none;
 }
 .banner-final::before,
 .banner-final::after {

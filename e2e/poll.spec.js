@@ -1127,6 +1127,35 @@ test('guests are told before answering twice, and a bad email is caught on the p
   await expect(page.locator('#save-state')).toHaveText('Submitted');
 });
 
+test('"Email me a copy" starts ticked and then needs an email; unticked, the email is optional', async ({ page, request }) => {
+  await page.route('**/api/config', async (route) => {
+    const res = await route.fetch();
+    await route.fulfill({ response: res, json: { ...(await res.json()), email: true } });
+  });
+  const t0 = Date.UTC(2030, 0, 8, 18);
+  const { id } = await (
+    await request.post('/api/events', {
+      data: { title: 'Dinner', timezone: 'UTC', mode: 'options', options: [{ start: t0, end: t0 + 7_200_000 }] },
+    })
+  ).json();
+  await page.goto(`/e/${id}`);
+  await expect(page.locator('#copy-me')).toBeChecked();
+  await expect(page.locator('#copy-to')).toHaveAttribute('aria-required', 'true');
+  await expect(page.locator('label[for="copy-to"]')).toContainText('(for your copy)');
+  await page.locator('#mine .row').first().locator('[data-vote="2"]').click();
+  await page.fill('#name', 'Ana');
+  await page.fill('#copy-to', '');
+  await submit(page);
+  await expect(page.locator('#save-err')).toHaveText('Add your email for your copy, or untick "Email me a copy".');
+  await expect(page.locator('#copy-to')).toBeFocused();
+  await expect(page.locator('#copy-to')).toHaveAttribute('aria-invalid', 'true');
+  await page.uncheck('#copy-me');
+  await expect(page.locator('#copy-to')).toHaveAttribute('aria-required', 'false');
+  await expect(page.locator('label[for="copy-to"]')).toContainText('(optional)');
+  await submit(page);
+  await expect(page.locator('#save-state')).toHaveText('Submitted');
+});
+
 test("the organizer link on another device finds the organizer's own answer", async ({ page, browser }) => {
   await startPick(page, 'Dinner', [1140]);
   await page.click('#submit');
@@ -1580,9 +1609,12 @@ test('once the date is picked: add it to Google Calendar, Outlook or iCal', asyn
   expect(ics).toContain('SUMMARY:Dinner');
   expect(ics).toContain('DTSTART:20300108T180000Z');
 
-  // Sharing and clearing the date are still there, below.
+  // Telling everyone comes first; clearing the date is tucked under "More".
   const banner = page.locator('.banner-final');
-  await expect(banner.locator('.final-more [data-share]')).toBeVisible();
+  await expect(banner.locator('.final-tell [data-share]')).toBeVisible();
+  await expect(page.locator('.poll-share')).toBeHidden(); // the banner says how to share now
+  await expect(banner.getByRole('button', { name: 'Clear the date' })).toBeHidden();
+  await banner.locator('.final-extras summary').click();
   await banner.getByRole('button', { name: 'Clear the date' }).click();
   await expect(banner).toHaveCount(0);
   await expect(page.getByRole('group', { name: 'Add to your calendar' })).toHaveCount(0);
@@ -1605,12 +1637,13 @@ test('every share and copy of the poll is just its link, with nothing else aroun
   });
   const id = await organizerPoll(page, request, { picked: true });
   const url = `${new URL(page.url()).origin}/e/${id}`;
-  await page.click('#copy'); // the header's Share / Copy invite link
-  await page.locator('.banner-final [data-share]').click(); // "Share the date"
+  // With the date picked, the header's Share steps aside for the banner's "Send everyone the date".
+  await expect(page.locator('#copy')).toBeHidden();
+  await page.locator('.banner-final [data-share]').click();
   if (isMobile) await page.click('#tab-group');
   await page.locator('#best [data-share]').click(); // "Share the poll", while nobody has answered
   const shared = await page.evaluate(() => window.shared);
-  expect(shared).toHaveLength(3);
+  expect(shared).toHaveLength(2);
   // Phones get the share sheet with the title and link only, so its Copy copies the bare link.
   for (const s of shared) expect(s).toEqual(isMobile ? { title: 'Dinner', url } : { copied: url });
 
@@ -2075,6 +2108,7 @@ test('a picked date can be saved as a picture, with who can make it unless the p
   // Names hidden: not even the organizer's picture shows them.
   const anonymous = await picked({ hideNames: true });
   await page.goto(`/e/${anonymous.id}#admin=${anonymous.adminToken}`);
+  await page.locator('.final-extras summary').click(); // for the organizer, it's under "More"
   await save(button);
   await expect(button).toHaveAttribute('data-card-faces', '0');
 });
@@ -2222,7 +2256,8 @@ test('guests are one tap from making their own poll: from the celebration, and o
   await expect(page.locator('.final-more a[href="/new?from=set"]')).toHaveText('Make your own poll');
   await page.goto(`/e/${id}#admin=${adminToken}`);
   await expect(page.locator(`.final-more a[href="/new/pick?copy=${id}&next=monthly"]`)).toHaveText('Plan next month’s');
-  // Not every plan repeats: then it's a plain copy.
+  // Not every plan repeats: then it's a plain copy. How often is under "More".
+  await page.locator('.final-extras summary').click();
   await page.selectOption('#repeat-sel', '');
   await expect(page.locator(`.final-more a[href="/new/pick?copy=${id}"]`)).toHaveText('Plan the next one');
 });
@@ -2261,7 +2296,8 @@ test('a plan that repeats: the organizer plans next month’s in one tap, then b
   await page.goto(`/e/${id}#admin=${adminToken}`);
   const plan = page.locator('#plan-next a');
   await expect(plan).toHaveText('Plan next month’s');
-  // How often it repeats is saved with the poll.
+  // How often it repeats is saved with the poll; the choice is under "More".
+  await page.locator('.final-extras summary').click();
   await page.selectOption('#repeat-sel', 'weekly');
   await expect(plan).toHaveText('Plan next week’s');
   await expect(page.locator('#toast')).toContainText('Saved: every week');

@@ -253,7 +253,7 @@ export async function renderEvent(id, navigate) {
             <input id="name" type="text" maxlength="80" autocomplete="name">
           </div>
           <div id="copy-field"${ev().requireEmail ? '' : ' hidden'}>
-            <label for="copy-to">Your email <span class="muted">(${ev().requireEmail ? 'the organizer asks for it, and only they see it' : 'optional'})</span></label>
+            <label for="copy-to">Your email <span class="muted" id="copy-why">(${ev().requireEmail ? 'the organizer asks for it, and only they see it' : 'optional'})</span></label>
             <input id="copy-to" type="email" inputmode="email" autocomplete="email" maxlength="254" placeholder="you@example.com">
             <label class="check" hidden><input type="checkbox" id="copy-me" checked> Email me a copy of my answer and a link to change it</label>
           </div>
@@ -908,6 +908,14 @@ export async function renderEvent(id, navigate) {
     $('#copy-field').hidden = !c.email && !ev().requireEmail;
     $('#copy-me').parentNode.hidden = !c.email;
     $('#copy-to').value = me()?.email || lastEmail();
+    // With "Email me a copy" ticked (it starts ticked), the email is needed for it.
+    const needMail = () => {
+      const need = ev().requireEmail || (!$('#copy-me').parentNode.hidden && $('#copy-me').checked);
+      $('#copy-to').setAttribute('aria-required', need);
+      if (!ev().requireEmail) $('#copy-why').textContent = need ? '(for your copy)' : '(optional)';
+    };
+    $('#copy-me').onchange = needMail;
+    needMail();
     if (!c.ai) return;
     aiOn = true;
     if (optionsMode) $('#ai-answer-btn').hidden = false;
@@ -1002,12 +1010,15 @@ export async function renderEvent(id, navigate) {
     }
     const mail = $('#copy-to');
     const okMail = isEmail(mail.value.trim()); // the server's rule
-    const badMail = mail.value.trim() ? !okMail : ev().requireEmail;
+    const wantCopy = !$('#copy-field').hidden && !$('#copy-me').parentNode.hidden && $('#copy-me').checked;
+    const badMail = mail.value.trim() ? !okMail : ev().requireEmail || wantCopy;
     mail.setAttribute('aria-invalid', !!badMail);
     if (badMail) {
       err.textContent = mail.value.trim()
         ? 'Check your email address, like name@example.com.'
-        : 'Add your email. The organizer asked everyone for one.';
+        : ev().requireEmail
+          ? 'Add your email. The organizer asked everyone for one.'
+          : 'Add your email for your copy, or untick "Email me a copy".';
       mail.focus();
       return;
     }
@@ -1027,7 +1038,7 @@ export async function renderEvent(id, navigate) {
       const body = { name, availability: st.mine };
       const email = $('#copy-to').value.trim();
       if (ev().requireEmail) body.email = email;
-      const copyTo = !$('#copy-field').hidden && !$('#copy-me').parentNode.hidden && $('#copy-me').checked && email;
+      const copyTo = wantCopy && email;
       if (copyTo) {
         body.copyTo = copyTo;
         rememberEmail(copyTo);
@@ -1524,23 +1535,39 @@ export async function renderEvent(id, navigate) {
       h += `<section class="banner-final${st.celebrate && !reducedMotion() ? ' celebrate' : ''}" aria-labelledby="final-h">
         <p class="kicker">It's happening</p>
         <h2 id="final-h">${esc(when(start, end))}</h2>
+        ${
+          // The organizer's next step: telling everyone. By email when the poll has their addresses.
+          ev().isAdmin
+            ? `<div class="final-tell">
+          ${mailAll ? `<a class="btn" id="email-all" href="${esc(mailAll)}">Email everyone the date</a>` : ''}
+          <button type="button" class="btn" data-share>${canShare ? 'Send everyone the date' : 'Copy the link for everyone'}</button>
+        </div>`
+            : ''
+        }
         ${calJs.addToCalendar({ id, info, day, url: shareUrl, guests })}
         <div class="final-more">
-          ${mailAll ? `<a class="link-btn" id="email-all" href="${esc(mailAll)}">Email everyone</a>` : ''}
-          <button type="button" class="link-btn" data-share>${canShare ? 'Share the date' : 'Copy the link'}</button>
-          <button type="button" class="link-btn" id="share-card">${canShare ? 'Share as a picture' : 'Save as a picture'}</button>
-          ${ev().isAdmin ? '<button type="button" class="link-btn" id="unpick">Clear the date</button>' : ''}
           ${
             // The next plan starts here: the organizer copies this poll, a guest makes their own.
             ev().isAdmin
-              ? `<span id="plan-next"><a class="link-btn" data-link href="/new/${optionsMode && !partsMode ? 'pick' : 'free'}?copy=${esc(id)}">Plan the next one</a></span>`
-              : '<a class="link-btn" data-link href="/new?from=set">Make your own poll</a>'
+              ? `<span id="plan-next"><a class="link-btn" data-link href="/new/${optionsMode && !partsMode ? 'pick' : 'free'}?copy=${esc(id)}">Plan the next one</a></span>
+          <details class="final-extras">
+            <summary>More</summary>
+            <div class="final-extras-body">
+              <button type="button" class="link-btn" id="share-card">${canShare ? 'Share as a picture' : 'Save as a picture'}</button>
+              <span id="repeat-box"></span>
+              <button type="button" class="link-btn" id="unpick">Clear the date</button>
+            </div>
+          </details>`
+              : `<button type="button" class="link-btn" id="share-card">${canShare ? 'Share as a picture' : 'Save as a picture'}</button>
+          <a class="link-btn" data-link href="/new?from=set">Make your own poll</a>`
           }
         </div>
       </section>`;
     } else if (ev().isAdmin && ev().seriesOf) h += '<div id="series-box"></div>'; // bring last time's group back
     if (org) h += '<div id="org-tools"></div>';
     $('#banners').innerHTML = h;
+    // Once the date is set, the banner says how to pass it on, so the invite button steps aside.
+    $('.poll-share').hidden = ev().finalStart != null;
     // The "It's set" picture is drawn by a module that loads when it's asked for.
     const card = $('#share-card');
     if (card)
