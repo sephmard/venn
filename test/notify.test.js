@@ -28,8 +28,8 @@ test('emails offer ways to share the poll: a text message, WhatsApp and an email
   const pollUrl = 'https://venn.example/e/abc';
   const say = encodeURIComponent(`When works for you? “Dinner & drinks”: ${pollUrl}`);
   assert.deepEqual(shareLinks('Dinner & drinks', pollUrl), [
-    // Email apps take sms: links out, so the button opens a page on the site that goes on to messages.
-    ['Text message', 'https://venn.example/api/events/abc/sms'],
+    // Straight to messages, like the others; Gmail takes sms: links out, so there's a page for that too.
+    ['Text message', `sms:?&body=${say}`],
     ['WhatsApp', `https://wa.me/?text=${say}`],
     ['Email', `mailto:?subject=Dinner%20%26%20drinks&body=${say}`],
   ]);
@@ -45,6 +45,9 @@ test('emails offer ways to share the poll: a text message, WhatsApp and an email
   for (const [m, line] of emails) {
     for (const label of ['Text message', 'WhatsApp', 'Email']) assert.match(m.html, new RegExp(`>${label}</a>`), label);
     assert.match(m.html, /href="https:\/\/wa\.me\/\?text=/);
+    // The text message opens straight away, with a way round for email apps that take sms: links out.
+    assert.match(m.html, /href="sms:\?&amp;body=/);
+    assert.match(m.html, /href="https:\/\/venn\.example\/api\/events\/abc\/sms"[^>]*>Text it from here</);
     assert.ok(hasLine(m.text, line), line);
   }
   // Titles are escaped in the links' HTML.
@@ -517,12 +520,12 @@ test("an email's Text message button opens the poll's own message, never anythin
   };
   const html = await page('Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X)');
   const body = encodeURIComponent(`When works for you? “Dinner <b>& drinks</b>”: ${base}/e/${data.id}`);
-  // Straight on to messages, with a button in case that can't open, and the message to copy.
-  assert.ok(html.includes(`<meta http-equiv="refresh" content="0;url=sms:&amp;body=${body}">`));
+  // A button to tap, not a redirect: iPhones ask before a page opens Messages by itself, not after a tap.
+  assert.ok(!html.includes('http-equiv="refresh"'));
   assert.ok(html.includes(`href="sms:&amp;body=${body}"`));
   assert.ok(html.includes('Dinner &lt;b&gt;&amp; drinks&lt;/b&gt;'));
   assert.ok(!html.includes('<b>&'));
   assert.ok(html.includes('<meta name="robots" content="noindex">'));
-  assert.match(await page('Mozilla/5.0 (Linux; Android 15)'), /url=sms:\?body=/);
+  assert.match(await page('Mozilla/5.0 (Linux; Android 15)'), /href="sms:\?body=/);
   assert.equal((await fetch(`${base}/api/events/nope/sms`)).status, 404);
 });

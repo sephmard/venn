@@ -188,9 +188,9 @@ const linkLine = (href) =>
 export function shareLinks(title, pollUrl) {
   const say = smsBody(title, pollUrl);
   return [
-    // Gmail, Outlook and others take sms: links out of emails, so this goes through a page on
-    // Venn's own site that opens the phone's messages (smsPage).
-    ['Text message', `${pollUrl.replace('/e/', '/api/events/')}/sms`],
+    // Straight to the phone's messages, in the form both iPhones and Android phones read. Gmail takes
+    // sms: links out of emails, so shareBlock adds a link to a page that opens them (smsPage).
+    ['Text message', `sms:?&body=${encodeURIComponent(say)}`],
     ['WhatsApp', `https://wa.me/?text=${encodeURIComponent(say)}`],
     ['Email', `mailto:?subject=${encodeURIComponent(title)}&body=${encodeURIComponent(say)}`],
   ];
@@ -207,19 +207,21 @@ export function smsHref(body, userAgent = '') {
 }
 
 /**
- * The page an email's "Text message" button opens (GET /api/events/:id/sms): it goes straight on
- * to the phone's messages with the poll's link in, and says what to send if that can't open.
- * Only ever the poll's own title and link, so the page can't be made to say anything else.
+ * For email apps that take the "Text message" button's sms: link out (Gmail): a page on Venn's site
+ * (GET /api/events/:id/sms) with a button that opens the phone's messages with the poll's link in.
+ * The organizer taps it, rather than the page opening Messages by itself, so iPhones don't ask
+ * "Open this page in Messages?" first. Only ever the poll's own title and link, so the page can't
+ * be made to say anything else.
  */
 export function smsPage({ title, pollUrl, userAgent }) {
   const body = smsBody(title, pollUrl);
   const href = escHtml(smsHref(body, userAgent));
   return `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
-<meta name="robots" content="noindex"><meta http-equiv="refresh" content="0;url=${href}"><title>Text the poll · Venn</title></head>
+<meta name="robots" content="noindex"><title>Text the poll · Venn</title></head>
 <body style="margin:0;padding:32px 16px;background:#faf8f4;color:#16181a;font:16px/1.5 system-ui,-apple-system,Segoe UI,Roboto,sans-serif">
 <main style="max-width:480px;margin:0 auto"><h1 style="margin:0 0 8px;font-size:24px">Text the poll</h1>
-<p style="margin:0 0 20px;color:#55585c">Opening your messages with the link filled in…</p>
-<p style="margin:0 0 24px"><a href="${href}" style="display:inline-block;min-height:44px;box-sizing:border-box;padding:12px 22px;border-radius:999px;background:#0b7a5c;color:#fff;font-weight:600;text-decoration:none">Open Messages</a></p>
+<p style="margin:0 0 20px;color:#55585c">Your messages open with the poll's link filled in.</p>
+<p style="margin:0 0 24px"><a href="${href}" style="display:block;min-height:52px;box-sizing:border-box;padding:14px 22px;border-radius:999px;background:#0b7a5c;color:#fff;font-size:18px;font-weight:600;text-align:center;text-decoration:none">Open Messages</a></p>
 <p style="margin:0 0 6px;color:#55585c">Or copy this and send it however you like:</p>
 <p style="margin:0 0 24px;padding:12px 14px;border:1px solid #e4dfd4;border-radius:12px;background:#fff;word-break:break-word">${escHtml(body)}</p>
 <p style="margin:0"><a href="${escHtml(pollUrl)}" style="color:#0b7a5c">Back to the poll</a></p></main></body></html>`;
@@ -228,9 +230,13 @@ export function smsPage({ title, pollUrl, userAgent }) {
 const sharePill = (href, label) =>
   `<a href="${escHtml(href)}" style="display:inline-block;margin:0 6px 8px 0;padding:10px 16px;border:1.5px solid #0b7a5c;border-radius:999px;color:#0b7a5c;text-decoration:none;font-weight:600">${escHtml(label)}</a>`;
 const shareBlock = (title, pollUrl, lead = 'Share the poll') =>
-  `<p style="margin:16px 0 8px;font-weight:700">${escHtml(lead)}</p><p style="margin:0 0 12px">${shareLinks(title, pollUrl)
+  `<p style="margin:16px 0 8px;font-weight:700">${escHtml(lead)}</p><p style="margin:0 0 4px">${shareLinks(title, pollUrl)
     .map(([label, href]) => sharePill(href, label))
-    .join('')}</p>`;
+    .join(
+      '',
+    )}</p><p style="margin:0 0 12px;font-size:13px;color:#6b6d70">Text message not opening (in Gmail, say)? <a href="${escHtml(
+    `${pollUrl.replace('/e/', '/api/events/')}/sms`,
+  )}" style="color:#0b7a5c">Text it from here</a>.</p>`;
 const shareText = (pollUrl) => `Share the poll: send everyone this link: ${pollUrl}`;
 const stopFooter = (unsubscribeUrl) =>
   `You get these emails because you asked Venn to tell you about this poll. <a href="${escHtml(unsubscribeUrl)}" style="color:#6b6d70">Stop these emails</a>.`;
