@@ -20,8 +20,14 @@ crons = []
 #     [[send_email]]                         # the deploy workflow adds this binding when the
 #     name = "EMAIL"                         # CLOUDFLARE_EMAIL repository variable is true
 #   npx wrangler secret put ANTHROPIC_API_KEY  # AI features (see docs/AI.md)
+#   npx wrangler secret put GOOGLE_PLACES_API_KEY  # address search with Google (see docs/SELF-HOSTING.md)
 # Calendar client IDs are public and can go in [vars] (see docs/CALENDARS.md):
 #   GOOGLE_CLIENT_ID, MICROSOFT_CLIENT_ID, MICROSOFT_TENANT
+
+[vars]
+# Address search in "Where" with OpenStreetMap's Photon: free and keyless. Remove it to switch the
+# search off, or set it to "google" with the GOOGLE_PLACES_API_KEY secret.
+PLACES_PROVIDER = "photon"
 
 # Create the database once with:  npx wrangler d1 create venn
 # then paste the database_id it prints below. Tables are created automatically.
