@@ -3,7 +3,7 @@
 
 import { DAY_PARTS, IF_NEEDED, MINUTE, MAX_SPAN_DAYS, YES, addDays, lengthChip, utcToZoned, zonedToUtc } from './core.js';
 import { editBlocks } from './block-edit.js';
-import { isPhone, monthView, timeView } from './picker.js';
+import { isPhone, monthView, timeView, tinyTime } from './picker.js';
 import { $, $$, app, dayLabel, esc, getConfig, lengthLabel, plural, shortRange, shortTime, todayStr, track } from './ui.js';
 
 import {
@@ -45,13 +45,6 @@ const otherOptions = (v) =>
 const timeRange = shortRange;
 // Where the calendar opens for a kind of plan, by its usual part of the day.
 const PART_OPENS = { morning: 480, afternoon: 720, evening: 1020 };
-const h23 = new Intl.DateTimeFormat(undefined, { hour: 'numeric' }).resolvedOptions().hourCycle === 'h23';
-/** A start time that fits a phone's narrow week column: "7p", "7:30p", or "19" with a 24-hour clock. */
-function tinyTime(m) {
-  const h = Math.floor(m / 60) % 24;
-  const mm = m % 60 ? `:${String(m % 60).padStart(2, '0')}` : '';
-  return h23 ? `${h}${mm}` : `${h % 12 || 12}${mm}${h < 12 ? 'a' : 'p'}`;
-}
 
 export function renderPick() {
   document.title = 'Vote on a few dates · Venn';

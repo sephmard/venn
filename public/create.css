@@ -708,11 +708,11 @@ button.emoji-tile:focus-visible {
 .tg-past {
   background-color: var(--surface-2);
 }
-/* Narrow week columns on phones: a short start time ("7p"), at the bottom, clear of the × */
+/* Narrow week columns on phones: a short start time ("7p"), at the top, under the × */
 .tg-narrow .tg-block {
-  padding: 2px;
+  padding: 20px 2px 2px;
   align-items: center;
-  justify-content: flex-end;
+  justify-content: flex-start;
 }
 .tg-narrow .tg-block small,
 .tg-narrow .tg-short + .tg-x-box {
@@ -721,6 +721,15 @@ button.emoji-tile:focus-visible {
 .tg-narrow .tg-block span {
   white-space: nowrap;
   font-size: 0.7rem;
+}
+/* A smaller × in a narrow column, so it doesn't cover the block */
+.tg-narrow .tg-x {
+  top: 1px;
+  right: 1px;
+  width: 18px;
+  height: 18px;
+  border-width: 1px;
+  font-size: 0.75rem;
 }
 /* Under an hour: the grips by the × */
 .create .tg-short {
@@ -819,9 +828,14 @@ button.emoji-tile:focus-visible {
     flex-wrap: wrap;
     justify-content: space-between;
   }
-  .tv-pick {
+  .tv-pick,
+  .create .tv-nav > .tv-label {
     order: -1;
     flex-basis: 100%;
+  }
+  .tg-narrow .tg-block span {
+    font-size: 0.6rem;
+    letter-spacing: -0.03em;
   }
 }
 .tap-key {

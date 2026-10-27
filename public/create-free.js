@@ -15,7 +15,7 @@ import {
   utcToZoned,
   zonedToUtc,
 } from './core.js';
-import { monthView, timeView } from './picker.js';
+import { monthView, timeView, tinyTime } from './picker.js';
 import {
   $,
   $$,
@@ -57,7 +57,9 @@ import {
 
 // ---------- "Ask when people are available" ----------
 
-const HOUR_LENGTHS = [30, 60, 90, 120, 180, 240];
+// Hours are for short plans; longer ones suit parts of the day.
+const HOUR_LENGTHS = [30, 60, 120];
+const fitLength = (v) => HOUR_LENGTHS.findLast((m) => m <= v) ?? HOUR_LENGTHS[0];
 // How detailed guests' answers are, from the broadest to the finest.
 const LEVELS = [
   // Short, so all three fit on one line on a phone.
@@ -137,7 +139,7 @@ export function renderFree() {
       $('#span').value = o.days;
       return setLevel('days');
     }
-    if (typeof o.length === 'number') setLength(o.length);
+    if (typeof o.length === 'number') setLength(fitLength(o.length));
     // Days picked from now on get the plan's usual part of the day.
     if (o.part) st.defaultParts = new Set([o.part]);
     update();
@@ -161,6 +163,12 @@ export function renderFree() {
   }
   function setLength(v) {
     length = v;
+    // An edited poll keeps its own length.
+    if (!$(`[data-flength="${v}"]`))
+      $('[data-flength]').parentElement.insertAdjacentHTML(
+        'beforeend',
+        `<button type="button" class="pill" data-flength="${v}" aria-pressed="false">${lengthLabel(v)}</button>`,
+      );
     for (const b of $$('[data-flength]')) b.setAttribute('aria-pressed', +b.dataset.flength === v);
   }
 
@@ -285,7 +293,7 @@ export function renderFree() {
           cls: w.maybe ? 'opt opt-maybe' : 'opt',
           label: shortRange(w.start, w.end),
           short: shortTime(w.start),
-          tiny: shortTime(w.start),
+          tiny: tinyTime(w.start),
           tag: w.maybe ? 'If needed' : 'Available',
           title: `${shortRange(w.start, w.end)} ${w.maybe ? 'If needed' : 'Available'}, ${dayLabel(w.date)}. Tap to make it ${w.maybe ? 'available' : 'if needed'}`,
           remove: `Remove ${shortRange(w.start, w.end)}, ${dayLabel(w.date)}`,

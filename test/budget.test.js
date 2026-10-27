@@ -32,10 +32,11 @@ const PAGES = {
   // +0.5 each for the "tap again: if needed" key and tip, the same on every calendar.
   // +0.25 on the second for the shared stylesheet's organizer-page styles.
   // +0.25 on the first for the Where field's address search hook (the search itself loads on focus).
-  'vote on a few dates page': ['create-pick.js', ['create.css'], 49.25], // +0.25 for the landing pages' link-only templates, +0.25 for a guest's one-tap own poll
+  // +0.5 each for the calendar's « » a month at a time, and a phone's week that fits seven days.
+  'vote on a few dates page': ['create-pick.js', ['create.css'], 49.75], // +0.25 for the landing pages' link-only templates, +0.25 for a guest's one-tap own poll
   // +0.25 for usage stats, +0.25 for the landing pages' templates, +0.25 for a guest's one-tap own poll
   // (template by emoji) and the day labels that fit.
-  'ask when people are available page': ['create-free.js', ['create.css'], 47.5],
+  'ask when people are available page': ['create-free.js', ['create.css'], 48],
   'poll page': ['event.js', [], 45],
 };
 
