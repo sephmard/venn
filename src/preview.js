@@ -75,7 +75,8 @@ function spanLabel(ev, slots) {
  * images, at a versioned URL so chat apps fetch it again when it changes.
  */
 export function pollPreview(ev) {
-  const title = [ev.emoji, ev.title].filter(Boolean).join(' ');
+  // A poll's own picture is its icon: then its emoji isn't shown as well.
+  const title = [ev.image ? '' : ev.emoji, ev.title].filter(Boolean).join(' ');
   const own = ev.id && ev.image?.card && { path: imagePath(ev.id, ev.image, 'card'), alt: ev.title };
   if (ev.finalStart == null) {
     const who = !ev.hideNames && ev.organizer ? `${ev.organizer} wants to find a time for ${ev.title}.` : 'When works for you?';

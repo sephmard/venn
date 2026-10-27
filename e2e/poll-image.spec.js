@@ -76,12 +76,18 @@ test('organizers give a poll any emoji or their own picture, shown on the poll a
   });
   await expect(tile.locator('img')).toHaveAttribute('src', /^data:image\/jpeg;base64,/);
   await expect(page.getByRole('button', { name: 'Remove picture' })).toBeVisible();
-  // The link preview, as people will see it, with a Finn sticker if they like.
+  // A picture or an emoji, not both: the picture replaces the emoji, and the emoji field steps aside.
+  await expect(page.locator('#icon-emoji')).toBeHidden();
+  await expect(page.locator('#icon-hint')).toHaveText('Your picture is the icon. Remove it to use an emoji instead.');
+  // The link preview, as people will see it: Finn's on it, unless they'd rather not.
   const finn = page.getByRole('group', { name: 'Finn on your link preview' });
-  await expect(finn.getByRole('button', { name: 'No Finn' })).toHaveAttribute('aria-pressed', 'true');
+  await expect(finn.getByRole('button', { name: 'Can’t wait' })).toHaveAttribute('aria-pressed', 'true');
   const preview = page.getByRole('img', { name: "How your poll's link looks when it's shared" });
   await expect(preview).toHaveAttribute('src', /^blob:/);
   const before = await preview.getAttribute('src');
+  await finn.getByRole('button', { name: 'No Finn' }).click();
+  await expect(finn.getByRole('button', { name: 'No Finn' })).toHaveAttribute('aria-pressed', 'true');
+  await expect(preview).not.toHaveAttribute('src', before);
   await finn.getByRole('button', { name: 'Can’t wait' }).click();
   await expect(finn.getByRole('button', { name: 'Can’t wait' })).toHaveAttribute('aria-pressed', 'true');
   await expect(preview).not.toHaveAttribute('src', before);
@@ -93,7 +99,7 @@ test('organizers give a poll any emoji or their own picture, shown on the poll a
     .analyze();
   expect(scan.violations.filter((v) => ['serious', 'critical'].includes(v.impact))).toEqual([]);
   // Escape closes the panel and goes back to the tile.
-  await page.locator('#icon-emoji').press('Escape');
+  await upload.press('Escape');
   await expect(page.locator('#icon-panel')).toHaveCount(0);
   await expect(tile).toBeFocused();
 
@@ -110,7 +116,7 @@ test('organizers give a poll any emoji or their own picture, shown on the poll a
   await expect.poll(() => head.evaluate((img) => img.naturalWidth)).toBe(512);
 
   const ev = await (await request.get(`/api/events/${id}`)).json();
-  expect(ev.emoji).toBe('🎂');
+  expect(ev.emoji).toBeUndefined();
   expect(ev.image).toEqual({ v: expect.any(Number), card: true, type: 'image/jpeg' });
   const icon = await request.get(`/api/events/${id}/icon.jpg?v=${ev.image.v}`);
   expect(icon.headers()['content-type']).toBe('image/jpeg');
@@ -126,7 +132,7 @@ test('organizers give a poll any emoji or their own picture, shown on the poll a
   const html = await (await request.get(`/e/${id}`)).text();
   const ogImage = /<meta property="og:image" content="([^"]+)"/.exec(html)[1];
   expect(ogImage).toMatch(new RegExp(`/api/events/${id}/card\\.jpg\\?v=${ev.image.v}$`));
-  expect(html).toContain('<meta property="og:title" content="🎂 Cake tasting" />');
+  expect(html).toContain('<meta property="og:title" content="Cake tasting" />');
 
   // Editing keeps the picture (with a new card for the new name), until it's removed.
   await page.goto(`/new/pick?edit=${id}`);
@@ -136,11 +142,16 @@ test('organizers give a poll any emoji or their own picture, shown on the poll a
   await expect(page).toHaveURL(`/e/${id}`);
   const edited = await (await request.get(`/api/events/${id}`)).json();
   expect(edited.image.v).toBeGreaterThan(ev.image.v);
-  expect(edited.emoji).toBe('🎂');
+  expect(edited.emoji).toBeUndefined();
 
   await page.goto(`/new/pick?edit=${id}`);
   await page.getByRole('button', { name: 'Change the icon' }).click();
+  await expect(page.locator('#icon-emoji')).toBeHidden();
   await page.getByRole('button', { name: 'Remove picture' }).click();
+  // Without the picture, an emoji can be the icon again.
+  await expect(page.locator('#icon-emoji')).toBeVisible();
+  await expect(page.locator('#icon-emoji')).toBeFocused();
+  await page.fill('#icon-emoji', '🎂');
   await expect(page.locator('#emoji-tile')).toHaveText('🎂');
   await page.click('#submit');
   await expect(page).toHaveURL(`/e/${id}`);
