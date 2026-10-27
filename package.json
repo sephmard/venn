@@ -23,6 +23,7 @@
     "headers": "node scripts/headers.js",
     "icons": "node scripts/icons.js",
     "og": "node scripts/og-image.js",
+    "og:example": "node scripts/preview-example.js",
     "pages": "node scripts/build-pages.js",
     "test:coverage": "node --test --experimental-test-coverage --test-coverage-include=server.js --test-coverage-include='src/**' --test-coverage-include='public/**' --test-coverage-lines=90 --test-coverage-branches=80 --test-coverage-functions=85 test/*.test.js",
     "lint:links": "node scripts/check-links.js",

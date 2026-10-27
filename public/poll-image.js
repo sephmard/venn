@@ -6,7 +6,8 @@
 // small here (512 × 512 JPEG), and a 1200 × 630 card for link previews is drawn with the poll's
 // name. The server stores both (src/images.js) once the poll exists.
 
-import { $, api, esc, toast } from './ui.js';
+import { $, api, esc, save, saved, toast } from './ui.js';
+import { STICKERS } from './finn-moments.js';
 import { firstEmoji } from './emoji.js';
 import { fitText, loadFonts, venn, roundRect } from './share-card.js';
 
@@ -25,6 +26,11 @@ const CSS = `
 .icon-panel input[type=text]{font-size:16px}
 .icon-btns{display:flex;flex-wrap:wrap;gap:8px;margin-top:12px}
 .icon-btns .btn{white-space:normal}
+.icon-finn{margin-top:16px}
+.icon-finn h4{margin:0 0 8px;font-size:.95rem}
+.icon-stickers{display:flex;flex-wrap:wrap;gap:8px}
+.icon-stickers .pill{min-height:44px}
+.icon-preview{display:block;width:100%;height:auto;margin-top:12px;border:1px solid var(--border);border-radius:12px}
 `;
 
 // The panel's state, for the tile on the page now. A new create page starts afresh.
@@ -35,7 +41,8 @@ function state() {
   const tile = $('#emoji-tile');
   // `base` is the emoji the kind of plan gives (or the calendar); `emoji` one the organizer typed.
   // `had`: the poll being edited has a picture, so taking it away deletes it.
-  return (S = { tile, base: tile?.textContent || '🗓️', emoji: '', picture: null, had: false });
+  // `sticker`: the key of the Finn sticker on the link preview, or '' for none.
+  return (S = { tile, base: tile?.textContent || '🗓️', emoji: '', picture: null, had: false, sticker: '' });
 }
 
 /** Show the icon on the tile: the picture, else the emoji they typed, else the plan's. */
@@ -53,6 +60,35 @@ function show() {
     $('#icon-hint').textContent = s.picture
       ? 'Your picture is the icon. Remove it to use an emoji instead.'
       : 'Or use a picture of your own. It shows on the poll and when you share its link.';
+  if ($('#icon-finn')) $('#icon-finn').hidden = !s.picture;
+  preview();
+}
+
+// The stickers that suit a poll still asking ("It's set!" is for once the date is picked).
+export const PREVIEW_STICKERS = STICKERS.filter((x) => x.key !== 'its-set');
+
+/** The sticker choices, as buttons: "No Finn", then each sticker, with `selected` pressed. */
+export function stickerButtons(selected = '') {
+  return [{ key: '', caption: 'No Finn' }, ...PREVIEW_STICKERS]
+    .map(
+      (x) =>
+        `<button type="button" class="pill" data-sticker="${x.key}" aria-pressed="${x.key === selected}">${esc(x.caption)}</button>`,
+    )
+    .join('');
+}
+
+/** Draw the link preview in the panel, as people will see it when the link is shared. */
+let drawing = 0;
+async function preview() {
+  const img = $('#icon-preview');
+  const s = state();
+  if (!img || !s.picture) return;
+  const n = ++drawing;
+  const title = $('#title')?.value.trim() || $('#title')?.placeholder || '';
+  const card = await previewCard(s.picture.blob, title, s.sticker).catch(() => null);
+  if (!card || n !== drawing || !img.isConnected) return;
+  if (img.src.startsWith('blob:')) URL.revokeObjectURL(img.src);
+  img.src = URL.createObjectURL(card);
 }
 
 /** The emoji they typed, or '' for the plan's own. */
@@ -94,7 +130,14 @@ export function toggle() {
       <button type="button" class="btn btn-ghost" id="icon-remove"${s.picture ? '' : ' hidden'}>Remove picture</button>
       <input type="file" id="icon-file" accept="image/*" hidden>
     </div>
-    <p class="field-err" id="icon-err" role="alert"></p>`;
+    <p class="field-err" id="icon-err" role="alert"></p>
+    <div class="icon-finn" id="icon-finn"${s.picture ? '' : ' hidden'}>
+      <h4 id="icon-finn-h">Finn on your link preview</h4>
+      <div class="icon-stickers" role="group" aria-labelledby="icon-finn-h">
+        ${stickerButtons(s.sticker)}
+      </div>
+      <img class="icon-preview" id="icon-preview" width="1200" height="630" alt="How your poll's link looks when it's shared">
+    </div>`;
   s.tile.closest('.title-row').after(panel);
   s.tile.setAttribute('aria-expanded', 'true');
   const input = $('#icon-emoji');
@@ -113,12 +156,26 @@ export function toggle() {
   });
   $('#icon-upload').addEventListener('click', () => $('#icon-file').click());
   $('#icon-file').addEventListener('change', (e) => usePicture(e.target.files?.[0]));
+  panel.querySelector('.icon-stickers').addEventListener('click', (e) => {
+    const b = e.target.closest('[data-sticker]');
+    if (!b) return;
+    s.sticker = b.dataset.sticker;
+    for (const x of panel.querySelectorAll('[data-sticker]')) x.setAttribute('aria-pressed', String(x === b));
+    preview();
+  });
+  // The preview follows the poll's name as it's typed.
+  let typing;
+  $('#title')?.addEventListener('input', () => {
+    clearTimeout(typing);
+    typing = setTimeout(preview, 400);
+  });
   $('#icon-remove').addEventListener('click', () => {
     s.picture = null;
     show();
     $('#icon-emoji').focus();
   });
   show();
+  preview();
   (s.picture ? $('#icon-upload') : input).focus();
 }
 
@@ -243,8 +300,11 @@ export function layoutPreview(measure, title) {
   };
 }
 
-/** Draw the link-preview card (a layout from layoutPreview) with the poll's picture. */
-export function drawPreview(ctx, L, picture) {
+/**
+ * Draw the link-preview card (a layout from layoutPreview) with the poll's picture, and the Finn
+ * `sticker` the organizer chose (a picture from finn-stickers.js) on its corner.
+ */
+export function drawPreview(ctx, L, picture, sticker = null) {
   const { width: W, height: H, tile } = L;
   ctx.fillStyle = '#faf8f4';
   ctx.fillRect(0, 0, W, H);
@@ -272,6 +332,14 @@ export function drawPreview(ctx, L, picture) {
   ctx.clip();
   if (picture) ctx.drawImage(picture, -s / 2 + 14, -s / 2 + 14, s - 28, s - 28);
   ctx.restore();
+  // Finn, stuck on the picture's bottom corner, a little tilted.
+  if (sticker) {
+    ctx.save();
+    ctx.translate(tile.x + tile.size - 30, tile.y + tile.size - 70);
+    ctx.rotate(0.08);
+    ctx.drawImage(sticker, -130, -130, 260, 260);
+    ctx.restore();
+  }
 
   // Venn's mark and name.
   const { x, y, size: m, font } = L.brand;
@@ -297,15 +365,23 @@ export function drawPreview(ctx, L, picture) {
   ctx.fillText(L.line.text, L.line.x, L.line.y);
 }
 
+/** A Finn sticker by its key, ready to draw, or null. */
+export async function stickerPicture(key) {
+  const sticker = key && PREVIEW_STICKERS.find((x) => x.key === key);
+  if (!sticker) return null;
+  const { makeSticker } = await import('./finn-stickers.js');
+  return decode(await makeSticker(sticker));
+}
+
 /** The 1200 × 630 card for the poll's link previews, as a JPEG. */
-async function previewCard(blob, title) {
-  const [picture] = await Promise.all([decode(blob), loadFonts()]);
+async function previewCard(blob, title, stickerKey = '') {
+  const [picture, sticker] = await Promise.all([decode(blob), stickerPicture(stickerKey).catch(() => null), loadFonts()]);
   const [c, ctx] = canvas(CARD.width, CARD.height);
   const measure = (t, font) => {
     ctx.font = font;
     return ctx.measureText(t).width;
   };
-  drawPreview(ctx, layoutPreview(measure, title), picture);
+  drawPreview(ctx, layoutPreview(measure, title), picture, sticker);
   return jpeg(c, CARD_BYTES);
 }
 
@@ -325,6 +401,7 @@ export async function restore(ev, src, custom) {
       const blob = await res.blob();
       s.picture = { blob, url: await dataUrl(blob) };
       s.had = !!src.edit;
+      s.sticker = saved(src.id).sticker || ''; // remembered on this device, when it made the poll
     } catch {} // the poll keeps its picture; it just isn't shown here
   show();
 }
@@ -344,10 +421,11 @@ export async function upload(id, adminToken, title) {
       s.had = false;
       return null;
     }
-    const card = await previewCard(s.picture.blob, title).catch(() => null);
+    const card = await previewCard(s.picture.blob, title, s.sticker).catch(() => null);
     const body = { icon: s.picture.url, ...(card && { card: await dataUrl(card) }) };
     const { image } = await api(`events/${encodeURIComponent(id)}/image`, { method: 'PUT', body, headers });
     s.had = true;
+    save(id, { sticker: s.sticker });
     return image;
   } catch (e) {
     toast(`Your poll is saved, but not its picture: ${e.message}`);
