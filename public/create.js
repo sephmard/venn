@@ -1,25 +1,22 @@
-// The create pages: a chooser, then one of two quite different polls.
+// The create pages' shared parts. There are two quite different polls (the chooser, chooser.js, offers both):
 //   /new/pick  You suggest some dates (and times). Everyone votes on each one.
 //   /new/free  You pick a range of days. Everyone marks when they're available; Venn finds the overlap.
 
-import { isEmail } from './core.js';
+import { IF_NEEDED, YES, isEmail } from './core.js';
 import { TEMPLATES, orderTemplates, templateIndex } from './templates.js';
 import {
   $,
   $$,
   api,
-  app,
   esc,
   getConfig,
   lastEmail,
   lastName,
   localTz,
-  plural,
   rememberEmail,
   rememberName,
   save,
   toast,
-  track,
   tzName,
   tzOptions,
 } from './ui.js';
@@ -84,38 +81,8 @@ export function fillCommon(ev, src) {
   if (src.edit) editing = src.id;
 }
 
-// ---------- chooser ----------
-
 /** ?from=, for usage stats (src/usage.js). */
 export const fromUrl = () => new URLSearchParams(location.search).get('from') || '';
-
-export function renderChooser() {
-  document.title = 'New poll · Venn';
-  // Where they came from, passed on to the form.
-  const from = fromUrl();
-  track('view', { page: 'chooser', ...(from && { from }) });
-  const q = new URLSearchParams([...new URLSearchParams(location.search)].filter(([k]) => /^(title|template|from)$/.test(k)));
-  const carry = q.size ? `?${q}` : '';
-  app.innerHTML = `
-    <section class="chooser">
-      <h1>What kind of poll?</h1>
-      <p class="lede">Two ways to find a date. Pick the one that fits your plans.</p>
-      <div class="choices">
-        <a class="choice" href="/new/pick${esc(carry)}" data-link>
-          <span class="choice-art art-pick" aria-hidden="true"><i>Fri</i><i class="on">Sat</i><i>Sun</i></span>
-          <span class="choice-title">Vote on a few dates</span>
-          <span class="choice-text">You suggest some dates or times. Everyone says yes, if needed or no to each one.</span>
-          <span class="choice-fit">Good for dinners, book clubs and parties</span>
-        </a>
-        <a class="choice" href="/new/free${esc(carry)}" data-link>
-          <span class="choice-art art-free" aria-hidden="true"><i></i><i></i></span>
-          <span class="choice-title">Ask when people are available</span>
-          <span class="choice-text">You pick a range of days. Everyone marks when they're available, and Venn finds the overlap.</span>
-          <span class="choice-fit">Good for trips, or when any day could work</span>
-        </a>
-      </div>
-    </section>`;
-}
 
 // ---------- shared form parts ----------
 
@@ -201,6 +168,14 @@ export const tzLine = () => `
     <p class="hint" id="tz-hint">Everyone sees the times in their own time zone.</p>
   </details>`;
 const showTz = () => ($('#tz-name').textContent = tzName($('#tz').value));
+
+/** New picks are available for the organizer; switched on, if needed instead, to mark many at once. */
+export const brushBox = () => `
+  <details class="reveal tz-line" id="brush-box">
+    <summary><span>Mark many as if needed</span></summary>
+    <label class="switch"><input type="checkbox" role="switch" id="brush"> New ones are if needed for you</label>
+  </details>`;
+export const brush = () => ($('#brush')?.checked ? IF_NEEDED : YES);
 
 // A few little surprises (easter-eggs.js), loaded the first time someone types a name or taps a
 // template several times, never before.
@@ -326,6 +301,11 @@ export async function submit(body, occasion, answer = null) {
 /** Show the email field when this server sends email; the organizer's email is then required. */
 export function showConfig(update) {
   tried = false;
+  // Each thing still needed, named in the sticky bar, goes to its field.
+  $('#summary').onclick = (e) => {
+    const b = e.target.closest('[data-need]');
+    if (b && notReady) go(notReady.bad[b.dataset.need][2]);
+  };
   $('#organizer').addEventListener('input', update);
   getConfig().then((c) => {
     if (!$('#notify-field')) return;
@@ -365,49 +345,59 @@ function flag(el, message) {
 /**
  * Show Create as not ready until the poll can be made, and say what's still missing. It stays a
  * working button (aria-disabled), so keyboard and screen-reader users can reach it and press it to
- * hear why. `checks` are [problem?, message, what to focus, message under the field], in the order
- * of the page: the poll's name first, the organizer's name and email last. The first problem wins.
+ * hear why. `checks` are [problem?, message, what to focus, message under the field, short name],
+ * in the order of the page: the poll's name first, the organizer's name and email last. One problem
+ * is said in full; several by name ("Needed: poll name · options · your name"). Each is a
+ * button that goes to its field.
  */
-let notReady = null; // { message, focus } while something is missing
+let notReady = null; // { key, bad, checks } while something is missing
 let tried = false; // Create was pressed: missing fields say so under them, until they're filled in
 export function setReady(ready, ...checks) {
   checks.sort((a, b) => (b[2] === '#title') - (a[2] === '#title'));
   const bad = checks.filter(([x]) => x);
-  const [, first, focus] = bad[0] || [];
-  const message = first && (bad.length > 1 ? `${first} (and ${plural(bad.length - 1, 'more thing')})` : first);
-  if (message !== notReady?.message) $('#err').textContent = '';
-  notReady = message ? { message, focus, checks } : null;
+  const key = bad.map((c) => c[1]).join();
+  if (key !== notReady?.key) $('#err').textContent = '';
+  notReady = bad.length ? { key, bad, checks } : null;
   markFields(checks);
-  $('#submit').setAttribute('aria-disabled', String(!!message));
-  $('#submit').classList.toggle('not-ready', !!message);
-  if (!$('#err').textContent) $('#summary').textContent = message || ready;
-  $('#summary').classList.toggle('missing', !!message);
+  $('#submit').setAttribute('aria-disabled', String(!!notReady));
+  $('#submit').classList.toggle('not-ready', !!notReady);
+  const need = (i, text) => `<button type="button" class="link-btn" data-need="${i}">${esc(text)}</button>`;
+  const html = !bad.length ? esc(ready) : bad[1] ? `Needed: ${bad.map((c, i) => need(i, c[4])).join(' · ')}` : need(0, bad[0][1]);
+  // Only when it changes, so screen readers don't hear it again with every key pressed.
+  if (!$('#err').textContent && $('#summary').innerHTML !== html) $('#summary').innerHTML = html;
+  $('#summary').classList.toggle('missing', !!notReady);
 }
 const markFields = (checks) => {
   for (const [x, , el, under] of checks) if (under != null && $(el)) flag($(el), tried && x ? under : '');
 };
+/** Go to what's missing: focus it, in the middle of the screen, clear of the sticky bar. */
+function go(focus) {
+  const el = typeof focus === 'function' ? focus() : $(focus);
+  el?.focus({ preventScroll: true });
+  el?.scrollIntoView({ block: 'center' });
+}
 /** Create was pressed before the poll is ready: say what's missing, mark each field, and go to the first. */
 export function explainNotReady() {
   if (!notReady) return false;
   tried = true;
-  const { message, focus, checks } = notReady;
-  markFields(checks);
+  const [[, message, focus]] = notReady.bad;
+  markFields(notReady.checks);
   $('#summary').textContent = '';
   $('#err').textContent = message;
-  const el = typeof focus === 'function' ? focus() : $(focus);
-  el?.focus();
+  go(focus);
   return true;
 }
 export const named = (occasion) => !!($('#title').value.trim() || occasion()?.label);
 /** The form's own checks: the poll's name, then the organizer's name and (when it's needed) email. */
 export const nameAndEmail = (occasion) => [
-  [!named(occasion), 'Give your poll a name to create the poll', '#title', 'Give your poll a name'],
-  [!$('#organizer').value.trim(), 'Add your name to create the poll', '#organizer', 'Add your name'],
+  [!named(occasion), 'Give your poll a name to create the poll', '#title', 'Give your poll a name', 'name'],
+  [!$('#organizer').value.trim(), 'Add your name to create the poll', '#organizer', 'Add your name', 'your name'],
   [
     !!emailMissing(),
     `${emailMissing()}${emailMissing() === 'Add your email' ? ' to create the poll' : ''}`,
     '#notify',
     emailMissing(),
+    'email',
   ],
 ];
 

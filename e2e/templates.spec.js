@@ -63,7 +63,8 @@ test('templates: a row of cards to scroll, the season’s first, that fill in th
   await expect(page.locator('#more-box')).toHaveAttribute('open', '');
   await expect(page.locator('#desc')).toHaveValue(/Potluck!/);
   await expect(page.locator('#location')).toHaveAttribute('placeholder', 'Whose place? Add the address');
-  await expect(page.locator('#other-box summary')).toHaveText('Custom · 4 hours, selected');
+  await expect(page.locator('[data-length="240"]')).toHaveAttribute('aria-pressed', 'true');
+  await expect(page.locator('#other-box summary')).toHaveText('Custom');
   // Another template swaps the note; what someone wrote themselves stays.
   await card(page, 'Secret Santa').click();
   await expect(page.locator('#desc')).toHaveValue(/draw names/);

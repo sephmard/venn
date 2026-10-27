@@ -34,7 +34,8 @@ public/            the whole front end, served as-is
   app.html         app shell, served for /new and /e/:id
   og.png, og-set.png  link-preview images: asking, and once the date is picked
   app.js           router
-  create.js        the create pages' chooser and shared form parts
+  chooser.js       the chooser (/new): which kind of poll
+  create.js        the create pages' shared form parts
   create-pick.js   "vote on a few dates", loaded only on that page
   create-free.js   "ask when people are available", loaded only on that page
   event.js         the poll page: answering, the group's results, organizer tools
@@ -42,6 +43,7 @@ public/            the whole front end, served as-is
   add-to-calendar.js  "Add to your calendar", loaded once a date is picked
   ai-answer.js     "Answer for me" with AI, loaded when a guest opens it
   day-parts.js     answering hours polls by mornings, afternoons and evenings, and "All day"
+  day-answer.js    guests' month calendar for whole-day polls (tap: available, again: if needed), loaded when shown
   celebrate.js     the "Poll created!" celebration
   picker.js        the calendar views: week, day and month, for organizers and guests
   block-edit.js    dragging and removing options on the week, loaded only on the create pages

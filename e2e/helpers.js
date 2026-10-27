@@ -1,5 +1,7 @@
 // Shared steps for the browser tests.
 
+import { expect } from '@playwright/test';
+
 /** The first day of next month, in the browser's time zone, so every day used is in the future. */
 export const nextMonth = (page) =>
   page.evaluate(() => {
@@ -67,17 +69,30 @@ export async function addOptions(page, days, times = [1140]) {
 }
 
 /**
- * Press Submit on a poll. When the answer can go in, confirm "Submit your answer?" and skip the
- * celebration that follows; when something's missing, the error says so and nothing more happens.
+ * As the organizer, open the form for your own answer: on phones the poll starts on the group, and
+ * an answer given with the poll shows as one line until "Change" is pressed.
+ */
+export async function changeAnswer(page) {
+  await page.locator('#panel-mine').waitFor({ state: 'attached' });
+  await expect(page.locator('.party')).toHaveCount(0, { timeout: 10_000 });
+  if (await page.locator('#tab-mine').isVisible()) await page.click('#tab-mine');
+  const change = page.locator('#org-change');
+  if (await change.isVisible()) await change.click();
+}
+
+/**
+ * Press Submit on a poll. When the answer can go in, confirm "Submit your answer?" if it's asked
+ * (only when some options have no answer) and skip the celebration that follows; when something's
+ * missing, the error says so and nothing more happens.
  */
 export async function submit(page) {
   await page.click('#save');
   const yes = page.locator('#submit-check[open] #sc-yes');
   const err = page.locator('#save-err:not(:empty)');
-  await yes.or(err).first().waitFor();
-  if (!(await yes.isVisible())) return;
-  await yes.click();
   const go = page.locator('.party-go');
+  await yes.or(err).or(go).first().waitFor();
+  if (await err.isVisible()) return;
+  if (await yes.isVisible()) await yes.click();
   await go.or(err).first().waitFor();
   if (await go.isVisible()) {
     await go.click();

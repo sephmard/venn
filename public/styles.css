@@ -1418,6 +1418,33 @@ details.organizer summary::before {
 details.organizer summary b {
   font-weight: 750;
 }
+/* The private organizer link, with what it's for beside it. */
+.org-private {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 12px;
+  margin-top: 12px;
+}
+.org-private .hint {
+  margin: 0;
+  flex: 1 1 14em;
+}
+details.organizer > .danger {
+  display: block;
+  margin-top: 4px;
+}
+/* The organizer answers when they create the poll: one line, and "Change" opens the form. */
+#panel-mine.org-compact > :not(.org-answer) {
+  display: none;
+}
+.org-answer {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0 8px;
+  margin: 0;
+}
 .tz-line {
   margin-top: 8px;
   color: var(--muted);
@@ -2172,12 +2199,6 @@ pre.code {
   border-color: var(--maybe);
   color: var(--maybe-ink);
 }
-.pick-brush {
-  display: grid;
-  gap: 6px;
-  margin-bottom: 10px;
-}
-
 /* "Submit your answer?": who it's from and what it says, before it goes in */
 .submit-check {
   width: min(420px, calc(100% - 32px));

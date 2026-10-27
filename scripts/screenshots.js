@@ -173,7 +173,14 @@ async function answerAsSam(page, id) {
   await page.fill('#name', 'Sam');
   // Confirm, then skip the "Answer submitted!" celebration.
   await page.click('#save');
-  await page.click('#sc-yes');
+  // "Submit your answer?" is only asked for a partial answer.
+  await page
+    .locator('#sc-yes')
+    .waitFor({ timeout: 1500 })
+    .then(
+      () => page.click('#sc-yes'),
+      () => {},
+    );
   await page.click('.party-go');
   await page.waitForSelector('.party', { state: 'detached' });
   await page.waitForSelector('.matrix');
@@ -232,7 +239,14 @@ async function stills(dark) {
 
   // Then send it and see the group's best options.
   await phone.click('#save');
-  await phone.click('#sc-yes');
+  // "Submit your answer?" is only asked for a partial answer.
+  await phone
+    .locator('#sc-yes')
+    .waitFor({ timeout: 1500 })
+    .then(
+      () => phone.click('#sc-yes'),
+      () => {},
+    );
   await phone.click('.party-go');
   await phone.waitForSelector('.party', { state: 'detached' });
   await phone.addStyleTag({ content: HIDE_TOAST });
@@ -325,7 +339,7 @@ async function recordDemo() {
   await type('#organizer', 'Priya');
   // Creating celebrates, then opens the poll with the organizer's own answer already in.
   await click('#submit', 5000);
-  await page.waitForSelector('#mine .row');
+  await page.waitForSelector('#best'); // the organizer's own answer is one line now, with the group first
 
   // 2. Others answer (behind the scenes), then pick the winner.
   const id = page.url().split('/e/')[1];
