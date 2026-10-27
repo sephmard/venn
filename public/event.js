@@ -357,6 +357,7 @@ export async function renderEvent(id, navigate) {
   const showTab = (t, focus) => {
     st.tab = t;
     renderTabs();
+    if (t === 'group' && !listMode && !partsMode) showBest();
     if (focus) $(`#tab-${t}`).focus();
   };
   $('.tabs').addEventListener('click', (e) => {
@@ -1332,14 +1333,18 @@ export async function renderEvent(id, navigate) {
       people.filter((p) => p.availability[s] === YES).length,
       people.filter((p) => p.availability[s] === IF_NEEDED).length,
     ];
-    // The overlap: where everyone's available, or failing that, where the most people are.
-    const top = n ? Math.max(0, ...ev().slots.map((s) => counts(s)[0])) : 0;
+    // Ticks: the best times, as long as the poll asks for, as the card above ranks them.
+    const ranked = n ? rankTimes(ev(), ev().slots, people, Infinity) : [];
+    const top = ranked[0];
+    const tied = top ? ranked.filter((b) => b.yes.length === top.yes.length && b.ifNeeded.length === top.ifNeeded.length) : [];
+    const inBest = (s) => tied.some((b) => +s >= b.start && +s < b.end);
+    const all = top?.yes.length === n;
     // Each cell says, in words, what its colours show.
     const groupLabel = (s) => {
       const [yes, maybe] = counts(s);
       const no = n - yes - maybe;
       const when = fmtWhen(s, slotEnd(ev(), s), st.tz);
-      const best = top && yes === top ? (top === n ? ". Everyone's available" : '. The most people available') : '';
+      const best = inBest(s) ? (all ? ". Everyone's available" : '. Part of the best time') : '';
       return `role="img" aria-label="${esc(`${when}: ${yes} of ${n} available${maybe ? `, ${maybe} if needed` : ''}${no ? `, ${no} unavailable` : ''}${best}`)}"`;
     };
     groupEl.innerHTML = gridHtml(
@@ -1347,7 +1352,7 @@ export async function renderEvent(id, navigate) {
         let cls = fs.has(s) ? 'final' : '';
         if (String(s) === String(st.inspect)) cls += ' active';
         if (focus) cls += focus.availability[s] === YES ? ' yes' : focus.availability[s] === IF_NEEDED ? ' maybe' : '';
-        else if (top && counts(s)[0] === top) cls += top === n ? ' best all' : ' best';
+        else if (inBest(s)) cls += all ? ' best all' : ' best';
         return cls;
       },
       groupLabel,
@@ -1366,7 +1371,7 @@ export async function renderEvent(id, navigate) {
       : n
         ? `<span><span class="sw sw-y"></span>Available</span><span><span class="sw sw-m"></span>If needed</span><span><span class="sw sw-nc"></span>Unavailable</span>${
             top
-              ? `<span><span class="sw-best" aria-hidden="true">✓</span>${top === n ? "Everyone's available" : `Most available (${top} of ${n})`}</span>`
+              ? `<span><span class="sw-best" aria-hidden="true">✓</span>${all ? "Everyone's available" : 'Best time'}</span>`
               : ''
           }`
         : '';
@@ -1377,6 +1382,17 @@ export async function renderEvent(id, navigate) {
         renderPeople();
       };
     renderInspect();
+    showBest();
+  }
+
+  /** Once: scroll the first tick into view, if it's past a phone's right edge. */
+  function showBest() {
+    const box = groupEl.parentElement;
+    const cell = $('.cell.best', groupEl);
+    if (st.shownBest || !cell || !box.clientWidth) return;
+    st.shownBest = true;
+    const past = cell.getBoundingClientRect().right - box.getBoundingClientRect().right;
+    if (past > 0) box.scrollLeft += past + 8;
   }
 
   function renderInspect() {
@@ -1413,16 +1429,33 @@ export async function renderEvent(id, navigate) {
     groupEl.addEventListener('click', inspectFrom);
   }
 
+  // A big group: the first few, then "+N more".
+  const PEOPLE_SHOWN = 6;
   function renderPeople() {
     const myId = me()?.id;
-    $('#people').innerHTML = ev()
-      .participants.map((p) => {
-        const canDelete = p.id === myId || ev().isAdmin;
-        return `<span class="chip person${p.id === myId ? ' me' : ''}"><button type="button" class="person-btn" data-person="${esc(p.id)}" aria-pressed="${p.id === st.focus}">${avatar(p.name, 'av-xs')}${esc(p.name)}${p.id === myId ? ' (you)' : ''}</button>${canDelete && p.id !== myId ? `<button type="button" data-remove="${esc(p.id)}" aria-label="Remove ${esc(p.name)}'s answer" title="Remove">×</button>` : ''}</span>`;
-      })
-      .join('');
+    const all = ev().participants;
+    const fold = all.length > PEOPLE_SHOWN + 1;
+    // You, and whoever's on the grid, stay.
+    const shown = fold && !st.allPeople ? all.filter((p, i) => i < PEOPLE_SHOWN || p.id === myId || p.id === st.focus) : all;
+    const more =
+      shown.length < all.length
+        ? `<button type="button" class="link-btn" id="people-more">+${all.length - shown.length} more</button>`
+        : '';
+    $('#people').innerHTML =
+      shown
+        .map((p) => {
+          const canDelete = p.id === myId || ev().isAdmin;
+          return `<span class="chip person${p.id === myId ? ' me' : ''}"><button type="button" class="person-btn" data-person="${esc(p.id)}" aria-pressed="${p.id === st.focus}">${avatar(p.name, 'av-xs')}${esc(p.name)}${p.id === myId ? ' (you)' : ''}</button>${canDelete && p.id !== myId ? `<button type="button" data-remove="${esc(p.id)}" aria-label="Remove ${esc(p.name)}'s answer" title="Remove">×</button>` : ''}</span>`;
+        })
+        .join('') + more;
   }
   $('#people').addEventListener('click', async (e) => {
+    if (e.target.closest('#people-more')) {
+      st.allPeople = true;
+      renderPeople();
+      // Focus moves to the first one that was hidden.
+      return $$('#people .person-btn')[PEOPLE_SHOWN]?.focus();
+    }
     const rm = e.target.closest('[data-remove]');
     if (rm) {
       e.stopPropagation();
@@ -1485,18 +1518,22 @@ export async function renderEvent(id, navigate) {
     // Everyone by their full name, so the organizer knows exactly who can come; long lists fold.
     const names = (b) => {
       const list = [...b.yes.map(esc), ...b.ifNeeded.map((x) => `${esc(x)} <span class="muted">(if needed)</span>`)];
-      const shown = list.length > 9 ? [...list.slice(0, 8), `+${list.length - 8} more`] : list;
-      return list.length ? `<p class="names"><span class="sr-only">Can make it: </span>${shown.join(', ')}</p>` : '';
+      return list.length ? `<p class="names"><span class="sr-only">Can make it: </span>${list.join(', ')}</p>` : '';
     };
     const missing = (b) => (b.no.length ? `<p class="hint">Can't make it: ${b.no.map(esc).join(', ')}</p>` : '');
+    // From 5 people, names are a tap away.
+    const big = n >= 5;
+    const whoList = (b) =>
+      big
+        ? `<details class="reveal who-list"><summary>See who</summary>${names(b)}${missing(b)}</details>`
+        : names(b) + missing(b);
     const lenNote = !optionsMode && ev().durationMinutes > ev().slotMinutes ? ` (${lengthLabel(ev().durationMinutes)})` : '';
     $('#best').innerHTML = `
       ${ev().isAdmin && !guests ? `<p class="hint only-you">Only your answer so far.</p>` : ''}
       <div class="best-hero${ev().finalStart === first.start ? ' final' : ''}">
         <div class="best-when">${bigWhen(first.start, first.end)}${esc(lenNote)}</div>
         <div class="best-who">${avatarStack([...first.yes, ...first.ifNeeded], 7)}<span>${esc(who(first))}</span></div>
-        ${names(first)}
-        ${missing(first)}
+        ${whoList(first)}
         ${pick(first) ? `<div class="btn-row">${pick(first).replace('btn btn-sm', guests ? 'btn btn-primary' : 'btn')}</div>` : ''}
       </div>
       ${
@@ -1507,7 +1544,7 @@ export async function renderEvent(id, navigate) {
                   <div class="grow">
                     <div class="when">${esc(when(b.start, b.end))}</div>
                     <div class="best-who small">${avatarStack([...b.yes, ...b.ifNeeded], 4)}<span>${esc(who(b))}</span></div>
-                    ${names(b)}
+                    ${big ? '' : names(b)}
                   </div>
                   ${pick(b)}
                 </li>`,

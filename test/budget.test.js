@@ -37,7 +37,8 @@ const PAGES = {
   // +0.25 for usage stats, +0.25 for the landing pages' templates, +0.25 for a guest's one-tap own poll
   // (template by emoji) and the day labels that fit.
   'ask when people are available page': ['create-free.js', ['create.css'], 48],
-  'poll page': ['event.js', [], 45],
+  // +0.5 for big groups: "+N more" people, names behind "See who", ticks on whole best times.
+  'poll page': ['event.js', [], 45.5],
 };
 
 for (const [name, [entry, css, PAGE_KB]] of Object.entries(PAGES)) {

@@ -190,6 +190,7 @@ test.describe('on a 320px phone', () => {
     await page.goto('/new/free');
     await page.addStyleTag({ content: "* { font-family: 'DejaVu Sans', Verdana, sans-serif !important }" });
     // Days, Parts of day and Hours each on one line, side by side.
+    await expect(page.locator('[data-level]')).toHaveCount(3);
     const tops = [];
     for (const b of await page.locator('[data-level]').all()) {
       const r = await box(b);
