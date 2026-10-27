@@ -173,8 +173,10 @@ export async function renderEvent(id, navigate) {
         ? 'Only the organizer sees who answered.'
         : '';
   const me = () => ev().participants.find((p) => p.id === saved(id).participantId);
-  // A new poll opens on the organizer's own answer.
-  st.tab = !st.fresh && (me() || (ev().isAdmin && ev().participants.length)) ? 'group' : 'mine';
+  // The organizer starts on the group (where Pick and the results are), with their own answer as one
+  // line until they choose to change it. Guests start on their answer until they've given it.
+  st.tab = ev().isAdmin || me() ? 'group' : 'mine';
+  st.orgCompact = ev().isAdmin && !!me();
 
   // The poll's own picture (poll-image.js), in place of its emoji.
   const picture = ev().image && `/api/events/${encodeURIComponent(id)}/icon.jpg?v=${ev().image.v}`;
@@ -1111,6 +1113,7 @@ export async function renderEvent(id, navigate) {
       }
       await load();
       setDirty(false);
+      if (ev().isAdmin) st.orgCompact = true; // back to one line
       renderAll();
       const sent = `Submitted.${copyTo ? ` A copy is on its way to ${copyTo}.` : ''}`;
       // A party for every answer sent, guests' and the organizer's.
@@ -1453,7 +1456,7 @@ export async function renderEvent(id, navigate) {
     $('#best').innerHTML = `
       ${
         ev().isAdmin && !guests
-          ? `<p class="hint only-you">So far it's only your own answer. <button class="link-btn" data-share>Share the poll</button> to hear from everyone.</p>`
+          ? `<p class="hint only-you">So far it's only your own answer. Share the link to hear from everyone.</p>`
           : ''
       }
       <div class="best-hero${ev().finalStart === first.start ? ' final' : ''}">
@@ -1461,7 +1464,7 @@ export async function renderEvent(id, navigate) {
         <div class="best-who">${avatarStack([...first.yes, ...first.ifNeeded], 7)}<span>${esc(who(first))}</span></div>
         ${names(first)}
         ${missing(first)}
-        ${pick(first) ? `<div class="btn-row">${pick(first).replace('btn btn-sm', 'btn btn-primary')}</div>` : ''}
+        ${pick(first) ? `<div class="btn-row">${pick(first).replace('btn btn-sm', guests ? 'btn btn-primary' : 'btn')}</div>` : ''}
       </div>
       ${
         rest.length
@@ -1667,6 +1670,35 @@ export async function renderEvent(id, navigate) {
     } else link.hidden = true;
     // Guests who just answered are the people most likely to plan the next thing.
     $('#grow').hidden = !mine || ev().isAdmin;
+    if (ev().isAdmin) renderOrgAnswer(mine);
+  }
+
+  /** The organizer's own answer, given with the poll, as one line; "Change" opens the whole form. */
+  function renderOrgAnswer(mine) {
+    const panel = $('#panel-mine');
+    let line = $('#org-answer');
+    if (!line) {
+      line = document.createElement('p');
+      line.className = 'org-answer';
+      line.id = 'org-answer';
+      panel.prepend(line);
+    }
+    const compact = st.orgCompact && !!mine && !st.dirty;
+    panel.classList.toggle('org-compact', compact);
+    line.hidden = !compact;
+    if (!compact) return;
+    const n = (v) => (listMode ? windows.filter((w) => st.mine[w.start] === v).length : hourRuns(v).length);
+    const counts = [n(YES) && `${n(YES)} yes`, n(IF_NEEDED) && `${n(IF_NEEDED)} if needed`].filter(Boolean).join(', ');
+    line.innerHTML = `<span><b>Your answer:</b> ${esc(counts || 'none of these work')}</span>
+      <span aria-hidden="true">·</span>
+      <button type="button" class="link-btn" id="org-change">Change<span class="sr-only"> your answer</span></button>`;
+    $('#org-change').onclick = () => {
+      st.orgCompact = false;
+      renderMeState();
+      const title = $('.panel-title', panel);
+      title.tabIndex = -1;
+      title.focus();
+    };
   }
 
   function renderAll() {

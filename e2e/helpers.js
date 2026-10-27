@@ -1,5 +1,7 @@
 // Shared steps for the browser tests.
 
+import { expect } from '@playwright/test';
+
 /** The first day of next month, in the browser's time zone, so every day used is in the future. */
 export const nextMonth = (page) =>
   page.evaluate(() => {
@@ -64,6 +66,18 @@ export async function tapAt(page, date, minutes) {
 export async function addOptions(page, days, times = [1140]) {
   const first = await nextMonth(page);
   for (let i = 0; i < days; i++) for (const t of times) await tapAt(page, addDays(first, i), t);
+}
+
+/**
+ * As the organizer, open the form for your own answer: on phones the poll starts on the group, and
+ * an answer given with the poll shows as one line until "Change" is pressed.
+ */
+export async function changeAnswer(page) {
+  await page.locator('#panel-mine').waitFor({ state: 'attached' });
+  await expect(page.locator('.party')).toHaveCount(0, { timeout: 10_000 });
+  if (await page.locator('#tab-mine').isVisible()) await page.click('#tab-mine');
+  const change = page.locator('#org-change');
+  if (await change.isVisible()) await change.click();
 }
 
 /**
