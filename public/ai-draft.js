@@ -26,7 +26,8 @@ export function aiDraft(form, load) {
     try {
       const tz = $('#tz').value;
       const draft = await api('ai/draft-poll', { method: 'POST', body: { prompt, timezone: tz } });
-      if (!$('#title').value.trim()) $('#title').value = draft.title;
+      const t = $('#title');
+      if (!t.value.trim() || t.value === t.dataset.seed) t.value = draft.title;
       if (!$('#desc').value.trim() && draft.description) {
         $('#desc').value = draft.description;
         $('#more-box').open = true;
