@@ -1,6 +1,6 @@
 import { readFileSync } from 'node:fs';
 import { test, expect } from '@playwright/test';
-import { addDays, addOptions, nextMonth, showDate, showNextMonth, tapAt, todayIn, submit } from './helpers.js';
+import { addDays, addOptions, changeAnswer, nextMonth, showDate, showNextMonth, tapAt, todayIn, submit } from './helpers.js';
 
 test.beforeEach(async ({ page }) => {
   page.on('dialog', (d) => d.accept());
@@ -41,6 +41,7 @@ test('vote on a few dates: collect votes, pick the final date', async ({ page, r
   const row = (i) => page.locator('#mine .row').nth(i);
   await expect(page.locator('#mine .row[data-v="2"]')).toHaveCount(14);
   await expect(page.locator('#ev-meta')).toContainText('1 person answered');
+  await changeAnswer(page); // the organizer's answer came with the poll
   await page.click('#none');
 
   // The organizer changes it: yes to the first two, no to the third.
@@ -96,6 +97,7 @@ test('a trip: options that last several days become all-day calendar events', as
   await expect(page.locator('#ev-title')).toHaveText('Trip');
   await expect(page.locator('#mine .row').first()).toContainText('–'); // a date range
 
+  await changeAnswer(page); // the organizer's answer came with the poll
   await page.click('#fill');
   await page.fill('#name', 'Sam');
   await submit(page);
@@ -121,6 +123,7 @@ test('ask when people are free: days, looking for a run of days', async ({ page 
 
   await expect(page.locator('#mine .row')).toHaveCount(14);
   await expect(page.locator('#ev-details')).toContainText('Looking for 2 days in a row');
+  await changeAnswer(page); // the organizer's answer came with the poll
   await page.click('#none'); // the organizer starts free on every day they offered
   await page.locator('#mine .row').nth(3).locator('[data-vote="2"]').click();
   await page.locator('#mine .row').nth(4).locator('[data-vote="1"]').click();
@@ -316,6 +319,7 @@ test('ask when people are free: paint hours and see the best time', async ({ pag
   await expect(page.locator('#free-list')).toContainText('9 AM – 12 PM');
   await page.click('#submit');
   await expect(page.locator('#panel-mine h2')).toHaveText('When are you available?');
+  await changeAnswer(page); // the organizer's answer came with the poll
   // Phones start with parts of the day, the quickest way on a small screen; exact times are one tap away.
   // With a mouse, it's exact times.
   await expect(page.locator(`[data-hview="${isMobile ? 'quick' : 'exact'}"]`)).toHaveAttribute('aria-checked', 'true');
@@ -351,6 +355,7 @@ test('ask when people are free: paint hours and see the best time', async ({ pag
 test('page never scrolls sideways', async ({ page }) => {
   await startPick(page, 'Width check', [600, 780, 1140]);
   await page.click('#submit');
+  await changeAnswer(page); // the organizer's answer came with the poll
   await page.click('#fill');
   await page.fill('#name', 'Sam');
   await submit(page);
@@ -668,6 +673,7 @@ test('phone: no zoom on focus, tap targets, tap-to-pick dates, Save always in re
   await page.fill('#title', 'Long poll');
   await addOptions(page, 7, [600, 780, 1140]);
   await page.click('#submit');
+  await changeAnswer(page);
   await page.locator('#mine .row').first().locator('[data-vote="2"]').tap();
   // Answering one shows Save in reach, and how far along the answer is.
   await expect(page.locator('#save-state')).toContainText('1 of 21 answered');
@@ -968,7 +974,7 @@ test('organizer privacy: required emails, hidden names, then hidden answers', as
   await page.getByRole('switch', { name: 'Hide names from guests' }).check();
   await page.click('#submit');
   await page.getByRole('button', { name: 'View poll' }).click();
-  await expect(page.locator('#mine .row').first()).toBeVisible();
+  await expect(page.locator('#mine .row')).toHaveCount(7);
   const url = page.url();
 
   // Two guests answer. Each must give an email, and sees the others only as "Guest 1, 2…".
@@ -1168,6 +1174,7 @@ test("the organizer link on another device finds the organizer's own answer", as
   await page.click('#submit');
   await openNewPoll(page);
   // The organizer answers on this device.
+  await changeAnswer(page);
   await page.locator('#mine .row').first().locator('[data-vote="2"]').click();
   await submit(page);
   const url = page.url();
@@ -1176,7 +1183,7 @@ test("the organizer link on another device finds the organizer's own answer", as
   await other.goto(`${url}#admin=${token}`);
   await expect(other.locator('#edit-link')).toContainText('Answering as Sam.');
   await expect(other.locator('#edit-link')).not.toContainText('personal link');
-  if (await other.locator('#tab-mine').isVisible()) await other.click('#tab-mine');
+  await changeAnswer(other);
   await other.locator('#mine .row').first().locator('[data-vote="0"]').click();
   await submit(other);
   await expect(other.locator('#save-state')).toHaveText('Submitted');
@@ -1244,6 +1251,7 @@ test('AI: describe a poll in words, then summarize and write messages as the org
 
   await page.click('#submit');
   await expect(page.locator('#mine .row')).toHaveCount(3);
+  await changeAnswer(page);
   await page.locator('#mine .row').first().locator('[data-vote="2"]').click();
   await page.fill('#name', 'Sam');
   await submit(page);
@@ -1569,6 +1577,74 @@ test('ask when people are free: zoom from whole days to parts of the day to hour
   await expect(page.locator('#summary')).toHaveText('5 times to choose from');
   await page.click('#submit');
   await expect(page.locator('.part-vote')).toHaveCount(5);
+});
+
+test('on a phone, a new poll leads with sharing: one share button, the group, and the answer as one line', async ({
+  page,
+  browser,
+}) => {
+  await page.setViewportSize({ width: 375, height: 812 });
+  await startPick(page, 'Book club');
+  await page.click('#submit');
+  await openNewPoll(page);
+  await expect(page.locator('#ev-title')).toHaveText('Book club');
+  await expect(page.locator('.finn[data-finn="waiting"]')).toBeVisible();
+
+  // One way to share on the page: the big button at the top. Finn's note doesn't add another.
+  const share = page.locator('button:visible', { hasText: /^(Share the poll|Copy invite link)$/ });
+  await expect(share).toHaveCount(1);
+  await expect(share).toHaveId('copy');
+  await expect(share).toHaveClass(/btn-primary/);
+  await expect(page.locator('.finn [data-share]')).toHaveCount(0);
+
+  // The organizer's tools are open, short: one line, the buttons, and what the private link is for.
+  const tools = page.locator('details.organizer');
+  await expect(tools).toHaveAttribute('open', '');
+  await expect(tools.locator('summary')).toHaveText(/^Your poll is ready\. Share the link with your group\.$/);
+  await expect(tools.locator('#notify-open')).not.toHaveClass(/btn-primary/);
+  await expect(tools.getByRole('button', { name: 'Copy private organizer link' })).toHaveAccessibleDescription(
+    /another device\. Don't share it/,
+  );
+
+  // It opens on the group, where Pick and the results are.
+  await expect(page.locator('#tab-group')).toHaveAttribute('aria-selected', 'true');
+  await expect(page.locator('#panel-group')).toBeVisible();
+  await expect(page.locator('#best .only-you')).toContainText("So far it's only your own answer");
+
+  // Their own answer, given with the poll, is one line until they change it.
+  await page.click('#tab-mine');
+  await expect(page.locator('#org-answer')).toHaveText(/^Your answer: 7 yes\s*·\s*Change your answer$/);
+  for (const hidden of ['#mine', '#name', '#save', '#leave']) await expect(page.locator(hidden)).toBeHidden();
+  await page.getByRole('button', { name: 'Change your answer' }).click();
+  await expect(page.locator('#org-answer')).toBeHidden();
+  await expect(page.locator('#panel-mine .panel-title')).toBeFocused();
+  for (const shown of ['#mine', '#name', '#save', '#leave']) await expect(page.locator(shown)).toBeVisible();
+  await expect(page.locator('#name')).toHaveValue('Sam');
+
+  // A changed answer goes back to one line.
+  await page.click('#none');
+  await page.locator('#mine .row').nth(0).locator('[data-vote="2"]').click();
+  await page.locator('#mine .row').nth(1).locator('[data-vote="1"]').click();
+  await submit(page);
+  await page.click('#tab-mine');
+  await expect(page.locator('#org-answer')).toHaveText(/^Your answer: 1 yes, 1 if needed\s*·\s*Change your answer$/);
+
+  // Coming back later, the tools are folded away and it's still the group first.
+  await page.reload();
+  await expect(page.locator('#ev-title')).toHaveText('Book club');
+  await expect(page.locator('details.organizer')).not.toHaveAttribute('open', '');
+  await expect(page.locator('details.organizer summary')).toContainText("You're the organizer.");
+  await expect(page.locator('#tab-group')).toHaveAttribute('aria-selected', 'true');
+
+  // A guest still starts on their own answer, with the whole form.
+  const guest = await browser.newContext({ viewport: { width: 375, height: 812 } });
+  const g = await guest.newPage();
+  await g.goto(page.url());
+  await expect(g.locator('#tab-mine')).toHaveAttribute('aria-selected', 'true');
+  await expect(g.locator('#save')).toBeVisible();
+  await expect(g.locator('#org-answer')).toHaveCount(0);
+  await expect(g.locator('details.organizer')).toHaveCount(0);
+  await guest.close();
 });
 
 // ---------- the picked date, sharing, and answering one way at a time ----------

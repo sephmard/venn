@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test';
-import { addOptions, showNextMonth, submit } from './helpers.js';
+import { addOptions, changeAnswer, showNextMonth, submit } from './helpers.js';
 import AxeBuilder from '@axe-core/playwright';
 
 // Automated accessibility checks (WCAG 2.2 A/AA rules from axe) on every main screen, in light and
@@ -135,6 +135,7 @@ for (const scheme of ['light', 'dark']) {
       await page.fill('#title', 'Accessibility check');
       await addOptions(page, 2);
       await page.click('#submit');
+      await changeAnswer(page);
       await page.locator('#mine .row').first().locator('[data-vote="2"]').click();
       await page.locator('#mine .row').nth(1).locator('[data-vote="1"]').click();
       await audit(page, 'event page (answering)');
@@ -151,6 +152,27 @@ for (const scheme of ['light', 'dark']) {
       await expect(page.locator('#notify-form')).toBeVisible();
       await page.locator('.dev summary').click();
       await audit(page, 'event page (organizer)');
+    });
+
+    test('a new poll on a phone, as organizer: the group first, and their answer as one line', async ({ page }) => {
+      await page.setViewportSize({ width: 375, height: 812 });
+      await page.emulateMedia({ reducedMotion: 'reduce' });
+      await page.goto('/new/pick');
+      await page.fill('#organizer', 'Sam');
+      await page.fill('#title', 'Phone check');
+      await addOptions(page, 2);
+      await page.click('#submit');
+      await page.getByRole('button', { name: /^(View poll|Open .+ →)$/ }).click();
+      await expect(page.locator('details.organizer')).toHaveAttribute('open', '');
+      await expect(page.locator('#tab-group')).toHaveAttribute('aria-selected', 'true');
+      await expect(page.locator('.finn [role=status]')).not.toBeEmpty();
+      await audit(page, 'new poll on a phone (organizer, the group)');
+      await page.click('#tab-mine');
+      await expect(page.locator('#org-answer')).toBeVisible();
+      await audit(page, 'new poll on a phone (organizer, their answer in one line)');
+      await page.getByRole('button', { name: 'Change your answer' }).click();
+      await expect(page.locator('#save')).toBeVisible();
+      await audit(page, 'new poll on a phone (organizer, changing their answer)');
     });
 
     test('Finn: a note on the poll, and the sticker sheet', async ({ page }) => {
@@ -172,6 +194,7 @@ for (const scheme of ['light', 'dark']) {
       await page.fill('#title', 'Days check');
       await page.click('#q-2w');
       await page.click('#submit');
+      await changeAnswer(page);
       await expect(page.locator('#mine .row').first()).toBeVisible();
       await audit(page, 'days poll');
       await page.goto('/new/free');
@@ -180,6 +203,7 @@ for (const scheme of ['light', 'dark']) {
       await page.click('[data-level="hours"]');
       await page.click('[data-fill="3"]');
       await page.click('#submit');
+      await changeAnswer(page);
       await expect(page.locator('[data-hview="quick"]')).toBeVisible({ timeout: 10_000 }); // after the celebration
       await page.click('[data-hview="quick"]');
       await page.locator('#quick-hours .part-vote').first().click();
