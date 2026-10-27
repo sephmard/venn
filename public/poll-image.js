@@ -58,7 +58,17 @@ function show() {
 }
 
 // The stickers that suit a poll still asking ("It's set!" is for once the date is picked).
-const PREVIEW_STICKERS = STICKERS.filter((x) => x.key !== 'its-set');
+export const PREVIEW_STICKERS = STICKERS.filter((x) => x.key !== 'its-set');
+
+/** The sticker choices, as buttons: "No Finn", then each sticker, with `selected` pressed. */
+export function stickerButtons(selected = '') {
+  return [{ key: '', caption: 'No Finn' }, ...PREVIEW_STICKERS]
+    .map(
+      (x) =>
+        `<button type="button" class="pill" data-sticker="${x.key}" aria-pressed="${x.key === selected}">${esc(x.caption)}</button>`,
+    )
+    .join('');
+}
 
 /** Draw the link preview in the panel, as people will see it when the link is shared. */
 let drawing = 0;
@@ -115,12 +125,7 @@ export function toggle() {
     <div class="icon-finn" id="icon-finn"${s.picture ? '' : ' hidden'}>
       <h4 id="icon-finn-h">Finn on your link preview</h4>
       <div class="icon-stickers" role="group" aria-labelledby="icon-finn-h">
-        ${[{ key: '', caption: 'No Finn' }, ...PREVIEW_STICKERS]
-          .map(
-            (x) =>
-              `<button type="button" class="pill" data-sticker="${x.key}" aria-pressed="${x.key === s.sticker}">${esc(x.caption)}</button>`,
-          )
-          .join('')}
+        ${stickerButtons(s.sticker)}
       </div>
       <img class="icon-preview" id="icon-preview" width="1200" height="630" alt="How your poll's link looks when it's shared">
     </div>`;
@@ -347,7 +352,7 @@ export function drawPreview(ctx, L, picture, sticker = null) {
 }
 
 /** A Finn sticker by its key, ready to draw, or null. */
-async function stickerPicture(key) {
+export async function stickerPicture(key) {
   const sticker = key && PREVIEW_STICKERS.find((x) => x.key === key);
   if (!sticker) return null;
   const { makeSticker } = await import('./finn-stickers.js');
