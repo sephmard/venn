@@ -2896,3 +2896,68 @@ test("everyone's answers: each time shows its mix of available, if needed and un
   await expect(page.locator('#legend')).toContainText('If needed');
   await expect(page.locator('#legend')).toContainText('Unavailable');
 });
+
+test('a big group: a few people then "+N more", names a tap away, and ticks on the best times only', async ({
+  page,
+  request,
+  isMobile,
+}) => {
+  // Six evenings, 6 to 8pm UTC, looking for 2 hours. Everyone can make the whole of the last one;
+  // on the first, everyone's free for half an hour only, which isn't long enough.
+  const dates = ['2030-01-07', '2030-01-08', '2030-01-09', '2030-01-10', '2030-01-11', '2030-01-12'];
+  const { id } = await (
+    await request.post('/api/events', {
+      data: {
+        title: 'Book club',
+        timezone: 'UTC',
+        dates,
+        startMinute: 1080,
+        endMinute: 1200,
+        slotMinutes: 30,
+        durationMinutes: 120,
+      },
+    })
+  ).json();
+  const { slots } = await (await request.get(`/api/events/${id}`)).json();
+  const day = (s) => new Date(s).toISOString().slice(0, 10);
+  const firstHalfHour = slots[0];
+  const names = ['Ana', 'Ben', 'Cai', 'Dee', 'Eli', 'Fay', 'Gus', 'Hal', 'Ivy', 'Jo'];
+  for (const [i, name] of names.entries()) {
+    const availability = Object.fromEntries(
+      slots.filter((s) => day(s) === dates[5] || s === firstHalfHour || (i % 2 && day(s) === dates[2])).map((s) => [s, 2]),
+    );
+    await request.post(`/api/events/${id}/participants`, { data: { name, availability } });
+  }
+
+  await page.goto(`/e/${id}`);
+  if (isMobile) await page.click('#tab-group');
+  // Six people, then "+4 more", which opens the rest.
+  await expect(page.locator('#people .chip.person')).toHaveCount(6);
+  await page.getByRole('button', { name: '+4 more' }).click();
+  await expect(page.locator('#people .chip.person')).toHaveCount(10);
+  await expect(page.locator('#people-more')).toHaveCount(0);
+  await expect(page.locator('#people .person-btn').nth(6)).toBeFocused();
+
+  // The best time says the count; the names are behind "See who".
+  const hero = page.locator('.best-hero');
+  await expect(hero).toContainText('Everyone can make it');
+  await expect(hero.locator('.names')).toBeHidden();
+  await hero.getByText('See who').click();
+  await expect(hero.locator('.names')).toBeVisible();
+  await expect(page.locator('ol.best .names')).toHaveCount(0);
+
+  // Only the 2 hours everyone can make are ticked, not the lone half hour on the first evening.
+  await expect(page.locator('#group .cell.best.all')).toHaveCount(4);
+  for (const cell of await page.locator('#group .cell.best').all())
+    expect(day(+(await cell.getAttribute('data-slot')))).toBe(dates[5]);
+  await expect(page.locator(`#group .cell[data-slot="${firstHalfHour}"]`)).not.toHaveClass(/\bbest\b/);
+  await expect(page.locator('#legend')).toContainText("Everyone's available");
+
+  // On a phone the ticked evening, at the far right, is scrolled into view.
+  if (isMobile) {
+    const tick = await page.locator('#group .cell.best').first().boundingBox();
+    const view = await page.locator('#panel-group .grid-scroll').boundingBox();
+    expect(tick.x).toBeGreaterThanOrEqual(view.x);
+    expect(tick.x + tick.width).toBeLessThanOrEqual(view.x + view.width + 1);
+  }
+});
