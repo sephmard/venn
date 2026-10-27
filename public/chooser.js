@@ -17,17 +17,17 @@ export function renderChooser() {
       <h1>What kind of poll?</h1>
       <p class="lede">Two ways to find a date. Pick the one that fits your plans.</p>
       <div class="choices">
-        <a class="choice" href="/new/pick${esc(carry)}" data-link>
-          <span class="choice-art art-pick" aria-hidden="true"><i>Fri</i><i class="on">Sat</i><i>Sun</i></span>
-          <span class="choice-title">Vote on a few dates</span>
-          <span class="choice-text">You suggest some dates or times. Everyone says yes, if needed or no to each one.</span>
-          <span class="choice-fit">Good for dinners, book clubs and parties</span>
-        </a>
         <a class="choice" href="/new/free${esc(carry)}" data-link>
           <span class="choice-art art-free" aria-hidden="true"><i></i><i></i></span>
           <span class="choice-title">Ask when people are available</span>
           <span class="choice-text">You pick a range of days. Everyone marks when they're available, and Venn finds the overlap.</span>
           <span class="choice-fit">Good for trips, or when any day could work</span>
+        </a>
+        <a class="choice" href="/new/pick${esc(carry)}" data-link>
+          <span class="choice-art art-pick" aria-hidden="true"><i>Fri</i><i class="on">Sat</i><i>Sun</i></span>
+          <span class="choice-title">Vote on a few dates</span>
+          <span class="choice-text">You suggest some dates or times. Everyone says yes, if needed or no to each one.</span>
+          <span class="choice-fit">Good for dinners, book clubs and parties</span>
         </a>
       </div>
     </section>`;
