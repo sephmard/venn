@@ -1251,6 +1251,7 @@ export async function renderEvent(id, navigate) {
     const n = people.length;
     if (!n) return (groupEl.innerHTML = '');
     const parts = DAY_PARTS.filter((p) => windows.some((w) => partOf(w.start, w.end, ev().timezone)?.key === p.key));
+    const top = Math.max(0, ...windows.map((w) => people.filter((x) => x.availability[w.start] === YES).length));
     const rows = [...byDay()]
       .map(([d, ws]) => {
         const cells = parts
@@ -1260,7 +1261,7 @@ export async function renderEvent(id, navigate) {
             const yes = people.filter((x) => x.availability[w.start] === YES).length;
             const maybe = people.filter((x) => x.availability[w.start] === IF_NEEDED).length;
             const no = n - yes - maybe;
-            const label = `${when(w.start, w.end)}: ${yes} of ${n} available${maybe ? `, ${maybe} if needed` : ''}${no ? `, ${no} unavailable` : ''}`;
+            const label = `${when(w.start, w.end)}: ${yes} of ${n} available${maybe ? `, ${maybe} if needed` : ''}${no ? `, ${no} unavailable` : ''}${yes === n ? ". Everyone's available" : ''}`;
             // The bar under the number: available, if needed and unavailable, in their colours.
             const bar = [
               ['y', yes],
@@ -1270,7 +1271,9 @@ export async function renderEvent(id, navigate) {
               .filter(([, k]) => k)
               .map(([c, k]) => `<i class="${c}" style="flex:${k}"></i>`)
               .join('');
-            return `<td><button type="button" class="heat-btn${String(w.start) === String(st.inspect) ? ' active' : ''}${w.start === ev().finalStart ? ' final' : ''}" data-inspect="${w.start}" style="--a:${((yes + maybe / 2) / n).toFixed(2)}" aria-label="${esc(label)}">${yes + maybe}<span class="heat-bar" aria-hidden="true">${bar}</span></button></td>`;
+            // Where everyone's available, solid green with a tick; the most available, outlined.
+            const best = yes === n ? ' all' : yes && yes === top ? ' best' : '';
+            return `<td><button type="button" class="heat-btn${best}${String(w.start) === String(st.inspect) ? ' active' : ''}${w.start === ev().finalStart ? ' final' : ''}" data-inspect="${w.start}" aria-label="${esc(label)}">${yes === n ? '✓ ' : ''}${yes + maybe}<span class="heat-bar" aria-hidden="true">${bar}</span></button></td>`;
           })
           .join('');
         return `<tr><th scope="row">${esc(fmtDay.format(dateParts(d)))}</th>${cells}</tr>`;
@@ -1325,37 +1328,47 @@ export async function renderEvent(id, navigate) {
     const fs = finalSet();
     const focus = people.find((p) => p.id === st.focus);
     groupEl.style.gridTemplateColumns = gridCols(LG);
-    // Each heatmap cell says, in words, what its colour shows.
+    const counts = (s) => [
+      people.filter((p) => p.availability[s] === YES).length,
+      people.filter((p) => p.availability[s] === IF_NEEDED).length,
+    ];
+    // The overlap: where everyone's available, or failing that, where the most people are.
+    const top = n ? Math.max(0, ...ev().slots.map((s) => counts(s)[0])) : 0;
+    // Each cell says, in words, what its colours show.
     const groupLabel = (s) => {
-      const yes = people.filter((p) => p.availability[s] === YES).length;
-      const maybe = people.filter((p) => p.availability[s] === IF_NEEDED).length;
+      const [yes, maybe] = counts(s);
+      const no = n - yes - maybe;
       const when = fmtWhen(s, slotEnd(ev(), s), st.tz);
-      return `role="img" aria-label="${esc(`${when}: ${yes} of ${n} available${maybe ? `, ${maybe} if needed` : ''}`)}"`;
+      const best = top && yes === top ? (top === n ? ". Everyone's available" : '. The most people available') : '';
+      return `role="img" aria-label="${esc(`${when}: ${yes} of ${n} available${maybe ? `, ${maybe} if needed` : ''}${no ? `, ${no} unavailable` : ''}${best}`)}"`;
     };
     groupEl.innerHTML = gridHtml(
       (s) => {
         let cls = fs.has(s) ? 'final' : '';
         if (String(s) === String(st.inspect)) cls += ' active';
         if (focus) cls += focus.availability[s] === YES ? ' yes' : focus.availability[s] === IF_NEEDED ? ' maybe' : '';
+        else if (top && counts(s)[0] === top) cls += top === n ? ' best all' : ' best';
         return cls;
       },
       groupLabel,
       LG,
     );
-    if (!focus)
+    // Each cell shows its mix, in proportion: available, if needed, then unavailable.
+    if (!focus && n)
       for (const el of $$('.cell[data-slot]', groupEl)) {
-        const s = el.dataset.slot;
-        let score = 0;
-        for (const p of people) score += p.availability[s] === YES ? 1 : p.availability[s] === IF_NEEDED ? 0.5 : 0;
-        if (score > 0) el.style.background = `rgba(var(--heat), ${0.15 + 0.85 * (score / n)})`;
+        const [yes, maybe] = counts(el.dataset.slot);
+        const a = (100 * yes) / n;
+        const b = (100 * (yes + maybe)) / n;
+        el.style.background = `linear-gradient(90deg, var(--yes) ${a}%, var(--maybe) ${a}% ${b}%, var(--no-cell) ${b}%)`;
       }
-    const scale = [0.2, 0.4, 0.6, 0.8, 1]
-      .map((a) => `<span style="background:rgba(var(--heat),${0.15 + 0.85 * a})"></span>`)
-      .join('');
     $('#legend').innerHTML = focus
       ? `<span>Showing <b>${esc(focus.name)}</b></span><span><span class="swatch swatch-yes"></span> available</span><span><span class="swatch swatch-maybe"></span> if needed</span><button class="link-btn" id="unfocus">Show everyone</button>`
       : n
-        ? `<span>0/${n}</span><span class="heat-scale">${scale}</span><span>${n}/${n} available</span>`
+        ? `<span><span class="sw sw-y"></span>Available</span><span><span class="sw sw-m"></span>If needed</span><span><span class="sw sw-nc"></span>Unavailable</span>${
+            top
+              ? `<span><span class="sw-best" aria-hidden="true">✓</span>${top === n ? "Everyone's available" : `Most available (${top} of ${n})`}</span>`
+              : ''
+          }`
         : '';
     if ($('#unfocus'))
       $('#unfocus').onclick = () => {
