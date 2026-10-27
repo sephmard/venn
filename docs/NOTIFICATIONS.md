@@ -24,9 +24,12 @@ When email is on, the poll page asks people who answer for their email, as an op
 
 Every provider needs the address emails come from. It must be on a domain the provider has verified, and doesn't need to be a real inbox:
 
-| Setting      | Example                            |
-| ------------ | ---------------------------------- |
-| `EMAIL_FROM` | `Venn <notifications@example.com>` |
+| Setting          | Example                            |
+| ---------------- | ---------------------------------- |
+| `EMAIL_FROM`     | `Venn <notifications@example.com>` |
+| `EMAIL_REPLY_TO` | `Venn <hello@example.com>`         |
+
+`EMAIL_REPLY_TO` is optional: where replies go. Use an address someone reads (on Cloudflare, [Email Routing](https://developers.cloudflare.com/email-routing/) can forward one to your own inbox). Mail apps trust a sender more when people can write back. Set it the same way as `EMAIL_FROM`.
 
 Then set up one provider. If several are set up, the first in this list is used, or the one named by `EMAIL_PROVIDER` (`cloudflare` or `resend`).
 
@@ -84,12 +87,14 @@ A new sending domain has no reputation yet, so the first emails can land in spam
 - Mark the email **Not spam** and add the sender to your contacts. Mail apps learn from this.
 - Check that the domain passes SPF, DKIM and DMARC: in Gmail, open the email, then **⋮ → Show original**. Each should say `PASS`.
 - Keep a DMARC record on the domain, for example `v=DMARC1; p=quarantine; rua=mailto:dmarc@example.com`, to get reports on what's failing.
-- Send from a stable address, such as `notifications@`, with a clear name in `EMAIL_FROM`.
+- Send from a stable address, such as `notifications@`, with a clear name in `EMAIL_FROM`, and set `EMAIL_REPLY_TO` to an inbox someone reads.
+- Watch your domain's reputation with Gmail in [Google Postmaster Tools](https://postmaster.google.com/). It shows data once a domain sends enough mail to Gmail each day.
 
 ### How email stays safe
 
 - **A cap per poll.** Addresses aren't confirmed, so a poll sends the organizer at most 200 emails. That keeps a poll from being used to flood someone else's inbox.
-- **One-click unsubscribe.** Every notification includes an unsubscribe link, plus a `List-Unsubscribe` header that mail apps show as a button.
+- **One-click unsubscribe.** Every email has `List-Unsubscribe` and `List-Unsubscribe-Post` headers, which mail apps show as their own unsubscribe button and which Gmail and Yahoo expect. The button stops that person's emails about the poll in one tap. Organizer emails also have a "Stop these emails" link.
+- **Few links.** Each email has the one button it's for, the poll's link to copy, and little else. Emails full of links look like marketing to spam filters.
 - **Scanner-safe links.** Unsubscribe links open the poll page, which finishes the action. Security scanners that pre-open links in emails can't trigger them by accident.
 - **No inbox flooding.** If the same person edits their answers several times within 10 minutes, the organizer gets one email.
 

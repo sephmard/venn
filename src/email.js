@@ -3,6 +3,7 @@
 //
 // Each provider says whether its settings are present and how to send one message:
 //   { to, subject, text, html, headers }  →  resolves when accepted, throws otherwise
+// EMAIL_REPLY_TO, when set, is where replies go (a real inbox, so people can write back).
 // To add a provider (Postmark, SES, an SMTP relay behind an HTTP API, ...), add an entry below and
 // document its settings in docs/NOTIFICATIONS.md. `EMAIL_PROVIDER` picks one when several are set up.
 
@@ -20,7 +21,8 @@ export const EMAIL_PROVIDERS = [
     name: 'cloudflare',
     configured: (env) => typeof env.EMAIL?.send === 'function',
     async send(env, { to, subject, text, html, headers }) {
-      await env.EMAIL.send({ from: parseAddress(env.EMAIL_FROM), to, subject, text, html, headers });
+      const replyTo = env.EMAIL_REPLY_TO && parseAddress(env.EMAIL_REPLY_TO);
+      await env.EMAIL.send({ from: parseAddress(env.EMAIL_FROM), ...(replyTo && { replyTo }), to, subject, text, html, headers });
     },
   },
   {
@@ -32,7 +34,15 @@ export const EMAIL_PROVIDERS = [
         method: 'POST',
         signal: AbortSignal.timeout(TIMEOUT_MS),
         headers: { authorization: `Bearer ${env.RESEND_API_KEY}`, 'content-type': 'application/json' },
-        body: JSON.stringify({ from: env.EMAIL_FROM, to: [to], subject, text, html, headers }),
+        body: JSON.stringify({
+          from: env.EMAIL_FROM,
+          ...(env.EMAIL_REPLY_TO && { reply_to: env.EMAIL_REPLY_TO }),
+          to: [to],
+          subject,
+          text,
+          html,
+          headers,
+        }),
       });
       if (!res.ok) throw new Error(`Email service responded with ${res.status}`);
     },

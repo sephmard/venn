@@ -38,6 +38,19 @@ test('sends through the Cloudflare binding with a named sender', async () => {
   assert.deepEqual(EMAIL.sent, [{ from: { name: 'Venn', email: 'notify@venn.day' }, ...message }]);
 });
 
+test('replies go to EMAIL_REPLY_TO when it is set, with either provider', async () => {
+  const EMAIL = binding();
+  await sendEmail({ EMAIL_FROM: 'notify@venn.day', EMAIL_REPLY_TO: 'Venn <hello@venn.day>', EMAIL }, message);
+  assert.deepEqual(EMAIL.sent[0].replyTo, { name: 'Venn', email: 'hello@venn.day' });
+  const bodies = [];
+  const fetchImpl = async (_url, init) => (bodies.push(JSON.parse(init.body)), new Response('{}', { status: 200 }));
+  const env = { EMAIL_FROM: 'notify@venn.day', RESEND_API_KEY: 're_x' };
+  await sendEmail({ ...env, EMAIL_REPLY_TO: 'hello@venn.day' }, message, { fetchImpl });
+  await sendEmail(env, message, { fetchImpl });
+  assert.equal(bodies[0].reply_to, 'hello@venn.day');
+  assert.ok(!('reply_to' in bodies[1]));
+});
+
 test('sends through Resend over HTTPS, and reports its errors', async () => {
   const calls = [];
   const fetchImpl = async (url, init) => (calls.push({ url, body: JSON.parse(init.body) }), new Response('{}', { status: 200 }));

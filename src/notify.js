@@ -155,13 +155,14 @@ const escHtml = (s) =>
 export const MASCOT_PATH = '/img/venn-dog.png';
 const mascotUrl = (pageUrl) => new URL(MASCOT_PATH, pageUrl).href;
 
-function emailLayout(bodyHtml, footerHtml, pageUrl) {
+/** `signed`: end with "Planned with Venn… make your own", for guests. Organizers already use Venn. */
+function emailLayout(bodyHtml, footerHtml, pageUrl, { signed = true } = {}) {
   return `<!doctype html><html><body style="margin:0;padding:24px;background:#f7f7f5;font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;color:#1c1d1f">
 <div style="max-width:520px;margin:0 auto;background:#fff;border:1px solid #e2e2dc;border-radius:10px;padding:24px">
 <div style="text-align:center;margin-bottom:12px"><img src="${escHtml(mascotUrl(pageUrl))}" width="80" height="174" alt="Finn, the Venn dog" style="display:inline-block;border:0"></div>
 <div style="font-weight:700;font-size:18px;margin-bottom:16px">Venn</div>${bodyHtml}</div>
 <p style="max-width:520px;margin:12px auto 0;color:#6b6d70;font-size:12px;line-height:1.5">${footerHtml}</p>
-<p style="max-width:520px;margin:8px auto 0;color:#6b6d70;font-size:12px;line-height:1.5">${signature(pageUrl, true)}</p></body></html>`;
+${signed ? `<p style="max-width:520px;margin:8px auto 0;color:#6b6d70;font-size:12px;line-height:1.5">${signature(pageUrl, true)}</p>` : ''}</body></html>`;
 }
 
 /** "Planned with Venn", at the end of every email and calendar event: how the next organizer finds it. */
@@ -181,39 +182,41 @@ const para = (html) => `<p style="margin:0 0 12px;line-height:1.5">${html}</p>`;
 /** The link itself, under its button, for anyone who wants to copy or forward it. */
 const linkLine = (href) =>
   `<p style="margin:-8px 0 16px;font-size:13px;line-height:1.5;word-break:break-all"><a href="${escHtml(href)}" style="color:#0b7a5c">${escHtml(href)}</a></p>`;
-/**
- * Ways to pass the poll on from an email: a text message, WhatsApp, or an email, each with the link
- * filled in. (An email can't open a phone's share sheet, so these are plain links.)
- */
-export function shareLinks(title, pollUrl) {
-  const say = `When works for you? “${title}”: ${pollUrl}`;
-  return [
-    ['Text message', `sms:?&body=${encodeURIComponent(say)}`],
-    ['WhatsApp', `https://wa.me/?text=${encodeURIComponent(say)}`],
-    ['Email', `mailto:?subject=${encodeURIComponent(title)}&body=${encodeURIComponent(say)}`],
-  ];
-}
 const sharePill = (href, label) =>
   `<a href="${escHtml(href)}" style="display:inline-block;margin:0 6px 8px 0;padding:10px 16px;border:1.5px solid #0b7a5c;border-radius:999px;color:#0b7a5c;text-decoration:none;font-weight:600">${escHtml(label)}</a>`;
-const shareBlock = (title, pollUrl, lead = 'Share the poll') =>
-  `<p style="margin:16px 0 8px;font-weight:700">${escHtml(lead)}</p><p style="margin:0 0 12px">${shareLinks(title, pollUrl)
-    .map(([label, href]) => sharePill(href, label))
-    .join('')}</p>`;
-const shareText = (pollUrl) => `Share the poll: send everyone this link: ${pollUrl}`;
+/**
+ * The poll's link in a box, to copy and send on. An email can't run a copy button, so it's the
+ * link itself, easy to press and hold (or select whole) and copy. Few links keep emails out of spam.
+ */
+const copyBox = (href, lead = 'Copy link') =>
+  `<p style="margin:16px 0 6px;font-weight:700">${escHtml(lead)}</p><p style="margin:0 0 16px;padding:12px 14px;border:1px solid #e2e2dc;border-radius:8px;background:#f7f7f5;font-size:15px;line-height:1.4;word-break:break-all;-webkit-user-select:all;user-select:all"><a href="${escHtml(href)}" style="color:#1c1d1f;text-decoration:none">${escHtml(href)}</a></p>`;
+/**
+ * Where a mail app's own unsubscribe button goes. Gmail and Yahoo expect it on every email, with
+ * one-click support (RFC 8058): the app POSTs straight to it. Opened as a link (GET), it only
+ * leads to the poll page, which asks the server to stop, so link scanners can't unsubscribe anyone.
+ * `token` is the organizer's unsubscribe token, or a guest's "participantId.token".
+ */
+export const unsubscribeLink = (origin, eventId, token) =>
+  `${origin}/api/events/${eventId}/notifications/unsubscribe?token=${encodeURIComponent(token)}`;
+export const unsubscribeHeaders = (url) => ({
+  'List-Unsubscribe': `<${url}>`,
+  'List-Unsubscribe-Post': 'List-Unsubscribe=One-Click',
+});
+
 const stopFooter = (unsubscribeUrl) =>
   `You get these emails because you asked Venn to tell you about this poll. <a href="${escHtml(unsubscribeUrl)}" style="color:#6b6d70">Stop these emails</a>.`;
 
 /** To the organizer, the moment their poll exists: well done, and here's the link to share. */
 export function pollReadyEmail({ title, pollUrl, unsubscribeUrl }) {
   const subject = `Your poll “${title}” is ready 🎉`;
-  let text = `Your poll “${title}” is ready!\n\nFinn is so proud of you for bringing people together. Here's the link to share with everyone:\n\n${pollUrl}\n\nShare it by text message, WhatsApp or email from the buttons in this email, or paste the link into your group chat.\n\nWe'll email you here whenever someone answers.\n\nStop these emails: ${unsubscribeUrl}\n`;
-  text += `\n${signature(pollUrl)}\n`;
+  const text = `Your poll “${title}” is ready!\n\nFinn is so proud of you for bringing people together. Here's the link to share with everyone:\n\n${pollUrl}\n\nCopy it into your group chat, or send it by text or email.\n\nWe'll email you here whenever someone answers.\n\nStop these emails: ${unsubscribeUrl}\n`;
   const html = emailLayout(
     `${heading('Your poll is ready! 🎉')}${para(
-      `Finn is so proud of you for bringing people together. Here's the link to <strong>${escHtml(title)}</strong>. Share it with everyone:`,
-    )}${button(pollUrl, 'Open your poll')}${linkLine(pollUrl)}${shareBlock(title, pollUrl)}${para("We'll email you here whenever someone answers.")}`,
+      `Finn is so proud of you for bringing people together. Share <strong>${escHtml(title)}</strong> with everyone:`,
+    )}${button(pollUrl, 'Open your poll')}${copyBox(pollUrl, 'Copy link to share')}${para("We'll email you here whenever someone answers.")}`,
     stopFooter(unsubscribeUrl),
     pollUrl,
+    { signed: false },
   );
   return { subject, text, html };
 }
@@ -259,13 +262,13 @@ export function responseEmail(s, unsubscribeUrl) {
     : s.poll.responses
       ? ''
       : 'No answers yet.';
-  let text = `${lead}${best ? `\n\n${best}` : ''}\n\nSee everyone's answers: ${s.poll.url}\n\n${shareText(s.poll.url)}\n\nStop these emails: ${unsubscribeUrl}\n`;
+  const text = `${lead}${best ? `\n\n${best}` : ''}\n\nSee everyone's answers: ${s.poll.url}\n\nWaiting on anyone? Send them the same link.\n\nStop these emails: ${unsubscribeUrl}\n`;
   const headline = name && isNew ? heading(`${escHtml(name)} just answered! 🎉`) : '';
-  text += `\n${signature(s.poll.url)}\n`;
   const html = emailLayout(
-    `${headline}${para(escHtml(lead))}${best ? para(escHtml(best)) : ''}${button(s.poll.url, "See everyone's answers")}${linkLine(s.poll.url)}${shareBlock(s.poll.title, s.poll.url, 'Waiting on anyone? Share the poll again')}`,
+    `${headline}${para(escHtml(lead))}${best ? para(escHtml(best)) : ''}${button(s.poll.url, "See everyone's answers")}${copyBox(s.poll.url, 'Waiting on anyone? Copy link to send again')}`,
     stopFooter(unsubscribeUrl),
     s.poll.url,
+    { signed: false },
   );
   return { subject, text, html };
 }
@@ -319,7 +322,7 @@ export function answerCopyEmail({ title, name, lines, pollUrl, editUrl, seeAnswe
       'View or change your answer',
     )}${linkLine(editUrl)}${para("This link is just for you, so don't share it.")}${para(
       `<a href="${escHtml(pollUrl)}" style="color:#0b7a5c">${pollLabel}</a>`,
-    )}${shareBlock(title, pollUrl, 'Know someone else who should answer? Share the poll')}`,
+    )}`,
     "You asked for this copy when you answered the poll. If that wasn't you, ignore this email and nothing more will be sent.",
     pollUrl,
   );
@@ -405,7 +408,11 @@ export async function notifyResponse({ store, env, fetchImpl, now, origin, ev, k
       const unsubscribeUrl = `${origin}/e/${ev.id}#unsubscribe=${settings.unsubscribeToken}`;
       const msg = responseEmail(s, unsubscribeUrl);
       jobs.push(
-        sendEmail(env, { to: settings.email, ...msg, headers: { 'List-Unsubscribe': `<${unsubscribeUrl}>` } }, { fetchImpl })
+        sendEmail(
+          env,
+          { to: settings.email, ...msg, headers: unsubscribeHeaders(unsubscribeLink(origin, ev.id, settings.unsubscribeToken)) },
+          { fetchImpl },
+        )
           .then(() => {
             delivery.email = { at: now(), ok: true };
             emailedAt[participantId] = now();
