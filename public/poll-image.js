@@ -45,21 +45,35 @@ function state() {
   return (S = { tile, base: tile?.textContent || '🗓️', emoji: '', picture: null, had: false, sticker: '' });
 }
 
-/** Show the icon on the tile: the picture, else the emoji they typed, else the plan's. */
+/**
+ * What the poll's icon is: a picture or an emoji, never both. A picture is the icon, and replaces
+ * any emoji typed for it; without one, the emoji they typed, else the kind of plan's (`base`).
+ */
+export function iconOf({ picture = null, emoji = '', base = '🗓️' } = {}) {
+  return picture
+    ? { picture, emoji: '', text: '', hint: 'Your picture is the icon. Remove it to use an emoji instead.' }
+    : {
+        picture: null,
+        emoji,
+        text: emoji || base,
+        hint: 'Or use a picture of your own. It shows on the poll and when you share its link.',
+      };
+}
+
+/** Show the icon on the tile, and in the panel the emoji field only when there's no picture. */
 function show() {
   const s = state();
   if (!s.tile) return;
-  if (s.picture) s.tile.innerHTML = `<img src="${esc(s.picture.url)}" alt="">`;
-  else s.tile.textContent = s.emoji || s.base;
+  const icon = iconOf(s);
+  s.emoji = icon.emoji;
+  if (icon.picture) s.tile.innerHTML = `<img src="${esc(icon.picture.url)}" alt="">`;
+  else s.tile.textContent = icon.text;
   const remove = $('#icon-remove');
-  if (remove) remove.hidden = !s.picture;
-  // A picture or an emoji, never both: with a picture, the emoji field steps aside.
+  if (remove) remove.hidden = !icon.picture;
   const row = $('#icon-emoji-row');
-  if (row) row.hidden = !!s.picture;
-  if ($('#icon-hint'))
-    $('#icon-hint').textContent = s.picture
-      ? 'Your picture is the icon. Remove it to use an emoji instead.'
-      : 'Or use a picture of your own. It shows on the poll and when you share its link.';
+  if (row) row.hidden = !!icon.picture;
+  if (icon.picture && $('#icon-emoji')) $('#icon-emoji').value = '';
+  if ($('#icon-hint')) $('#icon-hint').textContent = icon.hint;
   if ($('#icon-finn')) $('#icon-finn').hidden = !s.picture;
   preview();
 }
@@ -200,10 +214,7 @@ async function usePicture(file) {
     const blob = await squareIcon(await decode(file));
     const s = state();
     s.picture = { blob, url: await dataUrl(blob) };
-    // The picture replaces any emoji typed for it.
-    s.emoji = '';
-    if ($('#icon-emoji')) $('#icon-emoji').value = '';
-    show();
+    show(); // the picture replaces any emoji typed for it
   } catch {
     say("Couldn't open that picture. Try a JPEG or PNG.");
   } finally {
