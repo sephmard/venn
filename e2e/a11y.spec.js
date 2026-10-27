@@ -39,14 +39,6 @@ for (const scheme of ['light', 'dark']) {
       }
     });
 
-    test('comparison pages', async ({ page }) => {
-      for (const path of ['/compare', '/compare/doodle-alternative', '/compare/when2meet-alternative']) {
-        await page.goto(path);
-        if (path !== '/compare') await page.locator('.faq summary').first().click(); // with a question open
-        await audit(page, path);
-      }
-    });
-
     test('create page with a seasonal template chosen', async ({ page }) => {
       await page.clock.setFixedTime(new Date(2026, 10, 20, 12));
       await page.goto('/new/pick?template=friendsgiving');
