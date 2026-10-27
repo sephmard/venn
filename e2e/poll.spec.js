@@ -2857,3 +2857,42 @@ test('every poll starts with a name: a template renames it, and typing replaces 
   await openNewPoll(page);
   await expect(page.locator('#ev-title')).toHaveText('Drinks');
 });
+
+test("everyone's answers: each time shows its mix of available, if needed and unavailable, and the overlap has a tick", async ({
+  page,
+  request,
+  isMobile,
+}) => {
+  // Three evenings, 6 to 8pm UTC. John can make them all; Seph only if needed on the second, not the third.
+  const dates = ['2030-01-08', '2030-01-09', '2030-01-10'];
+  const { id, adminToken } = await (
+    await request.post('/api/events', {
+      data: { title: 'Dinner', timezone: 'UTC', dates, startMinute: 1080, endMinute: 1200, slotMinutes: 30, durationMinutes: 60 },
+    })
+  ).json();
+  const { slots } = await (await request.get(`/api/events/${id}`)).json();
+  const day = (s) => new Date(s).toISOString().slice(0, 10);
+  const answer = (pick) => Object.fromEntries(slots.map((s) => [s, pick(day(s))]).filter(([, v]) => v));
+  for (const [name, availability] of [
+    ['John', answer(() => 2)],
+    ['Seph', answer((d) => (d === dates[1] ? 1 : d === dates[2] ? 0 : 2))],
+  ])
+    await request.post(`/api/events/${id}/participants`, { data: { name, availability } });
+
+  await page.goto(`/e/${id}#admin=${adminToken}`);
+  if (isMobile) await page.click('#tab-group');
+  const cells = page.locator('#group .cell[data-slot]');
+  await expect(cells).toHaveCount(12);
+  // The overlap: the first evening, where both are available, ticked.
+  await expect(page.locator('#group .cell.best.all')).toHaveCount(4);
+  await expect(page.locator('#legend')).toContainText("Everyone's available");
+  // The others say their mix, in words and colours.
+  const ifNeeded = page.locator(`#group .cell[data-slot="${slots.find((s) => day(s) === dates[1])}"]`);
+  await expect(ifNeeded).toHaveAccessibleName(/1 of 2 available, 1 if needed$/);
+  expect(await ifNeeded.evaluate((el) => el.style.background)).toMatch(/var\(--yes\) 50%, var\(--maybe\) 50% 100%/);
+  const no = page.locator(`#group .cell[data-slot="${slots.find((s) => day(s) === dates[2])}"]`);
+  await expect(no).toHaveAccessibleName(/1 of 2 available, 1 unavailable$/);
+  expect(await no.evaluate((el) => el.style.background)).toMatch(/var\(--no-cell\) 50%/);
+  await expect(page.locator('#legend')).toContainText('If needed');
+  await expect(page.locator('#legend')).toContainText('Unavailable');
+});

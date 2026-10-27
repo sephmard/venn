@@ -27,6 +27,7 @@
   --no-ink: #ffffff;
   --no: #b42318;
   --no-soft: #fbe6e2;
+  --no-cell: #f0b2a6; /* unavailable, in everyone's answers */
   --danger: #b42318;
   --cell-empty: #ece8df;
   --cell-line: #8f8a80;
@@ -61,6 +62,7 @@
     --no-ink: #0f1112;
     --no: #ff8577;
     --no-soft: #3a1f1c;
+    --no-cell: #6a2e27;
     --danger: #ff8577;
     --cell-empty: #23272a;
     --cell-line: #6e7378;
@@ -1282,6 +1284,17 @@ ol.best .when {
 .cell.maybe {
   background: var(--maybe);
 }
+/* Everyone's answers: where everyone's available (or the most are), a tick at the cell's start. */
+.cell.best::after {
+  content: '✓';
+  display: block;
+  padding-left: 4px;
+  font: 800 12px/18px var(--display);
+  color: var(--yes-ink);
+}
+.cell.all {
+  box-shadow: 0 0 0 1px var(--yes);
+}
 .cell.final {
   outline: 2px solid var(--final);
   outline-offset: -2px;
@@ -1938,9 +1951,17 @@ details.organizer > .danger {
   min-height: 44px;
   border: 1.5px solid transparent;
   border-radius: 10px;
-  background: rgba(var(--heat), calc(0.08 + 0.5 * var(--a)));
+  background: var(--cell-empty);
+  color: var(--text);
   font-weight: 800;
   cursor: pointer;
+}
+.heat-btn.all {
+  background: var(--yes);
+  color: var(--yes-ink);
+}
+.heat-btn.best {
+  border-color: var(--yes);
 }
 .heat-btn.active {
   border-color: var(--text);
@@ -1965,6 +1986,21 @@ details.organizer > .danger {
 .heat-bar .n,
 .legend .sw-n {
   background: var(--no);
+}
+.legend .sw-nc {
+  background: var(--no-cell);
+}
+.legend .sw-best {
+  display: inline-grid;
+  place-items: center;
+  width: 16px;
+  height: 14px;
+  margin-right: 4px;
+  border-radius: 3px;
+  background: var(--yes);
+  color: var(--yes-ink);
+  font-size: 10px;
+  font-weight: 800;
 }
 .legend .sw {
   display: inline-block;
