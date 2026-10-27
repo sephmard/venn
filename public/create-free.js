@@ -478,7 +478,7 @@ export function renderFree() {
           null,
           'longer times',
         ],
-        ...nameAndEmail(occasion),
+        ...nameAndEmail(),
       );
     }
     if (level === 'parts') {
@@ -489,7 +489,7 @@ export function renderFree() {
       return setReady(
         `${plural(windows.length, 'time')} to choose from`,
         [!windows.length, 'Pick at least one morning, afternoon or evening', gridFocus, null, 'times'],
-        ...nameAndEmail(occasion),
+        ...nameAndEmail(),
       );
     }
     const dates = [...selected].sort();
@@ -514,7 +514,7 @@ export function renderFree() {
         null,
         `${k} in a row`,
       ],
-      ...nameAndEmail(occasion),
+      ...nameAndEmail(),
     );
   }
 
