@@ -206,6 +206,14 @@ function render({ days, since, counts, outcomes }, earlier) {
         organizer: 'Organizers',
       }).filter((r) => r.label !== '(none)'),
     )}
+    ${breakdown(
+      'Guests who went on to make a poll',
+      by(counts, 'view', 'from', {
+        guest: 'Just after answering',
+        set: 'From a poll with its date picked',
+        email: "From an \u201cIt's happening\u201d email",
+      }).filter((r) => r.label !== '(none)'),
+    )}
     ${breakdown('Kinds of poll created', by(counts, 'poll.created', 'detail'), { total: created })}
     ${breakdown('Plans', by(counts, 'poll.created', 'plan'), { total: created })}
     ${breakdown('Options (or days) per poll', by(counts, 'poll.created', 'options'), { total: created })}

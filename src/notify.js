@@ -167,7 +167,7 @@ function emailLayout(bodyHtml, footerHtml, pageUrl) {
 /** "Planned with Venn", at the end of every email and calendar event: how the next organizer finds it. */
 export function signature(pageUrl, html = false) {
   const site = new URL(pageUrl).origin;
-  const make = `${site}/new`;
+  const make = `${site}/new?from=email`; // for usage stats: new polls that came from an email
   return html
     ? `Planned with Venn. No sign-up needed: <a href="${escHtml(make)}" style="color:#6b6d70">make your own</a>.`
     : `Planned with Venn. No sign-up needed: make your own at ${make}`;
@@ -213,6 +213,27 @@ export function pollReadyEmail({ title, pollUrl, unsubscribeUrl }) {
       `Finn is so proud of you for bringing people together. Here's the link to <strong>${escHtml(title)}</strong>. Share it with everyone:`,
     )}${button(pollUrl, 'Open your poll')}${linkLine(pollUrl)}${shareBlock(title, pollUrl)}${para("We'll email you here whenever someone answers.")}`,
     stopFooter(unsubscribeUrl),
+    pollUrl,
+  );
+  return { subject, text, html };
+}
+
+/**
+ * To everyone who answered with their email, once the organizer picks the date: it's happening, and
+ * one tap to put it in their calendar. `when` is the date in the poll's time zone (src/preview.js).
+ */
+export function dateSetEmail({ title, when, location, pollUrl, calendars }) {
+  const subject = `It's happening: ${title}, ${when} 🎉`;
+  const where = location ? `\nWhere: ${location}` : '';
+  let text = `It's happening! “${title}” is on ${when}.${where}\n\nAdd it to your calendar:\n${calendars.map(([l, u]) => `${l}: ${u}`).join('\n')}\n\nThe poll: ${pollUrl}\n\nYou get this one email because you answered “${title}” with this address. Venn won't email you again about it.\n`;
+  text += `\n${signature(pollUrl)}\n`;
+  const html = emailLayout(
+    `${heading('It’s happening! 🎉')}${para(`<strong>${escHtml(title)}</strong> is on <strong>${escHtml(when)}</strong>.`)}${
+      location ? para(`📍 ${escHtml(location)}`) : ''
+    }<p style="margin:16px 0 8px;font-weight:700">Add it to your calendar</p><p style="margin:0 0 12px">${calendars
+      .map(([label, href]) => sharePill(href, label))
+      .join('')}</p>${para(`<a href="${escHtml(pollUrl)}" style="color:#0b7a5c">See the poll</a>`)}`,
+    `You get this one email because you answered “${escHtml(title)}” with this address. Venn won't email you again about it.`,
     pollUrl,
   );
   return { subject, text, html };

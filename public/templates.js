@@ -23,8 +23,8 @@ export const TEMPLATES = [
 
 /** Its name in links (?template=book-club). */
 export const slug = (t) => t.id || t.label.toLowerCase().replace(/[^a-z]+/g, '-');
-/** The template a link names, or -1. */
-export const templateIndex = (name) => TEMPLATES.findIndex((t) => slug(t) === String(name).toLowerCase());
+/** The template a link names (or its emoji), or -1. */
+export const templateIndex = (name) => TEMPLATES.findIndex((t) => slug(t) === String(name).toLowerCase() || t.emoji === name);
 
 const monthDay = (d) => (d.getMonth() + 1) * 100 + d.getDate();
 const day = (md) => Math.floor(md / 100) * 31 + (md % 100);

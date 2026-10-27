@@ -1,6 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { buildIcs, googleCalendarUrl } from '../public/calendar-export.js';
+import { inviteText } from '../public/invite.js';
 import {
   YES,
   IF_NEEDED,
@@ -335,4 +336,13 @@ test("the organizer's answer for a free poll: each pick's slot, yes or if needed
     assert.equal(answer[keySlot(`${date}|180`, tz)], IF_NEEDED); // 3 AM
     assert.equal(Object.values(answer).filter((v) => v === IF_NEEDED).length, 1);
   }
+});
+
+test('inviteText: a short nudge to send with the link', () => {
+  assert.equal(
+    inviteText({ organizer: 'Sam', title: 'Dinner', emoji: '🍝' }),
+    'Sam wants to find a time for Dinner 🍝. Tap your free days (no sign-up)',
+  );
+  assert.equal(inviteText({ title: 'Book club', pick: true }), 'When works for Book club? Tap the dates that work (no sign-up)');
+  assert.equal(inviteText({ organizer: 'Sam', title: 'Dinner', set: true }), "It's set: Dinner! Add it to your calendar:");
 });

@@ -1,7 +1,8 @@
 // HTTP API built on web-standard Request/Response, shared by the Worker and the Node server.
 
 import { LIMITS, ValidationError, YES, allDaySpan, isValidTimeZone, buildSlots, meetingEnd } from '../public/core.js';
-import { buildIcs } from '../public/calendar-export.js';
+import { buildIcs, googleCalendarUrl, outlookCalendarUrl } from '../public/calendar-export.js';
+import { setLabel } from './preview.js';
 import { cleanRepeat, normalizeAvailability, normalizeEventInput, normalizeName } from './validate.js';
 import { SECURITY_HEADERS } from './security-headers.js';
 import { IMAGE_FILES, MAX_IMAGE_BODY, imagePath, imageResponse, parseImage } from './images.js';
@@ -11,6 +12,7 @@ import {
   answerCopyEmail,
   answerLines,
   buildSummary,
+  dateSetEmail,
   emailEnabled,
   normalizeEmail,
   notifyResponse,
@@ -23,6 +25,7 @@ import { pollKind, planOf, recordUsage, sizeOf, usageEnabled, usageReport } from
 import { AiUnavailableError, aiEnabled, allowAiRequest, answerForMe, draftPoll, summarize, writeMessage } from './ai.js';
 
 const MAX_BODY = 200_000;
+const MAX_DATE_EMAILS = 3;
 const ID_ALPHABET = 'abcdefghijkmnopqrstuvwxyzABCDEFGHJKLMNPQRSTUVWXYZ23456789';
 
 function randomId(len) {
@@ -194,6 +197,45 @@ export async function handleApi(
       seeAnswers: !ev.hideResults,
     });
     waitUntil(sendEmail(env, { to, ...msg }, { fetchImpl }).catch((e) => console.error('answer copy failed', e)));
+  }
+
+  /**
+   * Once the organizer picks the date: one "It's happening" email to each guest who gave an address
+   * (only polls that ask everyone for one), with calendar links. Once per date, and at most
+   * MAX_DATE_EMAILS dates per poll, so changing your mind can't flood anyone's inbox.
+   */
+  async function emailTheDate(ev, start) {
+    if (!emailEnabled(env)) return;
+    const settings = (await store.getNotify(ev.id)) || {};
+    const sent = settings.datesEmailed || [];
+    if (sent.includes(start) || sent.length >= MAX_DATE_EMAILS) return;
+    const emails = await store.listEmails(ev.id);
+    emails.delete(ev.hostId);
+    if (!emails.size) return;
+    await store.setNotify(ev.id, { ...settings, datesEmailed: [...sent, start] });
+    const pollUrl = `${origin}/e/${ev.id}`;
+    const end = meetingEnd(ev, start);
+    const info = {
+      title: ev.title,
+      description: [ev.description, `Planned with Venn: ${pollUrl}`].filter(Boolean).join('\n\n'),
+      location: ev.location,
+      start,
+      end,
+      allDay: allDaySpan(start, end, ev.timezone),
+    };
+    const msg = dateSetEmail({
+      title: ev.title,
+      when: setLabel(ev, start),
+      location: ev.location,
+      pollUrl,
+      calendars: [
+        ['Google Calendar', googleCalendarUrl(info)],
+        ['Outlook', outlookCalendarUrl(info)],
+        ['Apple (iCal)', `${pollUrl.replace('/e/', '/api/events/')}/event.ics`],
+      ],
+    });
+    for (const to of emails.values())
+      waitUntil(sendEmail(env, { to, ...msg }, { fetchImpl }).catch((e) => console.error('date email failed', e)));
   }
 
   try {
@@ -496,7 +538,10 @@ export async function handleApi(
       const { start } = await readJson(request);
       if (start !== null && !buildSlots(ev).includes(start)) throw new ValidationError('That time is not part of this poll');
       await store.setFinal(ev.id, start);
-      if (start !== null) count('poll.finalized', kindOf(ev));
+      if (start !== null) {
+        count('poll.finalized', kindOf(ev));
+        await emailTheDate(ev, start);
+      }
       return json({ ok: true, finalStart: start });
     }
 

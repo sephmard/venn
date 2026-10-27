@@ -291,9 +291,11 @@ button.emoji-tile:focus-visible {
 .create .cal-day.marked small {
   margin: 0;
   font-family: var(--display);
-  font-size: 0.56rem;
-  letter-spacing: -0.01em;
+  font-size: min(0.56rem, 2.2vw);
+  font-weight: 600;
+  letter-spacing: -0.02em;
   line-height: 1;
+  white-space: nowrap;
   color: inherit;
   overflow: hidden;
 }

@@ -395,7 +395,9 @@ test('poll links get their own preview in chat apps, before and after the date i
   let t = await tags();
   expect(t.title).toBe('🍝 Dinner at &lt;Finn’s&gt; · Venn');
   expect(t.ogTitle).toBe('🍝 Dinner at &lt;Finn’s&gt;');
-  expect(t.description).toBe('Priya asks: when works for you? Tap your answers. No sign-up.');
+  expect(t.description).toMatch(
+    /^Priya wants to find a time for Dinner at &lt;Finn’s&gt;\. \w{3}, \w{3} \d+\. Tap when you&#39;re free\. No sign-up\.$/,
+  );
   expect(t.image).toMatch(/^http:\/\/localhost:\d+\/og\.png$/);
 
   const ev = await (await request.get(`/api/events/${id}`)).json();
@@ -1587,10 +1589,15 @@ async function organizerPoll(page, request, { picked = false, answered = false }
 test('once the date is picked: add it to Google Calendar, Outlook or iCal', async ({ page, request }) => {
   const id = await organizerPoll(page, request, { picked: true });
   const group = page.getByRole('group', { name: 'Add to your calendar' });
-  await expect(group).toContainText('Opens your calendar with the event filled in');
+  // One quiet row of three, with short names; screen readers hear the full ones.
   const links = group.getByRole('link');
   await expect(links).toHaveCount(3);
-  for (const [i, name] of ['Google Calendar', 'Outlook', 'iCal'].entries()) await expect(links.nth(i)).toHaveAccessibleName(name);
+  for (const [i, name] of ['Google', 'Outlook', 'Apple'].entries())
+    await expect(links.nth(i).locator('> span')).toHaveText(new RegExp(`^${name}`));
+  for (const [i, name] of ['Google Calendar', 'Outlook', 'Apple Calendar (iCal)'].entries())
+    await expect(links.nth(i)).toHaveAccessibleName(name);
+  // Once the date is picked, the banner says it: the ranking of times steps aside.
+  await expect(page.locator('#best')).toBeHidden();
   // Each has its logo, drawn in the page and hidden from screen readers: the name says which it is.
   await expect(group.locator('svg[aria-hidden="true"]')).toHaveCount(3);
   await expect(group.locator('img')).toHaveCount(0);
@@ -1603,7 +1610,7 @@ test('once the date is picked: add it to Google Calendar, Outlook or iCal', asyn
   await expect(outlook).toHaveAttribute('target', '_blank');
 
   // iCal is the .ics file, which Apple Calendar and most other calendars open.
-  const [download] = await Promise.all([page.waitForEvent('download'), group.getByRole('link', { name: 'iCal' }).click()]);
+  const [download] = await Promise.all([page.waitForEvent('download'), group.getByRole('link', { name: /iCal/ }).click()]);
   expect(download.suggestedFilename()).toBe(`${id}.ics`);
   const ics = await (await request.get(`/api/events/${id}/event.ics`)).text();
   expect(ics).toContain('SUMMARY:Dinner');
@@ -1626,7 +1633,7 @@ test('a date picked while the poll is open shows "Add to your calendar" straight
   await expect(page.getByRole('group', { name: 'Add to your calendar' }).getByRole('link')).toHaveCount(3);
 });
 
-test('every share and copy of the poll is just its link, with nothing else around it', async ({ page, request, isMobile }) => {
+test('the share sheet sends a short nudge with the link; a copy is just the link', async ({ page, request, isMobile }) => {
   // Catch what the share sheet and the clipboard are given.
   await page.addInitScript(() => {
     window.shared = [];
@@ -1640,12 +1647,11 @@ test('every share and copy of the poll is just its link, with nothing else aroun
   // With the date picked, the header's Share steps aside for the banner's "Send everyone the date".
   await expect(page.locator('#copy')).toBeHidden();
   await page.locator('.banner-final [data-share]').click();
-  if (isMobile) await page.click('#tab-group');
-  await page.locator('#best [data-share]').click(); // "Share the poll", while nobody has answered
   const shared = await page.evaluate(() => window.shared);
-  expect(shared).toHaveLength(2);
-  // Phones get the share sheet with the title and link only, so its Copy copies the bare link.
-  for (const s of shared) expect(s).toEqual(isMobile ? { title: 'Dinner', url } : { copied: url });
+  expect(shared).toHaveLength(1);
+  // Phones get the share sheet with a line about the poll; a copy is the bare link, which chat apps unfurl.
+  const text = "It's set: Dinner! Add it to your calendar:";
+  for (const s of shared) expect(s).toEqual(isMobile ? { title: 'Dinner', text, url } : { copied: url });
 
   // The organizer's private link is the only one with a secret in it, and it says so.
   if (!(await page.locator('#copy-admin').isVisible())) await page.locator('details.organizer summary').click();
@@ -2030,11 +2036,11 @@ test('when everyone gave their email, the organizer invites them all with the ca
 
   await page.goto(`/e/${id}#admin=${adminToken}`);
   await expect(page.locator('#cal-add-h')).toHaveText('Add it to your calendar, with everyone invited');
-  await expect(page.locator('#cal-add-hint')).toContainText('the 2 people who answered as guests');
+  await expect(page.locator('#cal-add-hint')).toContainText('invite the 2 people who answered');
   const google = new URL(await page.getByRole('link', { name: 'Google Calendar' }).getAttribute('href'));
   expect(google.searchParams.get('add')).toBe('ana@example.com,jo@example.com');
   // The iCal file is made in the page, with everyone in it, so the emails never go in a link.
-  const ical = page.getByRole('link', { name: 'iCal' });
+  const ical = page.getByRole('link', { name: /iCal/ });
   await expect(ical).toHaveAttribute('download', `${id}.ics`);
   const [download] = await Promise.all([page.waitForEvent('download'), ical.click()]);
   expect(download.suggestedFilename()).toBe(`${id}.ics`);
@@ -2215,6 +2221,7 @@ test('guests are one tap from making their own poll: from the celebration, and o
     await request.post('/api/events', {
       data: {
         title: 'Dinner',
+        emoji: '🍝',
         organizer: 'Sam',
         timezone: 'UTC',
         mode: 'options',
@@ -2234,7 +2241,8 @@ test('guests are one tap from making their own poll: from the celebration, and o
   await expect(go).toBeFocused();
   const own = page.getByRole('link', { name: 'Planning something? Make yours in 30 seconds' });
   await expect(own).toBeVisible();
-  await expect(own).toHaveAttribute('href', '/new?from=guest');
+  // Straight to the same kind of poll, with the same template.
+  await expect(own).toHaveAttribute('href', `/new/pick?from=guest&template=${encodeURIComponent('🍝')}`);
   // Both are full-size buttons that fit a phone, and Tab goes round them.
   for (const b of [go, own]) {
     const box = await b.boundingBox();
@@ -2246,14 +2254,18 @@ test('guests are one tap from making their own poll: from the celebration, and o
   await page.keyboard.press('Tab');
   await expect(go).toBeFocused();
   await own.click();
-  await expect(page).toHaveURL(/\/new\?from=guest$/);
+  await expect(page).toHaveURL(/\/new\/pick\?from=guest$/);
   await expect(page.locator('.party')).toHaveCount(0);
-  await expect(page.getByRole('link', { name: /Vote on a few dates/ })).toBeVisible();
+  // Their name and the template are filled in: only the dates are left to choose.
+  await expect(page.getByRole('button', { name: 'Dinner' })).toHaveAttribute('aria-pressed', 'true');
+  await expect(page.locator('#organizer')).toHaveValue('Ana');
 
   // Once the date is picked: guests can make their own, the organizer can plan the next one.
   await request.post(`/api/events/${id}/finalize`, { data: { start: t0 }, headers: { 'x-admin-token': adminToken } });
   await page.goto(`/e/${id}`);
-  await expect(page.locator('.final-more a[href="/new?from=set"]')).toHaveText('Make your own poll');
+  await expect(page.locator(`.final-more a[href="/new/pick?from=set&template=${encodeURIComponent('🍝')}"]`)).toHaveText(
+    'Make your own poll',
+  );
   await page.goto(`/e/${id}#admin=${adminToken}`);
   await expect(page.locator(`.final-more a[href="/new/pick?copy=${id}&next=monthly"]`)).toHaveText('Plan next month’s');
   // Not every plan repeats: then it's a plain copy. How often is under "More".
@@ -2371,4 +2383,20 @@ test('a copy of a poll whose dates have passed moves them on by whole weeks', as
   }
   expect(ev.options[1].start - ev.options[0].start).toBe(7 * 24 * H);
   expect(ev.repeat).toBeUndefined();
+});
+
+test('on a phone, the word on each marked day fits on one line', async ({ page }) => {
+  await page.setViewportSize({ width: 320, height: 800 });
+  await page.goto('/new/free');
+  await page.click('#q-2w');
+  const words = page.locator('.cal-day.marked small');
+  await expect(words.first()).toBeVisible();
+  for (const w of await words.all()) {
+    const { lines, clipped } = await w.evaluate((el) => ({
+      lines: Math.round(el.getBoundingClientRect().height / parseFloat(getComputedStyle(el).lineHeight || '1')),
+      clipped: el.scrollWidth > el.clientWidth + 1,
+    }));
+    expect(clipped).toBe(false);
+    expect(lines).toBeLessThanOrEqual(1);
+  }
 });

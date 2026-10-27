@@ -51,8 +51,12 @@ export function prefillTitle() {
   const t = templateFromUrl();
   if (t >= 0) $(`[data-occasion="${t}"]`).click();
   if (title) $('#title').value = title;
-  if (title || t >= 0) history.replaceState(null, '', location.pathname);
+  if (title || t >= 0) history.replaceState(null, '', location.pathname + (cameFrom().from ? `?from=${cameFrom().from}` : ''));
 }
+
+// Where they came from: answering a poll, a picked date, or an email.
+export const cameFrom = (f = new URLSearchParams(location.search).get('from')) =>
+  /^(guest|set|email)$/.test(f) ? { from: f } : {};
 
 // ---------- editing or duplicating a poll ----------
 
@@ -87,9 +91,7 @@ export function fillCommon(ev, src) {
 
 export function renderChooser() {
   document.title = 'New poll · Venn';
-  // Where they came from: answering someone's poll, or a poll whose date was picked.
-  const from = new URLSearchParams(location.search).get('from');
-  track('view', { page: 'chooser', ...(['guest', 'set'].includes(from) && { from }) });
+  track('view', { page: 'chooser', ...cameFrom() });
   const q = new URLSearchParams([...new URLSearchParams(location.search)].filter(([k]) => /^(title|template)$/.test(k)));
   const carry = q.size ? `?${q}` : '';
   app.innerHTML = `
@@ -263,6 +265,7 @@ export async function submit(body, occasion, answer = null) {
   if (source()) Object.assign(body, { copied: true }, editPoll?.seriesFields());
   // The celebration (and its picture) load while the poll is saved.
   const celebration = import('./celebrate.js').catch(() => null);
+  const invite = import('./invite.js').catch(() => null);
   try {
     const { id, adminToken, participant } = await api('events', { method: 'POST', body });
     const picture = icon?.upload(id, adminToken, title); // the poll's own picture, while the party plays
@@ -277,8 +280,9 @@ export async function submit(body, occasion, answer = null) {
     // The main button shares the poll: the phone's share sheet, or the link copied.
     const url = `${location.origin}/e/${id}`;
     let copying = null; // the link being copied, so its toast can show once the poll is open
+    const text = (await invite)?.inviteText({ ...body, pick: body.mode === 'options' && body.layout !== 'parts' });
     const share = () => {
-      if (navigator.share && matchMedia('(pointer: coarse)').matches) navigator.share({ title, url }).catch(() => {});
+      if (navigator.share && matchMedia('(pointer: coarse)').matches) navigator.share({ title, text, url }).catch(() => {});
       else
         copying = navigator.clipboard.writeText(url).then(
           () => true,

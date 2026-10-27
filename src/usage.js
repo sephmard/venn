@@ -69,7 +69,7 @@ export const USAGE_EVENTS = {
     client: true,
     page: ['chooser', 'pick', 'free', 'poll'],
     as: ['guest', 'organizer', 'answered'],
-    from: ['guest', 'set'],
+    from: ['guest', 'set', 'email'],
   },
   share: { client: true, how: ['sheet', 'copy', 'download'], from: ['created', 'poll', 'card', 'sticker'] }, // card: the "It's set" picture; sticker: a Finn sticker
 };

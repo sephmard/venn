@@ -58,10 +58,10 @@ test('every email is signed by Finn and Venn, with a way to make your own poll',
     responseEmail(s, `${pollUrl}#unsubscribe=u`),
     answerCopyEmail({ title: 'Dinner', name: 'Ana', lines: [], pollUrl, editUrl: `${pollUrl}#edit=p.t` }),
   ];
-  assert.equal(signature(pollUrl), 'Planned with Venn. No sign-up needed: make your own at https://venn.example/new');
+  assert.equal(signature(pollUrl), 'Planned with Venn. No sign-up needed: make your own at https://venn.example/new?from=email');
   for (const m of mails) {
     assert.ok(hasLine(m.text, signature(pollUrl)));
-    assert.match(m.html, /href="https:\/\/venn\.example\/new"/);
+    assert.match(m.html, /href="https:\/\/venn\.example\/new\?from=email"/);
     assert.match(m.html, /alt="Finn, the Venn dog"/);
   }
   assert.match(mails[0].text, /Finn is so proud of you/);
@@ -443,4 +443,54 @@ test('people who answer can get a copy of their answer, with their edit link', a
   // No address, no copy; and the address is never kept with the poll.
   await call(path, { method: 'POST', body: { name: 'Lee', availability: { [slot]: 2 } } });
   assert.ok(!JSON.stringify((await call(`/api/events/${data.id}`)).data).includes('ana@example.com'));
+});
+
+test("once the date is picked, everyone who gave an email hears it's happening, once", async () => {
+  const { data } = await call('/api/events', {
+    method: 'POST',
+    body: { ...poll, location: 'Room 4', organizer: 'Sam', requireEmail: true, hostAvailability: {} },
+  });
+  const { id, adminToken } = data;
+  const admin = { 'x-admin-token': adminToken };
+  const slot = poll.options[0].start;
+  for (const [name, email] of [
+    ['Ana', 'ana@example.com'],
+    ['Lee', 'lee@example.com'],
+  ])
+    await call(`/api/events/${id}/participants`, { method: 'POST', body: { name, email, availability: { [slot]: 2 } } });
+  const pick = (start) => call(`/api/events/${id}/finalize`, { method: 'POST', body: { start }, headers: admin });
+
+  sent = [];
+  await pick(slot);
+  const mails = emails();
+  assert.deepEqual(mails.map((m) => m.body.to[0]).sort(), ['ana@example.com', 'lee@example.com']);
+  const m = mails[0].body;
+  assert.equal(m.subject, "It's happening: Design review, Wed, Nov 4, 3:00 PM EST 🎉");
+  assert.match(m.text, /Where: Room 4/);
+  assert.ok(m.text.includes(`Apple (iCal): ${base}/api/events/${id}/event.ics`));
+  assert.match(m.text, /Google Calendar: https:\/\/calendar\.google\.com\//);
+  assert.ok(hasLine(m.text, signature(`${base}/e/${id}`)));
+  assert.match(m.html, />Outlook<\/a>/);
+
+  // Picking the same date again, or unpicking it, sends nothing more.
+  sent = [];
+  await pick(null);
+  await pick(slot);
+  assert.equal(emails().length, 0);
+});
+
+test('no "It\'s happening" email for polls that didn\'t ask for emails', async () => {
+  const { data } = await call('/api/events', { method: 'POST', body: poll });
+  const slot = poll.options[0].start;
+  await call(`/api/events/${data.id}/participants`, {
+    method: 'POST',
+    body: { name: 'Ana', availability: { [slot]: 2 }, copyTo: 'ana@example.com' },
+  });
+  sent = [];
+  await call(`/api/events/${data.id}/finalize`, {
+    method: 'POST',
+    body: { start: slot },
+    headers: { 'x-admin-token': data.adminToken },
+  });
+  assert.equal(emails().length, 0);
 });

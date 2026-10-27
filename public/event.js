@@ -19,6 +19,7 @@ import {
   utcToZoned,
   isEmail,
 } from './core.js';
+import { inviteText } from './invite.js';
 import { cycleGroup, fitsParts, groupState, partKey } from './day-parts.js';
 import {
   $,
@@ -301,10 +302,12 @@ export async function renderEvent(id, navigate) {
       </details>
     </article>`;
 
-  // Every share is just the poll's link: no message around it, so "Copy" in the share sheet copies a link that works.
+  // The share sheet sends a short nudge with the link; a copy is the bare link, which chat apps unfurl.
   $('#copy').onclick = () => {
     track('share', { how: canShare ? 'sheet' : 'copy', from: 'poll' });
-    canShare ? navigator.share({ title: ev().title, url: shareUrl }).catch(() => {}) : copy(shareUrl, 'Invite link copied');
+    const { title, emoji, organizer, finalStart } = ev();
+    const text = inviteText({ title, emoji, organizer, pick: optionsMode && !partsMode, set: finalStart != null });
+    canShare ? navigator.share({ title, text, url: shareUrl }).catch(() => {}) : copy(shareUrl, 'Invite link copied');
   };
   $('#name').value = me()?.name || lastName();
   $('#name').oninput = () => setDirty(true);
@@ -1079,8 +1082,14 @@ export async function renderEvent(id, navigate) {
           ? 'Your answer is in. Now the fun part: seeing when everyone can make it.'
           : `Finn is so glad you're in. ${host ? `${host} can see it now` : 'Everyone can see it now'}. Thanks for helping bring people together.`,
         button: hideAll ? 'Back to the poll' : 'See everyone’s answers',
-        // Guests who enjoyed that are the next organizers: one tap to make their own.
-        also: ev().isAdmin ? null : { label: 'Planning something? Make yours in 30 seconds', href: '/new?from=guest' },
+        // Guests who enjoyed that are the next organizers: one tap to their own poll of the same kind,
+        // with the same plan and their name filled in, and the dates left to them.
+        also: ev().isAdmin
+          ? null
+          : {
+              label: 'Planning something? Make yours in 30 seconds',
+              href: `/new/${optionsMode && !partsMode ? 'pick' : 'free'}?from=guest${ev().emoji ? `&template=${encodeURIComponent(ev().emoji)}` : ''}`,
+            },
       });
       await p?.shown;
       p?.finish();
@@ -1368,6 +1377,10 @@ export async function renderEvent(id, navigate) {
 
   // ----- best options -----
   function renderBest() {
+    // Once the date is picked, the banner at the top says it: no need for the ranking too.
+    const sheet = $('#best').closest('.sheet');
+    sheet.hidden = hideAll || ev().finalStart != null;
+    if (sheet.hidden) return;
     const people = others();
     const best = rankTimes(ev(), ev().slots, people, 5);
     const n = people.length;
@@ -1559,7 +1572,7 @@ export async function renderEvent(id, navigate) {
             </div>
           </details>`
               : `<button type="button" class="link-btn" id="share-card">${canShare ? 'Share as a picture' : 'Save as a picture'}</button>
-          <a class="link-btn" data-link href="/new?from=set">Make your own poll</a>`
+          <a class="link-btn" data-link href="/new/${optionsMode && !partsMode ? 'pick' : 'free'}?from=set${ev().emoji ? `&template=${encodeURIComponent(ev().emoji)}` : ''}">Make your own poll</a>`
           }
         </div>
       </section>`;
