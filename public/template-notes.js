@@ -21,6 +21,36 @@ export const EXTRAS = {
     title: 'New Year’s get-together',
     note: 'Bring one resolution you’ll keep for at least a week.',
   },
+  dnd: {
+    title: 'D&D: session 12',
+    note: 'Bring your character sheet and dice. Snacks welcome.',
+    where: 'Whose table? Or a video link',
+  },
+  'band-practice': {
+    title: 'Band practice',
+    note: 'Set list to run: the three new songs, then the full set.',
+    where: 'The rehearsal room or garage',
+  },
+  'study-group': {
+    title: 'Study group',
+    note: 'Chapters 4–6 and the practice exam. Bring questions.',
+    where: 'The library, a café or a video link',
+  },
+  'family-reunion': {
+    title: 'Family reunion',
+    note: 'Pick every day you could make it. We’ll sort food and rooms once we have a date.',
+    where: 'Whose house, or a park',
+  },
+  'bachelor-party': {
+    title: 'Bachelor party weekend',
+    note: 'Mark every weekend you could do. Plans and costs to follow once we have dates.',
+    where: 'The city, or "to be decided"',
+  },
+  'team-offsite': {
+    title: 'Team offsite',
+    note: 'Mark the days you could travel. Agenda and venue to follow.',
+    where: 'The venue, or "to be decided"',
+  },
 };
 
 /**

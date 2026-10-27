@@ -74,11 +74,11 @@ test('templates: out of season ones are still on the page, hidden, at the end', 
   assert.equal(order.length, TEMPLATES.length);
   assert.deepEqual(new Set(order.map(([i]) => i)).size, TEMPLATES.length);
   const hidden = order.filter(([, h]) => h).map(([i]) => TEMPLATES[i].id);
-  assert.deepEqual(hidden.sort(), ['friendsgiving', 'holiday-party', 'new-year', 'secret-santa']);
-  assert.deepEqual(
-    order.slice(-4).map(([, h]) => h),
-    [true, true, true, true],
-  );
+  // Out of season, and the quiet ones that only a landing page's link chooses.
+  const quiet = TEMPLATES.filter((t) => t.quiet).map((t) => t.id);
+  assert.ok(quiet.length >= 6);
+  assert.deepEqual(hidden.sort(), ['friendsgiving', 'holiday-party', 'new-year', 'secret-santa', ...quiet].sort());
+  assert.ok(order.slice(-hidden.length).every(([, h]) => h));
   assert.equal(orderTemplates('pick').length, TEMPLATES.length); // today, by default
 });
 
@@ -193,10 +193,11 @@ test('template pages: served at clean paths, in the sitemap, each with its own t
       assert.ok(!titles.has(title), title);
       titles.add(title);
       // Every link into the app names a template the app knows, on the right kind of poll.
-      for (const [, kind, name] of html.matchAll(/href="\/new\/(pick|free)\?template=([\w-]+)"/g))
+      for (const [, kind, name] of html.matchAll(/href="\/new\/(pick|free)\?template=([\w-]+)(?:&amp;from=[\w-]+)?"/g))
         assert.ok(templateIndex(name) >= 0 && (kind === 'free') === !!TEMPLATES[templateIndex(name)].days, name);
       if (path === '/templates') continue;
-      assert.ok(html.includes(`href="/new/pick?template=${path.split('/').pop()}"`), path);
+      const slug = path.split('/').pop();
+      assert.ok(html.includes(`href="/new/pick?template=${slug}&amp;from=${slug}"`), path);
       // The questions, for search engines, are the ones on the page.
       const faq = JSON.parse(html.match(/<script type="application\/ld\+json">([\s\S]*?)<\/script>/)[1]);
       assert.equal(faq['@type'], 'FAQPage');

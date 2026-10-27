@@ -1,6 +1,7 @@
 import { test, expect } from '@playwright/test';
 import { addOptions, showNextMonth, submit } from './helpers.js';
 import AxeBuilder from '@axe-core/playwright';
+import { PAGES } from '../pages/pages.js';
 
 // Automated accessibility checks (WCAG 2.2 A/AA rules from axe) on every main screen, in light and
 // dark mode, on desktop and phone. Serious and critical problems fail the build.
@@ -32,7 +33,8 @@ for (const scheme of ['light', 'dark']) {
     });
 
     test('template pages', async ({ page }) => {
-      for (const path of ['/templates', '/templates/friendsgiving', '/templates/holiday-party', '/templates/secret-santa']) {
+      test.setTimeout(120_000); // one scan for each page
+      for (const path of ['/templates', ...PAGES.map((p) => p.path)]) {
         await page.goto(path);
         if (path !== '/templates') await page.locator('.faq summary').first().click(); // with a question open
         await audit(page, path);

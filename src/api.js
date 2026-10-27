@@ -289,6 +289,7 @@ export async function handleApi(
         options: sizeOf(event),
         email: notifyEmail ? 'yes' : 'no',
         copy: body.copied === true ? 'yes' : 'no',
+        ...(typeof body.from === 'string' && { from: body.from }),
       });
       return json({ id, adminToken, ...(host && { participant: host }) }, 201);
     }
