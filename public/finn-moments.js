@@ -49,7 +49,7 @@ export const MOMENTS = {
     extra: ['dots'],
     lines: [
       'Finn is waiting by the door. Share the link and the answers will come.',
-      'No answers yet. Finn is keeping an ear out.',
+      'Nobody else has answered yet. Finn is keeping an ear out.',
       'All quiet so far. Finn is guarding the poll until your friends turn up.',
     ],
   },

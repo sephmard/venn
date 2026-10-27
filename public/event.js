@@ -1535,23 +1535,39 @@ export async function renderEvent(id, navigate) {
       h += `<section class="banner-final${st.celebrate && !reducedMotion() ? ' celebrate' : ''}" aria-labelledby="final-h">
         <p class="kicker">It's happening</p>
         <h2 id="final-h">${esc(when(start, end))}</h2>
+        ${
+          // The organizer's next step: telling everyone. By email when the poll has their addresses.
+          ev().isAdmin
+            ? `<div class="final-tell">
+          ${mailAll ? `<a class="btn" id="email-all" href="${esc(mailAll)}">Email everyone the date</a>` : ''}
+          <button type="button" class="btn" data-share>${canShare ? 'Send everyone the date' : 'Copy the link for everyone'}</button>
+        </div>`
+            : ''
+        }
         ${calJs.addToCalendar({ id, info, day, url: shareUrl, guests })}
         <div class="final-more">
-          ${mailAll ? `<a class="link-btn" id="email-all" href="${esc(mailAll)}">Email everyone</a>` : ''}
-          <button type="button" class="link-btn" data-share>${canShare ? 'Share the date' : 'Copy the link'}</button>
-          <button type="button" class="link-btn" id="share-card">${canShare ? 'Share as a picture' : 'Save as a picture'}</button>
-          ${ev().isAdmin ? '<button type="button" class="link-btn" id="unpick">Clear the date</button>' : ''}
           ${
             // The next plan starts here: the organizer copies this poll, a guest makes their own.
             ev().isAdmin
-              ? `<span id="plan-next"><a class="link-btn" data-link href="/new/${optionsMode && !partsMode ? 'pick' : 'free'}?copy=${esc(id)}">Plan the next one</a></span>`
-              : '<a class="link-btn" data-link href="/new?from=set">Make your own poll</a>'
+              ? `<span id="plan-next"><a class="link-btn" data-link href="/new/${optionsMode && !partsMode ? 'pick' : 'free'}?copy=${esc(id)}">Plan the next one</a></span>
+          <details class="final-extras">
+            <summary>More</summary>
+            <div class="final-extras-body">
+              <button type="button" class="link-btn" id="share-card">${canShare ? 'Share as a picture' : 'Save as a picture'}</button>
+              <span id="repeat-box"></span>
+              <button type="button" class="link-btn" id="unpick">Clear the date</button>
+            </div>
+          </details>`
+              : `<button type="button" class="link-btn" id="share-card">${canShare ? 'Share as a picture' : 'Save as a picture'}</button>
+          <a class="link-btn" data-link href="/new?from=set">Make your own poll</a>`
           }
         </div>
       </section>`;
     } else if (ev().isAdmin && ev().seriesOf) h += '<div id="series-box"></div>'; // bring last time's group back
     if (org) h += '<div id="org-tools"></div>';
     $('#banners').innerHTML = h;
+    // Once the date is set, the banner says how to pass it on, so the invite button steps aside.
+    $('.poll-share').hidden = ev().finalStart != null;
     // The "It's set" picture is drawn by a module that loads when it's asked for.
     const card = $('#share-card');
     if (card)
