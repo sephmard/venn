@@ -14,6 +14,7 @@ import { createStore, sqliteAdapter } from './src/store.js';
 import { SECURITY_HEADERS } from './src/security-headers.js';
 import { isAppRoute } from './src/routes.js';
 import { appShell } from './src/preview.js';
+import { placesState } from './src/places.js';
 
 const root = dirname(fileURLToPath(import.meta.url));
 const publicDir = join(root, 'public');
@@ -39,6 +40,7 @@ export function createApp({ dbPath = ':memory:', env = process.env, fetchImpl = 
   if (dbPath !== ':memory:') mkdirSync(dirname(dbPath), { recursive: true });
   const store = createStore(sqliteAdapter(new DatabaseSync(dbPath)));
   const aiWindows = new Map(); // AI rate limiting, per server
+  const places = placesState(); // place search's rate limiting and cache, per server
   // Background work (notifications) runs after the response is sent; tests can await it.
   const pending = new Set();
   const waitUntil = (promise) => {
@@ -64,6 +66,7 @@ export function createApp({ dbPath = ':memory:', env = process.env, fetchImpl = 
           clientIp: req.socket.remoteAddress || '',
           anthropic,
           aiWindows,
+          places,
         });
         res.writeHead(response.status, Object.fromEntries(response.headers));
         res.end(Buffer.from(await response.arrayBuffer()));

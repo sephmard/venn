@@ -188,6 +188,10 @@ export function wirePlan(onOccasion) {
   let noted = ''; // the note a template put in "Note for everyone", so another can take it back
   let taps = [];
   $('#tz').addEventListener('change', showTz);
+  // Address search (place-search.js), if switched on, loads when "Where" is first focused.
+  const where = $('#location');
+  const places = (c) => c.places && import('./place-search.js').then((m) => m.attach(where, c.places));
+  where.addEventListener('focus', () => getConfig().then(places), { once: true });
   $('#create').addEventListener('click', async (e) => {
     if (e.target.closest('#emoji-tile'))
       return void import('./poll-image.js').then(
