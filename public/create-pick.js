@@ -499,7 +499,7 @@ export function renderPick() {
     setReady(
       `${plural(n, 'option')} to vote on`,
       [!n, 'Add at least one option to create the poll', calendarFocus],
-      ...nameAndEmail(occasion),
+      ...nameAndEmail(),
     );
   }
   $('#title').addEventListener('input', updateReady);

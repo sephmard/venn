@@ -30,7 +30,8 @@ const PAGES = {
   // +1.25 each for templates (templates.js and the cards); their notes and surprises load on demand.
   // +0.5 each for the poll's own icon button; the picture tools load when it's tapped.
   // +0.5 each for the "tap again: if needed" key and tip, the same on every calendar.
-  'vote on a few dates page': ['create-pick.js', ['create.css'], 48.75], // +0.25 for the landing pages' link-only templates
+  // +0.25 for the landing pages' link-only templates, +0.25 for the poll's name to start with.
+  'vote on a few dates page': ['create-pick.js', ['create.css'], 49],
   // +0.25 for usage stats, +0.25 for a guest's one-tap own poll (template by emoji) and the day labels that fit.
   'ask when people are available page': ['create-free.js', ['create.css'], 47],
   'poll page': ['event.js', [], 45],

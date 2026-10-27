@@ -491,7 +491,7 @@ export function renderFree() {
           `Your times are shorter than ${lengthLabel(length)}. Make one longer`,
           gridFocus,
         ],
-        ...nameAndEmail(occasion),
+        ...nameAndEmail(),
       );
     }
     if (level === 'parts') {
@@ -502,7 +502,7 @@ export function renderFree() {
       return setReady(
         `${plural(windows.length, 'time')} to choose from`,
         [!windows.length, 'Pick at least one morning, afternoon or evening', gridFocus],
-        ...nameAndEmail(occasion),
+        ...nameAndEmail(),
       );
     }
     const dates = [...selected].sort();
@@ -520,7 +520,7 @@ export function renderFree() {
       [!dates.length, 'Pick at least one day to create the poll', gridFocus],
       [k > dates.length, `Pick at least ${k} days, for ${k} in a row`, gridFocus],
       [longestRun(dates) < k, `None of your days make ${k} in a row. Pick days next to each other`, '#span'],
-      ...nameAndEmail(occasion),
+      ...nameAndEmail(),
     );
   }
 
