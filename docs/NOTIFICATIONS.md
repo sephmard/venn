@@ -11,16 +11,6 @@ Organizers set these up from the **Notifications** button on their poll. Email c
 
 - **When the poll is created,** if they gave an email: "Your poll is ready 🎉", with the link to share. There's no confirmation step.
 - **Each time someone answers:** "🎉 Ana just answered…", with the best time so far and a link to everyone's answers. Changes and removals get a plainer email.
-- **For a plan that repeats, once its date has passed:** "Time to plan next month's Book club?", once. See [Plans that repeat](#plans-that-repeat).
-
-## Plans that repeat
-
-When the organizer says how often a poll's plan repeats (weekly, every 2 weeks or monthly, from "Repeats" under the picked date, or by planning the next one from it), Venn emails them once the date has passed: "Time to plan next month's Book club?", from Finn. Its button opens the create page with the poll copied and its dates moved on, so it's one tap to check them and create the next one. From there, the organizer can share the new poll as usual, or email last time's group: a `mailto:` link from their own email app with everyone who gave an email last time in BCC. Venn never emails guests itself.
-
-- **Only when it can.** The server must send email, and the organizer must have given an address for that poll and not stopped the emails. Each poll gets at most one reminder, and none when the next one was already planned from it, or when its date was more than 3 weeks ago. It counts towards the poll's email limit.
-- **When it runs.** Every hour. On Cloudflare, a [cron trigger](https://developers.cloudflare.com/workers/configuration/cron-triggers/) in `wrangler.toml` calls the Worker's `scheduled` handler; the Node server runs it on a timer. Both call `sendReminders` in [`src/reminders.js`](../src/reminders.js).
-- **Its links.** Emails sent with no request to answer need to know the site's address. Venn saves it with the organizer's email settings. For polls given an email before that, set `PUBLIC_URL` (for example `https://venn.example.com`); without it those polls get no reminder.
-- **The organizer link.** The email links to the create page, not the organizer link, which the server never has. The copy works on any device; the organizer's own marks and last time's emails come along on a device that has their organizer link.
 
 ## Copies for people who answer
 

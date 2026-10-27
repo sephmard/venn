@@ -218,28 +218,6 @@ export function pollReadyEmail({ title, pollUrl, unsubscribeUrl }) {
   return { subject, text, html };
 }
 
-/**
- * To the organizer of a plan that repeats, once its date has passed: time to plan the next one?
- * `planUrl` opens the create page with this poll's dates already moved on (src/reminders.js).
- */
-export function reminderEmail({ title, next, planUrl, pollUrl, unsubscribeUrl }) {
-  const subject = `Time to plan ${next} ${title}?`;
-  const lead = `“${title}” has been and gone, and Finn hopes it was a good one! Ready for ${next}?`;
-  const how =
-    "Venn has moved your dates on already, so it's one tap to check them and create the poll. Then send it to everyone, or email last time's group, from the new poll's page.";
-  let text = `${lead}\n\n${how}\n\nPlan ${next}: ${planUrl}\n\nLast time's poll: ${pollUrl}\n\nStop these emails: ${unsubscribeUrl}\n`;
-  text += `\n${signature(pollUrl)}\n`;
-  const html = emailLayout(
-    `${heading(`Time to plan ${escHtml(next)} ${escHtml(title)}? 🐾`)}${para(escHtml(lead))}${para(escHtml(how))}${button(
-      planUrl,
-      `Plan ${next}`,
-    )}${linkLine(planUrl)}${para(`<a href="${escHtml(pollUrl)}" style="color:#0b7a5c">Last time's poll</a>`)}`,
-    stopFooter(unsubscribeUrl),
-    pollUrl,
-  );
-  return { subject, text, html };
-}
-
 /** To the organizer, each time someone answers: who it was, the best time so far, and the poll. */
 export function responseEmail(s, unsubscribeUrl) {
   const name = s.response?.name;
