@@ -13,6 +13,13 @@ async function audit(page, label, { party = false } = {}) {
   });
   // Nor is the "poll created" celebration while it fades away (it has its own audit).
   if (!party) await expect(page.locator('.party')).toHaveCount(0, { timeout: 10_000 });
+  // The celebration's own audit waits for its buttons to finish fading in: half-faded text isn't what people read.
+  else
+    await page.waitForFunction(() =>
+      [...document.querySelectorAll('.party [role=status], .party-go, .party-also')].every(
+        (el) => el.getAnimations().length === 0 && getComputedStyle(el).opacity === '1',
+      ),
+    );
   const results = await new AxeBuilder({ page }).withTags(['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa', 'wcag22aa']).analyze();
   const blocking = results.violations.filter((v) => v.impact === 'serious' || v.impact === 'critical');
   const report = blocking

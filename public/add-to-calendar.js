@@ -6,7 +6,8 @@ import { buildIcs, googleCalendarUrl, outlookCalendarUrl } from './calendar-expo
 import { esc } from './ui.js';
 
 // Its styles come with it, so guests don't download them before there's a date.
-const CSS = `.cal-add{margin-top:16px}.cal-add h3{font-size:1.05rem;margin:0}.cal-add p{margin:2px 0 10px;font-size:0.9rem}.cal-btns{display:grid;grid-template-columns:repeat(auto-fit, minmax(170px, 1fr));gap:8px}.cal-btn{display:flex;align-items:center;gap:10px;min-height:52px;padding:10px 16px;border-radius:var(--radius);background:var(--surface);color:var(--text);font-weight:700;text-decoration:none;box-shadow:var(--lift)}.cal-btn svg{flex:none}.cal-go{margin-left:auto;color:var(--muted);font-weight:600}.cal-btn:hover{background:var(--surface-2)}.cal-btn:focus-visible{outline:3px solid var(--yes-ink);outline-offset:2px}`;
+// One quiet row: three small buttons, each its calendar's logo and short name.
+const CSS = `.cal-add{margin-top:14px}.cal-add h3{font-size:0.95rem;margin:0 0 8px}.cal-add p{margin:-4px 0 8px;font-size:0.85rem}.cal-btns{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}.cal-btn{display:flex;align-items:center;justify-content:center;gap:8px;min-height:44px;padding:8px 10px;border-radius:999px;background:var(--surface);color:var(--text);font-weight:700;font-size:0.95rem;text-decoration:none}.cal-btn svg{flex:none;width:20px;height:20px}.cal-btn:hover{background:var(--surface-2)}.cal-btn:focus-visible{outline:3px solid var(--yes-ink);outline-offset:2px}`;
 
 // Small calendar logos, drawn here so the page loads nothing from anyone else. The names say which is which.
 const svg = (body) => `<svg viewBox="0 0 24 24" width="24" height="24" aria-hidden="true" focusable="false">${body}</svg>`;
@@ -25,7 +26,7 @@ const LOGOS = {
 };
 
 /**
- * The group of three buttons. `info` is what the calendar link helpers in core.js take ({ title, description,
+ * The row of three buttons. `info` is what the calendar link helpers in core.js take ({ title, description,
  * location, start, end, allDay }); `day` is the picked day of the month, for the iCal logo.
  * Google and Outlook open in a new tab; iCal downloads the .ics, which opens the calendar app.
  */
@@ -34,8 +35,9 @@ let lastIcs = null;
 export function addToCalendar({ id, info, day, url, guests = [] }) {
   if (!document.getElementById('cal-css'))
     document.head.append(Object.assign(document.createElement('style'), { id: 'cal-css', textContent: CSS }));
-  const btn = (href, logo, name, tab = true) =>
-    `<a class="cal-btn" href="${esc(href)}"${tab ? ' target="_blank" rel="noopener"' : ''}>${logo}<span>${name}</span><span class="cal-go" aria-hidden="true">${tab ? '↗' : '↓'}</span></a>`;
+  // Short names to fit three across a phone; screen readers hear the rest of the name too.
+  const btn = (href, logo, name, more, tab = true) =>
+    `<a class="cal-btn" href="${esc(href)}"${tab ? ' target="_blank" rel="noopener"' : ''}>${logo}<span>${name}${more ? `<span class="sr-only"> ${more}</span>` : ''}</span></a>`;
   // The organizer of a poll that asked everyone's email: Google Calendar and iCal invite them all. The
   // iCal file is made here, so the emails (which only the organizer sees) never go in a link.
   const invite = guests.length > 0;
@@ -45,17 +47,17 @@ export function addToCalendar({ id, info, day, url, guests = [] }) {
     : null;
   const ics = lastIcs || `/api/events/${encodeURIComponent(id)}/event.ics`;
   const gcal = googleCalendarUrl({ ...info, guests: guests.map((g) => g.email) });
-  return `<div class="cal-add" role="group" aria-labelledby="cal-add-h" aria-describedby="cal-add-hint">
+  return `<div class="cal-add" role="group" aria-labelledby="cal-add-h"${invite ? ' aria-describedby="cal-add-hint"' : ''}>
     <h3 id="cal-add-h">${invite ? 'Add it to your calendar, with everyone invited' : 'Add to your calendar'}</h3>
-    <p id="cal-add-hint">${
+    ${
       invite
-        ? `Google Calendar and iCal add the ${guests.length === 1 ? 'person who answered' : `${guests.length} people who answered`} as guests, so your calendar can send them the invite. Outlook adds just the event.`
-        : 'Opens your calendar with the event filled in. iCal works with Apple Calendar and most others.'
-    }</p>
+        ? `<p id="cal-add-hint">Google and Apple (iCal) invite the ${guests.length === 1 ? 'person who answered' : `${guests.length} people who answered`}.</p>`
+        : ''
+    }
     <div class="cal-btns">
-      ${btn(gcal, LOGOS.google, 'Google Calendar')}
+      ${btn(gcal, LOGOS.google, 'Google', 'Calendar')}
       ${btn(outlookCalendarUrl(info), LOGOS.outlook, 'Outlook')}
-      ${btn(ics, LOGOS.ical(day), 'iCal', false).replace('<a ', invite ? `<a download="${esc(id)}.ics" ` : '<a ')}
+      ${btn(ics, LOGOS.ical(day), 'Apple', 'Calendar (iCal)', false).replace('<a ', invite ? `<a download="${esc(id)}.ics" ` : '<a ')}
     </div>
   </div>`;
 }

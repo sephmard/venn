@@ -2,7 +2,7 @@
 // JavaScript, so when a server sends the app shell for /e/<id> it puts that poll's own title,
 // description and image into <head>. Shared by the Worker and the Node server.
 
-import { allDaySpan, buildSlots, meetingEnd, rankTimes } from '../public/core.js';
+import { allDaySpan, buildSlots, isOptionsPoll, meetingEnd, rankTimes } from '../public/core.js';
 import { imagePath } from './images.js';
 
 // Static images, rendered by `npm run og` (scripts/og-image.js): one to ask, one once it's set.
@@ -48,6 +48,25 @@ export function setLabel(ev, start) {
   return label.replace(/[\u2009\u202f\u00a0]/g, ' ');
 }
 
+/** The days a poll asks about, in its time zone: "Fri, Nov 13", or "Nov 12 – 20". */
+function spanLabel(ev, slots) {
+  const first = Math.min(...slots);
+  const last = Math.max(...slots);
+  const f = new Intl.DateTimeFormat('en-US', { month: 'short', day: 'numeric', timeZone: ev.timezone });
+  const day = (t) =>
+    f
+      .formatToParts(t)
+      .map((p) => p.value)
+      .join('');
+  const label =
+    day(first) === day(last)
+      ? new Intl.DateTimeFormat('en-US', { weekday: 'short', month: 'short', day: 'numeric', timeZone: ev.timezone }).format(
+          first,
+        )
+      : f.formatRange(first, last);
+  return label.replace(/[\u2009\u202f\u00a0]/g, ' ');
+}
+
 /**
  * Title, description and image for a poll's preview, from what `store.getPreview` returns.
  * Only what anyone with the link can already see: no participant names or emails, and no counts
@@ -59,8 +78,14 @@ export function pollPreview(ev) {
   const title = [ev.emoji, ev.title].filter(Boolean).join(' ');
   const own = ev.id && ev.image?.card && { path: imagePath(ev.id, ev.image, 'card'), alt: ev.title };
   if (ev.finalStart == null) {
-    const who = !ev.hideNames && ev.organizer ? `${ev.organizer} asks: when works for you?` : 'When works for you?';
-    return { title, description: `${who} Tap your answers. No sign-up.`, image: own || OG_IMAGES.vote };
+    const who = !ev.hideNames && ev.organizer ? `${ev.organizer} wants to find a time for ${ev.title}.` : 'When works for you?';
+    const slots = ev.options || ev.dates || ev.windows ? buildSlots(ev) : [];
+    const ask = !slots.length
+      ? 'Tap your answers.'
+      : isOptionsPoll(ev)
+        ? `${slots.length} ${slots.length === 1 ? 'choice' : 'choices'}, ${spanLabel(ev, slots)}. Tap the ones that work.`
+        : `${spanLabel(ev, slots)}. Tap when you're free.`;
+    return { title, description: `${who} ${ask} No sign-up.`, image: own || OG_IMAGES.vote };
   }
   let description = `It's set: ${setLabel(ev, ev.finalStart)}`;
   const answers = ev.answers || [];

@@ -35,11 +35,21 @@ const half = seven + 30 * 60_000;
 test('preview: before a date is picked, the poll asks, with the organizer’s name', () => {
   const p = pollPreview({ ...dinner, finalStart: null, answers: [] });
   assert.equal(p.title, "🍝 Dinner at Rosa's");
-  assert.equal(p.description, 'Priya asks: when works for you? Tap your answers. No sign-up.');
+  assert.equal(p.description, "Priya wants to find a time for Dinner at Rosa's. Fri, Nov 13. Tap when you're free. No sign-up.");
   assert.equal(p.image.path, '/og.png');
   const anon = pollPreview({ ...dinner, emoji: undefined, organizer: '', finalStart: null });
   assert.equal(anon.title, "Dinner at Rosa's");
-  assert.equal(anon.description, 'When works for you? Tap your answers. No sign-up.');
+  assert.equal(anon.description, "When works for you? Fri, Nov 13. Tap when you're free. No sign-up.");
+  // A few dates to vote on: how many, and the days they span.
+  const pick = { ...dinner, mode: 'options', options: [{ start: seven }, { start: seven + 2 * 86_400_000 }], finalStart: null };
+  assert.equal(
+    pollPreview(pick).description,
+    "Priya wants to find a time for Dinner at Rosa's. 2 choices, Nov 13 – 15. Tap the ones that work. No sign-up.",
+  );
+  assert.match(
+    pollPreview({ ...dinner, dates: ['2026-11-30', '2026-12-02'], finalStart: null }).description,
+    / Nov 30 – Dec 2\. /,
+  );
 });
 
 test('preview: once it’s set, the date in the poll’s time zone and how many can make it', () => {
@@ -64,7 +74,7 @@ test('preview: hidden results or names never show counts or the organizer’s na
   }
   assert.equal(
     pollPreview({ ...dinner, hideNames: true, finalStart: null }).description,
-    'When works for you? Tap your answers. No sign-up.',
+    "When works for you? Fri, Nov 13. Tap when you're free. No sign-up.",
   );
 });
 
@@ -100,7 +110,10 @@ test('preview tags escape everything people typed', () => {
   for (const raw of ['<script', '<b>']) assert.ok(!tags.toLowerCase().includes(raw), raw);
   assert.equal(titleOf(tags), '🍝 &quot;&gt;&lt;script&gt;alert(1)&lt;/script&gt; · Venn');
   assert.equal(meta(tags, 'og:title'), '🍝 &quot;&gt;&lt;script&gt;alert(1)&lt;/script&gt;');
-  assert.equal(meta(tags, 'description'), '&lt;b&gt;Mal&#39;&lt;/b&gt; asks: when works for you? Tap your answers. No sign-up.');
+  assert.equal(
+    meta(tags, 'description'),
+    '&lt;b&gt;Mal&#39;&lt;/b&gt; wants to find a time for &quot;&gt;&lt;script&gt;alert(1)&lt;/script&gt;. Fri, Nov 13. Tap when you&#39;re free. No sign-up.',
+  );
   assert.equal(meta(tags, 'og:image'), 'https://venn.day/og.png');
   // A $ in a title isn't a replacement pattern.
   assert.equal(
@@ -164,7 +177,10 @@ async function checkServer(fetchPath, origin) {
   const asking = await page(await makePoll(fetchPath, { title: 'Book club <i>&</i>' }));
   assert.equal(titleOf(asking), '🍝 Book club &lt;i&gt;&amp;&lt;/i&gt; · Venn');
   assert.equal(meta(asking, 'og:title'), '🍝 Book club &lt;i&gt;&amp;&lt;/i&gt;');
-  assert.equal(meta(asking, 'og:description'), 'Priya asks: when works for you? Tap your answers. No sign-up.');
+  assert.equal(
+    meta(asking, 'og:description'),
+    'Priya wants to find a time for Book club &lt;i&gt;&amp;&lt;/i&gt;. Fri, Nov 13. Tap when you&#39;re free. No sign-up.',
+  );
   assert.equal(meta(asking, 'og:image'), `${origin}/og.png`);
   assert.equal(meta(asking, 'og:site_name'), 'Venn');
   assert.equal(meta(asking, 'twitter:card'), 'summary_large_image');
