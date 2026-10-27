@@ -1,6 +1,6 @@
 // Small helpers shared by the create pages and the poll page.
 
-import { allDaySpan, pad } from './core.js';
+import { pad } from './core.js';
 
 export const app = document.getElementById('app');
 export const localTz = Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC';
@@ -164,38 +164,6 @@ export function lengthLabel(min) {
     m = min % 60;
   return m ? `${h} hr ${m} min` : `${h} hour${h > 1 ? 's' : ''}`;
 }
-
-/** "Sat, Nov 7, 7:00 – 9:00 PM", "Sat, Nov 7, all day" or "Fri, Nov 6 – Sun, Nov 8". */
-export function fmtWhen(start, end, tz) {
-  const span = allDaySpan(start, end, tz);
-  if (span) {
-    const last = dateParts(span.endDate);
-    last.setUTCDate(last.getUTCDate() - 1);
-    const first = dateParts(span.startDate);
-    return +last === +first ? `${fmtDay.format(first)}, all day` : fmtDay.formatRange(first, last);
-  }
-  const f = new Intl.DateTimeFormat(undefined, {
-    weekday: 'short',
-    month: 'short',
-    day: 'numeric',
-    hour: 'numeric',
-    minute: '2-digit',
-    timeZone: tz,
-  });
-  return f.formatRange(start, end);
-}
-
-/** Just the time part: "7:00 – 9:00 PM", or "All day". */
-export function fmtTimeRange(start, end, tz) {
-  const span = allDaySpan(start, end, tz);
-  if (span) return span.endDate === nextDate(span.startDate) ? 'All day' : fmtWhen(start, end, tz);
-  return new Intl.DateTimeFormat(undefined, { hour: 'numeric', minute: '2-digit', timeZone: tz }).formatRange(start, end);
-}
-const nextDate = (d) => {
-  const t = dateParts(d);
-  t.setUTCDate(t.getUTCDate() + 1);
-  return t.toISOString().slice(0, 10);
-};
 
 /** "Eastern Time" rather than "America/New_York". */
 export function tzName(tz) {

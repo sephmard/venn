@@ -15,8 +15,8 @@ const CSS = `
 .dcal-month{margin:0 0 6px;font-size:1rem}
 .dcal-grid{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:4px}
 .dcal-dow{text-align:center;font-size:.75rem;font-weight:600;color:var(--muted)}
-.dcal-day{display:grid;place-content:center;gap:3px;min-width:0;min-height:52px;padding:2px 1px;border-radius:12px;border:1.5px solid var(--cell-line);background:var(--surface-2);color:var(--text);font:inherit;font-weight:700;line-height:1;cursor:pointer}
-.dcal-day small{font-size:.62rem;line-height:1.05;overflow-wrap:normal}
+.dcal-day{container-type:inline-size;display:grid;place-content:center;gap:3px;min-width:0;min-height:52px;padding:2px 1px;border-radius:12px;border:1.5px solid var(--cell-line);background:var(--surface-2);color:var(--text);font:inherit;font-weight:700;line-height:1;cursor:pointer}
+.dcal-day small{font-size:min(.62rem,26cqi);line-height:1.05;overflow-wrap:normal}
 .dcal-off{border-color:transparent;background:none;color:var(--muted);font-weight:400;cursor:default}
 .dcal-day[data-v="${YES}"]{background:var(--yes);border-color:var(--yes);color:var(--yes-ink)}
 .dcal-day[data-v="${IF_NEEDED}"]{background:var(--maybe);border-color:var(--maybe);color:var(--maybe-ink)}

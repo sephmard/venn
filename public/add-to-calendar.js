@@ -7,7 +7,7 @@ import { esc } from './ui.js';
 
 // Its styles come with it, so guests don't download them before there's a date.
 // One quiet row: three small buttons, each its calendar's logo and short name.
-const CSS = `.cal-add{margin-top:14px}.cal-add h3{font-size:0.95rem;margin:0 0 8px}.cal-add p{margin:-4px 0 8px;font-size:0.85rem}.cal-btns{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}.cal-btn{display:flex;align-items:center;justify-content:center;gap:8px;min-height:44px;padding:8px 10px;border-radius:999px;background:var(--surface);color:var(--text);font-weight:700;font-size:0.95rem;text-decoration:none}.cal-btn svg{flex:none;width:20px;height:20px}.cal-btn:hover{background:var(--surface-2)}.cal-btn:focus-visible{outline:3px solid var(--yes-ink);outline-offset:2px}`;
+const CSS = `.cal-add{margin-top:14px}.cal-add h3{font-size:0.95rem;margin:0 0 8px}.cal-add p{margin:-4px 0 8px;font-size:0.85rem}.cal-btns{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}.cal-btn{display:flex;align-items:center;justify-content:center;gap:8px;min-height:44px;padding:8px 10px;border-radius:999px;background:var(--surface);color:var(--text);font-weight:700;font-size:0.95rem;text-decoration:none}.cal-btn svg{flex:none;width:20px;height:20px}.cal-btn:hover{background:var(--surface-2)}.cal-btn:focus-visible{outline:3px solid var(--yes-ink);outline-offset:2px}@media (max-width:374px){.cal-btn{flex-direction:column;gap:2px;padding:6px 4px;border-radius:16px;font-size:0.85rem}}`;
 
 // Small calendar logos, drawn here so the page loads nothing from anyone else. The names say which is which.
 const svg = (body) => `<svg viewBox="0 0 24 24" width="24" height="24" aria-hidden="true" focusable="false">${body}</svg>`;
