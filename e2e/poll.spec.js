@@ -1127,6 +1127,35 @@ test('guests are told before answering twice, and a bad email is caught on the p
   await expect(page.locator('#save-state')).toHaveText('Submitted');
 });
 
+test('"Email me a copy" starts ticked and then needs an email; unticked, the email is optional', async ({ page, request }) => {
+  await page.route('**/api/config', async (route) => {
+    const res = await route.fetch();
+    await route.fulfill({ response: res, json: { ...(await res.json()), email: true } });
+  });
+  const t0 = Date.UTC(2030, 0, 8, 18);
+  const { id } = await (
+    await request.post('/api/events', {
+      data: { title: 'Dinner', timezone: 'UTC', mode: 'options', options: [{ start: t0, end: t0 + 7_200_000 }] },
+    })
+  ).json();
+  await page.goto(`/e/${id}`);
+  await expect(page.locator('#copy-me')).toBeChecked();
+  await expect(page.locator('#copy-to')).toHaveAttribute('aria-required', 'true');
+  await expect(page.locator('label[for="copy-to"]')).toContainText('(for your copy)');
+  await page.locator('#mine .row').first().locator('[data-vote="2"]').click();
+  await page.fill('#name', 'Ana');
+  await page.fill('#copy-to', '');
+  await submit(page);
+  await expect(page.locator('#save-err')).toHaveText('Add your email for your copy, or untick "Email me a copy".');
+  await expect(page.locator('#copy-to')).toBeFocused();
+  await expect(page.locator('#copy-to')).toHaveAttribute('aria-invalid', 'true');
+  await page.uncheck('#copy-me');
+  await expect(page.locator('#copy-to')).toHaveAttribute('aria-required', 'false');
+  await expect(page.locator('label[for="copy-to"]')).toContainText('(optional)');
+  await submit(page);
+  await expect(page.locator('#save-state')).toHaveText('Submitted');
+});
+
 test("the organizer link on another device finds the organizer's own answer", async ({ page, browser }) => {
   await startPick(page, 'Dinner', [1140]);
   await page.click('#submit');
