@@ -1097,78 +1097,6 @@ h3 {
   border-color: var(--green);
 }
 
-/* ---------- comparisons (/compare and /compare/*), built on the template pages ---------- */
-.visually-hidden {
-  position: absolute;
-  width: 1px;
-  height: 1px;
-  overflow: hidden;
-  clip-path: inset(50%);
-  white-space: nowrap;
-}
-.cmp-cards {
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-}
-/* One phone screen beside the headline. */
-.cmp-shot {
-  margin: 0;
-  justify-self: center;
-}
-.cmp-shot img {
-  display: block;
-  width: 100%;
-  max-width: 300px;
-  height: auto;
-  border: 1px solid var(--line);
-  border-radius: 28px;
-  background: var(--card);
-  box-shadow: var(--shot-shadow);
-}
-.cmp-compare {
-  max-width: 48rem;
-}
-/* Three columns that wrap their words, so the table fits a 375px phone without scrolling. */
-.cmp-table {
-  width: 100%;
-  table-layout: fixed;
-  border-collapse: collapse;
-  font-size: 0.9375rem;
-  line-height: 1.45;
-}
-.cmp-table caption {
-  margin: 0 0 12px;
-  text-align: left;
-  color: var(--ink-2);
-  font-size: 0.875rem;
-}
-.cmp-table th,
-.cmp-table td {
-  padding: 14px 12px;
-  text-align: left;
-  vertical-align: top;
-  border-bottom: 1px solid var(--line);
-  overflow-wrap: break-word;
-}
-.cmp-table thead th {
-  font-weight: 700;
-  border-bottom: 2px solid var(--ink);
-}
-.cmp-table tbody th {
-  font-weight: 600;
-}
-.cmp-table th:first-child {
-  width: 34%;
-  padding-left: 0;
-}
-.cmp-table .us {
-  background: var(--green-soft);
-}
-.cmp-note {
-  margin: 16px 0 0;
-  font-size: 0.875rem;
-  color: var(--ink-2);
-}
-
 /* ---------- responsive ---------- */
 @media (max-width: 900px) {
   :root {
@@ -1186,8 +1114,7 @@ h3 {
     grid-template-columns: minmax(0, 1fr);
     gap: 48px;
   }
-  .tpl-cards,
-  .cmp-cards {
+  .tpl-cards {
     grid-template-columns: minmax(0, 1fr);
   }
   .story {
@@ -1261,19 +1188,6 @@ h3 {
   }
   .code-card {
     padding: 18px;
-  }
-  .cmp-shot img {
-    max-width: 240px;
-  }
-  .cmp-table {
-    font-size: 0.875rem;
-  }
-  .cmp-table th,
-  .cmp-table td {
-    padding: 12px 8px;
-  }
-  .cmp-table th:first-child {
-    padding-left: 0;
   }
   .code-card pre {
     font-size: 0.75rem;
