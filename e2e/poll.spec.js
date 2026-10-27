@@ -912,8 +912,15 @@ test('landing page: nav bar with GitHub, and the way to both kinds of poll', asy
     await expect(nav.getByRole('link', { name: 'Privacy' })).toBeVisible();
   }
   await expect(page.locator('h1')).toHaveText(/Find the day that works/);
+  // "Create a poll" stays in the sticky bar however far down people scroll, without sideways scrolling.
+  const create = page.locator('.topbar').getByRole('link', { name: 'Create a poll' });
+  await expect(create).toHaveAttribute('href', '/new');
+  await page.locator('footer').scrollIntoViewIfNeeded();
+  await expect(create).toBeInViewport();
+  expect((await create.boundingBox()).height).toBeGreaterThanOrEqual(44);
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+  await page.evaluate(() => scrollTo(0, 0));
   // The hero's two cards are the way in: each opens its kind of poll.
-  await expect(page.locator('.topbar').getByRole('link', { name: 'Create a poll' })).toHaveCount(0);
   await page
     .locator('.start-cards')
     .getByRole('link', { name: /Ask when people are available/ })
