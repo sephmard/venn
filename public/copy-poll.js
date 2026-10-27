@@ -82,7 +82,11 @@ export function freshPoll(ev, now = Date.now()) {
   if (enough) return kept;
   let weeks = Math.max(1, Math.ceil(daysBetween(dates[0], today) / 7));
   let next = shiftPoll(ev, () => 7 * weeks);
-  while (!upcoming(next, now)) next = shiftPoll(ev, () => 7 * ++weeks);
+  // Every option moves by the same number of weeks: count up between tries, not once per option.
+  while (!upcoming(next, now)) {
+    weeks += 1;
+    next = shiftPoll(ev, () => 7 * weeks);
+  }
   return next;
 }
 
