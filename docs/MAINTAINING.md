@@ -137,7 +137,8 @@ The pages under `/templates/` and the comparisons in `/compare/` (except the han
 
 - **Add or change a page** in `pages/pages.js`, then run `npm run pages` (the HTML, `/templates` and `sitemap.xml`) and `npm run og` (its link-preview picture). `npm test` fails if the HTML is out of date. A page for a plan that isn't a template yet needs one in `public/templates.js` with `quiet: true`, so it only appears when the page's button chooses it.
 - **Comparison pages** say what other tools do. Check them now and then, and update the "checked in" month in `scripts/build-pages.js`.
-- **Search Console**: verify `venn.day` at [Google Search Console](https://search.google.com/search-console) (a DNS TXT record in Cloudflare), and submit `https://venn.day/sitemap.xml`. It shows which searches find each page.
+- **Search Console**: verify `venn.day` at [Google Search Console](https://search.google.com/search-console) (a DNS TXT record in Cloudflare), and submit `https://venn.day/sitemap.xml`. It shows which searches find each page. Do the same in [Bing Webmaster Tools](https://www.bing.com/webmasters) (it can import from Search Console): Bing's index also feeds ChatGPT search and Copilot.
+- **AI search**: `robots.txt` welcomes AI crawlers to the public pages, and `/llms.txt` (written by `npm run pages`) sums up Venn and links every page. Keep its facts true when features change.
 - **What works**: each page's button carries `?from=<slug>`, so the stats page shows visits and polls per page under "Where new polls come from".
 
 ## Releases
