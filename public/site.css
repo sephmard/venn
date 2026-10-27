@@ -129,6 +129,7 @@ h2 {
   font-weight: 400;
   letter-spacing: -0.01em;
   margin: 0;
+  overflow-wrap: break-word; /* a long word never pushes a narrow screen sideways */
 }
 h1 em,
 h2 em {
@@ -155,6 +156,8 @@ h2 em {
   display: inline-flex;
   align-items: center;
   justify-content: center;
+  max-width: 100%;
+  text-align: center;
   min-height: 48px;
   padding: 0 26px;
   border-radius: 999px;
@@ -1205,11 +1208,20 @@ h3 {
     flex: none;
     gap: 6px;
   }
+  .nav {
+    gap: 4px;
+  }
   .nav-links {
     gap: 2px;
+    min-width: 0;
   }
+  .btn-lg {
+    padding: 0 20px;
+  }
+  /* Room for the logo, GitHub, Create a poll and the menu in any phone's font. */
   .nav .btn-sm {
-    padding: 0 10px;
-    font-size: 0.875rem;
+    padding: 0 8px;
+    font-size: 0.8125rem;
+    white-space: nowrap;
   }
 }

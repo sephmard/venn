@@ -129,6 +129,9 @@ test.describe('on a 320px phone', () => {
       await page.goto(path);
       await page.locator('h1').first().waitFor();
       await fits(page, path);
+      // And in a wider font, as some phones and CI's Linux use.
+      await page.addStyleTag({ content: "* { font-family: 'DejaVu Sans', Verdana, sans-serif !important }" });
+      await fits(page, `${path} (wide font)`);
       // The site's nav bar: nothing on top of the logo.
       const brand = page.locator('.topbar .brand');
       const gh = page.locator('.topbar .gh-link');
