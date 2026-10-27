@@ -1549,12 +1549,11 @@ export async function renderEvent(id, navigate) {
           ${
             // The next plan starts here: the organizer copies this poll, a guest makes their own.
             ev().isAdmin
-              ? `<span id="plan-next"><a class="link-btn" data-link href="/new/${optionsMode && !partsMode ? 'pick' : 'free'}?copy=${esc(id)}">Plan the next one</a></span>
+              ? `<a class="link-btn" data-link href="/new/${optionsMode && !partsMode ? 'pick' : 'free'}?copy=${esc(id)}&amp;next">Plan the next one</a>
           <details class="final-extras">
             <summary>More</summary>
             <div class="final-extras-body">
               <button type="button" class="link-btn" id="share-card">${canShare ? 'Share as a picture' : 'Save as a picture'}</button>
-              <span id="repeat-box"></span>
               <button type="button" class="link-btn" id="unpick">Clear the date</button>
             </div>
           </details>`
@@ -1576,11 +1575,8 @@ export async function renderEvent(id, navigate) {
           .then((m) => m.shareCard({ ev: ev(), when: when(ev().finalStart, meetingEnd(ev(), ev().finalStart)), button: card }))
           .catch(() => toast("Couldn't make the picture. Try again."));
     st.celebrate = false;
-    // Plans that repeat: "Plan next month's", and last time's group (plan-next.js, for organizers).
-    if ($('#plan-next, #series-box'))
-      import('./plan-next.js')
-        .then((m) => m.planNext({ id, ev: ev(), headers: authHeaders(), kind: optionsMode && !partsMode ? 'pick' : 'free' }))
-        .catch(() => {});
+    // The next one of a plan: bring last time's group back (plan-next.js, for organizers).
+    if ($('#series-box')) import('./plan-next.js').then((m) => m.planNext({ id, ev: ev() })).catch(() => {});
     org?.tools($('#org-tools'), {
       id,
       ev: ev(),

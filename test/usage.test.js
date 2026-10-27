@@ -51,12 +51,9 @@ test('only known events with known values are counted', () => {
   assert.equal(cleanUsage('view', { page: 'secret-page' }, { client: true }), null); // unknown value
   assert.equal(cleanUsage('nope', {}, { client: true }), null);
   assert.equal(cleanUsage('poll.created', {}, { client: true }), null); // the browser can't fake server events
-  // Plans that repeat: how often, and the reminders sent to organizers.
-  assert.notEqual(cleanUsage('poll.created', { repeat: 'monthly' }), null);
-  assert.notEqual(cleanUsage('poll.created', { repeat: 'no' }), null);
-  assert.equal(cleanUsage('poll.created', { repeat: 'yearly' }), null);
-  assert.deepEqual(cleanUsage('reminder.sent', { repeat: 'weekly' }), { name: 'reminder.sent', props: '{"repeat":"weekly"}' });
-  assert.equal(cleanUsage('reminder.sent', {}, { client: true }), null);
+  // Plans that repeat were taken out: how often, and the reminders, aren't counted any more.
+  assert.equal(cleanUsage('poll.created', { repeat: 'monthly' }), null);
+  assert.equal(cleanUsage('reminder.sent', { repeat: 'weekly' }), null);
   assert.equal(cleanUsage('view', { page: 'poll' }), null);
   assert.equal(cleanUsage('toString', {}, { client: true }), null);
   // Where someone who goes on to make a poll came from: answering one, or a picked date.
@@ -150,7 +147,6 @@ test('counts what happens, and works out what happened to each poll', async () =
     1,
   );
   assert.equal(total(data.counts, 'poll.created', { kind: 'free', detail: 'days', plan: 'other' }), 1);
-  assert.equal(total(data.counts, 'poll.created', { repeat: 'no' }), 2);
   assert.equal(total(data.counts, 'answer.created', { kind: 'pick' }), 1);
   assert.equal(total(data.counts, 'poll.finalized'), 1);
   assert.equal(total(data.counts, 'view', { page: 'pick' }), 1);
