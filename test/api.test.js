@@ -1,6 +1,9 @@
 import { test, before, after } from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
+import { mkdtempSync, readFileSync, rmSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import { DatabaseSync } from 'node:sqlite';
 import { createApp } from '../server.js';
 import { SECURITY_HEADERS } from '../src/security-headers.js';
 import { IF_NEEDED, YES, hostAnswer, keySlot, zonedToUtc } from '../public/core.js';
@@ -173,7 +176,6 @@ test('organizer privacy: required emails, hidden names, hidden answers', async (
     requireEmail: true,
     hideNames: false,
     hideResults: true,
-    repeat: null,
   });
 
   // Hidden answers: guests see only their own answer and how many people answered.
@@ -434,47 +436,74 @@ test("the organizer's first answer, sent with their link, is theirs: the poll ca
   assert.equal(locked.status, 409);
 });
 
-test('plans that repeat: how often is checked, kept through edits, and the next one follows on from the last', async () => {
+test('the next one of a plan follows on from the last, and keeps it through edits', async () => {
   const t = Date.UTC(2030, 0, 8, 18);
   const body = { title: 'Book club', timezone: 'UTC', mode: 'options', options: [{ start: t, end: t + 7_200_000 }] };
-  // Only weekly, every 2 weeks or monthly; the previous poll's id is letters and digits.
-  assert.equal((await call('/api/events', { method: 'POST', body: { ...body, repeat: 'yearly' } })).status, 400);
-  assert.equal((await call('/api/events', { method: 'POST', body: { ...body, repeat: 7 } })).status, 400);
+  // The previous poll's id is letters and digits.
   assert.equal((await call('/api/events', { method: 'POST', body: { ...body, seriesOf: '../x' } })).status, 400);
   assert.equal((await call('/api/events', { method: 'POST', body: { ...body, seriesOf: { id: 1 } } })).status, 400);
 
-  const first = (await call('/api/events', { method: 'POST', body: { ...body, repeat: 'monthly', hostAnswers: true } })).data;
-  const admin = { 'x-admin-token': first.adminToken };
-  assert.equal((await call(`/api/events/${first.id}`)).data.repeat, 'monthly');
+  const first = (await call('/api/events', { method: 'POST', body: { ...body, hostAnswers: true } })).data;
+  // How often a plan repeats isn't a thing any more: an old client sending it is ignored.
   const second = (await call('/api/events', { method: 'POST', body: { ...body, repeat: 'monthly', seriesOf: first.id } })).data;
   const ev = (await call(`/api/events/${second.id}`)).data;
   assert.equal(ev.seriesOf, first.id);
-  assert.equal(ev.repeat, 'monthly');
+  assert.equal(ev.repeat, undefined);
   // A previous poll that's gone (or never was) is dropped, not an error.
   const orphan = (await call('/api/events', { method: 'POST', body: { ...body, seriesOf: 'nope123' } })).data;
   assert.equal((await call(`/api/events/${orphan.id}`)).data.seriesOf, undefined);
 
-  // Editing the poll keeps its repeat and its place in the series, unless the repeat is changed.
+  // Editing the poll keeps its place after the last one.
   assert.equal((await call(`/api/events/${second.id}`, { method: 'PUT', body: { ...body, title: 'Books' } })).status, 403);
   const secondAdmin = { 'x-admin-token': second.adminToken };
   assert.equal(
     (await call(`/api/events/${second.id}`, { method: 'PUT', body: { ...body, title: 'Books' }, headers: secondAdmin })).status,
     200,
   );
-  let edited = (await call(`/api/events/${second.id}`)).data;
-  assert.deepEqual([edited.title, edited.repeat, edited.seriesOf], ['Books', 'monthly', first.id]);
-  await call(`/api/events/${second.id}`, { method: 'PUT', body: { ...body, repeat: 'weekly' }, headers: secondAdmin });
-  edited = (await call(`/api/events/${second.id}`)).data;
-  assert.deepEqual([edited.repeat, edited.seriesOf], ['weekly', first.id]);
+  const edited = (await call(`/api/events/${second.id}`)).data;
+  assert.deepEqual([edited.title, edited.repeat, edited.seriesOf], ['Books', undefined, first.id]);
+});
 
-  // The organizer changes how often it repeats from the poll; only them, and only known values.
-  const settings = (repeat, headers = admin) =>
-    call(`/api/events/${first.id}/settings`, { method: 'PUT', body: { repeat }, headers });
-  assert.equal((await settings('weekly', {})).status, 403);
-  assert.equal((await settings('daily')).status, 400);
-  assert.equal((await settings('biweekly')).data.repeat, 'biweekly');
-  assert.equal((await call(`/api/events/${first.id}`)).data.repeat, 'biweekly');
-  assert.equal((await settings(null)).data.repeat, null);
-  assert.equal((await call(`/api/events/${first.id}`)).data.repeat, undefined);
-  assert.equal((await settings('')).data.repeat, null);
+test('polls saved with a repeat, from before it was taken out, still open, and lose it when saved', async () => {
+  const dir = mkdtempSync(join(tmpdir(), 'venn-'));
+  const dbPath = join(dir, 'venn.db');
+  const app = createApp({ dbPath });
+  await new Promise((r) => app.listen(0, r));
+  const base = `http://localhost:${app.address().port}`;
+  const go = async (path, { method = 'GET', body, headers = {} } = {}) => {
+    const res = await fetch(base + path, {
+      method,
+      headers: { 'content-type': 'application/json', ...headers },
+      body: body && JSON.stringify(body),
+    });
+    return { status: res.status, data: await res.json() };
+  };
+  try {
+    const t = Date.UTC(2030, 0, 8, 18);
+    const { id, adminToken } = (
+      await go('/api/events', {
+        method: 'POST',
+        body: { title: 'Book club', timezone: 'UTC', mode: 'options', options: [{ start: t, end: t + 3_600_000 }] },
+      })
+    ).data;
+    const db = new DatabaseSync(dbPath);
+    db.prepare("UPDATE events SET data = json_set(data, '$.repeat', 'monthly') WHERE id = ?").run(id);
+    assert.equal(JSON.parse(db.prepare('SELECT data FROM events WHERE id = ?').get(id).data).repeat, 'monthly');
+    const ev = await go(`/api/events/${id}`, { headers: { 'x-admin-token': adminToken } });
+    assert.equal(ev.status, 200);
+    assert.equal(ev.data.title, 'Book club');
+    assert.equal(ev.data.repeat, undefined);
+    // Changing a setting drops it from the stored poll too.
+    const settings = await go(`/api/events/${id}/settings`, {
+      method: 'PUT',
+      body: { hideNames: true },
+      headers: { 'x-admin-token': adminToken },
+    });
+    assert.deepEqual(settings.data, { requireEmail: false, hideNames: true, hideResults: false });
+    assert.equal(JSON.parse(db.prepare('SELECT data FROM events WHERE id = ?').get(id).data).repeat, undefined);
+    db.close();
+  } finally {
+    app.close();
+    rmSync(dir, { recursive: true, force: true });
+  }
 });

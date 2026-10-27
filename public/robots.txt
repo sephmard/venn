@@ -1,5 +1,5 @@
 # Search engines and AI assistants are welcome on Venn's public pages: the home page, templates,
-# comparisons, privacy and docs. Polls (/e/) are private to the people with the link, so they stay
+# privacy and docs. Polls (/e/) are private to the people with the link, so they stay
 # out, as do the API and the usage stats. A short guide for language models: /llms.txt
 User-agent: *
 Disallow: /api/

@@ -10,7 +10,6 @@
 // worked out from the polls themselves when the stats are read.
 
 import { allDaySpan, isOptionsPoll, isPartsPoll } from '../public/core.js';
-import { REPEATS } from '../public/repeat.js';
 import { PAGE_SLUGS } from '../pages/pages.js';
 
 const BUCKETS = ['1', '2-3', '4-7', '8-15', '16+'];
@@ -64,7 +63,6 @@ export const USAGE_EVENTS = {
     options: BUCKETS,
     email: YN, // the organizer gave an email for notifications
     copy: YN, // started from an existing poll
-    repeat: [...REPEATS, 'no'], // the plan repeats: weekly, every 2 weeks or monthly
     from: FROM, // where the organizer came from, when it's known
   },
   'poll.edited': { kind: KINDS },
@@ -76,7 +74,6 @@ export const USAGE_EVENTS = {
   'notify.email': {},
   'notify.webhook': {},
   'calendar.ics': {},
-  'reminder.sent': { repeat: REPEATS }, // "time to plan the next one?", to an organizer (src/reminders.js)
   'ai.used': { feature: ['draft', 'answer', 'summary', 'message'] },
   // Browser
   view: {

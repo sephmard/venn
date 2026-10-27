@@ -912,8 +912,15 @@ test('landing page: nav bar with GitHub, and the way to both kinds of poll', asy
     await expect(nav.getByRole('link', { name: 'Privacy' })).toBeVisible();
   }
   await expect(page.locator('h1')).toHaveText(/Find the day that works/);
+  // "Create a poll" stays in the sticky bar however far down people scroll, without sideways scrolling.
+  const create = page.locator('.topbar').getByRole('link', { name: 'Create a poll' });
+  await expect(create).toHaveAttribute('href', '/new');
+  await page.locator('footer').scrollIntoViewIfNeeded();
+  await expect(create).toBeInViewport();
+  expect((await create.boundingBox()).height).toBeGreaterThanOrEqual(44);
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+  await page.evaluate(() => scrollTo(0, 0));
   // The hero's two cards are the way in: each opens its kind of poll.
-  await expect(page.locator('.topbar').getByRole('link', { name: 'Create a poll' })).toHaveCount(0);
   await page
     .locator('.start-cards')
     .getByRole('link', { name: /Ask when people are available/ })
@@ -1845,6 +1852,44 @@ test('how long: 30 min, 1 hour, half day, all day, several days, and any other l
   await expect(page.locator('#options-list .chip')).toContainText('6 – 9 PM');
 });
 
+test('a second tap makes an option "if needed" on every create calendar, and the page says how', async ({ page }) => {
+  // Whole days on "vote on a few dates": tap, tap again, then a third tap takes it away.
+  await page.goto('/new/pick');
+  await page.click('[data-length="allday"]');
+  await expect(page.locator('.tap-key')).toHaveText(/Tap: available\s*Tap again: if needed/);
+  await showNextMonth(page);
+  const day = page.locator(`.cal-day[data-date="${addDays(await nextMonth(page), 2)}"]`);
+  await day.click();
+  // The first pick brings a tip, once, where people are looking.
+  await expect(page.locator('#toast')).toHaveText('Tip: tap it again to make it “if needed”.');
+  const chip = page.locator('#options-list .chip');
+  await expect(chip).toHaveCount(1);
+  await expect(chip.locator('.chip-tag')).toHaveCount(0);
+  await day.click();
+  await expect(chip.locator('.chip-tag')).toHaveText('If needed');
+  await expect(day).toHaveClass(/day-maybe/);
+  await day.click();
+  await expect(chip).toHaveCount(0);
+
+  // Mornings, afternoons and evenings go round the same way.
+  await page.click('[data-length="half"]');
+  await expect(page.locator('.tap-key')).toBeVisible();
+  await page.click('#picker [data-pstep="1"]'); // next week
+  const morning = page.locator('#picker .pg-cell[data-c="0"][data-m="540"]');
+  await morning.click();
+  await expect(chip).toHaveCount(1);
+  await expect(chip.locator('.chip-tag')).toHaveCount(0);
+  await morning.click();
+  await expect(chip.locator('.chip-tag')).toHaveText('If needed');
+  await expect(morning).toHaveClass(/maybe/);
+  await morning.click();
+  await expect(chip).toHaveCount(0);
+
+  // The other create page shows the same key.
+  await page.goto('/new/free');
+  await expect(page.locator('.tap-key')).toHaveText(/Tap: available\s*Tap again: if needed/);
+});
+
 test('half day: pick mornings, afternoons and evenings on days, and edit them again', async ({ page, request }) => {
   await page.goto('/new/pick');
   await page.fill('#organizer', 'Sam');
@@ -2255,19 +2300,16 @@ test('guests are one tap from making their own poll: from the celebration, and o
   await page.goto(`/e/${id}`);
   await expect(page.locator('.final-more a[href="/new?from=set"]')).toHaveText('Make your own poll');
   await page.goto(`/e/${id}#admin=${adminToken}`);
-  await expect(page.locator(`.final-more a[href="/new/pick?copy=${id}&next=monthly"]`)).toHaveText('Plan next month’s');
-  // Not every plan repeats: then it's a plain copy. How often is under "More".
+  await expect(page.locator(`.final-more a[href="/new/pick?copy=${id}&next"]`)).toHaveText('Plan the next one');
+  // There's no "Repeats" choice: planning the next one is a copy, with nothing to set up first.
   await page.locator('.final-extras summary').click();
-  await page.selectOption('#repeat-sel', '');
-  await expect(page.locator(`.final-more a[href="/new/pick?copy=${id}"]`)).toHaveText('Plan the next one');
+  await expect(page.locator('#repeat-sel')).toHaveCount(0);
+  await expect(page.getByText('Repeats', { exact: true })).toHaveCount(0);
 });
 
-test('a plan that repeats: the organizer plans next month’s in one tap, then brings last time’s group back', async ({
-  page,
-  request,
-}) => {
-  // A book club on the 2nd Tuesday of January 2030, 6pm UTC, asking everyone for their email.
-  const t0 = Date.UTC(2030, 0, 8, 18);
+test('the organizer plans the next one in one tap, then brings last time’s group back', async ({ page, request }) => {
+  // A book club on Tuesday Jan 7 2025, 6pm UTC (long gone), asking everyone for their email.
+  const t0 = Date.UTC(2025, 0, 7, 18);
   const H = 3_600_000;
   const { id, adminToken } = await (
     await request.post('/api/events', {
@@ -2294,21 +2336,11 @@ test('a plan that repeats: the organizer plans next month’s in one tap, then b
   await request.post(`/api/events/${id}/finalize`, { data: { start: t0 }, headers: { 'x-admin-token': adminToken } });
 
   await page.goto(`/e/${id}#admin=${adminToken}`);
-  const plan = page.locator('#plan-next a');
-  await expect(plan).toHaveText('Plan next month’s');
-  // How often it repeats is saved with the poll; the choice is under "More".
-  await page.locator('.final-extras summary').click();
-  await page.selectOption('#repeat-sel', 'weekly');
-  await expect(plan).toHaveText('Plan next week’s');
-  await expect(page.locator('#toast')).toContainText('Saved: every week');
-  expect((await (await request.get(`/api/events/${id}`)).json()).repeat).toBe('weekly');
-  await page.selectOption('#repeat-sel', 'monthly');
-  await expect(page.locator('#toast')).toContainText('Saved: every month');
-  await plan.click();
+  await page.getByRole('link', { name: 'Plan the next one' }).click();
 
-  // The create page has everything, with the dates moved on to February's 2nd Tuesday and Wednesday.
-  await expect(page).toHaveURL(new RegExp(`/new/pick\\?copy=${id}&next=monthly$`));
-  await expect(page.locator('#create h1')).toHaveText('Plan next month’s');
+  // The create page has everything, with the dates moved on by whole weeks: still a Tuesday and Wednesday.
+  await expect(page).toHaveURL(new RegExp(`/new/pick\\?copy=${id}&next$`));
+  await expect(page.locator('#create h1')).toHaveText('Plan the next one');
   await expect(page.locator('#title')).toHaveValue('Book club');
   await expect(page.locator('#location')).toHaveValue('The library');
   await expect(page.locator('#desc')).toHaveValue('Bring the book');
@@ -2325,11 +2357,11 @@ test('a plan that repeats: the organizer plans next month’s in one tap, then b
   const next = page.url().split('/e/')[1];
   const ev = await (await request.get(`/api/events/${next}`)).json();
   const D = 24 * H;
-  expect(ev.options).toEqual([
-    { start: Date.UTC(2030, 1, 12, 18), end: Date.UTC(2030, 1, 12, 20) },
-    { start: Date.UTC(2030, 1, 12, 18) + D, end: Date.UTC(2030, 1, 12, 20) + D },
-  ]);
-  expect([ev.repeat, ev.seriesOf, ev.requireEmail, ev.emoji]).toEqual(['monthly', id, true, '📚']);
+  const [a, b] = ev.options;
+  expect([new Date(a.start).getUTCDay(), new Date(a.start).getUTCHours(), a.end - a.start]).toEqual([2, 18, 2 * H]);
+  expect(b.start - a.start).toBe(D);
+  expect(a.start).toBeGreaterThan(Date.now());
+  expect([ev.repeat, ev.seriesOf, ev.requireEmail, ev.emoji]).toEqual([undefined, id, true, '📚']);
 
   // The new poll's page brings the group back too.
   const box = page.locator('#series-box');

@@ -199,11 +199,14 @@ async function stills(dark) {
   // Tap 7 PM on two Fridays and Saturdays on the week calendar, then come back to the first week.
   for (const d of [0, 1, 7, 8]) await tapAt(desktop, addDays(fri, d), 19 * 60);
   await showDate(desktop, fri);
+  // A second tap on Saturday makes it "if needed", so the picture shows both colours.
+  await desktop.locator(`#picker .tg-col[data-date="${addDays(fri, 1)}"] .tg-block`).click();
   await desktop.locator(`#picker .tg-col[data-date="${fri}"]`).evaluate((el) => {
     const s = el.closest('.tg-scroll');
     s.scrollTop = s.scrollHeight;
   });
   await desktop.locator('#title').blur();
+  await desktop.mouse.move(0, 0); // no hover ×
   await desktop.addStyleTag({ content: '.create-bar { position: static; }' });
   await shoot(desktop, '.sheet:has(#when-h)', join(out, `create-${suffix}.png`), {
     from: '.sheet:has(#when-h)',
@@ -250,6 +253,7 @@ async function stills(dark) {
   await maker.fill('#title', 'Dinner at Rosa’s');
   await maker.fill('#organizer', 'Priya');
   for (const d of [0, 1]) await tapAt(maker, addDays(fri, d), 19 * 60);
+  await maker.locator(`#picker .tg-col[data-date="${addDays(fri, 1)}"] .tg-block`).click(); // Saturday again: if needed
   await maker.locator('#organizer').blur();
   await maker.evaluate(() => {
     const top = document.querySelector('.sheet:has(#when-h)').getBoundingClientRect().top + window.scrollY;

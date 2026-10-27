@@ -32,12 +32,6 @@ Facts:
 - [Bachelor & bachelorette weekend](https://venn.day/templates/bachelor-party): Find the weekend the whole crew can get away before the wedding.
 - [Team offsite](https://venn.day/templates/team-offsite): Find two days the whole team can travel and be in one room.
 
-## Comparisons
-
-- [Doodle alternative](https://venn.day/compare/doodle-alternative): Free, with no ads, and nobody signs up. Not even you.
-- [When2meet alternative](https://venn.day/compare/when2meet-alternative): Ask when people are free, with big buttons that work on a phone.
-- [Calendly alternative](https://venn.day/compare/calendly-alternative): For finding a time with a whole group, not booking one-on-one meetings.
-
 ## Optional
 
 - [Developer docs and API](https://docs.venn.day): self-hosting, the API, notifications and calendars.

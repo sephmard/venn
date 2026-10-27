@@ -1,5 +1,5 @@
-// The website's landing pages: one per kind of plan people search for (/templates/book-club), and
-// comparisons with other tools (/compare/calendly-alternative). `npm run pages` writes them into
+// The website's landing pages: one per kind of plan people search for (/templates/book-club).
+// `npm run pages` writes them into
 // public/ (scripts/build-pages.js), with the templates hub and the sitemap; `npm run og` draws their
 // link-preview pictures. Add a page here, never by hand in public/.
 //
@@ -792,70 +792,8 @@ export const TEMPLATE_PAGES = [
   },
 ];
 
-/**
- * Comparisons written here, at /compare/<slug>-alternative. What they say about other tools was
- * checked in October 2026. (The Doodle and When2meet ones are written by hand: COMPARE_PAGES.)
- */
-export const ALTERNATIVE_PAGES = [
-  {
-    slug: 'calendly',
-    name: 'Calendly',
-    card: 'For finding a time with a whole group, not booking one-on-one meetings.',
-    title: 'Calendly for groups? Find a date for everyone, free · Venn',
-    description:
-      'Calendly books one-on-one meetings. To find a date that works for a whole group, use Venn: suggest dates, share one link, see the best one. Free.',
-    share: ['Calendly books meetings. *Venn finds a date* for groups.', 'Free, open source, no sign-up.'],
-    h1: 'Calendly books meetings. *Venn finds a date* for a group.',
-    lede: 'Calendly is great when people book a slot on your calendar. When a whole group needs to agree on one date, a group poll does the job, and Venn is free.',
-    rows: [
-      ['Made for', 'A group agreeing on a date', 'People booking time with you'],
-      ['Free', 'Yes, everything', 'Free plan, with paid plans'],
-      ['Account needed', 'No one', 'The person whose calendar it is'],
-      ['Everyone answers every option', 'Yes', 'No: each person books a slot'],
-      ['"If needed" answers', 'Yes', 'No'],
-      ['Open source', 'Yes', 'No'],
-    ],
-    them: [
-      'Calendly is the better choice for sales calls, interviews and office hours: one person shares their availability and others book a slot.',
-    ],
-    us: ['Venn is the better choice when the whole group has to be there: a dinner, an offsite, a trip, a club.'],
-    faq: [
-      [
-        'Can Calendly find a time for a group?',
-        'Calendly is built for booking slots on someone’s calendar. To find one date a whole group can make, use a group poll like Venn.',
-      ],
-      ['Is Venn free?', 'Yes, every feature, with no ads.'],
-      NO_ACCOUNT,
-      [
-        'Can I use Venn at work?',
-        'Yes. You can hide names or answers, collect emails, and post answers to Slack with a webhook.',
-      ],
-    ],
-    related: ['doodle-alternative', 'when2meet-alternative'],
-  },
-];
-
-/** The comparison pages written by hand in public/compare/, for links, the sitemap and usage stats. */
-export const COMPARE_PAGES = [
-  {
-    slug: 'doodle-alternative',
-    name: 'Doodle',
-    path: '/compare/doodle-alternative',
-    card: 'Free, with no ads, and nobody signs up. Not even you.',
-  },
-  {
-    slug: 'when2meet-alternative',
-    name: 'When2meet',
-    path: '/compare/when2meet-alternative',
-    card: 'Ask when people are free, with big buttons that work on a phone.',
-  },
-];
-
 /** Every page, with where it lives: { …page, path, section }. */
-export const PAGES = [
-  ...TEMPLATE_PAGES.map((p) => ({ ...p, section: 'templates', path: `/templates/${p.slug}` })),
-  ...ALTERNATIVE_PAGES.map((p) => ({ ...p, section: 'compare', path: `/compare/${p.slug}-alternative` })),
-];
+export const PAGES = [...TEMPLATE_PAGES.map((p) => ({ ...p, section: 'templates', path: `/templates/${p.slug}` }))];
 
 /** The `from` a page's buttons send, for usage stats: its slug. */
-export const PAGE_SLUGS = [...PAGES, ...COMPARE_PAGES].map((p) => p.slug);
+export const PAGE_SLUGS = PAGES.map((p) => p.slug);

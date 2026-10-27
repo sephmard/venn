@@ -32,19 +32,11 @@ for (const scheme of ['light', 'dark']) {
       await audit(page, 'privacy page');
     });
 
-    test('template and comparison pages', async ({ page }) => {
+    test('template pages', async ({ page }) => {
       test.setTimeout(120_000); // one scan for each page
       for (const path of ['/templates', ...PAGES.map((p) => p.path)]) {
         await page.goto(path);
         if (path !== '/templates') await page.locator('.faq summary').first().click(); // with a question open
-        await audit(page, path);
-      }
-    });
-
-    test('comparison pages', async ({ page }) => {
-      for (const path of ['/compare', '/compare/doodle-alternative', '/compare/when2meet-alternative']) {
-        await page.goto(path);
-        if (path !== '/compare') await page.locator('.faq summary').first().click(); // with a question open
         await audit(page, path);
       }
     });
@@ -291,9 +283,9 @@ for (const width of [375, 412]) {
     await openPoll(page, { picked: true });
     const banner = page.locator('.banner-final');
     await expect(banner).toBeVisible();
-    // The organizer's "Plan next month's", and under "More" how often it repeats, loaded just after.
+    // The organizer's "Plan the next one", and the extras under "More".
     await banner.locator('.final-extras summary').click();
-    await expect(banner.getByLabel('Repeats')).toBeVisible();
+    await expect(banner.getByRole('button', { name: 'Clear the date' })).toBeVisible();
     // Whatever is under the middle of each button is the button itself, not the decorative circles.
     for (const el of await banner.locator('a, button, select').all()) {
       await el.scrollIntoViewIfNeeded();
@@ -320,7 +312,7 @@ for (const scheme of ['light', 'dark']) {
     await page.setViewportSize({ width: 375, height: 900 });
     await openPoll(page, { picked: true });
     await expect(page.getByRole('group', { name: 'Add to your calendar' })).toBeVisible();
-    await expect(page.getByRole('link', { name: 'Plan next month’s' })).toBeVisible();
+    await expect(page.getByRole('link', { name: 'Plan the next one' })).toBeVisible();
     await audit(page, `picked date (${scheme})`);
   });
 }
@@ -347,7 +339,7 @@ for (const scheme of ['light', 'dark']) {
     await audit(page, `guest celebration (${scheme})`, { party: true });
 
     // The next one: its organizer can email last time's group.
-    const next = await make({ repeat: 'monthly', seriesOf: first.id });
+    const next = await make({ seriesOf: first.id });
     await page.goto(`/e/${first.id}#admin=${first.adminToken}`);
     await page.goto(`/e/${next.id}#admin=${next.adminToken}`);
     await expect(page.getByRole('link', { name: 'Email last time’s group' })).toBeVisible();

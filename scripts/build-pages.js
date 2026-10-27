@@ -1,6 +1,5 @@
 // Writes the website's landing pages from pages/pages.js: `npm run pages`.
 //   public/templates/<slug>.html     a page per kind of plan
-//   public/compare/<slug>-alternative.html  comparisons with other tools (some are by hand)
 //   public/templates.html            the list of them all
 //   public/sitemap.xml               every page search engines should find
 //   public/llms.txt                  the same, as a short guide for AI assistants
@@ -10,7 +9,7 @@ import { writeFileSync, mkdirSync } from 'node:fs';
 import { dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import * as prettier from 'prettier';
-import { ALTERNATIVE_PAGES, COMPARE_PAGES, ORIGIN, PAGES, TEMPLATE_PAGES } from '../pages/pages.js';
+import { ORIGIN, PAGES, TEMPLATE_PAGES } from '../pages/pages.js';
 
 const root = new URL('..', import.meta.url);
 
@@ -21,7 +20,7 @@ const attr = (s) => esc(s).replace(/"/g, '&quot;');
 /** Escaped, with *words* in italics. */
 const em = (s) => esc(s).replace(/\*([^*]+)\*/g, '<em>$1</em>');
 const plain = (s) => s.replace(/\*/g, '');
-const pageOf = (slug) => [...PAGES, ...COMPARE_PAGES].find((p) => p.slug === slug);
+const pageOf = (slug) => PAGES.find((p) => p.slug === slug);
 /** Where a page's picture for link previews is (scripts/og-image.js draws it). */
 export const ogImage = (p) => `/og/${p.section}-${p.slug}.png`;
 /** The button's link: the template's form, saying which page it came from (for usage stats). */
@@ -88,7 +87,6 @@ const FOOTER = `<footer class="wrap footer">
 <span>© Venn · Free and open source</span>
 <nav aria-label="Footer">
 <a href="/templates">Templates</a>
-<a href="/compare">Compare</a>
 <a href="/privacy">Privacy</a>
 <a href="https://docs.venn.day">Docs</a>
 <a href="https://github.com/sephmard/venn">GitHub</a>
@@ -108,16 +106,6 @@ const crumbsLd = (items) => ({
   '@type': 'BreadcrumbList',
   itemListElement: items.map(([name, path], i) => ({ '@type': 'ListItem', position: i + 1, name, item: ORIGIN + path })),
 });
-const APP_LD = {
-  '@context': 'https://schema.org',
-  '@type': 'SoftwareApplication',
-  name: 'Venn',
-  url: ORIGIN,
-  applicationCategory: 'UtilitiesApplication',
-  operatingSystem: 'Any (web browser)',
-  offers: { '@type': 'Offer', price: '0', priceCurrency: 'USD' },
-  description: 'Free, open-source group scheduling polls. Suggest dates, share one link, see the date that works for everyone.',
-};
 
 const faqHtml = (faq) => `<section class="prose faq" aria-labelledby="faq">
 <h2 id="faq">Questions</h2>
@@ -212,60 +200,6 @@ ${relatedHtml(p, 'More templates')}
 ${FOOTER}`;
 }
 
-function alternativePage(p) {
-  const [headline, line] = p.share;
-  const crumbs = [
-    ['Compare', '/compare'],
-    [`${p.name} alternative`, p.path],
-  ];
-  return `${head({
-    title: p.title,
-    description: p.description,
-    path: p.path,
-    ogTitle: plain(headline),
-    ogDescription: line,
-    image: ogImage(p),
-    jsonLd: [faqLd(p.faq), crumbsLd(crumbs), APP_LD],
-  })}
-<main id="main">
-<div class="wrap page tpl-page">
-<nav class="crumbs" aria-label="Breadcrumb"><a href="/compare">Compare</a> / <span aria-current="page">${esc(p.name)}</span></nav>
-<div class="tpl-intro">
-<h1>${em(p.h1)}</h1>
-<p class="lede">${esc(p.lede)}</p>
-<a class="btn btn-lg" href="${attr(startUrl(p))}">Create a poll, free</a>
-<p class="tpl-small">No sign-up. Your guests don't need an account either.</p>
-</div>
-<div class="tpl-body">
-<section aria-labelledby="table">
-<h2 id="table">Venn and ${esc(p.name)}, side by side</h2>
-<div class="cmp-scroll" tabindex="0" role="region" aria-labelledby="table">
-<table class="cmp">
-<thead><tr><th scope="col"><span class="sr-only">Feature</span></th><th scope="col">Venn</th><th scope="col">${esc(p.name)}</th></tr></thead>
-<tbody>
-${p.rows.map(([f, a, b]) => `<tr><th scope="row">${esc(f)}</th><td>${esc(a)}</td><td>${esc(b)}</td></tr>`).join('\n')}
-</tbody>
-</table>
-</div>
-<p class="tpl-small">What we say about ${esc(p.name)} was checked in October 2026. Something out of date? <a href="https://github.com/sephmard/venn/issues/new/choose">Tell us</a>.</p>
-<p class="cmp-note">${esc(p.name)} is a trademark of its owner; Venn isn't affiliated with it.</p>
-</section>
-<section class="prose" aria-labelledby="which">
-<h2 id="which">Which one should you use?</h2>
-${[...p.them, ...p.us].map((t) => `<p>${esc(t)}</p>`).join('\n')}
-</section>
-${faqHtml(p.faq)}
-${relatedHtml(p, 'Compare with')}
-</div>
-</div>
-<section class="wrap closing">
-<h2>Find a date, <em>free.</em></h2>
-<a href="${attr(startUrl(p))}" class="btn btn-lg">Create a poll</a>
-</section>
-</main>
-${FOOTER}`;
-}
-
 function hub() {
   const card = (p) =>
     `<li><a class="tpl-card" href="${p.path}"><strong>${esc(p.name)}</strong><span>${esc(p.card)}</span><em>See the template →</em></a></li>`;
@@ -312,18 +246,6 @@ ${[
   .join('\n')}
 </ul>
 </section>
-<section aria-labelledby="compare">
-<h2 id="compare">Switching from another tool?</h2>
-<ul class="tpl-cards">
-${[...COMPARE_PAGES, ...PAGES.filter((p) => p.section === 'compare')]
-  .map(
-    (p) =>
-      `<li><a class="tpl-card" href="${p.path}"><strong>${esc(p.name)} alternative</strong><span>${esc(p.card)}</span><em>Compare →</em></a></li>`,
-  )
-  .join('\n')}
-</ul>
-<p><a href="/compare">All comparisons</a></p>
-</section>
 </div>
 <section class="wrap closing">
 <h2>Or start <em>from scratch.</em></h2>
@@ -335,7 +257,7 @@ ${FOOTER}`;
 
 const sitemap = () => `<?xml version="1.0" encoding="UTF-8"?>
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
-${['/', '/templates', ...TEMPLATE_PAGES.map((p) => `/templates/${p.slug}`), '/compare', ...COMPARE_PAGES.map((p) => p.path), ...ALTERNATIVE_PAGES.map((p) => `/compare/${p.slug}-alternative`), '/privacy'].map((path) => `  <url><loc>${ORIGIN}${path}</loc></url>`).join('\n')}
+${['/', '/templates', ...TEMPLATE_PAGES.map((p) => `/templates/${p.slug}`), '/privacy'].map((path) => `  <url><loc>${ORIGIN}${path}</loc></url>`).join('\n')}
 </urlset>
 `;
 
@@ -365,10 +287,6 @@ Facts:
 
 ${TEMPLATE_PAGES.map((p) => `- [${p.name}](${ORIGIN}/templates/${p.slug}): ${p.card}`).join('\n')}
 
-## Comparisons
-
-${[...COMPARE_PAGES, ...PAGES.filter((p) => p.section === 'compare')].map((p) => `- [${p.name} alternative](${ORIGIN}${p.path}): ${p.card}`).join('\n')}
-
 ## Optional
 
 - [Developer docs and API](https://docs.venn.day): self-hosting, the API, notifications and calendars.
@@ -378,9 +296,7 @@ ${[...COMPARE_PAGES, ...PAGES.filter((p) => p.section === 'compare')].map((p) =>
 /** Every file this writes, formatted as Prettier would: { 'public/…': text }. */
 export async function build() {
   const files = {
-    ...Object.fromEntries(
-      PAGES.map((p) => [`public${p.path}.html`, p.section === 'templates' ? templatePage(p) : alternativePage(p)]),
-    ),
+    ...Object.fromEntries(PAGES.map((p) => [`public${p.path}.html`, templatePage(p)])),
     'public/templates.html': hub(),
   };
   const config = await prettier.resolveConfig(new URL('public/index.html', root).pathname);
