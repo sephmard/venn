@@ -1852,6 +1852,44 @@ test('how long: 30 min, 1 hour, half day, all day, several days, and any other l
   await expect(page.locator('#options-list .chip')).toContainText('6 – 9 PM');
 });
 
+test('a second tap makes an option "if needed" on every create calendar, and the page says how', async ({ page }) => {
+  // Whole days on "vote on a few dates": tap, tap again, then a third tap takes it away.
+  await page.goto('/new/pick');
+  await page.click('[data-length="allday"]');
+  await expect(page.locator('.tap-key')).toHaveText(/Tap: available\s*Tap again: if needed/);
+  await showNextMonth(page);
+  const day = page.locator(`.cal-day[data-date="${addDays(await nextMonth(page), 2)}"]`);
+  await day.click();
+  // The first pick brings a tip, once, where people are looking.
+  await expect(page.locator('#toast')).toHaveText('Tip: tap it again to make it “if needed”.');
+  const chip = page.locator('#options-list .chip');
+  await expect(chip).toHaveCount(1);
+  await expect(chip.locator('.chip-tag')).toHaveCount(0);
+  await day.click();
+  await expect(chip.locator('.chip-tag')).toHaveText('If needed');
+  await expect(day).toHaveClass(/day-maybe/);
+  await day.click();
+  await expect(chip).toHaveCount(0);
+
+  // Mornings, afternoons and evenings go round the same way.
+  await page.click('[data-length="half"]');
+  await expect(page.locator('.tap-key')).toBeVisible();
+  await page.click('#picker [data-pstep="1"]'); // next week
+  const morning = page.locator('#picker .pg-cell[data-c="0"][data-m="540"]');
+  await morning.click();
+  await expect(chip).toHaveCount(1);
+  await expect(chip.locator('.chip-tag')).toHaveCount(0);
+  await morning.click();
+  await expect(chip.locator('.chip-tag')).toHaveText('If needed');
+  await expect(morning).toHaveClass(/maybe/);
+  await morning.click();
+  await expect(chip).toHaveCount(0);
+
+  // The other create page shows the same key.
+  await page.goto('/new/free');
+  await expect(page.locator('.tap-key')).toHaveText(/Tap: available\s*Tap again: if needed/);
+});
+
 test('half day: pick mornings, afternoons and evenings on days, and edit them again', async ({ page, request }) => {
   await page.goto('/new/pick');
   await page.fill('#organizer', 'Sam');

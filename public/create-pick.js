@@ -22,6 +22,8 @@ import {
   tzLine,
   wirePlan,
   youFields,
+  TAP_KEY,
+  ifNeededTip,
 } from './create.js';
 
 // ---------- "Vote on a few dates" ----------
@@ -108,6 +110,7 @@ export function renderPick() {
           </div>
         </div>
         <p class="hint" id="when-hint"></p>
+        ${TAP_KEY}
         <div id="picker"></div>
         <div class="add-time" id="add-time" role="group" aria-labelledby="at-l" hidden></div>
         ${tzLine()}
@@ -147,6 +150,7 @@ export function renderPick() {
   function add(it) {
     lastFrom = it.from;
     items.set(`${it.date}|${it.from}`, { ...it, v: brush }); // one option per start time
+    ifNeededTip();
     changed();
   }
   /** Tapping an option switches it between available and if needed (for the organizer). */
@@ -245,9 +249,15 @@ export function renderPick() {
         dayClass: (d) =>
           `${tripOf(d) ? `in-trip${ifNeeded(tripOf(d)) ? ' trip-maybe' : ''}` : ''}${items.get(`${d}|day`)?.v === IF_NEEDED ? ' day-maybe' : ''}`,
         onChange: () => {
-          for (const [k, it] of items) if (it.from == null && !starts.has(it.date)) items.delete(k);
-          for (const d of starts)
-            if (!items.has(`${d}|day`)) items.set(`${d}|day`, { date: d, days: length === 'days' ? spanDays : 1, v: brush });
+          const gone = [...items].filter(([, it]) => it.from == null && !starts.has(it.date));
+          const added = [...starts].filter((d) => !items.has(`${d}|day`));
+          // A tap on a picked day goes round, as on the other calendars: available, if needed, then gone.
+          if (gone.length === 1 && !added.length && !ifNeeded(gone[0][1])) {
+            gone[0][1].v = IF_NEEDED;
+            starts.add(gone[0][1].date);
+          } else for (const [k] of gone) items.delete(k);
+          if (added.length) ifNeededTip();
+          for (const d of added) items.set(`${d}|day`, { date: d, days: length === 'days' ? spanDays : 1, v: brush });
           month.render();
           renderList();
         },

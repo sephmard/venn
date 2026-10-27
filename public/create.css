@@ -732,3 +732,14 @@ button.emoji-tile:focus-visible {
     font-size: 0.875rem;
   }
 }
+.tap-key {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 16px;
+  margin: 0 0 8px;
+}
+.tap-key > span {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}

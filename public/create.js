@@ -174,6 +174,20 @@ export function youFields() {
     </section>`;
 }
 
+/** How to mark something "if needed": the same on every calendar, a second tap. */
+export const TAP_KEY = `<p class="hint tap-key"><span><span class="swatch swatch-yes" aria-hidden="true"></span>Tap: available</span><span><span class="swatch swatch-maybe" aria-hidden="true"></span>Tap again: if needed</span></p>`;
+
+/** Once, after the first thing is picked, the same tip where people are looking. */
+export function ifNeededTip() {
+  try {
+    if (localStorage.getItem('venn:tip-maybe')) return;
+    localStorage.setItem('venn:tip-maybe', '1');
+  } catch {
+    return;
+  }
+  toast('Tip: tap it again to make it “if needed”.');
+}
+
 /** The time zone the times are in, under the calendar, with a way to change it. */
 export const tzLine = () => `
   <details class="reveal tz-line" id="tz-box">
