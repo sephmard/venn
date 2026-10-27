@@ -209,8 +209,11 @@ export function allDaySpan(start, end, tz) {
   return { startDate: a.date, endDate: b.date };
 }
 
-/** The create page's length chip for a length: 30 min and 1 hour have their own, other minutes are "Other". */
-export const lengthChip = (length) => (typeof length !== 'number' || length === 30 || length === 60 ? String(length) : 'custom');
+/**
+ * The create page's length chip for a length: 1 to 4 hours (the lengths templates use), all day and
+ * several days have their own; half days and other minutes are under "Custom".
+ */
+export const lengthChip = (length) => ([60, 120, 180, 240, 'allday', 'days'].includes(length) ? String(length) : 'custom');
 
 // The email rule the server uses, so the create page catches the same mistakes before sending.
 const EMAIL_RE = /^[^\s@<>"',;]+@[^\s@<>"',;]+\.[^\s@<>"',;]+$/;

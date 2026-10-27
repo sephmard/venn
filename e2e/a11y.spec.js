@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test';
-import { addOptions, showNextMonth, submit } from './helpers.js';
+import { addOptions, changeAnswer, showNextMonth, submit } from './helpers.js';
 import AxeBuilder from '@axe-core/playwright';
 import { PAGES } from '../pages/pages.js';
 
@@ -144,6 +144,7 @@ for (const scheme of ['light', 'dark']) {
       await page.fill('#title', 'Accessibility check');
       await addOptions(page, 2);
       await page.click('#submit');
+      await changeAnswer(page);
       await page.locator('#mine .row').first().locator('[data-vote="2"]').click();
       await page.locator('#mine .row').nth(1).locator('[data-vote="1"]').click();
       await audit(page, 'event page (answering)');
@@ -160,6 +161,27 @@ for (const scheme of ['light', 'dark']) {
       await expect(page.locator('#notify-form')).toBeVisible();
       await page.locator('.dev summary').click();
       await audit(page, 'event page (organizer)');
+    });
+
+    test('a new poll on a phone, as organizer: the group first, and their answer as one line', async ({ page }) => {
+      await page.setViewportSize({ width: 375, height: 812 });
+      await page.emulateMedia({ reducedMotion: 'reduce' });
+      await page.goto('/new/pick');
+      await page.fill('#organizer', 'Sam');
+      await page.fill('#title', 'Phone check');
+      await addOptions(page, 2);
+      await page.click('#submit');
+      await page.getByRole('button', { name: /^(View poll|Open .+ →)$/ }).click();
+      await expect(page.locator('details.organizer')).toHaveAttribute('open', '');
+      await expect(page.locator('#tab-group')).toHaveAttribute('aria-selected', 'true');
+      await expect(page.locator('.finn [role=status]')).not.toBeEmpty();
+      await audit(page, 'new poll on a phone (organizer, the group)');
+      await page.click('#tab-mine');
+      await expect(page.locator('#org-answer')).toBeVisible();
+      await audit(page, 'new poll on a phone (organizer, their answer in one line)');
+      await page.getByRole('button', { name: 'Change your answer' }).click();
+      await expect(page.locator('#save')).toBeVisible();
+      await audit(page, 'new poll on a phone (organizer, changing their answer)');
     });
 
     test('Finn: a note on the poll, and the sticker sheet', async ({ page }) => {
@@ -181,6 +203,7 @@ for (const scheme of ['light', 'dark']) {
       await page.fill('#title', 'Days check');
       await page.click('#q-2w');
       await page.click('#submit');
+      await changeAnswer(page);
       await expect(page.locator('#mine .row').first()).toBeVisible();
       await audit(page, 'days poll');
       await page.goto('/new/free');
@@ -189,6 +212,7 @@ for (const scheme of ['light', 'dark']) {
       await page.click('[data-level="hours"]');
       await page.click('[data-fill="3"]');
       await page.click('#submit');
+      await changeAnswer(page);
       await expect(page.locator('[data-hview="quick"]')).toBeVisible({ timeout: 10_000 }); // after the celebration
       await page.click('[data-hview="quick"]');
       await page.locator('#quick-hours .part-vote').first().click();
@@ -341,7 +365,6 @@ for (const scheme of ['light', 'dark']) {
     await page.fill('#name', 'Ana');
     await page.fill('#copy-to', 'ana@example.com');
     await page.click('#save');
-    await page.click('#sc-yes');
     await expect(page.getByRole('link', { name: 'Planning something? Make yours in 30 seconds' })).toBeVisible();
     await audit(page, `guest celebration (${scheme})`, { party: true });
 
@@ -352,5 +375,33 @@ for (const scheme of ['light', 'dark']) {
     await expect(page.getByRole('link', { name: 'Email last time’s group' })).toBeVisible();
     expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(375);
     await audit(page, `last time's group (${scheme})`);
+  });
+}
+
+for (const scheme of ['light', 'dark']) {
+  test(`a guest answering a whole-day poll on its calendar passes the checks at 375px (${scheme})`, async ({ page }) => {
+    await page.emulateMedia({ colorScheme: scheme });
+    await page.setViewportSize({ width: 375, height: 812 });
+    const dates = Array.from({ length: 14 }, (_, i) => `2030-01-${String(6 + i).padStart(2, '0')}`);
+    const res = await page.request.post('/api/events', {
+      data: {
+        title: 'Cabin weekend',
+        timezone: 'UTC',
+        dates,
+        startMinute: 0,
+        endMinute: 1440,
+        slotMinutes: 1440,
+        durationMinutes: 1440,
+      },
+    });
+    await page.goto(`/e/${(await res.json()).id}`);
+    const days = page.locator('button.dcal-day');
+    await days.nth(1).click();
+    await days.nth(2).click();
+    await days.nth(2).click();
+    await days.nth(3).focus();
+    expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(375);
+    for (const b of await days.all()) expect((await b.boundingBox()).height).toBeGreaterThanOrEqual(44);
+    await audit(page, `days calendar (${scheme})`);
   });
 }

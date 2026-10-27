@@ -6,7 +6,6 @@ import {
   IF_NEEDED,
   LIMITS,
   MAX_SPAN_DAYS,
-  YES,
   addDays,
   dayRuns,
   hostAnswer,
@@ -34,6 +33,8 @@ import {
 } from './ui.js';
 
 import {
+  brush,
+  brushBox,
   createBar,
   explainNotReady,
   fillCommon,
@@ -80,7 +81,6 @@ export function renderFree() {
   // What's only "if needed" for the organizer, at each level; the rest of what's picked works for them.
   const maybe = { days: new Set(), parts: new Set(), hours: new Set() };
   const st = { days: selected, parts: partsSel, hours: painted, maybe, defaultParts: new Set(DAY_PARTS.map((p) => p.key)) };
-  let brush = YES; // what new picks are for the organizer
   let before = new Set(); // what the level had at the last update, to see what's new
   let level = 'days';
   let length = 120; // minutes, for hours
@@ -116,18 +116,12 @@ export function renderFree() {
             ${HOUR_LENGTHS.map((m) => `<button type="button" class="pill" data-flength="${m}" aria-pressed="false">${lengthLabel(m)}</button>`).join('')}
           </div>
         </div>
-        <div class="pick-brush">
-          <span class="scope-label" id="fbrush-l">For you, new days and times are</span>
-          <div class="seg brush" role="radiogroup" aria-labelledby="fbrush-l">
-            <button type="button" role="radio" data-fbrush="${YES}"><span class="swatch swatch-yes"></span>Available</button>
-            <button type="button" role="radio" data-fbrush="${IF_NEEDED}"><span class="swatch swatch-maybe"></span>If needed</button>
-          </div>
-        </div>
         <p class="hint" id="when-help" hidden></p>
         ${TAP_KEY}
         <div id="when"></div>
         <div class="pills quick" role="group" aria-label="Quick picks" id="quick"></div>
         ${tzLine()}
+        ${brushBox()}
       </section>
       <section class="sheet poll-preview" aria-labelledby="preview-h">
         <h2 id="preview-h">What your guests will mark</h2>
@@ -248,7 +242,7 @@ export function renderFree() {
       startAt: datesOf(set)[0],
       parts: parts && DAY_PARTS,
       maybe: maybe[level],
-      marking: () => brush === IF_NEEDED,
+      marking: () => brush() === IF_NEEDED,
     });
     $('#when-help').textContent = paintHelp();
     $('#quick').innerHTML = fillPills(parts) + clear;
@@ -302,7 +296,7 @@ export function renderFree() {
           remove: `Remove ${shortRange(w.start, w.end)}, ${dayLabel(w.date)}`,
         })),
       onCreate: (date, from, to) => {
-        put(date, from, to, brush === IF_NEEDED);
+        put(date, from, to, brush() === IF_NEEDED);
         changed();
       },
       onBlock: (k) => {
@@ -359,8 +353,8 @@ export function renderFree() {
     const months = new Map();
     for (const d of selected) months.set(d.slice(0, 7), (months.get(d.slice(0, 7)) || 0) + 1);
     const [best] = [...months].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))[0] || [todayStr().slice(0, 7)];
+    update(); // first, so the calendar shows which are if needed
     cal.show(`${best}-01`);
-    update();
   };
   /** After the picks change from outside the calendars: show them there too. */
   const redraw = () => {
@@ -418,16 +412,7 @@ export function renderFree() {
       redraw();
       ($(`#free-list [${fd ? `data-flip-days="${fd}"` : `data-flip-window="${fw}"`}]`) || $('#free-list .chip-flip'))?.focus();
     }
-    const b = e.target.closest('[data-fbrush]');
-    if (b) {
-      brush = +b.dataset.fbrush;
-      renderBrush();
-    }
   });
-  const renderBrush = () => {
-    for (const b of $$('[data-fbrush]')) b.setAttribute('aria-checked', +b.dataset.fbrush === brush);
-  };
-  renderBrush();
   $('#span').oninput = update;
   // Typing 0 or 99 counts as the nearest number that works; show it.
   $('#span').onchange = () => {
@@ -471,7 +456,7 @@ export function renderFree() {
   function update() {
     // What's new takes the brush: available or if needed for the organizer.
     const may = maybe[level];
-    for (const k of st[level]) if (!before.has(k)) brush === IF_NEEDED ? may.add(k) : may.delete(k);
+    for (const k of st[level]) if (!before.has(k)) brush() === IF_NEEDED ? may.add(k) : may.delete(k);
     if ([...st[level]].some((k) => !before.has(k))) ifNeededTip();
     for (const l in maybe) for (const k of [...maybe[l]]) if (!st[l].has(k)) maybe[l].delete(k);
     before = new Set(st[level]);
@@ -485,11 +470,13 @@ export function renderFree() {
         : '<p class="hint">Nothing yet. Paint some times on the calendar above, or use a quick fill.</p>';
       return setReady(
         `${plural(dates.length, 'day')} to choose from`,
-        [!windows.length, 'Add at least one time to create the poll', gridFocus],
+        [!windows.length, 'Add at least one time to create the poll', gridFocus, null, 'times'],
         [
-          !windows.some((w) => w.end - w.start >= length),
+          windows.length && !windows.some((w) => w.end - w.start >= length),
           `Your times are shorter than ${lengthLabel(length)}. Make one longer`,
           gridFocus,
+          null,
+          'longer times',
         ],
         ...nameAndEmail(),
       );
@@ -501,7 +488,7 @@ export function renderFree() {
         : '<p class="hint">Nothing yet. Tap mornings, afternoons and evenings on the calendar above, or use a quick fill.</p>';
       return setReady(
         `${plural(windows.length, 'time')} to choose from`,
-        [!windows.length, 'Pick at least one morning, afternoon or evening', gridFocus],
+        [!windows.length, 'Pick at least one morning, afternoon or evening', gridFocus, null, 'times'],
         ...nameAndEmail(),
       );
     }
@@ -517,9 +504,16 @@ export function renderFree() {
       : '<p class="hint">Nothing yet. Pick some days on the calendar above.</p>';
     setReady(
       `${plural(dates.length, 'day')} to choose from`,
-      [!dates.length, 'Pick at least one day to create the poll', gridFocus],
-      [k > dates.length, `Pick at least ${k} days, for ${k} in a row`, gridFocus],
-      [longestRun(dates) < k, `None of your days make ${k} in a row. Pick days next to each other`, '#span'],
+      // Only the first that applies: no days, too few, or none in a row.
+      [!dates.length, 'Pick at least one day to create the poll', gridFocus, null, 'days'],
+      [dates.length && k > dates.length, `Pick at least ${k} days, for ${k} in a row`, gridFocus, null, `${k} days`],
+      [
+        k <= dates.length && longestRun(dates) < k,
+        `None of your days make ${k} in a row. Pick days next to each other`,
+        '#span',
+        null,
+        `${k} in a row`,
+      ],
       ...nameAndEmail(),
     );
   }

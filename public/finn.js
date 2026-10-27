@@ -121,12 +121,8 @@ function note(moment, anchor) {
   el.innerHTML = `${figure(extra)}
     <div class="finn-bubble">
       <div class="finn-say"><p role="status"></p>${
-        // Waiting on answers, the thing to do is share the poll; the stickers are for celebrating.
-        moment === 'waiting'
-          ? `<button type="button" class="link-btn" data-share>${navigator.share && matchMedia('(pointer: coarse)').matches ? 'Share the poll' : 'Copy invite link'}</button>`
-          : moment === 'match'
-            ? '<button type="button" class="link-btn" data-finn-stickers>Finn stickers</button>'
-            : ''
+        // The stickers are for celebrating. (Waiting on answers, the poll's own share button is the one to press.)
+        moment === 'match' ? '<button type="button" class="link-btn" data-finn-stickers>Finn stickers</button>' : ''
       }</div>
       <button type="button" class="finn-close" aria-label="Close Finn's note">×</button>
     </div>`;
