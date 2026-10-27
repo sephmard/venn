@@ -6,7 +6,6 @@ import { createStore, d1Adapter } from './store.js';
 import { isAppRoute } from './routes.js';
 import { SECURITY_HEADERS } from './security-headers.js';
 import { appShell } from './preview.js';
-import { sendReminders } from './reminders.js';
 
 let store;
 
@@ -39,11 +38,5 @@ export default {
     const res = new Response(asset.body, { status: 404, headers: asset.headers });
     for (const [k, v] of Object.entries(SECURITY_HEADERS)) res.headers.set(k, v);
     return res;
-  },
-
-  // The cron trigger in wrangler.toml: "time to plan the next one?" emails for plans that repeat.
-  async scheduled(event, env, ctx) {
-    store ??= createStore(d1Adapter(env.DB));
-    ctx.waitUntil(sendReminders({ store, env, now: event.scheduledTime || Date.now() }));
   },
 };

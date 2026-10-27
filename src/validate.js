@@ -13,7 +13,6 @@ import {
   partOf,
 } from '../public/core.js';
 import { isEmoji } from '../public/emoji.js';
-import { REPEATS } from '../public/repeat.js';
 
 const DAY = 86_400_000;
 const DAY_MINUTES = 1440;
@@ -51,9 +50,7 @@ export function normalizeEventInput(input) {
   const base = { title, description, organizer, timezone };
   if (location) base.location = location;
   if (emoji) base.emoji = emoji;
-  const repeat = cleanRepeat(input.repeat);
-  if (repeat) base.repeat = repeat;
-  // The poll this one follows on from, in a plan that repeats. Its id; the API checks it exists.
+  // The poll this one follows on from, as the next one of a plan. Its id; the API checks it exists.
   if (input.seriesOf != null && input.seriesOf !== '') {
     if (typeof input.seriesOf !== 'string' || !POLL_ID_RE.test(input.seriesOf))
       throw new ValidationError('Invalid previous poll');
@@ -188,13 +185,6 @@ function normalizeOptionsEvent(input, base) {
 }
 
 const POLL_ID_RE = /^[A-Za-z0-9]{1,32}$/;
-
-/** How often a plan repeats: one of REPEATS, or '' when it doesn't. */
-export function cleanRepeat(v) {
-  if (v == null || v === '') return '';
-  if (!REPEATS.includes(v)) throw new ValidationError('Repeat must be weekly, biweekly or monthly');
-  return v;
-}
 
 // Optional emoji for the kind of plan, or any other one the organizer picks: one emoji (public/emoji.js).
 function cleanEmoji(v) {

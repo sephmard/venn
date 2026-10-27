@@ -2,7 +2,7 @@
 
 import { LIMITS, ValidationError, YES, allDaySpan, isValidTimeZone, buildSlots, meetingEnd } from '../public/core.js';
 import { buildIcs } from '../public/calendar-export.js';
-import { cleanRepeat, normalizeAvailability, normalizeEventInput, normalizeName } from './validate.js';
+import { normalizeAvailability, normalizeEventInput, normalizeName } from './validate.js';
 import { SECURITY_HEADERS } from './security-headers.js';
 import { IMAGE_FILES, MAX_IMAGE_BODY, imagePath, imageResponse, parseImage } from './images.js';
 import {
@@ -88,7 +88,8 @@ function applyPrivacy(event, body) {
  * organizer hides names, and other people's answers are left out when the organizer hides them.
  */
 function publicEvent(ev, participants, { isAdmin, ownHash = null, emails = new Map() }) {
-  const { adminHash, hostId, ...rest } = ev;
+  // `repeat`: how often a plan repeated, on polls from before that was taken out.
+  const { adminHash, hostId, repeat, ...rest } = ev;
   const own = (p) => ownHash !== null && p.editHash === ownHash;
   const visible = isAdmin || !ev.hideResults ? participants : participants.filter(own);
   let guest = 0;
@@ -135,13 +136,12 @@ function notifyView(settings, env) {
 }
 
 /** Point the organizer's notifications at an email address, or turn them off with an empty one. */
-function setNotifyEmail(settings, value, env, origin) {
+function setNotifyEmail(settings, value, env) {
   const email = normalizeEmail(value);
   if (email && !emailEnabled(env)) throw new ValidationError("Email notifications aren't set up on this server");
   settings.email = email;
   if (email) settings.unsubscribeToken ||= randomId(24);
-  // Where the poll lives, for emails sent later with no request to take it from (src/reminders.js).
-  if (email) settings.origin = origin;
+  delete settings.origin; // was for "time to plan the next one?" emails, which were taken out
   // From before emails needed no confirmation.
   delete settings.emailConfirmed;
   delete settings.confirmHash;
@@ -249,7 +249,7 @@ export async function handleApi(
     if (parts.length === 1 && parts[0] === 'events' && method === 'POST') {
       const body = await readJson(request);
       const event = applyPrivacy(normalizeEventInput(body), body);
-      // The next one in a plan that repeats: the poll it follows on from must still be there.
+      // The next one of a plan: the poll it follows on from must still be there.
       const previous = event.seriesOf && (await store.getEvent(event.seriesOf));
       if (!previous) delete event.seriesOf;
       const notifyEmail = body.notifyEmail ? normalizeEmail(body.notifyEmail) : null;
@@ -274,7 +274,7 @@ export async function handleApi(
       if (notifyEmail) {
         // No confirmation step: the organizer gets their poll's link straight away, then an email per answer.
         const settings = { emailsSent: 1 };
-        setNotifyEmail(settings, notifyEmail, env, origin);
+        setNotifyEmail(settings, notifyEmail, env);
         await store.setNotify(id, settings);
         const msg = pollReadyEmail({
           title: event.title,
@@ -283,15 +283,12 @@ export async function handleApi(
         });
         waitUntil(sendEmail(env, { to: notifyEmail, ...msg }, { fetchImpl }).catch((e) => console.error('poll email failed', e)));
       }
-      // The next one is planned, so the last one needs no "time to plan the next one?" email.
-      if (previous) await store.markReminded(previous.id, now(), 'continued');
       count('poll.created', {
         ...pollKind(event),
         plan: planOf(event),
         options: sizeOf(event),
         email: notifyEmail ? 'yes' : 'no',
         copy: body.copied === true ? 'yes' : 'no',
-        repeat: event.repeat || 'no',
       });
       return json({ id, adminToken, ...(host && { participant: host }) }, 201);
     }
@@ -327,8 +324,7 @@ export async function handleApi(
         const body = await readJson(request);
         const next = applyPrivacy(normalizeEventInput(body), body);
         if (ev.hostId) next.hostId = ev.hostId;
-        // The edit form doesn't send these, so a poll keeps its place in a plan that repeats.
-        if (!('repeat' in body) && ev.repeat) next.repeat = ev.repeat;
+        // The edit form doesn't send it, so a poll keeps the one it follows on from.
         if (ev.seriesOf) next.seriesOf = ev.seriesOf;
         // The organizer's own answer follows the new times: what they sent, or what they'd already
         // answered for the times that are still there. It's checked before the poll changes.
@@ -409,7 +405,7 @@ export async function handleApi(
 
       if (parts.length === 3 && method === 'PUT') {
         const body = await readJson(request);
-        if ('email' in body) setNotifyEmail(settings, body.email, env, origin);
+        if ('email' in body) setNotifyEmail(settings, body.email, env);
         if ('webhookUrl' in body) {
           const webhookUrl = await validateWebhookUrl(body.webhookUrl, { resolveHost });
           if (webhookUrl && (webhookUrl !== settings.webhookUrl || !settings.webhookSecret))
@@ -458,20 +454,15 @@ export async function handleApi(
       return error(404, 'Not found');
     }
 
-    // PUT /api/events/:id/settings  { requireEmail?, hideNames?, hideResults?, repeat? }
+    // PUT /api/events/:id/settings  { requireEmail?, hideNames?, hideResults? }
     if (parts.length === 3 && parts[2] === 'settings' && method === 'PUT') {
       if (!isAdmin) return error(403, 'Only the organizer can change these settings');
       const { id: _id, adminHash, finalStart, createdAt, ...data } = ev;
       const body = await readJson(request);
       const next = applyPrivacy(data, body);
-      // How often the plan repeats ('' or null: it doesn't).
-      if ('repeat' in body) {
-        const repeat = cleanRepeat(body.repeat);
-        if (repeat) next.repeat = repeat;
-        else delete next.repeat;
-      }
+      delete next.repeat; // plans that repeated were taken out; a poll that had one drops it here
       await store.updateEvent(ev.id, next);
-      return json({ ...Object.fromEntries(PRIVACY.map((k) => [k, !!next[k]])), repeat: next.repeat || null });
+      return json(Object.fromEntries(PRIVACY.map((k) => [k, !!next[k]])));
     }
 
     // PUT /api/events/:id/image  { icon, card? }: the poll's own picture, in base64 (src/images.js).
