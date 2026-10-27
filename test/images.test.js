@@ -13,7 +13,7 @@ import { SECURITY_HEADERS } from '../src/security-headers.js';
 // ui.js looks up the page's elements when it loads; a stand-in document is enough here.
 globalThis.document ??= { getElementById: () => null };
 const { drawCard, layoutCard } = await import('../public/share-card.js');
-const { CARD, PREVIEW_STICKERS, drawPreview, layoutPreview, stickerButtons, stickerPicture } =
+const { CARD, PREVIEW_STICKERS, drawPreview, iconOf, layoutPreview, stickerButtons, stickerPicture } =
   await import('../public/poll-image.js');
 
 // Just enough of each kind of picture for its first bytes to say what it is.
@@ -382,4 +382,18 @@ test('pictures: Finn stickers for a poll still asking, and none unless one is ch
   assert.equal(html.match(/aria-pressed="true"/g).length, 1);
   assert.match(html, /data-sticker="im-in" aria-pressed="true">I’m in</);
   assert.match(stickerButtons(), /data-sticker="" aria-pressed="true">No Finn/);
+});
+
+test('images: a poll’s icon is its picture or an emoji, never both', () => {
+  const picture = { url: 'data:image/jpeg;base64,AAAA' };
+  // A picture replaces the emoji typed for it, and the panel says how to get an emoji back.
+  const pic = iconOf({ picture, emoji: '🎂', base: '🍝' });
+  assert.equal(pic.picture, picture);
+  assert.equal(pic.emoji, '');
+  assert.equal(pic.text, '');
+  assert.equal(pic.hint, 'Your picture is the icon. Remove it to use an emoji instead.');
+  // Without one: the emoji typed, else the kind of plan's, else the calendar.
+  assert.deepEqual([iconOf({ emoji: '🎂', base: '🍝' }).text, iconOf({ base: '🍝' }).text, iconOf().text], ['🎂', '🍝', '🗓️']);
+  assert.equal(iconOf({ emoji: '🎂' }).emoji, '🎂');
+  assert.match(iconOf().hint, /^Or use a picture of your own/);
 });
