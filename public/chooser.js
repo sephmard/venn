@@ -1,16 +1,16 @@
 // The chooser (/new): which kind of poll. Its own module, so the create pages don't carry it; it
 // loads create.js (and so the create pages' styles, and the next step ahead of time) with it.
 
-import './create.js';
+import { fromUrl } from './create.js';
 import { app, esc, track } from './ui.js';
 
 export function renderChooser() {
   document.title = 'New poll · Venn';
-  // Where they came from: answering someone's poll, or a poll whose date was picked.
-  const from = new URLSearchParams(location.search).get('from');
-  track('view', { page: 'chooser', ...(['guest', 'set'].includes(from) && { from }) });
+  // Where they came from, passed on to the form.
+  const from = fromUrl();
+  track('view', { page: 'chooser', ...(from && { from }) });
   // A title or template from the landing page or a template page goes on to the form.
-  const q = new URLSearchParams([...new URLSearchParams(location.search)].filter(([k]) => /^(title|template)$/.test(k)));
+  const q = new URLSearchParams([...new URLSearchParams(location.search)].filter(([k]) => /^(title|template|from)$/.test(k)));
   const carry = q.size ? `?${q}` : '';
   app.innerHTML = `
     <section class="chooser">

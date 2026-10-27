@@ -48,7 +48,8 @@ export function prefillTitle() {
   const t = templateFromUrl();
   if (t >= 0) $(`[data-occasion="${t}"]`).click();
   if (title) $('#title').value = title;
-  if (title || t >= 0) history.replaceState(null, '', location.pathname);
+  const from = fromUrl();
+  if (title || t >= 0) history.replaceState(null, '', location.pathname + (from ? `?from=${encodeURIComponent(from)}` : ''));
 }
 
 // ---------- editing or duplicating a poll ----------
@@ -79,6 +80,9 @@ export function fillCommon(ev, src) {
   editPoll.fillCommon(ev, src, { occasions: OCCASIONS, privacy: PRIVACY, showTz, icon });
   if (src.edit) editing = src.id;
 }
+
+/** ?from=, for usage stats (src/usage.js). */
+export const fromUrl = () => new URLSearchParams(location.search).get('from') || '';
 
 // ---------- shared form parts ----------
 
@@ -250,6 +254,7 @@ export async function submit(body, occasion, answer = null) {
   body.hostAnswers = true;
   // A copy; the next one of a plan also says which poll it follows on from.
   if (source()) Object.assign(body, { copied: true }, editPoll?.seriesFields());
+  if (fromUrl()) body.from = fromUrl();
   // The celebration (and its picture) load while the poll is saved.
   const celebration = import('./celebrate.js').catch(() => null);
   try {
