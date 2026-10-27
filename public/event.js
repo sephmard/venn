@@ -327,7 +327,14 @@ export async function renderEvent(id, navigate) {
   $('#copy').onclick = () => {
     track('share', { how: canShare ? 'sheet' : 'copy', from: 'poll' });
     const { title, emoji, organizer, finalStart } = ev();
-    const text = inviteText({ title, emoji, organizer, pick: optionsMode && !partsMode, set: finalStart != null });
+    // With its own picture, a poll has no emoji to show.
+    const text = inviteText({
+      title,
+      emoji: picture ? '' : emoji,
+      organizer,
+      pick: optionsMode && !partsMode,
+      set: finalStart != null,
+    });
     canShare ? navigator.share({ title, text, url: shareUrl }).catch(() => {}) : copy(shareUrl, 'Invite link copied');
   };
   $('#name').value = me()?.name || lastName();
@@ -1130,7 +1137,7 @@ export async function renderEvent(id, navigate) {
       // A party for every answer sent, guests' and the organizer's.
       const host = ev().isAdmin ? '' : ev().organizer;
       const p = (await party)?.celebrate({
-        emoji: ev().emoji || '🎉',
+        emoji: (!picture && ev().emoji) || '🎉',
         picture,
         heading: created ? 'Answer submitted!' : 'Answer updated!',
         message: ev().isAdmin

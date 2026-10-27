@@ -296,7 +296,13 @@ export async function submit(body, occasion, answer = null) {
     };
     // The next one of a plan: also one tap to email last time's group.
     const also = body.seriesOf ? editPoll?.inviteLast(url, title) : null;
-    const party = (await celebration)?.celebrate({ emoji: body.emoji, picture: icon?.picture(), title, share, also });
+    const party = (await celebration)?.celebrate({
+      emoji: icon?.picture() ? '🎉' : body.emoji,
+      picture: icon?.picture(),
+      title,
+      share,
+      also,
+    });
     await party?.shown;
     await picture;
     history.pushState(null, '', `/e/${id}`);

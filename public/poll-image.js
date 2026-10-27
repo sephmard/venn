@@ -46,6 +46,13 @@ function show() {
   else s.tile.textContent = s.emoji || s.base;
   const remove = $('#icon-remove');
   if (remove) remove.hidden = !s.picture;
+  // A picture or an emoji, never both: with a picture, the emoji field steps aside.
+  const row = $('#icon-emoji-row');
+  if (row) row.hidden = !!s.picture;
+  if ($('#icon-hint'))
+    $('#icon-hint').textContent = s.picture
+      ? 'Your picture is the icon. Remove it to use an emoji instead.'
+      : 'Or use a picture of your own. It shows on the poll and when you share its link.';
 }
 
 /** The emoji they typed, or '' for the plan's own. */
@@ -77,9 +84,11 @@ export function toggle() {
   panel.setAttribute('aria-labelledby', 'icon-h');
   panel.innerHTML = `
     <h3 id="icon-h">Your poll's icon</h3>
-    <label for="icon-emoji">Any emoji</label>
-    <input id="icon-emoji" type="text" autocomplete="off" spellcheck="false" enterkeyhint="done" placeholder="Type or paste one, like 🎂" aria-describedby="icon-hint" value="${esc(s.emoji)}">
-    <p class="hint" id="icon-hint">Or use a picture of your own. It shows on the poll and when you share its link.</p>
+    <div id="icon-emoji-row"${s.picture ? ' hidden' : ''}>
+      <label for="icon-emoji">Any emoji</label>
+      <input id="icon-emoji" type="text" autocomplete="off" spellcheck="false" enterkeyhint="done" placeholder="Type or paste one, like 🎂" aria-describedby="icon-hint" value="${esc(s.emoji)}">
+    </div>
+    <p class="hint" id="icon-hint"></p>
     <div class="icon-btns">
       <button type="button" class="btn" id="icon-upload">Upload a picture</button>
       <button type="button" class="btn btn-ghost" id="icon-remove"${s.picture ? '' : ' hidden'}>Remove picture</button>
@@ -107,9 +116,10 @@ export function toggle() {
   $('#icon-remove').addEventListener('click', () => {
     s.picture = null;
     show();
-    $('#icon-upload').focus();
+    $('#icon-emoji').focus();
   });
-  input.focus();
+  show();
+  (s.picture ? $('#icon-upload') : input).focus();
 }
 
 function close(refocus = false) {
@@ -131,7 +141,11 @@ async function usePicture(file) {
   upload.setAttribute('aria-busy', 'true');
   try {
     const blob = await squareIcon(await decode(file));
-    state().picture = { blob, url: await dataUrl(blob) };
+    const s = state();
+    s.picture = { blob, url: await dataUrl(blob) };
+    // The picture replaces any emoji typed for it.
+    s.emoji = '';
+    if ($('#icon-emoji')) $('#icon-emoji').value = '';
     show();
   } catch {
     say("Couldn't open that picture. Try a JPEG or PNG.");

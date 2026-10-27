@@ -37,6 +37,8 @@ test('preview: before a date is picked, the poll asks, with the organizer’s na
   assert.equal(p.title, "🍝 Dinner at Rosa's");
   assert.equal(p.description, "Priya wants to find a time for Dinner at Rosa's. Fri, Nov 13. Tap when you're free. No sign-up.");
   assert.equal(p.image.path, '/og.png');
+  // A poll with its own picture shows that, not its emoji as well.
+  assert.equal(pollPreview({ ...dinner, finalStart: null, image: { v: 1, card: true } }).title, "Dinner at Rosa's");
   const anon = pollPreview({ ...dinner, emoji: undefined, organizer: '', finalStart: null });
   assert.equal(anon.title, "Dinner at Rosa's");
   assert.equal(anon.description, "When works for you? Fri, Nov 13. Tap when you're free. No sign-up.");
