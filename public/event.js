@@ -35,8 +35,6 @@ import {
   fmtDow,
   fmtDowLong,
   fmtMonthDay,
-  fmtTimeRange,
-  fmtWhen,
   forget,
   getConfig,
   lastEmail,
@@ -59,6 +57,7 @@ import {
   dayChip,
   isPhone,
 } from './ui.js';
+import { fmtTimeRange, fmtWhen } from './when.js';
 
 const VOTES = [
   [YES, 'v-yes', 'Yes', '✓'],
@@ -162,6 +161,15 @@ export async function renderEvent(id, navigate) {
     return p
       ? `${fmtDay.format(dateParts(utcToZoned(s, ev().timezone).date))}, ${p.label.toLowerCase()} (${shortRange(p.start, p.end)})`
       : fmtWhen(s, e, st.tz);
+  };
+  /** `when` as HTML for big type: the times of a day kept together ("Fri, Nov 6," then "7:00 – 9:00 PM"). */
+  const bigWhen = (s, e) => {
+    const d = utcToZoned(s, st.tz).date;
+    return partsMode || allDaySpan(s, e, st.tz) || d !== utcToZoned(e - 1, st.tz).date
+      ? esc(when(s, e)).replace(/\s–/g, '\u00a0–') // a line never starts with the dash
+      : [`${fmtDay.format(dateParts(d))},`, fmtTimeRange(s, e, st.tz)]
+          .map((t) => `<span style="white-space:nowrap">${esc(t)}</span>`)
+          .join(' ');
   };
   const canShare = !!navigator.share && matchMedia('(pointer: coarse)').matches;
   // What the organizer keeps private from guests.
@@ -1197,7 +1205,7 @@ export async function renderEvent(id, navigate) {
     const head = windows
       .map((w) => {
         const z = utcToZoned(w.start, st.tz);
-        const time = optionsMode && !allDaySpan(w.start, w.end, st.tz) ? fmtTimeRange(w.start, w.end, st.tz).split(' – ')[0] : '';
+        const time = optionsMode && !allDaySpan(w.start, w.end, st.tz) ? fmtTimeRange(w.start, w.start, st.tz) : '';
         return `<th class="${cls(w)}" scope="col"><span class="m-day">${esc(fmtDow.format(dateParts(z.date)))}</span><span class="m-date">${esc(fmtMonthDay.format(dateParts(z.date)))}</span>${time ? `<span class="m-time">${esc(time)}</span>` : ''}</th>`;
       })
       .join('');
@@ -1473,7 +1481,7 @@ export async function renderEvent(id, navigate) {
           : ''
       }
       <div class="best-hero${ev().finalStart === first.start ? ' final' : ''}">
-        <div class="best-when">${esc(when(first.start, first.end))}${esc(lenNote)}</div>
+        <div class="best-when">${bigWhen(first.start, first.end)}${esc(lenNote)}</div>
         <div class="best-who">${avatarStack([...first.yes, ...first.ifNeeded], 7)}<span>${esc(who(first))}</span></div>
         ${names(first)}
         ${missing(first)}
@@ -1594,7 +1602,7 @@ export async function renderEvent(id, navigate) {
         )}&body=${encodeURIComponent(`It's set: ${ev().title}, ${when(start, end)}.\n\nAdd it to your calendar: ${shareUrl}\n`)}`;
       h += `<section class="banner-final${st.celebrate && !reducedMotion() ? ' celebrate' : ''}" aria-labelledby="final-h">
         <p class="kicker">It's happening</p>
-        <h2 id="final-h">${esc(when(start, end))}</h2>
+        <h2 id="final-h">${bigWhen(start, end)}</h2>
         ${
           // The organizer's next step: telling everyone. By email when the poll has their addresses.
           ev().isAdmin

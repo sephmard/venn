@@ -170,10 +170,12 @@ function timeGrid(
     const at = (m) => (m - from) / STEP;
     const prev = $('.tg-scroll', root);
     if (prev && scrollTop !== null) scrollTop = prev.scrollTop;
+    // A phone's week has narrow columns: "7p" fits where "7 – 9 PM" breaks into "9 / P / M", "Mon 2" where "Mon Nov 2" won't.
+    const narrow = ds.length > 1 && isPhone();
     const head = ds
       .map(
         (d) =>
-          `<button type="button" class="tg-day" data-open-day="${d}" aria-label="Show ${esc(dayLabel(d))} on its own"><b>${esc(fmtDow.format(dateParts(d)))}</b> ${esc(fmtMonthDay.format(dateParts(d)))}</button>`,
+          `<button type="button" class="tg-day" data-open-day="${d}" aria-label="Show ${esc(dayLabel(d))} on its own"><b>${esc(fmtDow.format(dateParts(d)))}</b> ${narrow ? dateParts(d).getUTCDate() : esc(fmtMonthDay.format(dateParts(d)))}</button>`,
       )
       .join('');
     let times = '';
@@ -181,8 +183,6 @@ function timeGrid(
     const pos = (a, b) =>
       `top:calc(${at(Math.max(a, from))} * var(--row));height:calc(${(Math.min(b, to) - Math.max(a, from)) / STEP} * var(--row))`;
     const all = blocks();
-    // A phone's week has narrow columns: "7p" fits where "7 – 9 PM" breaks into "9 / P / M".
-    const narrow = ds.length > 1 && isPhone();
     const text = (b, n) => (narrow && b.tiny != null ? b.tiny : n > 1 && b.short ? b.short : b.label);
     const today = todayStr();
     const cols = ds
@@ -209,7 +209,7 @@ function timeGrid(
               _,
               style = `${pos(b.from, b.to)};left:calc(3px + (100% - 6px) * ${lane[i]} / ${n});width:calc((100% - 6px) / ${n} - 2px)`,
             ) =>
-              `<button type="button" class="tg-block ${b.cls || ''}" data-key="${esc(b.key)}" style="${style}" aria-label="${esc(b.title || b.label)}">${editor?.top || ''}<span>${esc(text(b, n))}</span>${b.tag ? ` <small>${esc(b.tag)}</small>` : ''}${editor?.bottom || ''}</button>${editor ? editor.after(b, style) : ''}`,
+              `<button type="button" class="tg-block ${b.cls || ''}${b.to - b.from < 60 ? ' tg-short' : ''}" data-key="${esc(b.key)}" style="${style}" aria-label="${esc(b.title || b.label)}">${editor?.top || ''}<span>${esc(text(b, n))}</span>${b.tag ? ` <small>${esc(b.tag)}</small>` : ''}${editor?.bottom || ''}</button>${editor ? editor.after(b, style) : ''}`,
           )
           .join('');
         // Organizers can't add options on days that have gone by.

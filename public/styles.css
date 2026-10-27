@@ -80,14 +80,12 @@
   display: none !important;
 }
 html,
-body {
-  margin: 0;
-}
 /* clear of the sticky tabs and Save bar */
 html {
   scroll-padding: 72px 0 96px;
 }
 body {
+  margin: 0;
   background: var(--bg);
   color: var(--text);
   font:
@@ -100,6 +98,7 @@ body {
   display: flex;
   flex-direction: column;
   overflow-wrap: break-word;
+  text-wrap: pretty;
   -webkit-text-size-adjust: 100%;
 }
 button {
@@ -458,6 +457,7 @@ select:focus {
   gap: 16px;
 }
 .stack-sm {
+  grid-template-columns: minmax(0, 1fr);
   gap: 12px;
 }
 .inline-field {
@@ -852,17 +852,26 @@ details.organizer[open] summary::before {
   justify-content: center;
   gap: 6px;
 }
-.vote .v-yes[aria-checked='true'] {
+.vote .v-yes[aria-checked='true'],
+.tg-block.ans-2,
+.part-vote[data-v='2'],
+.all-day[data-v='2'] {
   background: var(--yes);
   border-color: var(--yes);
   color: var(--yes-ink);
 }
-.vote .v-maybe[aria-checked='true'] {
+.vote .v-maybe[aria-checked='true'],
+.tg-block.ans-1,
+.tg-block.opt-maybe,
+.part-vote[data-v='1'],
+.all-day[data-v='1'] {
   background: var(--maybe);
   border-color: var(--maybe);
   color: var(--maybe-ink);
 }
-.vote .v-no[aria-checked='true'] {
+.vote .v-no[aria-checked='true'],
+.part-vote[data-v='no'],
+.all-day[data-v='no'] {
   background: var(--no);
   border-color: var(--no);
   color: var(--surface);
@@ -870,6 +879,15 @@ details.organizer[open] summary::before {
 @container (max-width: 420px) {
   .vote [aria-hidden='true'] {
     display: none;
+  }
+}
+@container (max-width: 300px) {
+  .vote {
+    grid-column: 1 / -1;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+  .vote button {
+    font-size: 0.9375rem;
   }
 }
 /* Rows lay out by their own width: buttons beside the time when there's room, below it otherwise. */
@@ -1148,6 +1166,20 @@ ol.best .when {
 .brush button {
   white-space: nowrap;
   padding: 6px 8px;
+}
+@media (max-width: 374px) {
+  .seg button {
+    padding-inline: 4px;
+    font-size: 0.9375rem;
+  }
+  .brush {
+    grid-auto-columns: auto;
+  }
+  .brush button {
+    padding: 6px 4px;
+    gap: 4px;
+    font-size: 0.875rem;
+  }
 }
 .swatch {
   width: 12px;
@@ -1516,6 +1548,7 @@ details.organizer > .danger {
   max-width: calc(100vw - 32px);
   width: max-content;
   text-align: center;
+  text-wrap: balance;
 }
 #toast:empty {
   padding: 0;
@@ -1655,13 +1688,22 @@ details.organizer > .danger {
   min-width: 0;
 }
 /* A day at the top of the week opens it on its own. */
-.tg-day:hover {
-  color: var(--accent);
-  text-decoration: underline;
+@media (hover: hover) {
+  .tg-day:hover {
+    color: var(--accent);
+    text-decoration: underline;
+  }
 }
 .tg-day b {
   display: block;
   font-size: 0.85rem;
+}
+.tg-narrow .tg-day {
+  padding-inline: 0;
+  overflow-wrap: normal;
+}
+.tg-narrow .tg-day b {
+  font-size: 0.75rem;
 }
 .tg-scroll {
   max-height: 460px;
@@ -1734,6 +1776,29 @@ details.organizer > .danger {
   overflow: hidden;
   overflow-wrap: anywhere;
 }
+/* Under an hour: one line */
+.tg-short {
+  flex-direction: row;
+  align-items: center;
+  gap: 6px;
+  padding-block: 0;
+  container-type: inline-size;
+}
+.tg-short > * {
+  min-width: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.tg-short span {
+  flex-shrink: 0;
+  max-width: 100%;
+}
+@container (max-width: 180px) {
+  .tg-short small {
+    display: none;
+  }
+}
 .tg-ghost {
   background: var(--accent-soft);
   color: var(--text);
@@ -1757,16 +1822,6 @@ details.organizer > .danger {
   background: var(--surface);
   color: var(--text);
   border-style: dashed;
-}
-.tg-block.ans-2 {
-  background: var(--yes);
-  border-color: var(--yes);
-  color: var(--yes-ink);
-}
-.tg-block.ans-1 {
-  background: var(--maybe);
-  border-color: var(--maybe);
-  color: var(--maybe-ink);
 }
 .tg-block.ans-0 {
   background: var(--no-soft);
@@ -1804,10 +1859,6 @@ details.organizer > .danger {
 @media (max-width: 520px) {
   .tg {
     --row: 28px;
-  }
-  .tg-head,
-  .tg-body {
-    grid-template-columns: 52px repeat(var(--cols), minmax(0, 1fr));
   }
   .tv-views {
     width: 100%;
@@ -1858,21 +1909,6 @@ details.organizer > .danger {
 /* Three across on a 375px phone: "Afternoon" and "✓ Available" still fit. */
 .part-vote b {
   font-size: min(1rem, 4vw);
-}
-.part-vote[data-v='2'] {
-  background: var(--yes);
-  border-color: var(--yes);
-  color: var(--yes-ink);
-}
-.part-vote[data-v='1'] {
-  background: var(--maybe);
-  border-color: var(--maybe);
-  color: var(--maybe-ink);
-}
-.part-vote[data-v='no'] {
-  background: var(--no);
-  border-color: var(--no);
-  color: var(--surface);
 }
 .part-vote[data-v='2'] small,
 .part-vote[data-v='1'] small,
@@ -1994,27 +2030,13 @@ details.organizer > .danger {
   font-size: 0.8rem;
   line-height: 1;
 }
-.all-day[data-v='2'] {
-  background: var(--yes);
-  border-color: var(--yes);
-  color: var(--yes-ink);
-}
-.all-day[data-v='1'] {
-  background: var(--maybe);
-  border-color: var(--maybe);
-  color: var(--maybe-ink);
-}
-.all-day[data-v='no'] {
-  background: var(--no);
-  border-color: var(--no);
-  color: var(--surface);
-}
 .all-day[data-v='2'] .ad-mark,
 .all-day[data-v='1'] .ad-mark,
 .all-day[data-v='no'] .ad-mark {
   border-color: currentColor;
 }
-.all-day[data-v='some'] {
+.all-day[data-v='some'],
+.part-vote[data-v='some'] {
   border-color: var(--accent);
   border-style: dashed;
 }
@@ -2118,10 +2140,6 @@ pre.code {
 .quick-votes {
   grid-template-columns: repeat(auto-fit, minmax(96px, 1fr));
 }
-.part-vote[data-v='some'] {
-  border-style: dashed;
-  border-color: var(--accent);
-}
 
 /* Blocks on the week: drag an edge to change the length; "if needed" options are amber. */
 .tg-handle {
@@ -2193,11 +2211,6 @@ pre.code {
 }
 .chip button:hover {
   color: var(--no);
-}
-.tg-block.opt-maybe {
-  background: var(--maybe);
-  border-color: var(--maybe);
-  color: var(--maybe-ink);
 }
 /* "Submit your answer?": who it's from and what it says, before it goes in */
 .submit-check {

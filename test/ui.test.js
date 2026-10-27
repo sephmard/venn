@@ -11,6 +11,7 @@ globalThis.localStorage = {
 };
 globalThis.matchMedia = () => ({ matches: true });
 const ui = await import('../public/ui.js');
+const when = await import('../public/when.js');
 const { api, toast } = ui;
 
 const respond = (status, body) => async () => new Response(typeof body === 'string' ? body : JSON.stringify(body), { status });
@@ -180,12 +181,30 @@ test('dates and times read naturally', () => {
   assert.match(ui.shortRange(20 * 60, 1440), /midnight$/);
   const day = Date.UTC(2030, 0, 8);
   const h = 3_600_000;
-  assert.match(ui.fmtWhen(day + 18 * h, day + 20 * h, 'UTC'), /Tue.*Jan.*8/);
-  assert.match(ui.fmtWhen(day, day + 24 * h, 'UTC'), /all day$/);
-  assert.match(ui.fmtWhen(day, day + 72 * h, 'UTC'), /Jan.*8.*10/);
-  assert.equal(ui.fmtTimeRange(day, day + 24 * h, 'UTC'), 'All day');
-  assert.match(ui.fmtTimeRange(day, day + 48 * h, 'UTC'), /Jan/);
-  assert.match(ui.fmtTimeRange(day + 18 * h, day + 20 * h, 'UTC'), /6:00.*8:00/);
+  assert.match(when.fmtWhen(day + 18 * h, day + 20 * h, 'UTC'), /Tue.*Jan.*8/);
+  assert.match(when.fmtWhen(day, day + 24 * h, 'UTC'), /all day$/);
+  assert.match(when.fmtWhen(day, day + 72 * h, 'UTC'), /Jan.*8.*10/);
+  assert.equal(when.fmtTimeRange(day, day + 24 * h, 'UTC'), 'All day');
+  assert.match(when.fmtTimeRange(day, day + 48 * h, 'UTC'), /Jan/);
+  assert.match(when.fmtTimeRange(day + 18 * h, day + 20 * h, 'UTC'), /6:00.*8:00/);
+});
+
+test('a time range across midnight names its days, in the poll’s time zone, not in numbers', () => {
+  const h = 3_600_000;
+  // Fri Nov 13 2026, 11 PM to 1 AM in New York (UTC-5): Sat 04:00 to 06:00 UTC.
+  const fri11pm = Date.UTC(2026, 10, 14, 4);
+  const range = when.fmtTimeRange(fri11pm, fri11pm + 2 * h, 'America/New_York');
+  assert.match(range, /^Fri 11:00\sPM\s– Sat 1:00\sAM$/);
+  assert.doesNotMatch(range, /\d\/\d/);
+  // The same instants in London are one day: no day names.
+  assert.match(when.fmtTimeRange(fri11pm, fri11pm + 2 * h, 'Europe/London'), /^4:00\s–\s6:00\sAM$/);
+  // Ending at midnight stays on its day.
+  assert.match(when.fmtTimeRange(fri11pm - 2 * h, fri11pm + h, 'America/New_York'), /^9:00\sPM\s– 12:00\sAM$/);
+  // Across a DST change (US clocks go back on Sun Nov 1 2026): the day names follow local time.
+  const sat11pm = Date.UTC(2026, 10, 1, 3); // Sat Oct 31, 11 PM EDT (UTC-4)
+  assert.match(when.fmtTimeRange(sat11pm, sat11pm + 4 * h, 'America/New_York'), /^Sat 11:00\sPM\s– Sun 2:00\sAM$/);
+  // The start time alone, as the group's table shows it.
+  assert.match(when.fmtTimeRange(sat11pm, sat11pm, 'America/New_York'), /^11:00\sPM$/);
 });
 
 test('time zones and relative times', () => {

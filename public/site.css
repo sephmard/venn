@@ -1199,3 +1199,17 @@ h3 {
     overflow-wrap: anywhere;
   }
 }
+/* The smallest phones (320px): the logo, GitHub, Create a poll and the menu still fit side by side */
+@media (max-width: 374px) {
+  .brand {
+    flex: none;
+    gap: 6px;
+  }
+  .nav-links {
+    gap: 2px;
+  }
+  .nav .btn-sm {
+    padding: 0 10px;
+    font-size: 0.875rem;
+  }
+}

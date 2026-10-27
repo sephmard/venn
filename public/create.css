@@ -240,6 +240,7 @@ button.emoji-tile:focus-visible {
   font-family: var(--display);
   font-weight: 700;
   font-size: 1rem;
+  padding: 0;
   cursor: pointer;
 }
 .cal-day:hover:not(:disabled) {
@@ -380,6 +381,7 @@ button.emoji-tile:focus-visible {
 }
 
 .pill small {
+  margin-top: 3px;
   font-weight: 500;
 }
 
@@ -489,10 +491,6 @@ button.emoji-tile:focus-visible {
 .sub-h {
   font-size: 1rem;
   margin: 0 0 8px;
-}
-.pg-help {
-  flex-basis: 100%;
-  margin: 0;
 }
 
 /* ---------- create pages: audit fixes ---------- */
@@ -615,7 +613,7 @@ button.emoji-tile:focus-visible {
 }
 .add-time-row {
   display: grid;
-  grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr);
+  grid-template-columns: minmax(0, 1.5fr) minmax(0, 1fr);
   align-items: end;
   gap: 10px 8px;
 }
@@ -682,12 +680,29 @@ button.emoji-tile:focus-visible {
   align-items: center;
   justify-content: flex-end;
 }
-.tg-narrow .tg-block small {
+.tg-narrow .tg-block small,
+.tg-narrow .tg-short + .tg-x-box {
   display: none;
 }
 .tg-narrow .tg-block span {
   white-space: nowrap;
   font-size: 0.7rem;
+}
+/* Under an hour: the grips by the × */
+.create .tg-short {
+  padding-right: 58px;
+}
+.tg:not(.tg-narrow) .tg-short .tg-handle::after {
+  left: auto;
+  right: 34px;
+}
+.create .tg-narrow .tg-short {
+  padding: 0;
+  justify-content: center;
+  letter-spacing: -0.04em;
+}
+.tg-narrow .tg-short span {
+  text-overflow: clip;
 }
 /* Touch: a 44px hit area for the ×, and 24px edges (the grips stay where they were) */
 @media (hover: none), (pointer: coarse) {
@@ -762,6 +777,20 @@ button.emoji-tile:focus-visible {
   .tv-pick {
     flex: 1;
     padding: 0 4px;
+    font-size: 0.875rem;
+  }
+}
+@media (max-width: 374px) {
+  .create .tv-nav {
+    flex-wrap: wrap;
+    justify-content: space-between;
+  }
+  .tv-pick {
+    order: -1;
+    flex-basis: 100%;
+  }
+  .lengths .pill {
+    padding-inline: 0;
     font-size: 0.875rem;
   }
 }
