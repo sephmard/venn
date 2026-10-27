@@ -2421,12 +2421,15 @@ test('on a phone, the word on each marked day fits on one line', async ({ page }
   await page.setViewportSize({ width: 320, height: 800 });
   await page.goto('/new/free');
   await page.click('#q-2w');
+  // In a wide font too, as some phones and Linux use.
+  await page.addStyleTag({ content: ".cal-day small { font-family: 'DejaVu Sans', Verdana, sans-serif !important }" });
   const words = page.locator('.cal-day.marked small');
   await expect(words.first()).toBeVisible();
   for (const w of await words.all()) {
     const { lines, clipped } = await w.evaluate((el) => ({
       lines: Math.round(el.getBoundingClientRect().height / parseFloat(getComputedStyle(el).lineHeight || '1')),
-      clipped: el.scrollWidth > el.clientWidth + 1,
+      // Wider than its own box, or than the day it's in.
+      clipped: el.scrollWidth > el.clientWidth + 1 || el.getBoundingClientRect().width > el.parentElement.clientWidth,
     }));
     expect(clipped).toBe(false);
     expect(lines).toBeLessThanOrEqual(1);
