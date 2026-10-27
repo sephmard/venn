@@ -522,6 +522,12 @@ h2 em {
 }
 
 /* How it works: three phone screens, side by side; on a phone, a row to swipe through. */
+.section-lede {
+  max-width: 560px;
+  margin: 18px 0 0;
+  font-size: 1.125rem;
+  color: var(--ink-2);
+}
 .shots {
   list-style: none;
   margin: 48px 0 0;
@@ -543,6 +549,23 @@ h2 em {
   border-radius: 28px;
   background: var(--card);
   box-shadow: var(--shot-shadow);
+}
+/* The middle phone sits a little higher, so the three read as steps. */
+@media (min-width: 901px) {
+  .shots li:nth-child(2) {
+    margin-top: -32px;
+  }
+  .shots li:nth-child(3) {
+    margin-top: -12px;
+  }
+}
+.shots img {
+  transition:
+    transform 0.35s cubic-bezier(0.2, 0.8, 0.2, 1),
+    box-shadow 0.35s;
+}
+.shots li:hover img {
+  transform: translateY(-6px) rotate(-1deg);
 }
 .shots:focus-visible {
   outline: 3px solid var(--green);
@@ -1304,5 +1327,54 @@ h3 {
     padding: 0 8px;
     font-size: 0.8125rem;
     white-space: nowrap;
+  }
+}
+
+/* Motion, for people who haven't asked for less: the hero's light drifts, and each part of the
+   page rises into place as it scrolls into view (CSS only; browsers without scroll-driven
+   animations just show everything). */
+@media (prefers-reduced-motion: no-preference) {
+  .blob {
+    animation: drift 18s ease-in-out infinite alternate;
+  }
+  .blob-amber {
+    animation-duration: 23s;
+    animation-delay: -7s;
+  }
+  .blob-blue {
+    animation-duration: 29s;
+    animation-delay: -13s;
+  }
+  @supports (animation-timeline: view()) {
+    .section h2,
+    .band h2,
+    .section-lede,
+    .shots li,
+    .benefits li,
+    .story,
+    .yours-steps li,
+    .demo,
+    .tpl-cards li,
+    .dev-points li,
+    .code-card,
+    .faq details,
+    .closing h2 {
+      animation: rise linear both;
+      animation-timeline: view();
+      animation-range: entry 0% entry 45%;
+    }
+  }
+}
+@keyframes drift {
+  to {
+    translate: 70px -40px;
+    scale: 1.15;
+  }
+}
+/* A soft blur rather than a fade: text is never see-through, so it keeps its contrast. */
+@keyframes rise {
+  from {
+    filter: blur(6px);
+    translate: 0 32px;
   }
 }
