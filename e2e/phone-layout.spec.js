@@ -186,6 +186,22 @@ test.describe('on a 320px phone', () => {
     await fits(page, 'exact times');
   });
 
+  test('ask when people are available: the answer choices and days in a row fit, in a wide font too', async ({ page }) => {
+    await page.goto('/new/free');
+    await page.addStyleTag({ content: "* { font-family: 'DejaVu Sans', Verdana, sans-serif !important }" });
+    // Days, Parts of day and Hours each on one line, side by side.
+    const tops = [];
+    for (const b of await page.locator('[data-level]').all()) {
+      const r = await box(b);
+      expect(r.height).toBeLessThan(50);
+      tops.push(Math.round(r.top));
+    }
+    expect(new Set(tops).size).toBe(1);
+    // No sentences explaining it: the tap key says how to tap.
+    await expect(page.locator('#when-help')).toBeHidden();
+    await expect(page.locator('.tap-key')).toBeVisible();
+  });
+
   test('the calendar’s arrows keep their 44px, and two-digit days stay on one line', async ({ page }) => {
     await page.goto('/new/pick');
     await page.locator('#picker .tv-pick').waitFor();

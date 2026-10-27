@@ -112,7 +112,7 @@ for (const scheme of ['light', 'dark']) {
       await page.fill('#title', 'Privacy check'); // whole days is where it starts
       await page.click('#q-2w');
       await page.locator('#privacy-opts summary').click();
-      for (const name of ['Ask everyone for their email', "Hide everyone's answers from guests"])
+      for (const name of ['Ask guests for their email', 'Hide answers from guests'])
         await page.getByRole('switch', { name }).check();
       await audit(page, 'create (privacy options)');
       await page.click('#submit');

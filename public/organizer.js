@@ -192,9 +192,9 @@ function renderNotify(ctx, s) {
 // ----- privacy -----
 
 const SETTINGS = [
-  ['requireEmail', 'Ask everyone for their email', 'Only you see the emails.'],
-  ['hideNames', 'Hide names from guests', 'Guests see how many people can make each date, but not who.'],
-  ['hideResults', "Hide everyone's answers from guests", 'Only you see the answers. Guests see the date once you pick it.'],
+  ['requireEmail', 'Ask guests for their email'],
+  ['hideNames', 'Hide names from guests'],
+  ['hideResults', 'Hide answers from guests'],
 ];
 
 /** ctx: { id, ev, headers, close, reload } */
@@ -205,7 +205,7 @@ export function privacy(ctx) {
   const emails = withEmail.length
     ? `<ul class="email-list">${withEmail.map((p) => `<li><b>${esc(p.name)}</b> <span>${esc(p.email)}</span></li>`).join('')}</ul>
        <div class="btn-row"><button type="button" class="btn btn-sm" id="copy-emails">Copy all emails</button></div>`
-    : `<p class="hint">${ev.requireEmail ? 'No answers yet.' : 'Turn on "Ask everyone for their email" to collect them.'}</p>`;
+    : '<p class="hint">No emails yet.</p>';
   box.innerHTML = `
     <section class="sheet" aria-labelledby="privacy-h">
       <div class="sheet-head">
@@ -214,8 +214,8 @@ export function privacy(ctx) {
       </div>
       <form id="privacy-form" class="stack-sm" novalidate>
         ${SETTINGS.map(
-          ([key, label, hint]) =>
-            `<div><label class="switch"><input type="checkbox" role="switch" name="${key}"${ev[key] ? ' checked' : ''}> ${label}</label><p class="hint">${hint}</p></div>`,
+          ([key, label]) =>
+            `<div><label class="switch"><input type="checkbox" role="switch" name="${key}"${ev[key] ? ' checked' : ''}> ${label}</label></div>`,
         ).join('')}
         <div class="btn-row"><button class="btn btn-primary" type="submit">Save privacy settings</button></div>
         <div class="error" id="privacy-err" role="alert"></div>

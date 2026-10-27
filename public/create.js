@@ -134,17 +134,14 @@ export function youFields() {
       <div id="notify-field" hidden>
         <label for="notify">Your email${REQ}</label>
         <input id="notify" type="email" inputmode="email" autocomplete="email" maxlength="254" placeholder="you@example.com" value="${esc(lastEmail())}" aria-required="true" aria-describedby="notify-hint">
-        <p class="hint" id="notify-hint">We'll email you your poll's link, so you never lose it, then let you know when people answer. Webhooks for Slack, Discord or your own app are under Notifications once the poll exists.</p>
+        <p class="hint" id="notify-hint">We'll email you the link and each answer.</p>
       </div>
-      <p class="hint" id="notify-off" hidden>Email notifications aren't switched on for this Venn server yet. You can add a webhook from the poll's Notifications panel.</p>
+      <p class="hint" id="notify-off" hidden>Email isn't switched on for this Venn server.</p>
       <details class="reveal" id="privacy-opts">
         <summary>Privacy options</summary>
-        <label class="switch"><input type="checkbox" role="switch" id="p-email"> Ask everyone for their email</label>
-        <p class="hint">Only you see the emails.</p>
+        <label class="switch"><input type="checkbox" role="switch" id="p-email"> Ask guests for their email</label>
         <label class="switch"><input type="checkbox" role="switch" id="p-names"> Hide names from guests</label>
-        <p class="hint">Guests see how many people can make each date, but not who.</p>
-        <label class="switch"><input type="checkbox" role="switch" id="p-results"> Hide everyone's answers from guests</label>
-        <p class="hint">Only you see the answers. Guests see the date once you pick it.</p>
+        <label class="switch"><input type="checkbox" role="switch" id="p-results"> Hide answers from guests</label>
       </details>
     </section>`;
 }
@@ -168,8 +165,7 @@ export const tzLine = () => `
   <details class="reveal tz-line" id="tz-box">
     <summary><span>Times in <span id="tz-name">${esc(tzName(localTz))}</span> · Change</span></summary>
     <label for="tz">Time zone for this poll</label>
-    <select id="tz" aria-describedby="tz-hint">${tzOptions(localTz)}</select>
-    <p class="hint" id="tz-hint">Everyone sees the times in their own time zone.</p>
+    <select id="tz">${tzOptions(localTz)}</select>
   </details>`;
 const showTz = () => ($('#tz-name').textContent = tzName($('#tz').value));
 

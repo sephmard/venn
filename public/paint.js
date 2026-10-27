@@ -368,7 +368,7 @@ export function windowList(windows, level, chip, dayRange) {
 /** How to paint, said above the calendar where it's read before the first stroke. */
 export function paintHelp() {
   const tap = isPhone() ? 'Tap' : 'Click';
-  return `${tap} a morning, afternoon or evening to pick it, again to make it if needed, and once more to take it away, or drag across several. ${tap} a day name for the whole day.`;
+  return `Drag across several, or ${tap.toLowerCase()} a day name for the whole day.`;
 }
 /** The quick fills, for the week shown. */
 export const fillPills = (parts) =>
