@@ -84,3 +84,36 @@ export async function submit(page) {
     await page.locator('.party').waitFor({ state: 'detached' });
   }
 }
+
+// Address search in "Where": the test server has it off, so tests switch it on and answer for it.
+const PLACES = {
+  rosa: [
+    {
+      name: "Rosa's Pizza",
+      detail: '374 Metropolitan Avenue, New York',
+      label: "Rosa's Pizza, 374 Metropolitan Avenue, New York",
+    },
+    {
+      name: "Rosa's Cantina",
+      detail: 'Mission Street 12, San Francisco',
+      label: "Rosa's Cantina, Mission Street 12, San Francisco",
+    },
+    { name: 'Rosario', detail: 'Argentina', label: 'Rosario, Argentina' },
+  ],
+};
+
+/** Place search on, with `provider`; returns the searches the page made. */
+export async function mockPlaces(page, provider = 'photon') {
+  const searches = [];
+  await page.route('**/api/config', async (route) => {
+    const res = await route.fetch();
+    await route.fulfill({ response: res, json: { ...(await res.json()), places: provider } });
+  });
+  await page.route('**/api/places?*', (route) => {
+    const params = new URL(route.request().url()).searchParams;
+    searches.push(Object.fromEntries(params));
+    const q = params.get('q').toLowerCase();
+    route.fulfill({ json: { places: q.startsWith('ros') ? PLACES.rosa : [] } });
+  });
+  return searches;
+}

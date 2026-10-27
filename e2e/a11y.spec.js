@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test';
-import { addOptions, showNextMonth, submit } from './helpers.js';
+import { addOptions, mockPlaces, showNextMonth, submit } from './helpers.js';
 import AxeBuilder from '@axe-core/playwright';
 import { PAGES } from '../pages/pages.js';
 
@@ -79,6 +79,22 @@ for (const scheme of ['light', 'dark']) {
       await audit(page, 'ask when people are free (parts of the day)');
       await page.click('[data-level="hours"]');
       await audit(page, 'ask when people are free (painting hours)');
+    });
+
+    test('address search in "Where", with suggestions and with none', async ({ page }) => {
+      await mockPlaces(page);
+      await page.goto('/new/pick');
+      await page.click('#more-box summary');
+      await page.locator('#location').focus();
+      await expect(page.getByRole('combobox', { name: 'Where' })).toBeVisible();
+      await page.keyboard.type('Rosa');
+      await expect(page.locator('.ps-opt')).toHaveCount(3);
+      await page.keyboard.press('ArrowDown');
+      await audit(page, 'Where, with suggestions');
+      await page.locator('#location').fill('');
+      await page.keyboard.type('Nowhere at all');
+      await expect(page.locator('.ps-none')).toBeVisible();
+      await audit(page, 'Where, no matches');
     });
 
     test('usage stats page', async ({ page }) => {

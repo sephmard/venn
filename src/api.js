@@ -23,6 +23,9 @@ import {
 } from './notify.js';
 import { pollKind, planOf, recordUsage, sizeOf, usageEnabled, usageReport } from './usage.js';
 import { AiUnavailableError, aiEnabled, allowAiRequest, answerForMe, draftPoll, summarize, writeMessage } from './ai.js';
+import { allowPlacesRequest, placesProvider, placesState, searchPlaces } from './places.js';
+
+const sharedPlaces = placesState();
 
 const MAX_BODY = 200_000;
 const MAX_DATE_EMAILS = 3;
@@ -154,7 +157,17 @@ function setNotifyEmail(settings, value, env) {
 export async function handleApi(
   request,
   store,
-  { now = Date.now, env = {}, waitUntil = (p) => p, fetchImpl = fetch, resolveHost, clientIp = '', anthropic, aiWindows } = {},
+  {
+    now = Date.now,
+    env = {},
+    waitUntil = (p) => p,
+    fetchImpl = fetch,
+    resolveHost,
+    clientIp = '',
+    anthropic,
+    aiWindows,
+    places = sharedPlaces,
+  } = {},
 ) {
   const url = new URL(request.url);
   const parts = url.pathname
@@ -245,6 +258,8 @@ export async function handleApi(
         email: emailEnabled(env),
         ai: aiEnabled(env),
         usage: usageEnabled(env),
+        // Address search in "Where": 'photon' or 'google' (each needs its own attribution), or false.
+        places: placesProvider(env) || false,
         // OAuth client IDs are public by design; they only identify the app to Google/Microsoft.
         calendars: {
           google: env.GOOGLE_CLIENT_ID || null,
@@ -268,6 +283,25 @@ export async function handleApi(
       if (!timingSafeEqual(token, env.STATS_TOKEN)) return error(403, 'Wrong stats token');
       const days = Math.max(1, Math.min(365, Number(url.searchParams.get('days')) || 30));
       return json(await usageReport(store, { days, now: now() }));
+    }
+
+    // GET /api/places?q=…&lang=&near=lat,lon&session=: suggested places for "Where" (src/places.js)
+    if (parts.length === 1 && parts[0] === 'places' && method === 'GET') {
+      if (!placesProvider(env)) return error(404, "Place search isn't turned on for this server");
+      if (!(await allowPlacesRequest(env, clientIp, now(), places.windows)))
+        return error(429, "You're going a bit fast. Try again in a minute.");
+      let found;
+      try {
+        found = await searchPlaces(env, url.searchParams, { fetchImpl, now: now(), origin, state: places });
+      } catch (e) {
+        if (e instanceof ValidationError) throw e;
+        // Only what went wrong, never what was typed.
+        console.error('place search failed', e.name === 'TimeoutError' ? 'timed out' : e.message);
+        return error(502, "Place search isn't working right now");
+      }
+      return new Response(JSON.stringify({ places: found.places }), {
+        headers: { ...SECURITY_HEADERS, 'content-type': 'application/json; charset=utf-8', 'cache-control': found.cacheControl },
+      });
     }
 
     // Every AI endpoint: switched on, and rate limited per visitor (each call costs money).
