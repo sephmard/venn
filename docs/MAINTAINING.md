@@ -129,7 +129,7 @@ The landing page, privacy page and app are all served by the one Worker. To set 
 7. **Harden it**: work through [hosting a public instance](#hosting-a-public-instance) below: HSTS, the rate-limiting rule and backups. The privacy page is already at `/privacy`; update it if you add another service that handles data.
 8. **Optional extras**: turn on notification emails: onboard `venn.day` in Cloudflare Email Sending and set the `CLOUDFLARE_EMAIL=true` repository variable, or verify it in Resend and add `RESEND_API_KEY`; either way set `EMAIL_FROM="Venn <notifications@venn.day>"`, and add `https://venn.day/oauth-callback.html` as a redirect URI for the Google and Microsoft calendar apps.
 
-After changing the landing page's main screenshot, regenerate the social preview with `npm run og`.
+After changing the landing page's main screenshot, regenerate the social preview with `npm run og`. The home page's "Make it yours" example (a poll's own picture and its link preview, with a Finn sticker) is drawn by the app's own code with `npm run og:example`; run it after changing how link-preview cards look (`public/poll-image.js`).
 
 ### Landing pages and search
 

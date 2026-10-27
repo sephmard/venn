@@ -76,6 +76,16 @@ test('organizers give a poll any emoji or their own picture, shown on the poll a
   });
   await expect(tile.locator('img')).toHaveAttribute('src', /^data:image\/jpeg;base64,/);
   await expect(page.getByRole('button', { name: 'Remove picture' })).toBeVisible();
+  // The link preview, as people will see it, with a Finn sticker if they like.
+  const finn = page.getByRole('group', { name: 'Finn on your link preview' });
+  await expect(finn.getByRole('button', { name: 'No Finn' })).toHaveAttribute('aria-pressed', 'true');
+  const preview = page.getByRole('img', { name: "How your poll's link looks when it's shared" });
+  await expect(preview).toHaveAttribute('src', /^blob:/);
+  const before = await preview.getAttribute('src');
+  await finn.getByRole('button', { name: 'Can’t wait' }).click();
+  await expect(finn.getByRole('button', { name: 'Can’t wait' })).toHaveAttribute('aria-pressed', 'true');
+  await expect(preview).not.toHaveAttribute('src', before);
+  await expect.poll(() => preview.evaluate((img) => img.naturalWidth)).toBe(1200);
   const scan = await new AxeBuilder({ page })
     .include('#icon-panel')
     .include('#emoji-tile')

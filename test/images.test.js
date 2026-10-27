@@ -352,6 +352,14 @@ test('pictures: the card draws Venn’s name, the poll’s name, a line about Ve
     calls.filter((c) => c[0] === 'drawImage').map((c) => c[1]),
     [picture],
   );
+  // A Finn sticker the organizer chose goes on after the picture, over its corner.
+  const finn = fakeContext();
+  const sticker = { sticker: true };
+  drawPreview(finn.ctx, layoutPreview(measure, 'Dinner'), picture, sticker);
+  assert.deepEqual(
+    finn.calls.filter((c) => c[0] === 'drawImage').map((c) => c[1]),
+    [picture, sticker],
+  );
   // The "It's set" picture sticks the poll's picture on instead of its emoji.
   const set = fakeContext();
   drawCard(set.ctx, layoutCard(measure, { title: 'Dinner', when: 'Sat', emoji: '🍝', picture: true }), { picture });
