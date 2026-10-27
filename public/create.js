@@ -340,7 +340,7 @@ function flag(el, message) {
  * working button (aria-disabled), so keyboard and screen-reader users can reach it and press it to
  * hear why. `checks` are [problem?, message, what to focus, message under the field, short name],
  * in the order of the page: the poll's name first, the organizer's name and email last. One problem
- * is said in full; several by name ("Still needed: poll name · options · your name"). Each is a
+ * is said in full; several by name ("Needed: poll name · options · your name"). Each is a
  * button that goes to its field.
  */
 let notReady = null; // { key, bad, checks } while something is missing
@@ -355,11 +355,7 @@ export function setReady(ready, ...checks) {
   $('#submit').setAttribute('aria-disabled', String(!!notReady));
   $('#submit').classList.toggle('not-ready', !!notReady);
   const need = (i, text) => `<button type="button" class="link-btn" data-need="${i}">${esc(text)}</button>`;
-  const html = !bad.length
-    ? esc(ready)
-    : bad[1]
-      ? `Still needed: ${bad.map((c, i) => need(i, c[4])).join(' · ')}`
-      : need(0, bad[0][1]);
+  const html = !bad.length ? esc(ready) : bad[1] ? `Needed: ${bad.map((c, i) => need(i, c[4])).join(' · ')}` : need(0, bad[0][1]);
   // Only when it changes, so screen readers don't hear it again with every key pressed.
   if (!$('#err').textContent && $('#summary').innerHTML !== html) $('#summary').innerHTML = html;
   $('#summary').classList.toggle('missing', !!notReady);

@@ -518,7 +518,7 @@ test('organizers add different times on different days, and see the whole poll b
   await page.fill('#organizer', 'Sam');
   // Create stays greyed out until the poll has a name and an option, and names what's missing.
   await expect(page.locator('#submit')).toHaveAttribute('aria-disabled', 'true');
-  await expect(page.locator('#summary')).toHaveText('Still needed: name · options');
+  await expect(page.locator('#summary')).toHaveText('Needed: name · options');
   await expect(page.locator('#options-list')).toContainText('Nothing yet');
   // It can still be reached and pressed: it says what's missing first, and goes there.
   await page.locator('#submit').focus();
@@ -2020,7 +2020,7 @@ test('your name and email are at the bottom, required, and missing fields say so
   }
   await expect(page.locator('label[for="location"] .req')).toHaveCount(0);
   await page.click('#q-2w');
-  await expect(page.locator('#summary')).toHaveText('Still needed: name · your name · email');
+  await expect(page.locator('#summary')).toHaveText('Needed: name · your name · email');
   // Pressing Create marks each missing field, and goes to the first.
   await page.locator('#submit').click({ force: true });
   await expect(page.locator('#title')).toBeFocused();
@@ -2038,7 +2038,7 @@ test('your name and email are at the bottom, required, and missing fields say so
   await page.fill('#title', 'Cabin');
   await expect(page.locator('#title-err')).toHaveCount(0);
   await expect(page.locator('#title')).not.toHaveAttribute('aria-invalid');
-  await expect(page.locator('#summary')).toHaveText('Still needed: your name · email');
+  await expect(page.locator('#summary')).toHaveText('Needed: your name · email');
   await page.fill('#organizer', 'Sam');
   // The email is checked with the server's rule.
   await page.fill('#notify', 'sam@example');
@@ -2072,8 +2072,9 @@ test('the bar under the form names what’s still needed, and each one goes to i
   await page.goto('/new/pick');
   const bar = page.locator('#summary');
   await expect(bar).toHaveAttribute('aria-live', 'polite');
-  await expect(bar).toHaveText('Still needed: name · options · your name · email');
-  // Short enough for two lines on a phone.
+  await expect(bar).toHaveText('Needed: name · options · your name · email');
+  // Short enough for two lines on a phone (measured in the page's own font, once it has loaded).
+  await page.evaluate(() => document.fonts.ready);
   const lines = await bar.evaluate((el) => el.offsetHeight / parseFloat(getComputedStyle(el).lineHeight));
   expect(lines).toBeLessThanOrEqual(2.2);
   for (const [name, field] of [
@@ -2088,7 +2089,7 @@ test('the bar under the form names what’s still needed, and each one goes to i
   }
   // Filled in, each leaves the list; the last thing left is said in full, and still goes there.
   await page.fill('#title', 'Dinner');
-  await expect(bar).toHaveText('Still needed: options · your name · email');
+  await expect(bar).toHaveText('Needed: options · your name · email');
   await page.fill('#organizer', 'Sam');
   await page.fill('#notify', 'sam@example.com');
   await expect(bar).toHaveText('Add at least one option to create the poll');
@@ -2103,7 +2104,7 @@ test('the bar under the form names what’s still needed, and each one goes to i
 test('a template names the poll when its name is left empty', async ({ page }) => {
   await page.goto('/new/pick');
   await page.fill('#organizer', 'Sam');
-  await expect(page.locator('#summary')).toHaveText('Still needed: name · options');
+  await expect(page.locator('#summary')).toHaveText('Needed: name · options');
   await page.getByRole('button', { name: 'Book club', exact: true }).click();
   // The name isn't missing: the template's is used.
   await expect(page.locator('#title')).toHaveValue('');
