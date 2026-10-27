@@ -16,6 +16,7 @@ crons = []
 
 # Optional features are configured with secrets, never in this file:
 #   npx wrangler secret put EMAIL_FROM       # email notifications (see docs/NOTIFICATIONS.md),
+#   npx wrangler secret put EMAIL_REPLY_TO   # optional: where replies to those emails go
 #   npx wrangler secret put RESEND_API_KEY   # sent with Resend, or with Cloudflare Email Sending:
 #     [[send_email]]                         # the deploy workflow adds this binding when the
 #     name = "EMAIL"                         # CLOUDFLARE_EMAIL repository variable is true

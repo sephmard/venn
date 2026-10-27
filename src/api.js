@@ -19,6 +19,8 @@ import {
   pollReadyEmail,
   sendEmail,
   sendWebhook,
+  unsubscribeHeaders,
+  unsubscribeLink,
   smsPage,
   validateWebhookUrl,
 } from './notify.js';
@@ -142,6 +144,26 @@ function notifyView(settings, env) {
   };
 }
 
+/**
+ * A guest's token for stopping Venn's emails about this poll, as "participantId.token". Made the
+ * first time Venn emails them, and kept in `settings` (saved by the caller).
+ */
+function guestToken(settings, participantId) {
+  settings.guestTokens = { ...settings.guestTokens };
+  settings.guestTokens[participantId] ||= randomId(24);
+  return `${participantId}.${settings.guestTokens[participantId]}`;
+}
+
+/** The settings with emails stopped for whoever this unsubscribe token belongs to, or null if it's no one's. */
+function stopEmails(settings, token) {
+  if (typeof token !== 'string' || !token) return null;
+  if (settings.unsubscribeToken && timingSafeEqual(token, settings.unsubscribeToken)) return { ...settings, email: null };
+  const [participantId, secret = ''] = token.split('.');
+  const mine = settings.guestTokens && Object.hasOwn(settings.guestTokens, participantId) && settings.guestTokens[participantId];
+  if (!mine || !timingSafeEqual(secret, mine)) return null;
+  return { ...settings, stopped: [...new Set([...(settings.stopped || []), participantId])] };
+}
+
 /** Point the organizer's notifications at an email address, or turn them off with an empty one. */
 function setNotifyEmail(settings, value, env) {
   const email = normalizeEmail(value);
@@ -196,10 +218,12 @@ export async function handleApi(
   async function sendCopy(ev, to, { participantId, editToken, name, availability }) {
     if (!to || !emailEnabled(env)) return;
     const settings = (await store.getNotify(ev.id)) || {};
+    if (settings.stopped?.includes(participantId)) return;
     const copies = { ...(settings.copies || {}) };
     const total = Object.values(copies).reduce((a, b) => a + b, 0);
     if ((copies[participantId] || 0) >= MAX_COPIES_PER_ANSWER || total >= MAX_COPIES_PER_POLL) return;
     copies[participantId] = (copies[participantId] || 0) + 1;
+    const headers = unsubscribeHeaders(unsubscribeLink(origin, ev.id, guestToken(settings, participantId)));
     await store.setNotify(ev.id, { ...settings, copies });
     const pollUrl = `${origin}/e/${ev.id}`;
     const msg = answerCopyEmail({
@@ -210,7 +234,7 @@ export async function handleApi(
       editUrl: `${pollUrl}#edit=${participantId}.${editToken}`,
       seeAnswers: !ev.hideResults,
     });
-    waitUntil(sendEmail(env, { to, ...msg }, { fetchImpl }).catch((e) => console.error('answer copy failed', e)));
+    waitUntil(sendEmail(env, { to, ...msg, headers }, { fetchImpl }).catch((e) => console.error('answer copy failed', e)));
   }
 
   /**
@@ -225,7 +249,9 @@ export async function handleApi(
     if (sent.includes(start) || sent.length >= MAX_DATE_EMAILS) return;
     const emails = await store.listEmails(ev.id);
     emails.delete(ev.hostId);
+    for (const pid of settings.stopped || []) emails.delete(pid);
     if (!emails.size) return;
+    const tokens = new Map([...emails.keys()].map((pid) => [pid, guestToken(settings, pid)]));
     await store.setNotify(ev.id, { ...settings, datesEmailed: [...sent, start] });
     const pollUrl = `${origin}/e/${ev.id}`;
     const end = meetingEnd(ev, start);
@@ -248,8 +274,10 @@ export async function handleApi(
         ['Apple (iCal)', `${pollUrl.replace('/e/', '/api/events/')}/event.ics`],
       ],
     });
-    for (const to of emails.values())
-      waitUntil(sendEmail(env, { to, ...msg }, { fetchImpl }).catch((e) => console.error('date email failed', e)));
+    for (const [pid, to] of emails) {
+      const headers = unsubscribeHeaders(unsubscribeLink(origin, ev.id, tokens.get(pid)));
+      waitUntil(sendEmail(env, { to, ...msg, headers }, { fetchImpl }).catch((e) => console.error('date email failed', e)));
+    }
   }
 
   try {
@@ -358,7 +386,10 @@ export async function handleApi(
           pollUrl: `${origin}/e/${id}`,
           unsubscribeUrl: `${origin}/e/${id}#unsubscribe=${settings.unsubscribeToken}`,
         });
-        waitUntil(sendEmail(env, { to: notifyEmail, ...msg }, { fetchImpl }).catch((e) => console.error('poll email failed', e)));
+        const headers = unsubscribeHeaders(unsubscribeLink(origin, id, settings.unsubscribeToken));
+        waitUntil(
+          sendEmail(env, { to: notifyEmail, ...msg, headers }, { fetchImpl }).catch((e) => console.error('poll email failed', e)),
+        );
       }
       count('poll.created', {
         ...pollKind(event),
@@ -480,13 +511,20 @@ export async function handleApi(
       const action = parts[3];
 
       // Links from emails land on the poll page, which posts the token here. Using the page
-      // (not a GET link) means email scanners that pre-open links can't unsubscribe.
-      if (action === 'unsubscribe' && parts.length === 4 && method === 'POST') {
-        const { token } = await readJson(request);
-        if (!settings.unsubscribeToken || typeof token !== 'string' || !timingSafeEqual(token, settings.unsubscribeToken))
-          throw new ValidationError('This unsubscribe link is invalid');
-        await store.setNotify(ev.id, { ...settings, email: null });
-        return json({ ok: true });
+      // (not a GET link) means email scanners that pre-open links can't unsubscribe. Mail apps'
+      // own unsubscribe buttons use the List-Unsubscribe link (src/notify.js): opened, it leads to
+      // the page; posted to ("one-click"), it stops the emails straight away.
+      if (action === 'unsubscribe' && parts.length === 4) {
+        const linked = url.searchParams.get('token');
+        if (method === 'GET' && linked)
+          return Response.redirect(`${origin}/e/${ev.id}#unsubscribe=${encodeURIComponent(linked)}`, 303);
+        if (method === 'POST') {
+          const token = linked ?? (await readJson(request)).token;
+          const next = stopEmails(settings, token);
+          if (!next) throw new ValidationError('This unsubscribe link is invalid');
+          await store.setNotify(ev.id, next);
+          return json({ ok: true });
+        }
       }
 
       if (!isAdmin) return error(403, 'Only the organizer can change notifications');

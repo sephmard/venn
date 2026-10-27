@@ -11,7 +11,6 @@ import {
   notifyResponse,
   pollReadyEmail,
   responseEmail,
-  shareLinks,
   signature,
   smsHref,
   summaryText,
@@ -24,52 +23,42 @@ import {
 /** Whether an email has this exact line: a link checked whole, not found somewhere in the text. */
 const hasLine = (text, line) => text.split('\n').some((l) => l === line);
 
-test('emails offer ways to share the poll: a text message, WhatsApp and an email, with the link in each', () => {
+test('emails keep links few: the one button, the link to copy, and a way to stop them', () => {
   const pollUrl = 'https://venn.example/e/abc';
-  const say = encodeURIComponent(`When works for you? “Dinner & drinks”: ${pollUrl}`);
-  assert.deepEqual(shareLinks('Dinner & drinks', pollUrl), [
-    // Straight to messages, like the others; Gmail takes sms: links out, so there's a page for that too.
-    ['Text message', `sms:?&body=${say}`],
-    ['WhatsApp', `https://wa.me/?text=${say}`],
-    ['Email', `mailto:?subject=Dinner%20%26%20drinks&body=${say}`],
-  ]);
   const s = { event: 'response.created', poll: { title: 'Dinner', url: pollUrl, responses: 1 }, response: { name: 'Ana' } };
-  const emails = [
-    [pollReadyEmail({ title: 'Dinner', pollUrl, unsubscribeUrl: `${pollUrl}#unsubscribe=u` }), pollUrl],
-    [responseEmail(s, `${pollUrl}#unsubscribe=u`), `Share the poll: send everyone this link: ${pollUrl}`],
-    [
-      answerCopyEmail({ title: 'Dinner', name: 'Ana', lines: [], pollUrl, editUrl: `${pollUrl}#edit=p.t` }),
-      `Know someone else who should answer? Send them the poll: ${pollUrl}`,
-    ],
-  ];
-  for (const [m, line] of emails) {
-    for (const label of ['Text message', 'WhatsApp', 'Email']) assert.match(m.html, new RegExp(`>${label}</a>`), label);
-    assert.match(m.html, /href="https:\/\/wa\.me\/\?text=/);
-    // The text message opens straight away, with a way round for email apps that take sms: links out.
-    assert.match(m.html, /href="sms:\?&amp;body=/);
-    assert.match(m.html, /href="https:\/\/venn\.example\/api\/events\/abc\/sms"[^>]*>Text it from here</);
-    assert.ok(hasLine(m.text, line), line);
+  const ready = pollReadyEmail({ title: 'Dinner', pollUrl, unsubscribeUrl: `${pollUrl}#unsubscribe=u` });
+  const answered = responseEmail(s, `${pollUrl}#unsubscribe=u`);
+  const hrefs = (html) => [...html.matchAll(/href="([^"]+)"/g)].map((m) => m[1]);
+  for (const m of [ready, answered]) {
+    // Open, Copy link (the same link), and Stop these emails. No share or "make your own" links.
+    assert.deepEqual(hrefs(m.html), [pollUrl, pollUrl, `${pollUrl}#unsubscribe=u`]);
+    assert.match(m.html, /Copy link/);
+    assert.match(m.html, /user-select:all/);
+    assert.doesNotMatch(m.html + m.text, /wa\.me|sms:|mailto:|\/new\?from=email/);
   }
-  // Titles are escaped in the links' HTML.
+  assert.match(ready.html, />Open your poll</);
+  assert.ok(hasLine(ready.text, pollUrl));
+  assert.ok(hasLine(answered.text, 'Waiting on anyone? Send them the same link.'));
+  // Titles are escaped.
   const odd = pollReadyEmail({ title: '"><b>x', pollUrl, unsubscribeUrl: 'u' }).html;
   assert.doesNotMatch(odd, /"><b>x/);
 });
 
-test('every email is signed by Finn and Venn, with a way to make your own poll', () => {
+test("emails to guests are signed by Venn, with a way to make your own poll; the organizer's aren't", () => {
   const pollUrl = 'https://venn.example/e/abc';
   const s = { event: 'response.created', poll: { title: 'Dinner', url: pollUrl, responses: 1 }, response: { name: 'Ana' } };
-  const mails = [
+  const copy = answerCopyEmail({ title: 'Dinner', name: 'Ana', lines: [], pollUrl, editUrl: `${pollUrl}#edit=p.t` });
+  assert.equal(signature(pollUrl), 'Planned with Venn. No sign-up needed: make your own at https://venn.example/new?from=email');
+  assert.ok(hasLine(copy.text, signature(pollUrl)));
+  assert.match(copy.html, /href="https:\/\/venn\.example\/new\?from=email"/);
+  assert.doesNotMatch(copy.html, /wa\.me|sms:|mailto:/);
+  const organizer = [
     pollReadyEmail({ title: 'Dinner', pollUrl, unsubscribeUrl: `${pollUrl}#unsubscribe=u` }),
     responseEmail(s, `${pollUrl}#unsubscribe=u`),
-    answerCopyEmail({ title: 'Dinner', name: 'Ana', lines: [], pollUrl, editUrl: `${pollUrl}#edit=p.t` }),
   ];
-  assert.equal(signature(pollUrl), 'Planned with Venn. No sign-up needed: make your own at https://venn.example/new?from=email');
-  for (const m of mails) {
-    assert.ok(hasLine(m.text, signature(pollUrl)));
-    assert.match(m.html, /href="https:\/\/venn\.example\/new\?from=email"/);
-    assert.match(m.html, /alt="Finn, the Venn dog"/);
-  }
-  assert.match(mails[0].text, /Finn is so proud of you/);
+  for (const m of [copy, ...organizer]) assert.match(m.html, /alt="Finn, the Venn dog"/);
+  for (const m of organizer) assert.doesNotMatch(m.text + m.html, /Planned with Venn/);
+  assert.match(organizer[0].text, /Finn is so proud of you/);
 });
 
 test("every notification email shows Venn's dog, from the instance's own site", () => {
@@ -156,8 +145,10 @@ test('email buttons and links use the app green, which is readable with white te
   for (const { html } of emails) {
     assert.doesNotMatch(html, /#0f9d76/i); // 3.4:1 with white, too faint
     assert.match(html, /background:#0b7a5c;color:#fff;[^"]*border-radius:999px/); // a pill, like the app's buttons
-    assert.match(html, /<a href="[^"]+" style="color:#0b7a5c">/);
   }
+  assert.match(emails[1].html, /<a href="[^"]+" style="color:#0b7a5c">/);
+  // The link to copy is dark text on a light box, like a text field.
+  assert.match(emails[0].html, /background:#f7f7f5;[^"]*"><a href="[^"]+" style="color:#1c1d1f;/);
 });
 
 test("a poll can only send so many emails to the organizer, since addresses aren't confirmed", async () => {
@@ -291,6 +282,7 @@ test('the organizer gets their poll link straight away, then an email per answer
   assert.equal(emails()[0].body.subject, 'Your poll “Design review” is ready 🎉');
   assert.ok(hasLine(emails()[0].body.text, `${base}/e/${id}`));
   assert.doesNotMatch(emails()[0].body.text, /confirm/i);
+  assert.equal(emails()[0].body.headers['List-Unsubscribe-Post'], 'List-Unsubscribe=One-Click');
 
   // Each answer triggers an email naming who answered, with an unsubscribe link.
   sent = [];
@@ -307,7 +299,10 @@ test('the organizer gets their poll link straight away, then an email per answer
   const mail = emails()[0].body;
   assert.equal(mail.subject, '🎉 Lee just answered “Design review”');
   assert.match(mail.text, /Best time so far: Wed, Nov 4, 3:00 PM – 4:00 PM EST \(2 of 2 can make it\)/);
-  assert.match(mail.headers['List-Unsubscribe'], /#unsubscribe=/);
+  // Mail apps' own unsubscribe button, with one-click support (RFC 8058).
+  const listUnsubscribe = mail.headers['List-Unsubscribe'].slice(1, -1);
+  assert.ok(listUnsubscribe.startsWith(`${base}/api/events/${id}/notifications/unsubscribe?token=`), listUnsubscribe);
+  assert.equal(mail.headers['List-Unsubscribe-Post'], 'List-Unsubscribe=One-Click');
 
   // Quick edits by the same person don't send another email.
   sent = [];
@@ -328,8 +323,14 @@ test('the organizer gets their poll link straight away, then an email per answer
   const pub = JSON.stringify((await call(`/api/events/${id}`)).data);
   assert.doesNotMatch(pub, /sam@example\.com|unsubscribe/i);
 
-  // Unsubscribing stops the emails.
+  // Opened as a link, the mail app's unsubscribe link leads to the poll page, which finishes it.
+  const opened = await fetch(listUnsubscribe, { redirect: 'manual' });
+  assert.equal(opened.status, 303);
   const unsub = mail.text.match(/#unsubscribe=(\w+)/)[1];
+  assert.equal(opened.headers.get('location'), `${base}/e/${id}#unsubscribe=${unsub}`);
+  assert.equal((await call(`/api/events/${id}/notifications`, { headers: admin })).data.email, 'sam@example.com');
+
+  // Unsubscribing stops the emails.
   assert.equal(
     (await call(`/api/events/${id}/notifications/unsubscribe`, { method: 'POST', body: { token: 'wrong' } })).status,
     400,
@@ -340,6 +341,73 @@ test('the organizer gets their poll link straight away, then an email per answer
   );
   sent = [];
   await call(`/api/events/${id}/participants`, { method: 'POST', body: { name: 'Kim', availability: {} } });
+  assert.equal(emails().length, 0);
+});
+
+/** What a mail app's one-click unsubscribe button sends (RFC 8058): a form post, not JSON. */
+const oneClick = async (headerValue) => {
+  const res = await fetch(headerValue.slice(1, -1), {
+    method: 'POST',
+    headers: { 'content-type': 'application/x-www-form-urlencoded' },
+    body: 'List-Unsubscribe=One-Click',
+  });
+  await server.settled();
+  return res.status;
+};
+
+test("one tap on a mail app's unsubscribe button stops the organizer's emails", async () => {
+  const { data } = await call('/api/events', { method: 'POST', body: { ...poll, notifyEmail: 'sam@example.com' } });
+  const header = emails()[0].body.headers['List-Unsubscribe'];
+  assert.equal(await oneClick(header.replace(/token=\w+/, 'token=wrong')), 400);
+  assert.equal(await oneClick(header), 200);
+  sent = [];
+  await call(`/api/events/${data.id}/participants`, { method: 'POST', body: { name: 'Ana', availability: {} } });
+  assert.equal(emails().length, 0);
+});
+
+test("guests' emails can be stopped in one tap too, and only for that guest", async () => {
+  const two = { ...poll, options: [...poll.options, { start: Date.UTC(2026, 10, 5, 20), end: Date.UTC(2026, 10, 5, 21) }] };
+  const { data } = await call('/api/events', { method: 'POST', body: { ...two, requireEmail: true, hostAvailability: {} } });
+  const { id } = data;
+  const slot = two.options[0].start;
+  sent = [];
+  const ana = await call(`/api/events/${id}/participants`, {
+    method: 'POST',
+    body: { name: 'Ana', email: 'ana@example.com', availability: { [slot]: 2 }, copyTo: 'ana@example.com' },
+  });
+  await call(`/api/events/${id}/participants`, {
+    method: 'POST',
+    body: { name: 'Lee', email: 'lee@example.com', availability: { [slot]: 2 } },
+  });
+  const copy = emails().find((e) => e.body.subject === 'Your answer to “Design review”').body;
+  assert.equal(copy.headers['List-Unsubscribe-Post'], 'List-Unsubscribe=One-Click');
+  assert.match(copy.headers['List-Unsubscribe'], new RegExp(`token=${ana.data.id}\\.\\w+>$`));
+  // Someone else's id with a made-up token does nothing.
+  assert.equal(await oneClick(copy.headers['List-Unsubscribe'].replace(/\.\w+>$/, '.nope>')), 400);
+  assert.equal(await oneClick(copy.headers['List-Unsubscribe']), 200);
+
+  // Ana stopped her emails, so only Lee hears the date is set; and Ana gets no more copies.
+  const pick = (start) =>
+    call(`/api/events/${id}/finalize`, { method: 'POST', body: { start }, headers: { 'x-admin-token': data.adminToken } });
+  sent = [];
+  await pick(slot);
+  assert.deepEqual(
+    emails().map((m) => m.body.to[0]),
+    ['lee@example.com'],
+  );
+  const lee = emails()[0].body.headers['List-Unsubscribe'];
+  assert.doesNotMatch(lee, new RegExp(ana.data.id));
+  await call(`/api/events/${id}/participants/${ana.data.id}`, {
+    method: 'PUT',
+    body: { name: 'Ana', email: 'ana@example.com', availability: {}, copyTo: 'ana@example.com' },
+    headers: { 'x-edit-token': ana.data.editToken },
+  });
+  assert.equal(emails().filter((m) => m.body.to[0] === 'ana@example.com').length, 0);
+
+  // Lee can stop the next one, with the link from the date email.
+  assert.equal(await oneClick(lee), 200);
+  sent = [];
+  await pick(two.options[1].start);
   assert.equal(emails().length, 0);
 });
 
