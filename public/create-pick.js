@@ -7,6 +7,8 @@ import { isPhone, monthView, timeView } from './picker.js';
 import { $, $$, app, dayLabel, esc, getConfig, lengthLabel, plural, shortRange, shortTime, todayStr, track } from './ui.js';
 
 import {
+  brush,
+  brushBox,
   createBar,
   explainNotReady,
   fillCommon,
@@ -28,22 +30,16 @@ import {
 
 // ---------- "Vote on a few dates" ----------
 
-// How long an option is: minutes (30 min, 1 hour, or any other length), 'half' for a morning,
-// afternoon or evening, 'allday', or 'days' for a trip.
-const LENGTHS = [
-  [30, '30 min'],
-  [60, '1 hour'],
-  ['half', 'Half day'],
-  ['allday', 'All day'],
-  ['days', 'Several days'],
-  ['custom', 'Other'],
-];
-// The lengths "Other" offers: 15-minute steps up to 4 hours, then half hours up to 12.
+// How long an option is: minutes, 'half' for a morning, afternoon or evening, 'allday', or 'days'
+// for a trip. The chips are the lengths templates use (lengthChip in core.js); the rest are under Custom.
+const LENGTHS = [60, 120, 180, 240, 'allday', 'days'];
+const LABELS = { half: 'Half day', allday: 'All day', days: 'Several days' };
+const label = (v) => LABELS[v] || lengthLabel(v);
+// What "Custom" offers: half days, then 15-minute steps up to 4 hours, then half hours up to 12.
 const OTHER_LENGTHS = Array.from({ length: 32 }, (_, i) => (i < 16 ? 15 + i * 15 : 270 + (i - 16) * 30));
 const otherOptions = (v) =>
-  [...new Set([...OTHER_LENGTHS, v])]
-    .sort((a, b) => a - b)
-    .map((m) => `<option value="${m}"${m === v ? ' selected' : ''}>${lengthLabel(m)}</option>`)
+  ['half', ...new Set([...OTHER_LENGTHS, v].filter((m) => m > 0).sort((a, b) => a - b))]
+    .map((m) => `<option value="${m}"${m === v ? ' selected' : ''}>${label(m)}</option>`)
     .join('');
 const timeRange = shortRange;
 // Where the calendar opens for a kind of plan, by its usual part of the day.
@@ -65,7 +61,6 @@ export function renderPick() {
   const items = new Map();
   let length = 60; // an hour, until a kind of plan says otherwise
   let spanDays = 3;
-  let brush = YES; // new options are marked as working for the organizer, or only if needed
   let view = null; // the week / day picker, for options with times
   let month = null; // the month, for all-day options and trips
   let lastFrom = null; // the start of the option added or moved last, where other days open
@@ -81,10 +76,8 @@ export function renderPick() {
       ${planFields('pick')}
       <section class="sheet" aria-labelledby="length-h">
         <h2 id="length-h">How long is it?</h2>
-        <div class="pills" role="group" aria-labelledby="length-h">
-          ${LENGTHS.filter(([v]) => v !== 'custom')
-            .map(([v, l]) => `<button type="button" class="pill" data-length="${v}" aria-pressed="false">${l}</button>`)
-            .join('')}
+        <div class="pills lengths" role="group" aria-labelledby="length-h">
+          ${LENGTHS.map((v) => `<button type="button" class="pill" data-length="${v}" aria-pressed="false">${label(v)}</button>`).join('')}
         </div>
         <div class="inline-field" id="span-field" hidden>
           <label for="span">How many days is the trip?</label>
@@ -97,23 +90,17 @@ export function renderPick() {
         <details class="reveal" id="other-box">
           <summary>Custom</summary>
           <label for="custom">Length</label>
-          <select id="custom">${otherOptions(90)}</select>
+          <select id="custom">${otherOptions(30)}</select>
         </details>
       </section>
       <section class="sheet" aria-labelledby="when-h">
         <h2 id="when-h">When could it be?</h2>
-        <div class="pick-brush">
-          <span class="scope-label" id="brush-l">For you, new options are</span>
-          <div class="seg brush" role="radiogroup" aria-labelledby="brush-l">
-            <button type="button" role="radio" data-pbrush="${YES}"><span class="swatch swatch-yes"></span>Available</button>
-            <button type="button" role="radio" data-pbrush="${IF_NEEDED}"><span class="swatch swatch-maybe"></span>If needed</button>
-          </div>
-        </div>
         <p class="hint" id="when-hint"></p>
         ${TAP_KEY}
         <div id="picker"></div>
         <div class="add-time" id="add-time" role="group" aria-labelledby="at-l" hidden></div>
         ${tzLine()}
+        ${brushBox()}
       </section>
       <section class="sheet poll-preview" aria-labelledby="preview-h">
         <h2 id="preview-h">Options in your poll</h2>
@@ -149,7 +136,7 @@ export function renderPick() {
   // ----- adding and removing options -----
   function add(it) {
     lastFrom = it.from;
-    items.set(`${it.date}|${it.from}`, { ...it, v: brush }); // one option per start time
+    items.set(`${it.date}|${it.from}`, { ...it, v: brush() }); // one option per start time
     ifNeededTip();
     changed();
   }
@@ -257,7 +244,7 @@ export function renderPick() {
             starts.add(gone[0][1].date);
           } else for (const [k] of gone) items.delete(k);
           if (added.length) ifNeededTip();
-          for (const d of added) items.set(`${d}|day`, { date: d, days: length === 'days' ? spanDays : 1, v: brush });
+          for (const d of added) items.set(`${d}|day`, { date: d, days: length === 'days' ? spanDays : 1, v: brush() });
           month.render();
           renderList();
         },
@@ -273,7 +260,7 @@ export function renderPick() {
     $('#when-hint').textContent = `${isPhone() ? 'Tap a day, then' : 'Click'} the mornings, afternoons and evenings it could be.`;
     const { halfView } = await import('./half-day.js');
     if (at !== mounts || !root.isConnected) return;
-    half = halfView(root, { items, brush: () => brush, onChange: renderList, startAt: sorted()[0]?.[1].date });
+    half = halfView(root, { items, brush, onChange: renderList, startAt: sorted()[0]?.[1].date });
   }
 
   // ----- adding a time without a pointer: a day, a start time and Add -----
@@ -388,32 +375,20 @@ export function renderPick() {
     if (kindOf(length) === 'day' && (rm || e.target.closest('#clear-options'))) mountPicker();
   });
 
-  const renderBrush = () => {
-    for (const b of $$('[data-pbrush]')) b.setAttribute('aria-checked', +b.dataset.pbrush === brush);
-  };
-  $('#create').addEventListener('click', (e) => {
-    const b = e.target.closest('[data-pbrush]');
-    if (!b) return;
-    brush = +b.dataset.pbrush;
-    renderBrush();
-  });
-  renderBrush();
-
   // ----- length -----
   /**
-   * Change how long the options are: minutes, 'half', 'allday', 'days', or 'custom' for "Other" at
-   * the length it shows. Returns false when the organizer chose to keep their options rather than switch.
+   * Change how long the options are: minutes, 'half', 'allday', 'days', or 'custom' for the length
+   * "Custom" shows. Returns false when the organizer chose to keep their options rather than switch.
    */
   function setLength(v, { ask = true } = {}) {
-    if (v === 'custom') v = +$('#custom').value;
+    if (v === 'custom') v = +$('#custom').value || 'half';
     const was = kindOf(length);
     // Options of different kinds don't mix: switching between them starts over, so ask.
     const clears = items.size && was !== kindOf(v);
-    const name = LENGTHS.find(([x]) => x === lengthChip(v))?.[1].toLowerCase();
     if (
       clears &&
       ask &&
-      !confirm(`Switching to ${name} removes the ${plural(items.size, 'option')} you've added. Switch anyway?`)
+      !confirm(`Switching to ${label(v).toLowerCase()} removes the ${plural(items.size, 'option')} you've added. Switch anyway?`)
     ) {
       showLength();
       return false;
@@ -429,7 +404,7 @@ export function renderPick() {
     else changed();
     renderList();
   }
-  /** The chip for the length, and "Other" with its length when it's another number of minutes. */
+  /** The chip for the length, or "Custom" with its length when there's no chip for it. */
   function showLength() {
     const chip = lengthChip(length);
     for (const b of $$('[data-length]')) b.setAttribute('aria-pressed', b.dataset.length === chip);
@@ -438,7 +413,7 @@ export function renderPick() {
     const other = chip === 'custom';
     // In use, it looks like a chosen chip, and says so to screen readers.
     $('#other-box summary').innerHTML = other
-      ? `Custom · ${esc(lengthLabel(length))}<span class="sr-only">, selected</span>`
+      ? `Custom · ${esc(label(length))}<span class="sr-only">, selected</span>`
       : 'Custom';
     $('#other-box').classList.toggle('on', other);
     if (other) $('#custom').innerHTML = otherOptions(length);
@@ -497,7 +472,7 @@ export function renderPick() {
     const n = items.size;
     setReady(
       `${plural(n, 'option')} to vote on`,
-      [!n, 'Add at least one option to create the poll', calendarFocus],
+      [!n, 'Add at least one option to create the poll', calendarFocus, null, 'options'],
       ...nameAndEmail(occasion),
     );
   }

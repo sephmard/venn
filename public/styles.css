@@ -2172,12 +2172,6 @@ pre.code {
   border-color: var(--maybe);
   color: var(--maybe-ink);
 }
-.pick-brush {
-  display: grid;
-  gap: 6px;
-  margin-bottom: 10px;
-}
-
 /* "Submit your answer?": who it's from and what it says, before it goes in */
 .submit-check {
   width: min(420px, calc(100% - 32px));
