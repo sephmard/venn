@@ -49,6 +49,8 @@ import {
   tzLine,
   wirePlan,
   youFields,
+  TAP_KEY,
+  ifNeededTip,
 } from './create.js';
 
 // ---------- "Ask when people are available" ----------
@@ -121,6 +123,7 @@ export function renderFree() {
           </div>
         </div>
         <p class="hint" id="when-help" hidden></p>
+        ${TAP_KEY}
         <div id="when"></div>
         <div class="pills quick" role="group" aria-label="Quick picks" id="quick"></div>
         ${tzLine()}
@@ -468,6 +471,7 @@ export function renderFree() {
     // What's new takes the brush: available or if needed for the organizer.
     const may = maybe[level];
     for (const k of st[level]) if (!before.has(k)) brush === IF_NEEDED ? may.add(k) : may.delete(k);
+    if ([...st[level]].some((k) => !before.has(k))) ifNeededTip();
     for (const l in maybe) for (const k of [...maybe[l]]) if (!st[l].has(k)) maybe[l].delete(k);
     before = new Set(st[level]);
     const box = $('#free-list');
