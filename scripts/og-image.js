@@ -1,13 +1,17 @@
 // Renders the link-preview images (1200×630): `npm run og`.
 //   public/og.png      the home page, and polls still asking (src/preview.js)
 //   public/og-set.png  polls whose date is picked
+//   public/og/<section>-<slug>.png  the landing pages in pages/pages.js
 // Needs Playwright's Chromium (`npx playwright install chromium`, or set CHROMIUM_PATH). Matches
 // DESIGN.md: warm paper, the serif, the Venn circles, and Finn the dog. Chat apps show these small,
 // so the words are big and few.
 
 import { execFileSync } from 'node:child_process';
-import { readFileSync, statSync } from 'node:fs';
+import { mkdirSync, readFileSync, statSync } from 'node:fs';
+import { dirname } from 'node:path';
 import { chromium } from '@playwright/test';
+import { PAGES } from '../pages/pages.js';
+import { ogImage } from './build-pages.js';
 
 const asset = (path) => readFileSync(new URL(`../public/${path}`, import.meta.url)).toString('base64');
 const serif = asset('fonts/instrument-serif-latin-400-normal.woff2');
@@ -34,6 +38,7 @@ const page = ({ headline, line, extra = '', cls = '' }) => `<!doctype html>
   .pill { display: inline-flex; align-items: center; gap: 12px; align-self: flex-start; margin-top: 12px; padding: 14px 26px;
     border-radius: 999px; background: #0b7a5c; color: #fff; font-size: 28px; font-weight: 600; }
   .set h1 { font-size: 150px; margin-bottom: 8px; }
+  .landing h1 { font-size: 76px; }
   .after { margin-top: 28px; }
   .dot { position: absolute; border-radius: 50%; }
 </style>
@@ -73,12 +78,24 @@ const IMAGES = {
   }),
 };
 
+// Each landing page: its own headline (*words* in green italics) and line.
+const esc = (s) => s.replace(/[&<>]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' })[c]);
+for (const p of PAGES) {
+  const [headline, line] = p.share;
+  IMAGES[ogImage(p).slice(1)] = page({
+    headline: esc(headline).replace(/\*([^*]+)\*/g, '<em>$1</em>'),
+    line: `<p>${esc(line).replace(/-/g, '\u2011')}</p>`, // no line break at sign-up's hyphen
+    cls: 'landing',
+  });
+}
+
 const browser = await chromium.launch({ executablePath: process.env.CHROMIUM_PATH || undefined });
 const tab = await browser.newPage({ viewport: { width: 1200, height: 630 } });
 for (const [file, html] of Object.entries(IMAGES)) {
   await tab.setContent(html);
   await tab.evaluate(() => document.fonts.ready);
   const path = new URL(`../public/${file}`, import.meta.url).pathname;
+  mkdirSync(dirname(path), { recursive: true });
   await tab.screenshot({ path });
   // WhatsApp skips preview images over about 300 KB, so squeeze to 256 colours with ImageMagick
   // when it's installed. It looks the same.

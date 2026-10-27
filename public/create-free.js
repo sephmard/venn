@@ -34,7 +34,6 @@ import {
 } from './ui.js';
 
 import {
-  cameFrom,
   createBar,
   explainNotReady,
   fillCommon,
@@ -52,6 +51,7 @@ import {
   youFields,
   TAP_KEY,
   ifNeededTip,
+  fromUrl,
 } from './create.js';
 
 // ---------- "Ask when people are available" ----------
@@ -71,7 +71,7 @@ const loadPaint = async () => (pt ??= await import('./paint.js'));
 export function renderFree() {
   document.title = 'Ask when people are available · Venn';
   const src = source();
-  if (!src?.edit) track('view', { page: 'free', ...cameFrom() });
+  if (!src?.edit) track('view', { page: 'free', ...(fromUrl() && { from: fromUrl() }) });
   startForm();
   // What's picked at each level. Zooming in or out carries it to the next level.
   const selected = new Set(); // days, for whole days

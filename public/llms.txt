@@ -1,0 +1,38 @@
+# Venn
+
+> Venn is a free, open-source scheduling poll for groups: suggest a few dates (or ask when people are available), share one link, and see the date that works for everyone. Nobody needs an account, there are no ads, and it works on any phone.
+
+Facts:
+
+- Free for everyone, every feature. No ads, no paid plan, no accounts for organizers or guests.
+- Two kinds of poll: "Vote on a few dates" (guests answer yes, if needed or no to each date or time) and "Ask when people are available" (guests mark whole days, mornings, afternoons and evenings, or hours, and Venn finds the overlap, including several days in a row).
+- The organizer picks the date, and everyone can add it to Google Calendar, Outlook or Apple Calendar.
+- Times show in each person's own time zone. Organizers can hide names or answers and collect emails.
+- Open source (MIT) at https://github.com/sephmard/venn. It runs on Cloudflare Workers or Node, and has a JSON API.
+- Privacy: polls are private to people with the link; only SHA-256 hashes of edit links are stored; usage stats are anonymous daily counts.
+
+## Start a poll
+
+- [Create a poll](https://venn.day/new): choose a kind of poll; no sign-up.
+- [All templates](https://venn.day/templates): polls with the plan filled in.
+
+## Templates
+
+- [Friendsgiving](https://venn.day/templates/friendsgiving): Find the weekend around Thanksgiving that works for the whole crew.
+- [Holiday party](https://venn.day/templates/holiday-party): Pick an evening before December fills up, for friends or the team.
+- [Secret Santa](https://venn.day/templates/secret-santa): Find the night everyone can be there to swap gifts.
+- [Book club](https://venn.day/templates/book-club): Find the evening everyone has finished the book, every month.
+- [Board game night](https://venn.day/templates/game-night): Get the whole table together for a long evening of games.
+- [D&D session](https://venn.day/templates/dnd): Find the next session your whole party can make, without the scheduling boss fight.
+- [Dinner party](https://venn.day/templates/dinner-party): Find the evening your friends can all make it to dinner.
+- [Band practice](https://venn.day/templates/band-practice): Find a rehearsal slot when every member can make it.
+- [Study group](https://venn.day/templates/study-group): Find a time the whole group can study, before the exam.
+- [Group trip](https://venn.day/templates/group-trip): Find the days in a row when everyone can get away.
+- [Family reunion](https://venn.day/templates/family-reunion): Find the day the whole family can get together, from every branch.
+- [Bachelor & bachelorette weekend](https://venn.day/templates/bachelor-party): Find the weekend the whole crew can get away before the wedding.
+- [Team offsite](https://venn.day/templates/team-offsite): Find two days the whole team can travel and be in one room.
+
+## Optional
+
+- [Developer docs and API](https://docs.venn.day): self-hosting, the API, notifications and calendars.
+- [Privacy](https://venn.day/privacy): what Venn stores, and what it doesn't.

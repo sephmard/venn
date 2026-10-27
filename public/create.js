@@ -51,12 +51,9 @@ export function prefillTitle() {
   const t = templateFromUrl();
   if (t >= 0) $(`[data-occasion="${t}"]`).click();
   if (title) $('#title').value = title;
-  if (title || t >= 0) history.replaceState(null, '', location.pathname + (cameFrom().from ? `?from=${cameFrom().from}` : ''));
+  const from = fromUrl();
+  if (title || t >= 0) history.replaceState(null, '', location.pathname + (from ? `?from=${encodeURIComponent(from)}` : ''));
 }
-
-// Where they came from: answering a poll, a picked date, or an email.
-export const cameFrom = (f = new URLSearchParams(location.search).get('from')) =>
-  /^(guest|set|email)$/.test(f) ? { from: f } : {};
 
 // ---------- editing or duplicating a poll ----------
 
@@ -89,10 +86,15 @@ export function fillCommon(ev, src) {
 
 // ---------- chooser ----------
 
+/** ?from=, for usage stats (src/usage.js). */
+export const fromUrl = () => new URLSearchParams(location.search).get('from') || '';
+
 export function renderChooser() {
   document.title = 'New poll · Venn';
-  track('view', { page: 'chooser', ...cameFrom() });
-  const q = new URLSearchParams([...new URLSearchParams(location.search)].filter(([k]) => /^(title|template)$/.test(k)));
+  // Where they came from, passed on to the form.
+  const from = fromUrl();
+  track('view', { page: 'chooser', ...(from && { from }) });
+  const q = new URLSearchParams([...new URLSearchParams(location.search)].filter(([k]) => /^(title|template|from)$/.test(k)));
   const carry = q.size ? `?${q}` : '';
   app.innerHTML = `
     <section class="chooser">
@@ -277,6 +279,7 @@ export async function submit(body, occasion, answer = null) {
   body.hostAnswers = true;
   // A copy; the next one of a plan also says which poll it follows on from.
   if (source()) Object.assign(body, { copied: true }, editPoll?.seriesFields());
+  if (fromUrl()) body.from = fromUrl();
   // The celebration (and its picture) load while the poll is saved.
   const celebration = import('./celebrate.js').catch(() => null);
   const invite = import('./invite.js').catch(() => null);

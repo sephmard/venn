@@ -30,6 +30,83 @@
     <link rel="icon" href="/favicon.svg?v=5" type="image/svg+xml" />
     <link rel="preload" href="/fonts/instrument-serif-latin-400-normal.woff2" as="font" type="font/woff2" crossorigin />
     <link rel="stylesheet" href="/site.css" />
+    <!-- For search engines and AI assistants: what Venn is, and the questions on this page. -->
+    <script type="application/ld+json">
+      {
+        "@context": "https://schema.org",
+        "@type": "WebSite",
+        "name": "Venn",
+        "url": "https://venn.day/",
+        "description": "Free group scheduling polls. Suggest dates, share one link, see the date that works for everyone."
+      }
+    </script>
+    <script type="application/ld+json">
+      {
+        "@context": "https://schema.org",
+        "@type": "Organization",
+        "name": "Venn",
+        "url": "https://venn.day/",
+        "logo": "https://venn.day/icons/icon-512.png",
+        "sameAs": ["https://github.com/sephmard/venn"]
+      }
+    </script>
+    <script type="application/ld+json">
+      {
+        "@context": "https://schema.org",
+        "@type": "SoftwareApplication",
+        "name": "Venn",
+        "url": "https://venn.day/",
+        "applicationCategory": "UtilitiesApplication",
+        "operatingSystem": "Any (web browser)",
+        "offers": { "@type": "Offer", "price": "0", "priceCurrency": "USD" },
+        "description": "Free, open-source group scheduling polls with no ads and no accounts."
+      }
+    </script>
+    <script type="application/ld+json">
+      {
+        "@context": "https://schema.org",
+        "@type": "FAQPage",
+        "mainEntity": [
+          {
+            "@type": "Question",
+            "name": "What is Venn?",
+            "acceptedAnswer": {
+              "@type": "Answer",
+              "text": "Venn is a free scheduling poll for groups. Suggest a few dates, or ask when people are available, share one link, and see the date that works for everyone."
+            }
+          },
+          {
+            "@type": "Question",
+            "name": "Is Venn free?",
+            "acceptedAnswer": {
+              "@type": "Answer",
+              "text": "Yes. Every feature is free, with no ads and no paid plan. Venn is open source."
+            }
+          },
+          {
+            "@type": "Question",
+            "name": "Do people need an account?",
+            "acceptedAnswer": {
+              "@type": "Answer",
+              "text": "No. Not the organizer, and not the guests. People open the link, type their name and tap their answers."
+            }
+          },
+          {
+            "@type": "Question",
+            "name": "How is Venn different from Doodle or When2meet?",
+            "acceptedAnswer": {
+              "@type": "Answer",
+              "text": "Venn has no ads and no accounts, lets people answer \"if needed\", works with whole days, parts of the day or hours, and is made for phones. When the date is picked, everyone can add it to their calendar."
+            }
+          },
+          {
+            "@type": "Question",
+            "name": "Does Venn work across time zones?",
+            "acceptedAnswer": { "@type": "Answer", "text": "Yes. Everyone sees the times in their own time zone." }
+          }
+        ]
+      }
+    </script>
   </head>
   <body>
     <a class="skip" href="#main">Skip to content</a>
@@ -295,7 +372,46 @@
               >
             </li>
           </ul>
+          <p class="tpl-also">
+            And for any time of year: <a href="/templates/book-club">book clubs</a>,
+            <a href="/templates/game-night">game nights</a>, <a href="/templates/dnd">D&amp;D</a>,
+            <a href="/templates/group-trip">group trips</a> and <a href="/templates/team-offsite">team offsites</a>.
+          </p>
           <a class="link-arrow" href="/templates">All templates <span aria-hidden="true">→</span></a>
+        </div>
+      </section>
+
+      <section class="section" aria-labelledby="faq">
+        <div class="wrap">
+          <div class="prose faq">
+            <h2 id="faq">Questions</h2>
+            <details>
+              <summary>What is Venn?</summary>
+              <p>
+                Venn is a free scheduling poll for groups. Suggest a few dates, or ask when people are available, share one link,
+                and see the date that works for everyone.
+              </p>
+            </details>
+            <details>
+              <summary>Is Venn free?</summary>
+              <p>Yes. Every feature is free, with no ads and no paid plan. Venn is open source.</p>
+            </details>
+            <details>
+              <summary>Do people need an account?</summary>
+              <p>No. Not the organizer, and not the guests. People open the link, type their name and tap their answers.</p>
+            </details>
+            <details>
+              <summary>How is Venn different from Doodle or When2meet?</summary>
+              <p>
+                Venn has no ads and no accounts, lets people answer "if needed", works with whole days, parts of the day or hours,
+                and is made for phones. When the date is picked, everyone can add it to their calendar.
+              </p>
+            </details>
+            <details>
+              <summary>Does Venn work across time zones?</summary>
+              <p>Yes. Everyone sees the times in their own time zone.</p>
+            </details>
+          </div>
         </div>
       </section>
 
