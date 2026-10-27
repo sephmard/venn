@@ -11,8 +11,8 @@ import { REPEATS, groupMail, nextLabel } from './repeat.js';
 
 const CSS = `
 #plan-next{display:inline-flex;flex-wrap:wrap;align-items:center;gap:0 16px}
-#plan-next .pn-repeat{display:inline-flex;align-items:center;gap:8px;font-weight:600}
-#plan-next select{width:auto;min-height:44px;padding:8px 12px}
+.pn-repeat{display:inline-flex;align-items:center;gap:8px;font-weight:600}
+.pn-repeat select{width:auto;min-height:44px;padding:8px 12px}
 .series-box{margin-bottom:16px}
 .series-box h2{margin:0 0 4px}
 .series-box p{margin:0 0 12px}
@@ -66,8 +66,9 @@ export async function planNext({ id, ev, headers, kind }) {
       a.href = planHref(kind, id, repeat);
     };
     const current = ev.repeat || 'monthly';
-    box.innerHTML = `<a class="link-btn" data-link></a>
-      <span class="pn-repeat"><label for="repeat-sel">Repeats</label>
+    box.innerHTML = '<a class="link-btn" data-link></a>';
+    // How often it repeats sits with the banner's other extras, under "More", when there's room for it.
+    ($('#repeat-box') || box).innerHTML = `<span class="pn-repeat"><label for="repeat-sel">Repeats</label>
       <select id="repeat-sel">${CHOICES.map(([v, label]) => `<option value="${v}"${v === current ? ' selected' : ''}>${esc(label)}</option>`).join('')}</select></span>`;
     pick(current);
     // The choice is saved with the poll: its organizer gets a "time to plan the next one?" email.

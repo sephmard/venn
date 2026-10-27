@@ -166,10 +166,10 @@ test('every landing page opens its template, and says where people came from', a
   }
   await expect.poll(() => sent.some((e) => e.name === 'view' && e.props.from === 'dnd')).toBe(true);
   // Comparison pages go to the chooser, which passes where they came from on.
-  await page.goto('/alternatives/doodle');
+  await page.goto('/compare/calendly-alternative');
   await page.locator('main .btn').first().click();
   await page.locator('a[href^="/new/pick"]').first().click();
-  await expect(page).toHaveURL(/from=doodle/);
+  await expect(page).toHaveURL(/from=calendly/);
 });
 
 test('a poll made from a landing page is counted as coming from it', async ({ page, request }) => {

@@ -14,7 +14,7 @@ test('pages: public/ has exactly what pages/pages.js makes (run `npm run pages` 
 });
 
 test('pages: each has its own address, title and description, of a length search results show', () => {
-  assert.equal(new Set(PAGE_SLUGS).size, PAGES.length);
+  assert.equal(new Set(PAGE_SLUGS).size, PAGE_SLUGS.length);
   assert.equal(new Set(PAGES.map((p) => p.title)).size, PAGES.length);
   assert.equal(new Set(PAGES.map((p) => p.description)).size, PAGES.length);
   for (const p of PAGES) {

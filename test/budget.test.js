@@ -29,8 +29,8 @@ const SHELL = ['app.html', 'styles.css', 'app.js'];
 const PAGES = {
   // +1.25 each for templates (templates.js and the cards); their notes and surprises load on demand.
   // +0.5 each for the poll's own icon button; the picture tools load when it's tapped.
-  'vote on a few dates page': ['create-pick.js', ['create.css'], 48],
-  'ask when people are available page': ['create-free.js', ['create.css'], 46.25], // +0.25 for usage stats
+  'vote on a few dates page': ['create-pick.js', ['create.css'], 48.25], // +0.25 for the landing pages' link-only templates (pages/pages.js)
+  'ask when people are available page': ['create-free.js', ['create.css'], 46.5], // +0.25 for usage stats, +0.25 for the landing pages' link-only templates
   'poll page': ['event.js', [], 45],
 };
 

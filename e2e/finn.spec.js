@@ -93,8 +93,9 @@ test('a picked date: Finn for the organizer, a match for a guest who said yes, a
   await expect(g.locator('.finn [role=status]')).toHaveText(LINES.match);
   await guest.close();
 
-  // Stickers, from the "It's set" banner.
-  const open = page.locator('.final-more').getByRole('button', { name: 'Finn stickers' });
+  // Stickers, under the "It's set" banner's "More".
+  await page.locator('.final-extras summary').click();
+  const open = page.locator('.final-extras').getByRole('button', { name: 'Finn stickers' });
   await expect(open).toBeVisible();
   expect((await open.boundingBox()).height).toBeGreaterThanOrEqual(44);
   await open.click();

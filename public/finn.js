@@ -121,9 +121,12 @@ function note(moment, anchor) {
   el.innerHTML = `${figure(extra)}
     <div class="finn-bubble">
       <div class="finn-say"><p role="status"></p>${
-        moment === 'waiting' || moment === 'picked' || moment === 'match'
-          ? '<button type="button" class="link-btn" data-finn-stickers>Finn stickers</button>'
-          : ''
+        // Waiting on answers, the thing to do is share the poll; the stickers are for celebrating.
+        moment === 'waiting'
+          ? `<button type="button" class="link-btn" data-share>${navigator.share && matchMedia('(pointer: coarse)').matches ? 'Share the poll' : 'Copy invite link'}</button>`
+          : moment === 'match'
+            ? '<button type="button" class="link-btn" data-finn-stickers>Finn stickers</button>'
+            : ''
       }</div>
       <button type="button" class="finn-close" aria-label="Close Finn's note">×</button>
     </div>`;
@@ -143,12 +146,13 @@ let cur = null; // { id, moment, el, closed }: the note on the page now
 
 /**
  * The poll page calls this each time its banners are drawn. Shows Finn's note when the poll reaches a
- * new moment, keeps it there while the page redraws, and adds "Finn stickers" to the "It's set" banner.
+ * new moment, keeps it there while the page redraws, and adds "Finn stickers" under the "It's set" banner's "More".
  */
 export function react({ id, ev, meId = null, anchor }) {
   if (!anchor?.isConnected) return;
   styles();
-  const more = anchor.querySelector('.final-more');
+  // Organizers find them under the banner's "More"; guests, in Finn's note when their date won.
+  const more = anchor.querySelector('.final-extras-body');
   if (more && !more.querySelector('[data-finn-stickers]')) {
     const b = document.createElement('button');
     b.type = 'button';

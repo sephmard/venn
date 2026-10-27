@@ -1,5 +1,5 @@
 // The website's landing pages: one per kind of plan people search for (/templates/book-club), and
-// one per tool people compare Venn with (/alternatives/doodle). `npm run pages` writes them into
+// comparisons with other tools (/compare/calendly-alternative). `npm run pages` writes them into
 // public/ (scripts/build-pages.js), with the templates hub and the sitemap; `npm run og` draws their
 // link-preview pictures. Add a page here, never by hand in public/.
 //
@@ -792,78 +792,11 @@ export const TEMPLATE_PAGES = [
   },
 ];
 
-/** Comparisons, under /alternatives/. What they say about other tools was checked in October 2026. */
+/**
+ * Comparisons written here, at /compare/<slug>-alternative. What they say about other tools was
+ * checked in October 2026. (The Doodle and When2meet ones are written by hand: COMPARE_PAGES.)
+ */
 export const ALTERNATIVE_PAGES = [
-  {
-    slug: 'doodle',
-    name: 'Doodle',
-    card: 'A free Doodle alternative with no ads and no accounts.',
-    title: 'Free Doodle alternative: group polls with no ads or sign-up · Venn',
-    description:
-      'Looking for a Doodle alternative? Venn is a free, open-source group poll: suggest dates, share one link, see the best one. No ads, no accounts.',
-    share: ['A Doodle alternative with *no ads.*', 'Free, open source, no sign-up.'],
-    h1: 'A Doodle alternative with *no ads and no accounts.*',
-    lede: 'Venn does the one thing groups use a scheduling poll for: suggest some dates, share one link, and see which one works. Free and open source.',
-    rows: [
-      ['Free', 'Yes, everything', 'Free plan, with paid plans'],
-      ['Ads', 'None', 'On the free plan'],
-      ['Guests need an account', 'No', 'No'],
-      ['"If needed" answers', 'Yes', 'Yes'],
-      ['Ask when people are free (days, parts of the day, hours)', 'Yes', 'Group polls with set times'],
-      ['Open source, and you can host it yourself', 'Yes', 'No'],
-      ['Booking pages for one-to-one meetings', 'No', 'Yes'],
-    ],
-    them: [
-      'Doodle is the better choice for booking pages, where clients pick a slot from your calendar, and for teams already paying for it.',
-    ],
-    us: [
-      'Venn is the better choice for getting a group of friends, a club or a team to agree on a date, with nothing to sign up for and nothing in the way.',
-    ],
-    faq: [
-      ['Is Venn really free?', 'Yes. Every feature is free. There are no ads and no paid plan.'],
-      ['Do people need an account to answer?', 'No. Nobody does: not the organizer, not the guests.'],
-      [
-        'Can I move my polls from Doodle?',
-        'There’s no import, but making a poll takes about a minute: suggest the same dates and share the new link.',
-      ],
-      ['Is my data private?', 'Venn stores only what people type into a poll, and has no ads or third-party trackers.'],
-    ],
-    related: ['when2meet', 'calendly'],
-  },
-  {
-    slug: 'when2meet',
-    name: 'When2meet',
-    card: 'Paint when you’re free like When2meet, plus "if needed", on any phone.',
-    title: 'When2meet alternative: find a time on any phone, with "if needed" · Venn',
-    description:
-      'A When2meet alternative that works on phones and lets people say "if needed". Free, open source, no ads, no sign-up. Find a time that works.',
-    share: ['A When2meet alternative *made for phones.*', 'Paint when you’re free, with "if needed". Free.'],
-    h1: 'A When2meet alternative *made for phones.*',
-    lede: 'Like When2meet, people mark when they’re free and Venn finds the overlap. Unlike it, there’s an "if needed" answer, and it’s built for the phone in your pocket.',
-    rows: [
-      ['Free, no account for anyone', 'Yes', 'Yes'],
-      ['Ads', 'None', 'Yes'],
-      ['Mark the hours you’re free', 'Yes', 'Yes'],
-      ['"If needed" answers', 'Yes', 'No'],
-      ['Answer with whole days, or mornings, afternoons and evenings', 'Yes', 'No'],
-      ['Pick the date, and add it to calendars', 'Yes', 'No'],
-      ['Open source', 'Yes', 'No'],
-    ],
-    them: ['When2meet is the better choice if your group already knows it and everyone answers from a laptop.'],
-    us: [
-      'Venn is the better choice when people answer from their phones, when "maybe" matters, or when you’re finding a day rather than an hour.',
-    ],
-    faq: [
-      [
-        'How is Venn different from When2meet?',
-        'Both let people mark when they’re free. Venn adds "if needed" answers, whole-day and part-of-the-day polls, a picked date with calendar links, and a layout made for phones.',
-      ],
-      ['Is Venn free?', 'Yes, with no ads and no paid plan.'],
-      NO_ACCOUNT,
-      ['Does it handle time zones?', 'Yes. Everyone sees times in their own time zone.'],
-    ],
-    related: ['doodle', 'calendly'],
-  },
   {
     slug: 'calendly',
     name: 'Calendly',
@@ -898,15 +831,31 @@ export const ALTERNATIVE_PAGES = [
         'Yes. You can hide names or answers, collect emails, and post answers to Slack with a webhook.',
       ],
     ],
-    related: ['doodle', 'when2meet'],
+    related: ['doodle-alternative', 'when2meet-alternative'],
+  },
+];
+
+/** The comparison pages written by hand in public/compare/, for links, the sitemap and usage stats. */
+export const COMPARE_PAGES = [
+  {
+    slug: 'doodle-alternative',
+    name: 'Doodle',
+    path: '/compare/doodle-alternative',
+    card: 'Free, with no ads, and nobody signs up. Not even you.',
+  },
+  {
+    slug: 'when2meet-alternative',
+    name: 'When2meet',
+    path: '/compare/when2meet-alternative',
+    card: 'Ask when people are free, with big buttons that work on a phone.',
   },
 ];
 
 /** Every page, with where it lives: { …page, path, section }. */
 export const PAGES = [
   ...TEMPLATE_PAGES.map((p) => ({ ...p, section: 'templates', path: `/templates/${p.slug}` })),
-  ...ALTERNATIVE_PAGES.map((p) => ({ ...p, section: 'alternatives', path: `/alternatives/${p.slug}` })),
+  ...ALTERNATIVE_PAGES.map((p) => ({ ...p, section: 'compare', path: `/compare/${p.slug}-alternative` })),
 ];
 
 /** The `from` a page's buttons send, for usage stats: its slug. */
-export const PAGE_SLUGS = PAGES.map((p) => p.slug);
+export const PAGE_SLUGS = [...PAGES, ...COMPARE_PAGES].map((p) => p.slug);

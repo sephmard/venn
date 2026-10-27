@@ -1,6 +1,6 @@
 // Writes the website's landing pages from pages/pages.js: `npm run pages`.
 //   public/templates/<slug>.html     a page per kind of plan
-//   public/alternatives/<slug>.html  a page per tool people compare Venn with
+//   public/compare/<slug>-alternative.html  comparisons with other tools (some are by hand)
 //   public/templates.html            the list of them all
 //   public/sitemap.xml               every page search engines should find
 // test/pages.test.js fails if these drift from pages.js, so edit pages.js and run this again.
@@ -9,7 +9,7 @@ import { writeFileSync, mkdirSync } from 'node:fs';
 import { dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import * as prettier from 'prettier';
-import { ALTERNATIVE_PAGES, ORIGIN, PAGES, TEMPLATE_PAGES } from '../pages/pages.js';
+import { ALTERNATIVE_PAGES, COMPARE_PAGES, ORIGIN, PAGES, TEMPLATE_PAGES } from '../pages/pages.js';
 
 const root = new URL('..', import.meta.url);
 
@@ -20,7 +20,7 @@ const attr = (s) => esc(s).replace(/"/g, '&quot;');
 /** Escaped, with *words* in italics. */
 const em = (s) => esc(s).replace(/\*([^*]+)\*/g, '<em>$1</em>');
 const plain = (s) => s.replace(/\*/g, '');
-const pageOf = (slug) => PAGES.find((p) => p.slug === slug);
+const pageOf = (slug) => [...PAGES, ...COMPARE_PAGES].find((p) => p.slug === slug);
 /** Where a page's picture for link previews is (scripts/og-image.js draws it). */
 export const ogImage = (p) => `/og/${p.section}-${p.slug}.png`;
 /** The button's link: the template's form, saying which page it came from (for usage stats). */
@@ -87,7 +87,7 @@ const FOOTER = `<footer class="wrap footer">
 <span>© Venn · Free and open source</span>
 <nav aria-label="Footer">
 <a href="/templates">Templates</a>
-<a href="/templates#compare">Compare</a>
+<a href="/compare">Compare</a>
 <a href="/privacy">Privacy</a>
 <a href="https://docs.venn.day">Docs</a>
 <a href="https://github.com/sephmard/venn">GitHub</a>
@@ -214,7 +214,7 @@ ${FOOTER}`;
 function alternativePage(p) {
   const [headline, line] = p.share;
   const crumbs = [
-    ['Templates', '/templates'],
+    ['Compare', '/compare'],
     [`${p.name} alternative`, p.path],
   ];
   return `${head({
@@ -228,7 +228,7 @@ function alternativePage(p) {
   })}
 <main id="main">
 <div class="wrap page tpl-page">
-<nav class="crumbs" aria-label="Breadcrumb"><a href="/templates#compare">Compare</a> / <span aria-current="page">${esc(p.name)}</span></nav>
+<nav class="crumbs" aria-label="Breadcrumb"><a href="/compare">Compare</a> / <span aria-current="page">${esc(p.name)}</span></nav>
 <div class="tpl-intro">
 <h1>${em(p.h1)}</h1>
 <p class="lede">${esc(p.lede)}</p>
@@ -247,6 +247,7 @@ ${p.rows.map(([f, a, b]) => `<tr><th scope="row">${esc(f)}</th><td>${esc(a)}</td
 </table>
 </div>
 <p class="tpl-small">What we say about ${esc(p.name)} was checked in October 2026. Something out of date? <a href="https://github.com/sephmard/venn/issues/new/choose">Tell us</a>.</p>
+<p class="cmp-note">${esc(p.name)} is a trademark of its owner; Venn isn't affiliated with it.</p>
 </section>
 <section class="prose" aria-labelledby="which">
 <h2 id="which">Which one should you use?</h2>
@@ -313,11 +314,14 @@ ${[
 <section aria-labelledby="compare">
 <h2 id="compare">Switching from another tool?</h2>
 <ul class="tpl-cards">
-${ALTERNATIVE_PAGES.map(
-  (p) =>
-    `<li><a class="tpl-card" href="/alternatives/${p.slug}"><strong>${esc(p.name)} alternative</strong><span>${esc(p.card)}</span><em>Compare →</em></a></li>`,
-).join('\n')}
+${[...COMPARE_PAGES, ...PAGES.filter((p) => p.section === 'compare')]
+  .map(
+    (p) =>
+      `<li><a class="tpl-card" href="${p.path}"><strong>${esc(p.name)} alternative</strong><span>${esc(p.card)}</span><em>Compare →</em></a></li>`,
+  )
+  .join('\n')}
 </ul>
+<p><a href="/compare">All comparisons</a></p>
 </section>
 </div>
 <section class="wrap closing">
@@ -330,7 +334,7 @@ ${FOOTER}`;
 
 const sitemap = () => `<?xml version="1.0" encoding="UTF-8"?>
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
-${['/', '/templates', ...PAGES.map((p) => p.path), '/privacy'].map((path) => `  <url><loc>${ORIGIN}${path}</loc></url>`).join('\n')}
+${['/', '/templates', ...TEMPLATE_PAGES.map((p) => `/templates/${p.slug}`), '/compare', ...COMPARE_PAGES.map((p) => p.path), ...ALTERNATIVE_PAGES.map((p) => `/compare/${p.slug}-alternative`), '/privacy'].map((path) => `  <url><loc>${ORIGIN}${path}</loc></url>`).join('\n')}
 </urlset>
 `;
 

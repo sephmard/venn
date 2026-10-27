@@ -133,7 +133,7 @@ After changing the landing page's main screenshot, regenerate the social preview
 
 ### Landing pages and search
 
-The pages under `/templates/` and `/alternatives/` are written from one file, [`pages/pages.js`](../pages/pages.js), so they all share a layout, structured data (FAQ and breadcrumbs) and a place in the sitemap.
+The pages under `/templates/` and the comparisons in `/compare/` (except the hand-written Doodle and When2meet ones) are written from one file, [`pages/pages.js`](../pages/pages.js), so they all share a layout, structured data (FAQ and breadcrumbs) and a place in the sitemap.
 
 - **Add or change a page** in `pages/pages.js`, then run `npm run pages` (the HTML, `/templates` and `sitemap.xml`) and `npm run og` (its link-preview picture). `npm test` fails if the HTML is out of date. A page for a plan that isn't a template yet needs one in `public/templates.js` with `quiet: true`, so it only appears when the page's button chooses it.
 - **Comparison pages** say what other tools do. Check them now and then, and update the "checked in" month in `scripts/build-pages.js`.

@@ -41,6 +41,14 @@ for (const scheme of ['light', 'dark']) {
       }
     });
 
+    test('comparison pages', async ({ page }) => {
+      for (const path of ['/compare', '/compare/doodle-alternative', '/compare/when2meet-alternative']) {
+        await page.goto(path);
+        if (path !== '/compare') await page.locator('.faq summary').first().click(); // with a question open
+        await audit(page, path);
+      }
+    });
+
     test('create page with a seasonal template chosen', async ({ page }) => {
       await page.clock.setFixedTime(new Date(2026, 10, 20, 12));
       await page.goto('/new/pick?template=friendsgiving');
@@ -160,7 +168,8 @@ for (const scheme of ['light', 'dark']) {
       await openPoll(page, { names: ['Ana', 'Jo'], picked: true });
       await expect(page.locator('.finn [role=status]')).not.toBeEmpty();
       await audit(page, 'Finn note');
-      await page.locator('.final-more [data-finn-stickers]').click();
+      await page.locator('.final-extras summary').click();
+      await page.locator('.final-extras [data-finn-stickers]').click();
       await expect(page.locator('.finn-sheet [aria-busy]')).toHaveCount(0);
       await audit(page, 'Finn stickers');
     });
@@ -282,7 +291,8 @@ for (const width of [375, 412]) {
     await openPoll(page, { picked: true });
     const banner = page.locator('.banner-final');
     await expect(banner).toBeVisible();
-    // The organizer's "Plan next month's" and how often it repeats, loaded just after.
+    // The organizer's "Plan next month's", and under "More" how often it repeats, loaded just after.
+    await banner.locator('.final-extras summary').click();
     await expect(banner.getByLabel('Repeats')).toBeVisible();
     // Whatever is under the middle of each button is the button itself, not the decorative circles.
     for (const el of await banner.locator('a, button, select').all()) {
