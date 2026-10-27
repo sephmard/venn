@@ -96,7 +96,7 @@ export function renderPick() {
       </section>
       <section class="sheet" aria-labelledby="when-h">
         <h2 id="when-h">When could it be?</h2>
-        <p class="hint" id="when-hint"></p>
+        <p class="hint" id="when-hint" hidden></p>
         ${TAP_KEY}
         <div id="picker"></div>
         <div class="add-time" id="add-time" role="group" aria-labelledby="at-l" hidden></div>
@@ -181,7 +181,7 @@ export function renderPick() {
     if (length === 'half') return mountHalf(root);
     if (timed()) {
       buildAddTime();
-      $('#when-hint').textContent = 'Tap the calendar to add an option for your date range.';
+      whenHint('');
       view = timeView(root, {
         label: 'Calendar',
         views: ['week', 'day'],
@@ -223,7 +223,7 @@ export function renderPick() {
         else nav.update(shown);
       });
     } else {
-      $('#when-hint').textContent = length === 'days' ? 'Tap the first day of each trip.' : 'Tap the days you want to suggest.';
+      whenHint(length === 'days' ? 'Tap the first day of each trip.' : '');
       const starts = new Set([...items.values()].filter((it) => it.from == null).map((it) => it.date));
       // The trip a day is part of after its first day, if any.
       const tripOf = (d) =>
@@ -258,7 +258,7 @@ export function renderPick() {
   async function mountHalf(root) {
     const at = mounts;
     root.innerHTML = '';
-    $('#when-hint').textContent = `${isPhone() ? 'Tap a day, then' : 'Click'} the mornings, afternoons and evenings it could be.`;
+    whenHint(`${isPhone() ? 'Tap' : 'Click'} a day, then its times.`);
     const { halfView } = await import('./half-day.js');
     if (at !== mounts || !root.isConnected) return;
     half = halfView(root, { items, brush, onChange: renderList, startAt: sorted()[0]?.[1].date });
@@ -302,6 +302,11 @@ export function renderPick() {
       : length === 'days'
         ? `${dayLabel(it.date)} – ${dayLabel(addDays(it.date, tripDays(it) - 1))}`
         : 'All day';
+  /** A line above the calendar, only where tapping isn't enough to go on. */
+  function whenHint(text) {
+    $('#when-hint').textContent = text;
+    $('#when-hint').hidden = !text;
+  }
   const sorted = () =>
     [...items.entries()].sort(([, a], [, b]) => a.date.localeCompare(b.date) || (a.from ?? -1) - (b.from ?? -1));
   function renderList() {
@@ -309,7 +314,7 @@ export function renderPick() {
     const box = $('#options-list');
     updateReady();
     if (!list.length) {
-      box.innerHTML = `<p class="hint">Nothing yet. ${timed() ? 'Add times on the calendar above.' : length === 'half' ? 'Pick mornings, afternoons or evenings above.' : 'Tap days on the calendar above.'} Everyone will say yes, if needed or no to each option you add.</p>`;
+      box.innerHTML = '<p class="hint">Nothing yet.</p>';
       return;
     }
     const removeBtn = (k, label) => `<button type="button" data-remove="${esc(k)}" aria-label="Remove ${esc(label)}">×</button>`;
@@ -350,8 +355,7 @@ export function renderPick() {
         )
         .join('');
     }
-    box.innerHTML = `<p class="preview-lede">Guests will choose from <b>${plural(list.length, 'option')}</b>. <span class="muted">Tap one to switch it between available and if needed for you.</span></p>
-      <ul class="od-list">${rows}</ul>
+    box.innerHTML = `<ul class="od-list">${rows}</ul>
       <button type="button" class="link-btn" id="clear-options">Remove all</button>`;
   }
   $('#options-list').addEventListener('click', (e) => {

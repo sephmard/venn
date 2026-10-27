@@ -238,7 +238,7 @@ export async function renderEvent(id, navigate) {
                       </div>`
                     : ''
                 }
-                ${partsMode ? '<p class="hint">Tap to switch: available, if needed, unavailable.</p>' : ''}
+                ${partsMode ? '<p class="hint legend"><span class="sw sw-y"></span>Tap: available <span class="sw sw-m"></span>Tap again: if needed</p>' : ''}
                 <div id="mine" class="rows"></div>
                 <div id="mine-cal" hidden></div>`
               : `<p class="hview-h" id="hview-h">Answer with</p>
@@ -253,7 +253,6 @@ export async function renderEvent(id, navigate) {
                   <button type="button" data-brush="${IF_NEEDED}"><span class="swatch swatch-maybe"></span>If needed</button>
                   <button type="button" data-brush="0"><span class="swatch swatch-no"></span>Busy</button>
                 </div>
-                <p class="hint">Drag across the times you're available. On a phone, tap or drag.</p>
                 <div class="tv-strip" id="hour-days" role="group" aria-label="Days" hidden></div>
                 <div class="grid-scroll"><div class="grid" id="mine" role="group" aria-label="Your availability. Use the arrow keys to move and Space to mark a time."></div></div>
                 </div>`
@@ -269,9 +268,9 @@ export async function renderEvent(id, navigate) {
             <input id="name" type="text" maxlength="80" autocomplete="name">
           </div>
           <div id="copy-field"${ev().requireEmail ? '' : ' hidden'}>
-            <label for="copy-to">Your email <span class="muted" id="copy-why">(${ev().requireEmail ? 'the organizer asks for it, and only they see it' : 'optional'})</span></label>
+            <label for="copy-to">Your email <span class="muted" id="copy-why">(${ev().requireEmail ? 'only the organizer sees it' : 'optional'})</span></label>
             <input id="copy-to" type="email" inputmode="email" autocomplete="email" maxlength="254" placeholder="you@example.com">
-            <label class="check" hidden><input type="checkbox" id="copy-me" checked> Email me a copy of my answer and a link to change it</label>
+            <label class="check" hidden><input type="checkbox" id="copy-me" checked> Email me a copy</label>
           </div>
           ${privacy && `<p class="hint">🔒 ${privacy}</p>`}
           <div class="save-bar">
@@ -1243,7 +1242,7 @@ export async function renderEvent(id, navigate) {
       <tbody>${rows}</tbody>
       <tfoot><tr><th scope="row">Can come</th>${totals}</tr></tfoot>
     </table></div>
-    <p class="hint">✓ yes, ~ if needed, ✕ no. ${daysMode ? '' : 'The most popular are highlighted.'}</p>`;
+    <p class="hint">✓ yes · ~ if needed · ✕ no</p>`;
   }
 
   // Parts of the day: a day-by-part table, shaded by how many people are available.
@@ -1281,7 +1280,7 @@ export async function renderEvent(id, navigate) {
         <thead><tr><th></th>${parts.map((p) => `<th scope="col">${esc(p.label)}</th>`).join('')}</tr></thead>
         <tbody>${rows}</tbody>
       </table></div>
-      <p class="hint legend"><span class="sw sw-y"></span>Available <span class="sw sw-m"></span>If needed <span class="sw sw-n"></span>Unavailable. Tap one to see who.</p>
+      <p class="hint legend"><span class="sw sw-y"></span>Available <span class="sw sw-m"></span>If needed <span class="sw sw-n"></span>Unavailable</p>
       <div class="hover-info" id="parts-inspect"></div>`;
     renderPartsInspect();
   }
@@ -1372,9 +1371,7 @@ export async function renderEvent(id, navigate) {
     if (!box) return;
     const people = others();
     if (!people.length) return (box.innerHTML = '');
-    if (st.inspect == null)
-      return (box.innerHTML =
-        '<p class="hint">Hover or tap a time to see who\'s available. Tap a name to see just their answers.</p>');
+    if (st.inspect == null) return (box.innerHTML = '');
     const s = +st.inspect;
     const yes = people.filter((p) => p.availability[s] === YES);
     const maybe = people.filter((p) => p.availability[s] === IF_NEEDED);
@@ -1387,8 +1384,7 @@ export async function renderEvent(id, navigate) {
         <b>${esc(fmtWhen(s, slotEnd(ev(), s), st.tz))}</b>
         ${canPick ? `<button class="btn btn-sm" data-pick="${s}">Pick this start time</button>` : ''}
       </div>
-      <div class="chips">${chips(yes, 'yes')}${chips(maybe, 'maybe')}${chips(no, 'no')}</div>
-      <p class="hint">${yes.length} available, ${maybe.length} if needed, ${no.length} not available</p>`;
+      <div class="chips">${chips(yes, 'yes')}${chips(maybe, 'maybe')}${chips(no, 'no')}</div>`;
   }
   if (!listMode) {
     const inspectFrom = (e) => {
@@ -1451,7 +1447,7 @@ export async function renderEvent(id, navigate) {
     if (!n) {
       $('#best').innerHTML = `<div class="empty-state">
         <div class="venn-art" aria-hidden="true"><i></i><i></i><i></i></div>
-        <p><b>No answers yet.</b> Send the invite link to your group. The best ${optionsMode ? 'options' : daysMode ? 'dates' : 'times'} show up here as people answer.</p>
+        <p><b>No answers yet.</b></p>
         <button class="btn" data-share>${canShare ? 'Share the poll' : 'Copy invite link'}</button>
       </div>`;
       return;
@@ -1482,11 +1478,7 @@ export async function renderEvent(id, navigate) {
     const missing = (b) => (b.no.length ? `<p class="hint">Can't make it: ${b.no.map(esc).join(', ')}</p>` : '');
     const lenNote = !optionsMode && ev().durationMinutes > ev().slotMinutes ? ` (${lengthLabel(ev().durationMinutes)})` : '';
     $('#best').innerHTML = `
-      ${
-        ev().isAdmin && !guests
-          ? `<p class="hint only-you">So far it's only your own answer. Share the link to hear from everyone.</p>`
-          : ''
-      }
+      ${ev().isAdmin && !guests ? `<p class="hint only-you">Only your answer so far.</p>` : ''}
       <div class="best-hero${ev().finalStart === first.start ? ' final' : ''}">
         <div class="best-when">${bigWhen(first.start, first.end)}${esc(lenNote)}</div>
         <div class="best-who">${avatarStack([...first.yes, ...first.ifNeeded], 7)}<span>${esc(who(first))}</span></div>

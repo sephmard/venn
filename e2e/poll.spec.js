@@ -128,7 +128,7 @@ test('ask when people are free: days, looking for a run of days', async ({ page 
   await expect(page.locator('#summary')).toHaveText('14 days to choose from');
   await page.click('[data-step="1"]');
   await expect(page.locator('#span')).toHaveValue('2');
-  await expect(page.locator('#free-list')).toContainText('2 days in a row');
+  await expect(page.locator('#free-list')).toContainText('14 days · long enough');
   await page.click('#submit');
 
   await expect(page.locator('#mine .row')).toHaveCount(14);
@@ -170,9 +170,7 @@ test('ask when people are available: a tap picks days in a row, shown as one ban
   await page.fill('#title', 'Cabin weekend');
   await page.fill('#organizer', 'Sam');
   await page.fill('#span', '3');
-  await expect(page.locator('#when-help')).toHaveText(
-    'Tap a day to pick 3 days in a row from it. Tap a picked day to make it if needed, and again to take just that day away.',
-  );
+  await expect(page.locator('#when-help')).toHaveText('Tap a day to pick 3 in a row from it.');
   await showNextMonth(page);
   const first = await nextMonth(page);
   const day = (n) => page.locator(`.cal-day[data-date="${addDays(first, n)}"]`);
@@ -749,7 +747,7 @@ test('phone: the calendars leave room to scroll the page, and say how to use the
   expect((await hours.boundingBox()).height).toBeLessThanOrEqual(half);
   // The hint comes before the calendar, not after it.
   const help = page.locator('#when-help');
-  await expect(help).toHaveText('Tap the calendar to add an option for your date range.');
+  await expect(help).toHaveText('Drag on the calendar to add times.');
   expect((await help.boundingBox()).y).toBeLessThan((await hours.boundingBox()).y);
 });
 
@@ -982,7 +980,7 @@ test('organizer privacy: required emails, hidden names, then hidden answers', as
   await page.fill('#organizer', 'Sam');
   await addOptions(page, 7, [1140]);
   await page.locator('#privacy-opts summary').click();
-  await page.getByRole('switch', { name: 'Ask everyone for their email' }).check();
+  await page.getByRole('switch', { name: 'Ask guests for their email' }).check();
   await page.getByRole('switch', { name: 'Hide names from guests' }).check();
   await page.click('#submit');
   await page.getByRole('button', { name: 'View poll' }).click();
@@ -1019,7 +1017,7 @@ test('organizer privacy: required emails, hidden names, then hidden answers', as
   if (!(await page.locator('#privacy-open').isVisible())) await page.locator('details.organizer summary').click();
   await page.click('#privacy-open');
   await expect(page.locator('.email-list li')).toHaveText(['Ana ana@example.com', 'Lee lee@example.com']);
-  await page.getByRole('switch', { name: "Hide everyone's answers from guests" }).check();
+  await page.getByRole('switch', { name: 'Hide answers from guests' }).check();
   await page.getByRole('button', { name: 'Save privacy settings' }).click();
   await expect(page.locator('#toast')).toHaveText('Privacy settings saved');
 
@@ -1043,7 +1041,7 @@ test('organizers edit a poll until someone answers, then duplicate it', async ({
   await expect(page.locator('h1')).toHaveText('Edit your poll');
   await expect(page.locator('#title')).toHaveValue('Dinner');
   await expect(page.locator('#organizer')).toHaveValue('Sam');
-  await expect(page.locator('#options-list')).toContainText('Guests will choose from 7 options');
+  await expect(page.locator('#options-list [data-remove]')).toHaveCount(7);
   await page.fill('#title', 'Dinner, take two');
   await page.locator('#options-list [data-remove]').first().click();
   await page.click('#submit'); // Save changes
@@ -1062,7 +1060,7 @@ test('organizers edit a poll until someone answers, then duplicate it', async ({
   await page.getByRole('link', { name: 'Duplicate poll' }).click();
   await expect(page.locator('h1')).toHaveText('Vote on a few dates');
   await expect(page.locator('#title')).toHaveValue('Dinner, take two');
-  await expect(page.locator('#options-list')).toContainText('Guests will choose from 6 options');
+  await expect(page.locator('#options-list [data-remove]')).toHaveCount(6);
   await page.click('#submit');
   await openNewPoll(page);
   await expect(page).not.toHaveURL(url);
@@ -1357,7 +1355,7 @@ test('ask when people are free: parts of the day', async ({ page, request }) => 
   await expect(heat.nth(1).locator('.heat-bar i')).toHaveClass(['m']);
   await expect(heat.nth(2).locator('.heat-bar i')).toHaveClass(['n']);
   await expect(heat.nth(2)).toHaveAccessibleName(/1 unavailable/);
-  await expect(page.locator('.legend')).toContainText('Unavailable');
+  await expect(page.locator('.legend', { hasText: 'Unavailable' })).toBeVisible();
   await heat.first().click();
   await expect(page.locator('#parts-inspect')).toContainText('Sam');
 });
@@ -1611,7 +1609,7 @@ test('on a phone, a new poll leads with sharing: one share button, the group, an
   // It opens on the group, where Pick and the results are.
   await expect(page.locator('#tab-group')).toHaveAttribute('aria-selected', 'true');
   await expect(page.locator('#panel-group')).toBeVisible();
-  await expect(page.locator('#best .only-you')).toContainText("So far it's only your own answer");
+  await expect(page.locator('#best .only-you')).toHaveText('Only your answer so far.');
 
   // Their own answer, given with the poll, is one line until they change it.
   await page.click('#tab-mine');
@@ -1755,7 +1753,7 @@ test('parts of the day: "All day" marks every part of a day in one tap', async (
     await request.post('/api/events', { data: { title: 'Coffee', timezone: 'UTC', mode: 'options', layout: 'parts', options } })
   ).json();
   await page.goto(`/e/${id}`);
-  await expect(page.locator('#panel-mine .hint').first()).toHaveText('Tap to switch: available, if needed, unavailable.');
+  await expect(page.locator('#panel-mine .legend')).toHaveText(/Tap: available\s+Tap again: if needed/);
   const allDay = page.getByRole('button', { name: /^All day\W+Tue, Jan 8$/ });
   const parts = page.locator('.parts-row').first().locator('.part-vote');
   await expect(allDay).toHaveAttribute('aria-pressed', 'false');

@@ -488,6 +488,40 @@ button.emoji-tile:focus-visible {
   gap: 6px;
   margin-bottom: 4px;
 }
+/* Guests answer with: Days, Parts of day, Hours. Each sized to its words, so they fit on one line. */
+.zoom .seg {
+  grid-auto-columns: auto;
+}
+.zoom .seg button {
+  padding-inline: 12px;
+}
+@media (max-width: 374px) {
+  .zoom .seg button {
+    padding-inline: 6px;
+    font-size: 0.875rem;
+  }
+}
+/* "Days in a row" and its stepper on one line. */
+.inline-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+.inline-row {
+  margin-bottom: 12px;
+}
+.inline-row label {
+  margin: 0;
+}
+.inline-row .stepper {
+  gap: 6px;
+  flex-shrink: 0;
+}
+.inline-row .stepper input {
+  width: 52px;
+}
 .sub-h {
   font-size: 1rem;
   margin: 0 0 8px;

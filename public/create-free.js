@@ -60,8 +60,9 @@ import {
 const HOUR_LENGTHS = [30, 60, 90, 120, 180, 240];
 // How detailed guests' answers are, from the broadest to the finest.
 const LEVELS = [
-  ['days', 'Whole days'],
-  ['parts', 'Parts of the day'],
+  // Short, so all three fit on one line on a phone.
+  ['days', 'Days'],
+  ['parts', 'Parts of day'],
   ['hours', 'Hours'],
 ];
 // Parts of the day and hours: the painter, and what the page does with what's painted. Most
@@ -101,9 +102,8 @@ export function renderFree() {
             ${LEVELS.map(([k, l]) => `<button type="button" role="radio" data-level="${k}">${l}</button>`).join('')}
           </div>
         </div>
-        <p class="hint" id="level-hint"></p>
-        <div class="inline-field" data-for="days">
-          <label for="span">How many days in a row do you need?</label>
+        <div class="inline-field inline-row" data-for="days">
+          <label for="span">Days in a row</label>
           <div class="stepper">
             <button type="button" class="icon-btn" data-step="-1" aria-label="One day fewer">−</button>
             <input id="span" type="number" min="1" max="${MAX_SPAN_DAYS}" value="1" inputmode="numeric">
@@ -124,7 +124,7 @@ export function renderFree() {
         ${brushBox()}
       </section>
       <section class="sheet poll-preview" aria-labelledby="preview-h">
-        <h2 id="preview-h">What your guests will mark</h2>
+        <h2 id="preview-h">Guests choose from</h2>
         <div id="free-list" class="opt-list" aria-live="polite"></div>
       </section>
       ${youFields()}
@@ -156,11 +156,6 @@ export function renderFree() {
     level = next;
     for (const b of $$('[data-level]')) b.setAttribute('aria-checked', b.dataset.level === level);
     for (const el of $$('[data-for]')) el.hidden = el.dataset.for !== level;
-    $('#level-hint').textContent = {
-      days: 'Guests tap the days they’re available. Start broad. Switch to parts of the day or hours if timing matters; we’ll keep what you’ve picked.',
-      parts: 'Guests tap the mornings, afternoons and evenings they’re available. Pick which ones to ask about on each day.',
-      hours: 'Guests mark the hours they’re available, in 30-minute steps, within the times you add.',
-    }[level];
     mount();
     update();
   }
@@ -341,7 +336,7 @@ export function renderFree() {
       return Array.from({ length: 7 }, (_, i) => addDays(from, i));
     };
     painter = { render: view.render, week, cleanup: view.cleanup };
-    $('#when-help').textContent = 'Tap the calendar to add an option for your date range.';
+    $('#when-help').textContent = 'Drag on the calendar to add times.';
     $('#quick').innerHTML = fillPills(false) + '<button type="button" class="pill pill-quiet" id="q-clear">Clear all</button>';
   }
 
@@ -427,7 +422,6 @@ export function renderFree() {
   /** A chip in the list: tap it to switch between available and if needed for you, × to remove it. */
   const chip = (flip, rm, text, label, m) =>
     `<span class="chip ${m ? 'maybe' : 'yes'}"><button type="button" class="chip-flip" ${flip} aria-label="${esc(`${label}, ${m ? 'if needed' : 'available'} for you. Switch to ${m ? 'available' : 'if needed'}`)}">${esc(text)}${m ? ' <small class="chip-tag">If needed</small>' : ''}</button><button type="button" ${rm} aria-label="Remove ${esc(label)}">×</button></span>`;
-  const flipHint = '<span class="muted">Tap one to switch it between available and if needed for you.</span>';
 
   /** Days in a row, each run as a range with its length: is it long enough for the days in a row
    * asked for? Inside a run, the days that are if needed for the organizer are a chip of their own. */
@@ -465,9 +459,8 @@ export function renderFree() {
       const windows = pt.toWindows(painted);
       const dates = pt.datesOf(painted);
       box.innerHTML = windows.length
-        ? `<p class="preview-lede">Guests will mark when they’re available in these times. Venn looks for <b>${esc(lengthLabel(length))}</b> that work${length === 60 ? 's' : ''} for the most people. ${flipHint}</p>
-          ${pt.windowList(pt.windowsAt(st, level), level, chip, dayRange)}`
-        : '<p class="hint">Nothing yet. Paint some times on the calendar above, or use a quick fill.</p>';
+        ? pt.windowList(pt.windowsAt(st, level), level, chip, dayRange)
+        : '<p class="hint">Nothing yet.</p>';
       return setReady(
         `${plural(dates.length, 'day')} to choose from`,
         [!windows.length, 'Add at least one time to create the poll', gridFocus, null, 'times'],
@@ -483,9 +476,7 @@ export function renderFree() {
     }
     if (level === 'parts') {
       const windows = pt.windowsAt(st, level);
-      box.innerHTML = windows.length
-        ? `<p class="preview-lede">Guests will tap which of these they’re available. ${flipHint}</p>${pt.windowList(windows, level, chip, dayRange)}`
-        : '<p class="hint">Nothing yet. Tap mornings, afternoons and evenings on the calendar above, or use a quick fill.</p>';
+      box.innerHTML = windows.length ? pt.windowList(windows, level, chip, dayRange) : '<p class="hint">Nothing yet.</p>';
       return setReady(
         `${plural(windows.length, 'time')} to choose from`,
         [!windows.length, 'Pick at least one morning, afternoon or evening', gridFocus, null, 'times'],
@@ -494,14 +485,10 @@ export function renderFree() {
     }
     const dates = [...selected].sort();
     const k = span();
-    $('#when-help').hidden = false;
-    $('#when-help').textContent =
-      k > 1
-        ? `Tap a day to pick ${k} days in a row from it. Tap a picked day to make it if needed, and again to take just that day away.`
-        : 'Tap a day to pick it. Tap it again to make it if needed, and once more to take it away.';
-    box.innerHTML = dates.length
-      ? `<p class="preview-lede">On ${plural(dates.length, 'day')} (${esc(dayRange([dates[0], dates.at(-1)]))}), guests will mark the whole days they’re available. ${k > 1 ? `Venn looks for <b>${k} days in a row</b> that work for the most people.` : 'Venn finds the days the most people are available.'} ${flipHint}</p>${runList(dates, k)}`
-      : '<p class="hint">Nothing yet. Pick some days on the calendar above.</p>';
+    // The tap key above the calendar says the rest.
+    $('#when-help').hidden = k < 2;
+    $('#when-help').textContent = `Tap a day to pick ${k} in a row from it.`;
+    box.innerHTML = dates.length ? runList(dates, k) : '<p class="hint">Nothing yet.</p>';
     setReady(
       `${plural(dates.length, 'day')} to choose from`,
       // Only the first that applies: no days, too few, or none in a row.
