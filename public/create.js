@@ -88,6 +88,10 @@ export const fromUrl = () => new URLSearchParams(location.search).get('from') ||
 
 // Required fields say so next to their label (screen readers hear aria-required instead).
 const REQ = ' <span class="req" aria-hidden="true">Required</span>';
+// Every poll starts with a name; a template renames it, and typing replaces it.
+const SEED = 'Get-together';
+/** The poll still has the name Venn gave it (data-seed). */
+const seeded = () => $('#title').value === $('#title').dataset.seed;
 
 export function planFields(kind) {
   // Templates as a row of cards to scroll: what's in season first (see templates.js).
@@ -105,8 +109,8 @@ export function planFields(kind) {
       <div class="title-row">
         <button type="button" class="emoji-tile" id="emoji-tile" aria-label="Change the icon" aria-expanded="false">🗓️</button>
         <div class="grow">
-          <label for="title">Name of your poll${REQ}</label>
-          <input id="title" type="text" maxlength="120" placeholder="${kind === 'free' ? 'Summer cabin trip' : "Dinner at Rosa's"}" aria-required="true">
+          <label for="title">Name of your poll</label>
+          <input id="title" type="text" maxlength="120" value="${SEED}" data-seed="${SEED}" placeholder="${kind === 'free' ? 'Summer cabin trip' : "Dinner at Rosa's"}">
         </div>
       </div>
       <details class="reveal" id="more-box">
@@ -208,7 +212,10 @@ export function wirePlan(onOccasion) {
     if (icon) icon.setOccasion(current);
     else $('#emoji-tile').textContent = current?.emoji || '🗓️';
     onOccasion(current);
-    $('#title').dispatchEvent(new Event('input')); // a kind of plan also names it
+    // A kind of plan also names it, unless the organizer did.
+    const title = $('#title');
+    if (seeded() || !title.value.trim()) title.value = title.dataset.seed = current?.label || SEED;
+    title.dispatchEvent(new Event('input'));
     // Tapping the same template over and over gets noticed.
     taps = taps[0] === o ? [o, taps[1] + 1] : [o, 1];
     if (e.isTrusted && taps[1] > 4) egg('taps', o);
@@ -222,6 +229,8 @@ export function wirePlan(onOccasion) {
     $('#desc').value = noted = fill.desc;
     $('#more-box').open ||= !!noted;
   });
+  $('#title').addEventListener('focus', () => seeded() && $('#title').select());
+  $('#title').addEventListener('pointerup', () => seeded() && $('#title').select(), { once: true });
   let typing;
   $('#title').addEventListener('input', (e) => {
     clearTimeout(typing);
@@ -236,7 +245,7 @@ export function wirePlan(onOccasion) {
  */
 export async function submit(body, occasion, answer = null) {
   $('#err').textContent = '';
-  const title = $('#title').value.trim() || occasion()?.label || '';
+  const title = $('#title').value.trim() || occasion()?.label || SEED;
   Object.assign(body, {
     title,
     location: $('#location').value.trim(),
@@ -391,10 +400,8 @@ export function explainNotReady() {
   go(focus);
   return true;
 }
-export const named = (occasion) => !!($('#title').value.trim() || occasion()?.label);
-/** The form's own checks: the poll's name, then the organizer's name and (when it's needed) email. */
-export const nameAndEmail = (occasion) => [
-  [!named(occasion), 'Give your poll a name to create the poll', '#title', 'Give your poll a name', 'name'],
+/** The form's own checks: the organizer's name and (when it's needed) email. */
+export const nameAndEmail = () => [
   [!$('#organizer').value.trim(), 'Add your name to create the poll', '#organizer', 'Add your name', 'your name'],
   [
     !!emailMissing(),

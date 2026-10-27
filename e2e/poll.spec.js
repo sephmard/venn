@@ -518,18 +518,16 @@ test('guests need a name and an answer to save, and can say none of these work',
 test('organizers add different times on different days, and see the whole poll before creating it', async ({ page }) => {
   await page.goto('/new/pick');
   await page.fill('#organizer', 'Sam');
-  // Create stays greyed out until the poll has a name and an option, and names what's missing.
+  // The poll already has a name, so Create only waits for an option, and says so.
+  await expect(page.locator('#title')).toHaveValue('Get-together');
   await expect(page.locator('#submit')).toHaveAttribute('aria-disabled', 'true');
-  await expect(page.locator('#summary')).toHaveText('Needed: name · options');
+  await expect(page.locator('#summary')).toHaveText('Add at least one option to create the poll');
   await expect(page.locator('#options-list')).toContainText('Nothing yet');
-  // It can still be reached and pressed: it says what's missing first, and goes there.
+  // It can still be reached and pressed: it says what's missing.
   await page.locator('#submit').focus();
   await page.keyboard.press('Enter');
-  await expect(page.locator('#err')).toHaveText('Give your poll a name to create the poll');
-  await expect(page.locator('#title')).toBeFocused();
+  await expect(page.locator('#err')).toHaveText('Add at least one option to create the poll');
   await expect(page).toHaveURL(/\/new\/pick$/);
-  await page.fill('#title', 'Dinner');
-  await expect(page.locator('#summary')).toHaveText('Add at least one option to create the poll');
   await page.locator('#submit').focus();
   await page.keyboard.press('Enter');
   await expect(page.locator('#err')).toHaveText('Add at least one option to create the poll');
@@ -2020,19 +2018,20 @@ test('your name and email are at the bottom, required, and missing fields say so
   const about = page.locator('section[aria-labelledby="you-h"]');
   await expect(about.locator('input').first()).toHaveAttribute('id', 'organizer');
   await expect(about.locator('input').nth(1)).toHaveAttribute('id', 'notify');
-  for (const id of ['title', 'organizer', 'notify']) {
+  for (const id of ['organizer', 'notify']) {
     await expect(page.locator(`#${id}`)).toHaveAttribute('aria-required', 'true');
     await expect(page.locator(`label[for="${id}"] .req`)).toHaveText('Required');
   }
-  await expect(page.locator('label[for="location"] .req')).toHaveCount(0);
+  // The poll's name isn't: it starts with one.
+  await expect(page.locator('#title')).not.toHaveAttribute('aria-required');
+  for (const id of ['title', 'location']) await expect(page.locator(`label[for="${id}"] .req`)).toHaveCount(0);
   await page.click('#q-2w');
-  await expect(page.locator('#summary')).toHaveText('Needed: name · your name · email');
+  await expect(page.locator('#summary')).toHaveText('Needed: your name · email');
   // Pressing Create marks each missing field, and goes to the first.
   await page.locator('#submit').click({ force: true });
-  await expect(page.locator('#title')).toBeFocused();
-  await expect(page.locator('#err')).toHaveText('Give your poll a name to create the poll');
+  await expect(page.locator('#organizer')).toBeFocused();
+  await expect(page.locator('#err')).toHaveText('Add your name to create the poll');
   for (const [id, msg] of [
-    ['title', 'Give your poll a name'],
     ['organizer', 'Add your name'],
     ['notify', 'Add your email'],
   ]) {
@@ -2041,11 +2040,10 @@ test('your name and email are at the bottom, required, and missing fields say so
     await expect(page.locator(`#${id}`)).toHaveAttribute('aria-describedby', new RegExp(`^${id}-err`));
   }
   // Filling one in clears its message.
-  await page.fill('#title', 'Cabin');
-  await expect(page.locator('#title-err')).toHaveCount(0);
-  await expect(page.locator('#title')).not.toHaveAttribute('aria-invalid');
-  await expect(page.locator('#summary')).toHaveText('Needed: your name · email');
   await page.fill('#organizer', 'Sam');
+  await expect(page.locator('#organizer-err')).toHaveCount(0);
+  await expect(page.locator('#organizer')).not.toHaveAttribute('aria-invalid');
+  await expect(page.locator('#summary')).toHaveText('Add your email to create the poll');
   // The email is checked with the server's rule.
   await page.fill('#notify', 'sam@example');
   await expect(page.locator('#notify-err')).toHaveText('Check your email address');
@@ -2078,13 +2076,12 @@ test('the bar under the form names what’s still needed, and each one goes to i
   await page.goto('/new/pick');
   const bar = page.locator('#summary');
   await expect(bar).toHaveAttribute('aria-live', 'polite');
-  await expect(bar).toHaveText('Needed: name · options · your name · email');
+  await expect(bar).toHaveText('Needed: options · your name · email');
   // Short enough for two lines on a phone (measured in the page's own font, once it has loaded).
   await page.evaluate(() => document.fonts.ready);
   const lines = await bar.evaluate((el) => el.offsetHeight / parseFloat(getComputedStyle(el).lineHeight));
   expect(lines).toBeLessThanOrEqual(2.2);
   for (const [name, field] of [
-    ['name', '#title'],
     ['your name', '#organizer'],
     ['email', '#notify'],
     ['options', '#at-day'],
@@ -2094,9 +2091,8 @@ test('the bar under the form names what’s still needed, and each one goes to i
     await expect(page.locator(field)).toBeInViewport();
   }
   // Filled in, each leaves the list; the last thing left is said in full, and still goes there.
-  await page.fill('#title', 'Dinner');
-  await expect(bar).toHaveText('Needed: options · your name · email');
   await page.fill('#organizer', 'Sam');
+  await expect(bar).toHaveText('Needed: options · email');
   await page.fill('#notify', 'sam@example.com');
   await expect(bar).toHaveText('Add at least one option to create the poll');
   await page.locator('#title').focus();
@@ -2107,14 +2103,12 @@ test('the bar under the form names what’s still needed, and each one goes to i
   await expect(bar.getByRole('button')).toHaveCount(0);
 });
 
-test('a template names the poll when its name is left empty', async ({ page }) => {
+test('a template names the poll, and the name is never what’s missing', async ({ page }) => {
   await page.goto('/new/pick');
   await page.fill('#organizer', 'Sam');
-  await expect(page.locator('#summary')).toHaveText('Needed: name · options');
+  await expect(page.locator('#summary')).toHaveText('Add at least one option to create the poll');
   await page.getByRole('button', { name: 'Book club', exact: true }).click();
-  // The name isn't missing: the template's is used.
-  await expect(page.locator('#title')).toHaveValue('');
-  await expect(page.locator('#title')).toHaveAttribute('placeholder', 'Book club');
+  await expect(page.locator('#title')).toHaveValue('Book club');
   await expect(page.locator('#summary')).toHaveText('Add at least one option to create the poll');
   await addOptions(page, 1);
   await expect(page.locator('#submit')).toHaveAttribute('aria-disabled', 'false');
@@ -2835,4 +2829,33 @@ test('on a phone, the word on each marked day fits on one line', async ({ page }
     expect(clipped).toBe(false);
     expect(lines).toBeLessThanOrEqual(1);
   }
+});
+
+test('every poll starts with a name: a template renames it, and typing replaces it', async ({ page }) => {
+  await page.goto('/new/pick');
+  const title = page.locator('#title');
+  await expect(title).toHaveValue('Get-together');
+  // A template names it, and so does another; taking it off goes back.
+  await page.getByRole('button', { name: 'Book club' }).click();
+  await expect(title).toHaveValue('Book club');
+  await page.getByRole('button', { name: 'Dinner' }).click();
+  await expect(title).toHaveValue('Dinner');
+  await page.getByRole('button', { name: 'Dinner' }).click();
+  await expect(title).toHaveValue('Get-together');
+  // Tapping the name selects it, so what's typed replaces it.
+  await page.getByRole('button', { name: 'Dinner' }).click();
+  await page.locator('#location').focus();
+  await title.click();
+  await page.keyboard.type('Sam’s birthday');
+  await expect(title).toHaveValue('Sam’s birthday');
+  // A name the organizer typed stays when they change the template.
+  await page.getByRole('button', { name: 'Drinks' }).click();
+  await expect(title).toHaveValue('Sam’s birthday');
+  // Without a name at all, the poll is still made, named by its template.
+  await title.fill('');
+  await page.fill('#organizer', 'Sam');
+  await addOptions(page, 1);
+  await page.click('#submit');
+  await openNewPoll(page);
+  await expect(page.locator('#ev-title')).toHaveText('Drinks');
 });
