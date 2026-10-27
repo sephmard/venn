@@ -22,6 +22,7 @@ import {
   tzLine,
   wirePlan,
   youFields,
+  fromUrl,
 } from './create.js';
 
 // ---------- "Vote on a few dates" ----------
@@ -57,7 +58,7 @@ function tinyTime(m) {
 export function renderPick() {
   document.title = 'Vote on a few dates · Venn';
   const src = source();
-  if (!src?.edit) track('view', { page: 'pick' });
+  if (!src?.edit) track('view', { page: 'pick', ...(fromUrl() && { from: fromUrl() }) });
   startForm();
   // The options so far, in local time: { date, from, to } in minutes, or { date, days } for all day or longer.
   const items = new Map();

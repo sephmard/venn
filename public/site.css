@@ -1033,6 +1033,56 @@ h3 {
   margin: 0 0 18px;
   color: var(--ink-2);
 }
+/* The comparison pages (/alternatives/…): an intro, then Venn and the other tool side by side. */
+.tpl-intro {
+  max-width: 760px;
+}
+.tpl-intro .lede {
+  margin: 0 0 32px;
+}
+.cmp-scroll {
+  overflow-x: auto;
+  border: 1.5px solid var(--line);
+  border-radius: 20px;
+  background: var(--card);
+}
+.cmp {
+  width: 100%;
+  min-width: 520px;
+  border-collapse: collapse;
+}
+.cmp th,
+.cmp td {
+  padding: 14px 18px;
+  text-align: left;
+  vertical-align: top;
+  border-bottom: 1px solid var(--line);
+}
+.cmp tbody tr:last-child > * {
+  border-bottom: 0;
+}
+.cmp thead th {
+  font-size: 0.875rem;
+  color: var(--ink-2);
+}
+.cmp thead th:nth-child(2),
+.cmp td:nth-child(2) {
+  color: var(--green);
+  font-weight: 600;
+}
+.cmp tbody th {
+  font-weight: 600;
+  width: 46%;
+}
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}
 /* The templates, as cards: on /templates and the home page. */
 .tpl-cards {
   list-style: none;

@@ -53,6 +53,12 @@ const scroller = (label, table) =>
   `<div class="table-scroll" tabindex="0" role="region" aria-label="${esc(label)}"><table>${table}</table></div>`;
 
 /** Rows of { label, n } as a table with bars, biggest first. */
+/** Names for where people came from (?from=); the website's pages are named by their address. */
+const FROM_LABELS = new Proxy(
+  { guest: 'A guest making their own', set: 'After a date was picked' },
+  { get: (o, k) => o[k] || (k === '(none)' ? k : `The ${k} page`) },
+);
+
 function breakdown(title, rows, { total, sort = true, hint = '' } = {}) {
   const list = sort ? [...rows].sort((a, b) => b.n - a.n) : rows;
   const max = Math.max(1, ...list.map((r) => r.n));
@@ -205,6 +211,19 @@ function render({ days, since, counts, outcomes }, earlier) {
         answered: 'Guests who answered',
         organizer: 'Organizers',
       }).filter((r) => r.label !== '(none)'),
+    )}
+    ${breakdown(
+      'Where new polls come from',
+      by(counts, 'poll.created', 'from', FROM_LABELS).filter((r) => r.label !== '(none)'),
+      {
+        total: created,
+        hint: 'Polls whose organizer came from a guest’s “make yours” link, a picked date, or a page on the website.',
+      },
+    )}
+    ${breakdown(
+      'Visits from the website’s pages',
+      by(counts, 'view', 'from', FROM_LABELS).filter((r) => r.label !== '(none)'),
+      { hint: 'People who opened a create page from a link with a from=, by where it was.' },
     )}
     ${breakdown('Kinds of poll created', by(counts, 'poll.created', 'detail'), { total: created })}
     ${breakdown('Plans', by(counts, 'poll.created', 'plan'), { total: created })}

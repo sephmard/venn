@@ -1,4 +1,7 @@
 import { test, expect } from '@playwright/test';
+import { PAGES } from '../pages/pages.js';
+import { TEMPLATES, templateIndex } from '../public/templates.js';
+import { addOptions } from './helpers.js';
 
 // Templates on the create page (a row of cards, seasonal ones first), the ?template= link that
 // chooses one, the template pages on the website, and Finn's little surprises.
@@ -124,8 +127,8 @@ for (const path of ['/templates/friendsgiving', '/templates/holiday-party', '/te
     await page.locator('.faq summary').first().click();
     await expect(page.locator('.faq details').first().locator('p')).toBeVisible();
     const slug = path.split('/').pop();
-    await page.locator(`.tpl-hero a[href="/new/pick?template=${slug}"]`).click();
-    await expect(page).toHaveURL(/\/new\/pick$/);
+    await page.locator(`.tpl-hero a[href^="/new/pick?template=${slug}&"]`).click();
+    await expect(page).toHaveURL(new RegExp(`/new/pick\\?from=${slug}$`)); // the template's name is gone, where they came from stays
     await expect(page.locator('.templates [aria-pressed="true"]')).toHaveCount(1);
     await expect(page.locator('#desc')).not.toHaveValue('');
   });
@@ -138,8 +141,49 @@ test('the templates page and the home page link to the template pages', async ({
   await page.getByRole('navigation', { name: 'Breadcrumb' }).getByRole('link', { name: 'Templates' }).click();
   await expect(page).toHaveURL(/\/templates$/);
   await noSideways(page);
-  await page.locator('.tpl-more a', { hasText: 'Book club' }).click();
+  await page.locator('.tpl-cards a', { hasText: 'Book club' }).click();
+  await expect(page).toHaveURL(/\/templates\/book-club$/);
+  await page.locator('.tpl-hero .btn').click();
   await expect(card(page, 'Book club')).toHaveAttribute('aria-pressed', 'true');
+});
+
+test('every landing page opens its template, and says where people came from', async ({ page, request }) => {
+  const sent = [];
+  page.on('request', (r) => r.url().endsWith('/api/usage') && sent.push(r.postDataJSON()));
+  for (const p of PAGES) {
+    await page.goto(p.path);
+    await expect(page.locator('h1')).toBeVisible();
+    await noSideways(page);
+    // Its own title, and its own picture for link previews.
+    await expect(page).toHaveTitle(p.title);
+    const image = await page.locator('meta[property="og:image"]').getAttribute('content');
+    expect((await request.get(new URL(image).pathname)).status()).toBe(200);
+    if (!p.template) continue;
+    // The button opens the template, quiet ones too (they're only reached by links like this).
+    await page.locator('main .btn').first().click();
+    await expect(page.locator('.templates [aria-pressed="true"]')).toHaveCount(1);
+    await expect(page.locator('#emoji-tile')).toHaveText(TEMPLATES[templateIndex(p.template)].emoji);
+  }
+  await expect.poll(() => sent.some((e) => e.name === 'view' && e.props.from === 'dnd')).toBe(true);
+  // Comparison pages go to the chooser, which passes where they came from on.
+  await page.goto('/alternatives/doodle');
+  await page.locator('main .btn').first().click();
+  await page.locator('a[href^="/new/pick"]').first().click();
+  await expect(page).toHaveURL(/from=doodle/);
+});
+
+test('a poll made from a landing page is counted as coming from it', async ({ page, request }) => {
+  await page.goto('/templates/book-club');
+  await page.locator('.tpl-hero .btn').click();
+  await page.fill('#title', 'Book club');
+  await page.fill('#organizer', 'Sam');
+  await addOptions(page, 1);
+  await page.click('#submit');
+  await expect(page).toHaveURL(/\/e\//);
+  const stats = await (await request.get('/api/stats?days=2', { headers: { authorization: 'Bearer test-stats' } })).json();
+  expect(
+    stats.counts.some((c) => c.name === 'poll.created' && c.props.from === 'book-club' && c.props.plan === 'book-club'),
+  ).toBe(true);
 });
 
 test('easter eggs: Finn reacts to a few names and to a template tapped over and over', async ({ page }) => {

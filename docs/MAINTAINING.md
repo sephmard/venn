@@ -131,6 +131,15 @@ The landing page, privacy page and app are all served by the one Worker. To set 
 
 After changing the landing page's main screenshot, regenerate the social preview with `npm run og`.
 
+### Landing pages and search
+
+The pages under `/templates/` and `/alternatives/` are written from one file, [`pages/pages.js`](../pages/pages.js), so they all share a layout, structured data (FAQ and breadcrumbs) and a place in the sitemap.
+
+- **Add or change a page** in `pages/pages.js`, then run `npm run pages` (the HTML, `/templates` and `sitemap.xml`) and `npm run og` (its link-preview picture). `npm test` fails if the HTML is out of date. A page for a plan that isn't a template yet needs one in `public/templates.js` with `quiet: true`, so it only appears when the page's button chooses it.
+- **Comparison pages** say what other tools do. Check them now and then, and update the "checked in" month in `scripts/build-pages.js`.
+- **Search Console**: verify `venn.day` at [Google Search Console](https://search.google.com/search-console) (a DNS TXT record in Cloudflare), and submit `https://venn.day/sitemap.xml`. It shows which searches find each page.
+- **What works**: each page's button carries `?from=<slug>`, so the stats page shows visits and polls per page under "Where new polls come from".
+
 ## Releases
 
 Each merge to `main` is deployable. To mark a version, create a release from **Releases → Draft a new release**. Use a tag like `v1.2.0` and let GitHub generate the notes from the merged pull requests.

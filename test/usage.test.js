@@ -64,7 +64,8 @@ test('only known events with known values are counted', () => {
     name: 'view',
     props: '{"from":"guest","page":"chooser"}',
   });
-  assert.equal(cleanUsage('view', { page: 'chooser', from: 'somewhere' }, { client: true }), null);
+  // An unknown one is left out, and the visit still counts.
+  assert.equal(cleanUsage('view', { page: 'chooser', from: 'somewhere' }, { client: true }).props, '{"page":"chooser"}');
   // The "It's set" picture, shared from the share sheet or downloaded.
   assert.deepEqual(cleanUsage('share', { from: 'card', how: 'download' }, { client: true }), {
     name: 'share',

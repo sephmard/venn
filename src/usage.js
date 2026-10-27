@@ -11,6 +11,7 @@
 
 import { allDaySpan, isOptionsPoll, isPartsPoll } from '../public/core.js';
 import { REPEATS } from '../public/repeat.js';
+import { PAGE_SLUGS } from '../pages/pages.js';
 
 const BUCKETS = ['1', '2-3', '4-7', '8-15', '16+'];
 const bucket = (n) => (n <= 1 ? '1' : n <= 3 ? '2-3' : n <= 7 ? '4-7' : n <= 15 ? '8-15' : '16+');
@@ -36,7 +37,19 @@ const PLANS = {
   '🎄': 'holiday-party',
   '🎁': 'secret-santa',
   '🥂': 'new-year',
+  '🐉': 'dnd',
+  '🎸': 'band-practice',
+  '✏️': 'study-group',
+  '🏡': 'family-reunion',
+  '🥳': 'bachelor-party',
+  '🏢': 'team-offsite',
 };
+
+/**
+ * Where someone came from, carried in links as ?from=: a guest answering a poll, a poll whose date
+ * is picked, or one of the website's landing pages (pages/pages.js).
+ */
+const FROM = ['guest', 'set', ...PAGE_SLUGS];
 
 /**
  * Every event Venn counts, with the values each property may take. `client: true` events come
@@ -52,6 +65,7 @@ export const USAGE_EVENTS = {
     email: YN, // the organizer gave an email for notifications
     copy: YN, // started from an existing poll
     repeat: [...REPEATS, 'no'], // the plan repeats: weekly, every 2 weeks or monthly
+    from: FROM, // where the organizer came from, when it's known
   },
   'poll.edited': { kind: KINDS },
   'poll.deleted': { kind: KINDS },
@@ -69,7 +83,7 @@ export const USAGE_EVENTS = {
     client: true,
     page: ['chooser', 'pick', 'free', 'poll'],
     as: ['guest', 'organizer', 'answered'],
-    from: ['guest', 'set'],
+    from: FROM,
   },
   share: { client: true, how: ['sheet', 'copy', 'download'], from: ['created', 'poll', 'card', 'sticker'] }, // card: the "It's set" picture; sticker: a Finn sticker
 };
@@ -82,6 +96,8 @@ export function cleanUsage(name, props = {}, { client = false } = {}) {
   if (!spec || Boolean(spec.client) !== client || !props || typeof props !== 'object') return null;
   const out = {};
   for (const [k, v] of Object.entries(props)) {
+    // Where someone came from is in an address, which can say anything: an unknown one is left out.
+    if (k === 'from' && spec.from === FROM && !FROM.includes(v)) continue;
     if (k === 'client' || !Object.hasOwn(spec, k) || !spec[k].includes(v)) return null;
     out[k] = v;
   }

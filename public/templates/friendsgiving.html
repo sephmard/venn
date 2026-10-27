@@ -20,7 +20,7 @@
       property="og:description"
       content="Suggest a few days around Thanksgiving, share one link, and see who can come. Free, no sign-up."
     />
-    <meta property="og:image" content="https://venn.day/og.png" />
+    <meta property="og:image" content="https://venn.day/og/templates-friendsgiving.png" />
     <meta property="og:image:width" content="1200" />
     <meta property="og:image:height" content="630" />
     <meta name="twitter:card" content="summary_large_image" />
@@ -60,11 +60,18 @@
           {
             "@type": "Question",
             "name": "Is Venn free?",
-            "acceptedAnswer": {
-              "@type": "Answer",
-              "text": "Yes. Venn is free and open source, with no ads and no tracking."
-            }
+            "acceptedAnswer": { "@type": "Answer", "text": "Yes. Venn is free and open source, with no ads and no tracking." }
           }
+        ]
+      }
+    </script>
+    <script type="application/ld+json">
+      {
+        "@context": "https://schema.org",
+        "@type": "BreadcrumbList",
+        "itemListElement": [
+          { "@type": "ListItem", "position": 1, "name": "Templates", "item": "https://venn.day/templates" },
+          { "@type": "ListItem", "position": 2, "name": "Friendsgiving", "item": "https://venn.day/templates/friendsgiving" }
         ]
       }
     </script>
@@ -73,10 +80,7 @@
     <a class="skip" href="#main">Skip to content</a>
     <header class="topbar">
       <div class="wrap nav">
-        <a href="/" class="brand">
-          <img src="/favicon.svg?v=5" width="28" height="28" alt="" />
-          Venn
-        </a>
+        <a href="/" class="brand"><img src="/favicon.svg?v=5" width="28" height="28" alt="" /> Venn</a>
         <nav class="nav-links" aria-label="Main">
           <a href="/#groups" class="hide-md">For groups</a>
           <a href="/#developers" class="hide-md">For developers</a>
@@ -108,7 +112,6 @@
         </nav>
       </div>
     </header>
-
     <main id="main">
       <div class="wrap page tpl-page">
         <nav class="crumbs" aria-label="Breadcrumb">
@@ -121,7 +124,7 @@
               Suggest a few days around Thanksgiving, send one link to the group chat, and watch the best day rise to the top.
               Free, no sign-up, nothing to install.
             </p>
-            <a class="btn btn-lg" href="/new/pick?template=friendsgiving">Start a Friendsgiving poll</a>
+            <a class="btn btn-lg" href="/new/pick?template=friendsgiving&amp;from=friendsgiving">Start a Friendsgiving poll</a>
             <p class="tpl-small">
               Opens with Friendsgiving filled in: an evening, four hours long, with a potluck note you can change.
             </p>
@@ -129,14 +132,14 @@
           <figure
             class="result"
             role="img"
-            aria-label="A Venn poll for Friendsgiving at Ana&#x27;s: Sat, Nov 21, 8 of 8, Sun, Nov 22, 6 of 8, Fri, Nov 27, 5 of 8, Sat, Nov 28, 4 of 8. Sat, Nov 21 is the best date."
+            aria-label="A Venn poll for Friendsgiving at Ana's: Sat, Nov 21, 8 of 8, Sun, Nov 22, 6 of 8, Fri, Nov 27, 5 of 8, Sat, Nov 28, 4 of 8. Sat, Nov 21 is the best date."
           >
             <div aria-hidden="true">
-              <p class="result-head"><img src="/favicon.svg?v=5" width="20" height="20" alt="" /> Friendsgiving at Ana&#x27;s</p>
+              <p class="result-head"><img src="/favicon.svg?v=5" width="20" height="20" alt="" /> Friendsgiving at Ana's</p>
               <ul class="votes">
                 <li class="best"><span>Sat, Nov 21</span><i style="--n: 100%"></i><b>8 of 8</b></li>
                 <li><span>Sun, Nov 22</span><i style="--n: 75%"></i><b>6 of 8</b></li>
-                <li><span>Fri, Nov 27</span><i style="--n: 62%"></i><b>5 of 8</b></li>
+                <li><span>Fri, Nov 27</span><i style="--n: 63%"></i><b>5 of 8</b></li>
                 <li><span>Sat, Nov 28</span><i style="--n: 50%"></i><b>4 of 8</b></li>
               </ul>
               <p class="result-label">Everyone can make it</p>
@@ -225,6 +228,7 @@
             <ul class="tpl-more">
               <li><a href="/templates/holiday-party">Holiday party</a></li>
               <li><a href="/templates/secret-santa">Secret Santa</a></li>
+              <li><a href="/templates/dinner-party">Dinner party</a></li>
               <li><a href="/templates">All templates</a></li>
             </ul>
           </section>
@@ -232,14 +236,14 @@
       </div>
       <section class="wrap closing">
         <h2>Make it <em>a date.</em></h2>
-        <a href="/new/pick?template=friendsgiving" class="btn btn-lg">Start a Friendsgiving poll</a>
+        <a href="/new/pick?template=friendsgiving&amp;from=friendsgiving" class="btn btn-lg">Start a Friendsgiving poll</a>
       </section>
     </main>
-
     <footer class="wrap footer">
       <span>© Venn · Free and open source</span>
       <nav aria-label="Footer">
         <a href="/templates">Templates</a>
+        <a href="/templates#compare">Compare</a>
         <a href="/privacy">Privacy</a>
         <a href="https://docs.venn.day">Docs</a>
         <a href="https://github.com/sephmard/venn">GitHub</a>

@@ -292,6 +292,7 @@ export async function handleApi(
         email: notifyEmail ? 'yes' : 'no',
         copy: body.copied === true ? 'yes' : 'no',
         repeat: event.repeat || 'no',
+        ...(typeof body.from === 'string' && { from: body.from }),
       });
       return json({ id, adminToken, ...(host && { participant: host }) }, 201);
     }
