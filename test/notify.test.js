@@ -588,12 +588,12 @@ test("an email's Text message button opens the poll's own message, never anythin
   };
   const html = await page('Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X)');
   const body = encodeURIComponent(`When works for you? “Dinner <b>& drinks</b>”: ${base}/e/${data.id}`);
-  // Straight on to messages, with a button in case that can't open, and the message to copy.
-  assert.ok(html.includes(`<meta http-equiv="refresh" content="0;url=sms:&amp;body=${body}">`));
+  // A button to tap, not a redirect: iPhones ask before a page opens Messages by itself, not after a tap.
+  assert.ok(!html.includes('http-equiv="refresh"'));
   assert.ok(html.includes(`href="sms:&amp;body=${body}"`));
   assert.ok(html.includes('Dinner &lt;b&gt;&amp; drinks&lt;/b&gt;'));
   assert.ok(!html.includes('<b>&'));
   assert.ok(html.includes('<meta name="robots" content="noindex">'));
-  assert.match(await page('Mozilla/5.0 (Linux; Android 15)'), /url=sms:\?body=/);
+  assert.match(await page('Mozilla/5.0 (Linux; Android 15)'), /href="sms:\?body=/);
   assert.equal((await fetch(`${base}/api/events/nope/sms`)).status, 404);
 });
