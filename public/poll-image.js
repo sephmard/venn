@@ -41,8 +41,9 @@ function state() {
   const tile = $('#emoji-tile');
   // `base` is the emoji the kind of plan gives (or the calendar); `emoji` one the organizer typed.
   // `had`: the poll being edited has a picture, so taking it away deletes it.
-  // `sticker`: the key of the Finn sticker on the link preview, or '' for none.
-  return (S = { tile, base: tile?.textContent || '🗓️', emoji: '', picture: null, had: false, sticker: '' });
+  // `sticker`: the key of the Finn sticker on the link preview, or '' for none. Finn is there unless
+  // they take him off.
+  return (S = { tile, base: tile?.textContent || '🗓️', emoji: '', picture: null, had: false, sticker: DEFAULT_STICKER });
 }
 
 /**
@@ -79,6 +80,8 @@ function show() {
 }
 
 // The stickers that suit a poll still asking ("It's set!" is for once the date is picked).
+/** Finn's sticker on a new picture's link preview, until the organizer picks another or none. */
+export const DEFAULT_STICKER = 'cant-wait';
 export const PREVIEW_STICKERS = STICKERS.filter((x) => x.key !== 'its-set');
 
 /** The sticker choices, as buttons: "No Finn", then each sticker, with `selected` pressed. */
@@ -412,7 +415,7 @@ export async function restore(ev, src, custom) {
       const blob = await res.blob();
       s.picture = { blob, url: await dataUrl(blob) };
       s.had = !!src.edit;
-      s.sticker = saved(src.id).sticker || ''; // remembered on this device, when it made the poll
+      s.sticker = saved(src.id).sticker ?? DEFAULT_STICKER; // remembered on this device, when it made the poll
     } catch {} // the poll keeps its picture; it just isn't shown here
   show();
 }
