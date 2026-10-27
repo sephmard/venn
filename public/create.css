@@ -789,10 +789,6 @@ button.emoji-tile:focus-visible {
     order: -1;
     flex-basis: 100%;
   }
-  .lengths .pill {
-    padding-inline: 0;
-    font-size: 0.875rem;
-  }
 }
 .tap-key {
   display: flex;
@@ -804,4 +800,16 @@ button.emoji-tile:focus-visible {
   display: inline-flex;
   align-items: center;
   gap: 6px;
+}
+/* On phones the pills flow and wrap as they fit, each on one line in any phone's font. */
+@media (max-width: 440px) {
+  .lengths {
+    display: flex;
+    flex-wrap: wrap;
+  }
+  .lengths .pill:nth-child(n) {
+    flex: 1 1 auto;
+    padding-inline: 12px;
+    white-space: nowrap;
+  }
 }

@@ -191,7 +191,8 @@ test.describe('on a 320px phone', () => {
       expect(r.width).toBeGreaterThanOrEqual(44);
       expect(r.height).toBeGreaterThanOrEqual(44);
     }
-    // "2 hours" on one line, like the other length pills.
+    // "2 hours" on one line, like the other length pills, in a wide font too (as some phones and CI use).
+    await page.addStyleTag({ content: ".lengths .pill { font-family: 'DejaVu Sans', Verdana, sans-serif !important }" });
     for (const p of await page.locator('.lengths .pill').all()) expect((await box(p)).height).toBeLessThan(50);
     await page.click('[data-length="allday"]');
     // "28", not "2" over "8".
