@@ -201,6 +201,7 @@ test.describe('on a 320px phone', () => {
     };
     await lines('[data-level="days"], [data-mode="time"]');
     await page.click('[data-mode="time"]');
+    await expect(page.locator('#time-levels')).toBeVisible(); // once the painter has loaded
     await lines('#time-levels [data-level]');
     await page.click('[data-level="days"]');
     // No sentences explaining it: the tap key says how to tap.
