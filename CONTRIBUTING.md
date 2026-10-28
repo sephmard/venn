@@ -21,6 +21,16 @@ npm start            # http://localhost:8787
 
 Data is stored in `data/venn.db` (SQLite). Delete it to start fresh.
 
+## Try a change (staging)
+
+```sh
+npm run staging      # http://localhost:8788, with polls of every kind to click
+```
+
+It runs Venn on your computer with its own database (`data/staging.db`, fresh each run; `npm run staging -- --keep` keeps it), filled with answered polls: dates to vote on, parts of the day, days, days in a row, hours, a group of 12, and one with its date picked. It prints an organizer link for each, and an address for phones on the same Wi-Fi. Nothing is published.
+
+**From a pull request, in one click:** on the PR, open **Code → Codespaces → Create codespace on this branch** (or go to `https://codespaces.new/sephmard/venn/pull/<number>`). GitHub starts a private machine with that PR's code, runs `npm run staging` and opens it in your browser. The link is private to your GitHub account; to try it on a phone, sign in to GitHub there, or make the port public under **Ports**. Stop the codespace when you're done, as it uses your Codespaces hours.
+
 ## Before you open a pull request
 
 ```sh

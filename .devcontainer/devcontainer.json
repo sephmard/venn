@@ -1,0 +1,13 @@
+{
+  // "Code → Codespaces → Create codespace" on a pull request: a private machine with that PR's
+  // code, running `npm run staging` (a fresh test database filled with polls), opened in the browser.
+  // Nothing is published: the forwarded port is private to you unless you make it public.
+  "name": "Venn staging",
+  "image": "mcr.microsoft.com/devcontainers/javascript-node:1-22-bookworm",
+  "postCreateCommand": "npm ci",
+  "postAttachCommand": { "staging": "npm run staging" },
+  "forwardPorts": [8788],
+  "portsAttributes": {
+    "8788": { "label": "Venn staging", "onAutoForward": "openBrowser" }
+  }
+}
