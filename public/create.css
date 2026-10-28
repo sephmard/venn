@@ -633,13 +633,23 @@ button.emoji-tile:focus-visible {
 .od-row .chips {
   margin-bottom: 0;
 }
-/* "Or add a time", for keyboards */
-/* "Or add a time": its own panel, the day and start side by side and Add under them on phones. */
+/* "Or add a time": for keyboards and screen readers only. Out of sight until it's tabbed to,
+   then its own panel, the day and start side by side and Add under them on phones. */
 .add-time {
   margin-top: 16px;
   padding: 14px;
   border-radius: 16px;
   background: var(--surface-2);
+}
+.add-time:not(:focus-within):not(.used) {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: 0;
+  padding: 0;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
 }
 .add-time .scope-label {
   display: block;
@@ -860,4 +870,12 @@ button.emoji-tile:focus-visible {
     padding-inline: 12px;
     white-space: nowrap;
   }
+}
+/* "Every day this week": a heading over its pills, then Clear all. */
+.quick .fill-h {
+  flex-basis: 100%;
+  margin: 4px 0 0;
+}
+.quick > .pills {
+  flex-basis: 100%;
 }

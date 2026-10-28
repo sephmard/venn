@@ -33,10 +33,11 @@ const PAGES = {
   // +0.25 on the second for the shared stylesheet's organizer-page styles.
   // +0.25 on the first for the Where field's address search hook (the search itself loads on focus).
   // +0.5 each for the calendar's « » a month at a time, and a phone's week that fits seven days.
-  'vote on a few dates page': ['create-pick.js', ['create.css'], 49.75], // +0.25 for the landing pages' link-only templates, +0.25 for a guest's one-tap own poll
+  // +0.25 each for switching lengths keeping the days, and the week's fills that show when they're on.
+  'vote on a few dates page': ['create-pick.js', ['create.css'], 50], // +0.25 for the landing pages' link-only templates, +0.25 for a guest's one-tap own poll
   // +0.25 for usage stats, +0.25 for the landing pages' templates, +0.25 for a guest's one-tap own poll
   // (template by emoji) and the day labels that fit.
-  'ask when people are available page': ['create-free.js', ['create.css'], 48],
+  'ask when people are available page': ['create-free.js', ['create.css'], 48.5], // +0.5: the above, and days in a row as a switch
   // +0.5 for big groups: "+N more" people, names behind "See who", ticks on whole best times.
   'poll page': ['event.js', [], 45.5],
 };

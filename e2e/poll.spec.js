@@ -133,7 +133,9 @@ test('ask when people are free: days, looking for a run of days', async ({ page 
   await expect(page.locator('[data-level="days"]')).toHaveAttribute('aria-checked', 'true');
   await page.click('#q-2w');
   await expect(page.locator('#summary')).toHaveText('14 days to choose from');
-  await page.click('[data-step="1"]');
+  // Days in a row starts off; switched on, it's 2.
+  await expect(page.locator('#span')).toBeHidden();
+  await page.getByRole('switch', { name: 'Days in a row' }).check();
   await expect(page.locator('#span')).toHaveValue('2');
   await expect(page.locator('#free-list')).toContainText('14 days · long enough');
   await page.click('#submit');
@@ -155,6 +157,7 @@ test('ask when people are free: days that never make the run asked for can’t b
   await page.fill('#organizer', 'Sam');
   await page.fill('#title', 'Cabin weekend');
   await page.click('#q-weekends'); // Fri – Sun, four times: 3 days in a row at most
+  await page.check('#in-row');
   await page.fill('#span', '4');
   await expect(page.locator('#summary')).toHaveText('None of your days make 4 in a row. Pick days next to each other');
   await expect(page.locator('#submit')).toHaveAttribute('aria-disabled', 'true');
@@ -169,13 +172,14 @@ test('ask when people are free: days that never make the run asked for can’t b
   await expect(page.locator('#span')).toHaveValue('14');
   await page.fill('#span', '0');
   await page.locator('#span').blur();
-  await expect(page.locator('#span')).toHaveValue('1');
+  await expect(page.locator('#span')).toHaveValue('2');
 });
 
 test('ask when people are available: a tap picks days in a row, shown as one band and as a range', async ({ page }) => {
   await page.goto('/new/free');
   await page.fill('#title', 'Cabin weekend');
   await page.fill('#organizer', 'Sam');
+  await page.check('#in-row');
   await page.fill('#span', '3');
   await expect(page.locator('#when-help')).toHaveText('Tap a day to pick 3 in a row from it.');
   await showNextMonth(page);
@@ -331,7 +335,7 @@ test('ask when people are free: paint hours and see the best time', async ({ pag
   await page.click('[data-flength="60"]');
   await expect(page.locator('#submit')).toHaveAttribute('aria-disabled', 'true');
   // The quick fills are the same mornings, afternoons and evenings as the parts of the day.
-  await expect(page.locator('[data-fill="2"]')).toContainText('Evenings 6 – 10 PM');
+  await expect(page.locator('[data-fill="2"]')).toHaveText('Evenings');
   await page.click('[data-fill="0"]'); // mornings, all week
   await expect(page.locator('#free-list')).toContainText('9 AM – 12 PM');
   await page.click('#submit');
@@ -346,7 +350,8 @@ test('ask when people are free: paint hours and see the best time', async ({ pag
   await expect(page.locator('#mine .cell[data-slot]:not(.yes)')).toHaveCount(0); // the organizer is free when they offered
   await page.click('#none');
   // Phones show one day at a time, and the page still fits the screen.
-  if (isMobile) await expect(page.locator('#hour-days .tv-chip')).toHaveCount(7);
+  // (the mornings were filled for the rest of this week)
+  if (isMobile) await expect(page.locator('#hour-days .tv-chip')).toHaveCount(await page.evaluate(() => 7 - new Date().getDay()));
   expect(await page.evaluate(() => document.documentElement.scrollWidth - screen.width)).toBeLessThanOrEqual(0);
 
   const cell = (r, c) => page.locator(`#mine .cell[data-r="${r}"][data-c="${c}"]`);
@@ -560,7 +565,7 @@ test('organizers add different times on different days, and see the whole poll b
   await expect(page.locator('#mine .row')).toHaveCount(2);
 });
 
-test('organizers are asked before a change removes several options at once', async ({ page }) => {
+test('switching lengths keeps the days picked, and organizers are asked before one × removes several', async ({ page }) => {
   /** Answer the next confirm() with `yes`, and return its message. */
   const answer = (yes) => {
     page.removeAllListeners('dialog');
@@ -574,17 +579,17 @@ test('organizers are asked before a change removes several options at once', asy
   await page.goto('/new/pick');
   await page.fill('#organizer', 'Sam');
   await addOptions(page, 2, [1140]);
-  // Times and whole days don't mix, so switching to all day would clear them: saying no keeps both.
-  let asked = answer(false);
+  // Switching between times and whole days needs no asking: the days stay, as whole days, and
+  // come back at their time. (Some in-app browsers block confirm() and would stop the switch.)
+  let asked;
   await page.click('[data-length="allday"]');
-  expect(await asked).toBe("Switching to all day removes the 2 options you've added. Switch anyway?");
-  await expect(page.locator('[data-length="60"]')).toHaveAttribute('aria-pressed', 'true');
-  await expect(page.locator('[data-length="allday"]')).toHaveAttribute('aria-pressed', 'false');
+  await expect(page.locator('[data-length="allday"]')).toHaveAttribute('aria-pressed', 'true');
+  await expect(page.locator('#picker .cal-day[aria-pressed="true"]')).toHaveCount(2);
+  await expect(page.locator('#options-list .chip')).toHaveText(['All day×', 'All day×']);
+  await page.click('[data-length="days"]');
   await expect(page.locator('#options-list .chip')).toHaveCount(2);
-  asked = answer(true);
-  await page.click('[data-length="allday"]');
-  await asked;
-  await expect(page.locator('#options-list')).toContainText('Nothing yet');
+  await page.click('[data-length="60"]');
+  await expect(page.locator('#options-list .chip')).toHaveText([/^7\D+8 PM/, /^7\D+8 PM/]);
 
   // On "ask when people are free", one × can stand for a week of evenings.
   await page.goto('/new/free');
@@ -1074,6 +1079,35 @@ test('organizers edit a poll until someone answers, then duplicate it', async ({
   await openNewPoll(page);
   await expect(page).not.toHaveURL(url);
   await expect(page.locator('#ev-meta')).toContainText('1 person answered'); // a new poll, with only the organizer
+});
+
+test('hours: a whole day reads "All day", the week\'s fills show when they\'re on, and days in a row stay whole days', async ({
+  page,
+}) => {
+  await page.clock.setFixedTime(new Date(2030, 0, 9, 12)); // a Wednesday
+  await page.goto('/new/free');
+  await page.fill('#organizer', 'Sam');
+  await page.click('[data-level="hours"]');
+  const allDay = page.getByRole('button', { name: 'All day', exact: true });
+  await expect(page.locator('#fill-h')).toHaveText('Every day this week');
+  await allDay.click();
+  // Wednesday to Saturday: the rest of this week, not into the next.
+  await expect(page.locator('#free-list .od-date')).toHaveText(['Wed, Jan 9 – Sat, Jan 12']);
+  await expect(page.locator('#free-list .chip')).toHaveText(['All day×']);
+  await expect(page.locator('#when .tg-block').first()).toContainText('All day');
+  // On, like every part of the day it covers; a second tap takes it away.
+  for (const b of await page.locator('[data-fill]').all()) await expect(b).toHaveAttribute('aria-pressed', 'true');
+  await allDay.click();
+  await expect(allDay).toHaveAttribute('aria-pressed', 'false');
+  await expect(page.locator('#free-list')).toHaveText('Nothing yet.');
+
+  // Days in a row are whole days: parts of the day and hours wait until it's off again.
+  await page.click('[data-level="days"]');
+  await page.check('#in-row');
+  await expect(page.locator('[data-level="parts"]')).toBeDisabled();
+  await expect(page.locator('[data-level="hours"]')).toBeDisabled();
+  await page.uncheck('#in-row');
+  await expect(page.locator('[data-level="hours"]')).toBeEnabled();
 });
 
 test('"when are you free" polls come back to edit at their level: hours, or parts of the day', async ({ page }) => {

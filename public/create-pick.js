@@ -270,6 +270,8 @@ export function renderPick() {
         <div><label for="at-time">Starts at</label><select id="at-time">${times.join('')}</select></div>
         <button type="button" class="btn" id="at-add">Add this time</button>
       </div>`;
+    // Once tabbed to, it stays in sight, so nothing moves under the pointer.
+    $('#add-time').addEventListener('focusin', (e) => e.currentTarget.classList.add('used'));
     // Any day from today on; the calendar goes to the day picked.
     const day = () => ($('#at-day').value >= todayStr() ? $('#at-day').value : '');
     $('#at-day').onchange = () => day() && view.show(day());
@@ -349,7 +351,7 @@ export function renderPick() {
         .join('');
     }
     box.innerHTML = `<ul class="od-list">${rows}</ul>
-      <button type="button" class="link-btn" id="clear-options">Remove all</button>`;
+      <button type="button" class="link-btn" id="clear-options">Clear all</button>`;
   }
   $('#options-list').addEventListener('click', (e) => {
     const rm = e.target.closest('[data-remove]');
@@ -378,22 +380,12 @@ export function renderPick() {
    * Change how long the options are: minutes, 'half', 'allday', 'days', or 'custom' for the length
    * "Custom" shows. Returns false when the organizer chose to keep their options rather than switch.
    */
-  function setLength(v, { ask = true } = {}) {
+  function setLength(v) {
     if (v === 'custom') v = +$('#custom').value || 'half';
     const was = kindOf(length);
-    // Options of different kinds don't mix: switching between them starts over, so ask.
-    const clears = items.size && was !== kindOf(v);
-    if (
-      clears &&
-      ask &&
-      !confirm(`Switching to ${label(v).toLowerCase()} removes the ${plural(items.size, 'option')} you've added. Switch anyway?`)
-    ) {
-      showLength();
-      return false;
-    }
     length = v;
     showLength();
-    if (clears) items.clear();
+    if (was !== kindOf(v)) convert();
     // A new length applies to the options already added.
     if (timed()) for (const it of items.values()) it.to = Math.min(it.from + minutes(), 1440);
     else if (length !== 'half') for (const it of items.values()) it.days = v === 'days' ? spanDays : 1;
@@ -401,6 +393,26 @@ export function renderPick() {
     if (was !== kindOf(length) || kindOf(length) === 'day' || (!view && !month && !half)) mountPicker();
     else changed();
     renderList();
+  }
+  /**
+   * Switching between times, half days and whole days keeps the days picked: once each as a whole
+   * day (or a trip from it), or at their time (the usual one for days that had none).
+   */
+  function convert() {
+    const was = sorted().map(([, it]) => it);
+    items.clear();
+    const part = DAY_PARTS.find((p) => p.key === occasion()?.part) || DAY_PARTS.at(-1);
+    for (const it of was) {
+      let from = it.from ?? (length === 'half' ? part.start : (lastFrom ?? PART_OPENS[occasion()?.part] ?? 1080));
+      if (length === 'half') from = (DAY_PARTS.find((p) => from >= p.start && from < p.end) || part).start;
+      const to = length === 'half' ? DAY_PARTS.find((p) => p.start === from).end : Math.min(from + minutes(), 1440);
+      // Trips don't overlap: a day inside the trip before it joins that trip.
+      const prev = [...items.values()].at(-1);
+      if (kindOf(length) === 'day') {
+        if (!(length === 'days' && prev && it.date < addDays(prev.date, spanDays)))
+          items.set(`${it.date}|day`, { date: it.date, days: length === 'days' ? spanDays : 1, v: it.v });
+      } else items.set(`${it.date}|${from}`, { date: it.date, from, to, v: it.v });
+    }
   }
   /** The chip for the length, or "Custom" with its length when there's no chip for it. */
   function showLength() {
@@ -420,7 +432,7 @@ export function renderPick() {
   }
   // Opening "Custom" uses the length it shows.
   $('#other-box').addEventListener('toggle', (e) => {
-    if (e.target.open && lengthChip(length) !== 'custom' && setLength('custom') === false) e.target.open = false;
+    if (e.target.open && lengthChip(length) !== 'custom') setLength('custom');
   });
   $('#create').addEventListener('click', (e) => {
     const b = e.target.closest('[data-length]');
@@ -484,7 +496,7 @@ export function renderPick() {
     const { length: len, days: n } = (await import('./lengths.js')).optionsLength(opts, tz);
     items.clear(); // they replace any already added
     if (len === 'days') $('#span').value = spanDays = n[0];
-    setLength(len, { ask: false });
+    setLength(len);
     opts.forEach((o, i) => {
       const { date, minutes: from } = utcToZoned(o.start, tz);
       const v = mark(o.start);

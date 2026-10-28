@@ -16,21 +16,7 @@ import {
   zonedToUtc,
 } from './core.js';
 import { monthView, timeView, tinyTime } from './picker.js';
-import {
-  $,
-  $$,
-  app,
-  dateParts,
-  dayLabel,
-  esc,
-  fmtDay,
-  lengthLabel,
-  plural,
-  shortRange,
-  shortTime,
-  todayStr,
-  track,
-} from './ui.js';
+import { $, $$, app, dateParts, dayLabel, esc, fmtDay, lengthLabel, plural, shortTime, todayStr, track } from './ui.js';
 
 import {
   brush,
@@ -58,6 +44,9 @@ import {
 // ---------- "Ask when people are available" ----------
 
 // Hours are for short plans; longer ones suit parts of the day.
+// Under what guests choose from, as on "vote on a few dates".
+const CLEAR = '<button type="button" class="link-btn" id="q-clear">Clear all</button>';
+const NOTHING = '<p class="hint">Nothing yet.</p>';
 const HOUR_LENGTHS = [30, 60, 120];
 const fitLength = (v) => HOUR_LENGTHS.findLast((m) => m <= v) ?? HOUR_LENGTHS[0];
 // How detailed guests' answers are, from the broadest to the finest.
@@ -105,10 +94,10 @@ export function renderFree() {
           </div>
         </div>
         <div class="inline-field inline-row" data-for="days">
-          <label for="span">Days in a row</label>
-          <div class="stepper">
+          <label class="switch"><input type="checkbox" role="switch" id="in-row"> Days in a row</label>
+          <div class="stepper" id="span-box" hidden>
             <button type="button" class="icon-btn" data-step="-1" aria-label="One day fewer">−</button>
-            <input id="span" type="number" min="1" max="${MAX_SPAN_DAYS}" value="1" inputmode="numeric">
+            <input id="span" type="number" min="2" max="${MAX_SPAN_DAYS}" value="2" inputmode="numeric" aria-label="Days in a row">
             <button type="button" class="icon-btn" data-step="1" aria-label="One day more">+</button>
           </div>
         </div>
@@ -136,7 +125,7 @@ export function renderFree() {
   const occasion = wirePlan((o) => {
     if (!o) return;
     if (o.days) {
-      $('#span').value = o.days;
+      setRow(o.days);
       return setLevel('days');
     }
     if (typeof o.length === 'number') setLength(fitLength(o.length));
@@ -145,7 +134,13 @@ export function renderFree() {
     update();
   });
 
-  const span = () => Math.max(1, Math.min(MAX_SPAN_DAYS, +$('#span').value || 1));
+  // Days in a row: off is single days; on, 2 or more, and the stepper shows.
+  const span = () => ($('#in-row').checked ? Math.max(2, Math.min(MAX_SPAN_DAYS, +$('#span').value || 2)) : 1);
+  function setRow(n) {
+    $('#in-row').checked = n > 1;
+    $('#span-box').hidden = n < 2;
+    if (n > 1) $('#span').value = n;
+  }
   // Where to go when Create is pressed with nothing picked: the calendar.
   const gridFocus = () => $('#when .pg-cell[tabindex="0"]') || $('#when .tg-scroll') || $('#when .cal-day:not(:disabled)');
 
@@ -217,7 +212,6 @@ export function renderFree() {
     const at = ++mounts;
     root.innerHTML = $('#quick').innerHTML = '';
     $('#when-help').hidden = false;
-    const clear = '<button type="button" class="pill pill-quiet" id="q-clear">Clear all</button>';
     if (level === 'days') {
       const said = (d) => (selected.has(d) ? (maybe.days.has(d) ? 'If needed' : 'Available') : '');
       cal = monthView(root, { selected, onChange: tapped, dayClass: band, marks: said });
@@ -225,7 +219,7 @@ export function renderFree() {
       if (first) cal.show(first);
       $('#quick').innerHTML = `
         <button type="button" class="pill" id="q-2w">Next 2 weeks</button>
-        <button type="button" class="pill" id="q-weekends">Next 4 weekends</button>${clear}`;
+        <button type="button" class="pill" id="q-weekends">Next 4 weekends</button>`;
       return;
     }
     const parts = level === 'parts';
@@ -242,13 +236,14 @@ export function renderFree() {
     painter = paintView(root, {
       selected: set,
       onChange: update,
+      onRender: () => syncFills(),
       startAt: datesOf(set)[0],
       parts: parts && DAY_PARTS,
       maybe: maybe[level],
       marking: () => brush() === IF_NEEDED,
     });
     $('#when-help').textContent = paintHelp();
-    $('#quick').innerHTML = fillPills(parts) + clear;
+    $('#quick').innerHTML = fillPills();
   }
 
   /**
@@ -291,12 +286,12 @@ export function renderFree() {
           from: w.start,
           to: w.end,
           cls: w.maybe ? 'opt opt-maybe' : 'opt',
-          label: shortRange(w.start, w.end),
+          label: pt.hoursLabel(w.start, w.end),
           short: shortTime(w.start),
           tiny: tinyTime(w.start),
           tag: w.maybe ? 'If needed' : 'Available',
-          title: `${shortRange(w.start, w.end)} ${w.maybe ? 'If needed' : 'Available'}, ${dayLabel(w.date)}. Tap to make it ${w.maybe ? 'available' : 'if needed'}`,
-          remove: `Remove ${shortRange(w.start, w.end)}, ${dayLabel(w.date)}`,
+          title: `${pt.hoursLabel(w.start, w.end)} ${w.maybe ? 'If needed' : 'Available'}, ${dayLabel(w.date)}. Tap to make it ${w.maybe ? 'available' : 'if needed'}`,
+          remove: `Remove ${pt.hoursLabel(w.start, w.end)}, ${dayLabel(w.date)}`,
         })),
       onCreate: (date, from, to) => {
         put(date, from, to, brush() === IF_NEEDED);
@@ -334,18 +329,20 @@ export function renderFree() {
         const n = pt.windowsAt(st, 'hours').filter((w) => w.date === d).length;
         return n ? String(n) : '';
       },
-      onRender: (ds) => (shown = ds),
+      onRender: (ds) => {
+        shown = ds;
+        syncFills();
+      },
     });
     if (first) view.show(first);
-    // The quick fills paint the seven days of the week shown, starting today at the earliest.
+    // The quick fills paint the days of the week shown, from today on.
     const week = () => {
       const sun = addDays(shown[0], -dateParts(shown[0]).getUTCDay());
-      const from = sun < todayStr() ? todayStr() : sun;
-      return Array.from({ length: 7 }, (_, i) => addDays(from, i));
+      return Array.from({ length: 7 }, (_, i) => addDays(sun, i)).filter((d) => d >= todayStr());
     };
     painter = { render: view.render, week, cleanup: view.cleanup };
     $('#when-help').textContent = 'Drag on the calendar to add times.';
-    $('#quick').innerHTML = fillPills(false) + '<button type="button" class="pill pill-quiet" id="q-clear">Clear all</button>';
+    $('#quick').innerHTML = fillPills();
   }
 
   const fill = (n, keep) => {
@@ -375,7 +372,7 @@ export function renderFree() {
     }
     const s = e.target.closest('[data-step]');
     if (s) {
-      $('#span').value = Math.max(1, Math.min(MAX_SPAN_DAYS, span() + +s.dataset.step));
+      $('#span').value = Math.max(2, Math.min(MAX_SPAN_DAYS, span() + +s.dataset.step));
       update();
     }
     const f = e.target.closest('[data-fill]');
@@ -416,6 +413,10 @@ export function renderFree() {
       ($(`#free-list [${fd ? `data-flip-days="${fd}"` : `data-flip-window="${fw}"`}]`) || $('#free-list .chip-flip'))?.focus();
     }
   });
+  $('#in-row').onchange = () => {
+    setRow($('#in-row').checked ? Math.max(2, +$('#span').value || 2) : 1);
+    update();
+  };
   $('#span').oninput = update;
   // Typing 0 or 99 counts as the nearest number that works; show it.
   $('#span').onchange = () => {
@@ -455,7 +456,15 @@ export function renderFree() {
       .join('')}</ul>`;
 
   // What guests will be able to mark, and whether the poll can be created yet.
+  /** "Every day this week" pills are on when every day of the week shown has them. */
+  function syncFills() {
+    const week = painter?.week();
+    for (const b of $$('[data-fill]'))
+      b.setAttribute('aria-pressed', !!week && pt.filled(st[level], level === 'parts', +b.dataset.fill, week));
+  }
+
   function update() {
+    syncFills();
     // What's new takes the brush: available or if needed for the organizer.
     const may = maybe[level];
     for (const k of st[level]) if (!before.has(k)) brush() === IF_NEEDED ? may.add(k) : may.delete(k);
@@ -466,9 +475,7 @@ export function renderFree() {
     if (level === 'hours') {
       const windows = pt.toWindows(painted);
       const dates = pt.datesOf(painted);
-      box.innerHTML = windows.length
-        ? pt.windowList(pt.windowsAt(st, level), level, chip, dayRange)
-        : '<p class="hint">Nothing yet.</p>';
+      box.innerHTML = windows.length ? pt.windowList(pt.windowsAt(st, level), level, chip, dayRange) + CLEAR : NOTHING;
       return setReady(
         `${plural(dates.length, 'day')} to choose from`,
         [!windows.length, 'Add at least one time to create the poll', gridFocus, null, 'times'],
@@ -484,7 +491,7 @@ export function renderFree() {
     }
     if (level === 'parts') {
       const windows = pt.windowsAt(st, level);
-      box.innerHTML = windows.length ? pt.windowList(windows, level, chip, dayRange) : '<p class="hint">Nothing yet.</p>';
+      box.innerHTML = windows.length ? pt.windowList(windows, level, chip, dayRange) + CLEAR : NOTHING;
       return setReady(
         `${plural(windows.length, 'time')} to choose from`,
         [!windows.length, 'Pick at least one morning, afternoon or evening', gridFocus, null, 'times'],
@@ -493,10 +500,12 @@ export function renderFree() {
     }
     const dates = [...selected].sort();
     const k = span();
+    // Days in a row are whole days: parts of the day and hours wait until it's back to one.
+    for (const b of $$('[data-level]')) if (b.dataset.level !== 'days') b.disabled = k > 1;
     // The tap key above the calendar says the rest.
     $('#when-help').hidden = k < 2;
     $('#when-help').textContent = `Tap a day to pick ${k} in a row from it.`;
-    box.innerHTML = dates.length ? runList(dates, k) : '<p class="hint">Nothing yet.</p>';
+    box.innerHTML = dates.length ? runList(dates, k) + CLEAR : NOTHING;
     setReady(
       `${plural(dates.length, 'day')} to choose from`,
       // Only the first that applies: no days, too few, or none in a row.
@@ -547,7 +556,7 @@ export function renderFree() {
         if (DAY_PARTS.some((x) => x.start === z.minutes)) partsSel.add(`${z.date}|${z.minutes}`);
       }
     } else if (ev.slotMinutes === 1440) {
-      $('#span').value = ev.durationMinutes / 1440;
+      setRow(ev.durationMinutes / 1440);
       for (const d of ev.dates) selected.add(d);
     } else {
       next = 'hours';
