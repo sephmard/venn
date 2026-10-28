@@ -343,17 +343,6 @@ h2 em {
 .hero-inner {
   position: relative;
 }
-.kicker {
-  display: inline-block;
-  margin: 0 0 22px;
-  padding: 6px 14px;
-  border: 1px solid var(--line);
-  border-radius: 999px;
-  background: color-mix(in srgb, var(--paper) 70%, transparent);
-  font-size: 0.875rem;
-  font-weight: 600;
-  color: var(--green);
-}
 .hero h1 {
   font-size: clamp(3rem, 8vw, 6rem);
   line-height: 0.95;
@@ -387,6 +376,11 @@ h2 em {
   transition:
     transform 0.15s,
     box-shadow 0.15s;
+}
+.start-note {
+  margin: 14px 0 0;
+  color: var(--ink-2);
+  font-size: 0.9375rem;
 }
 .btn-start span {
   transition: translate 0.15s;
