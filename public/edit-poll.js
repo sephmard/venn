@@ -68,6 +68,9 @@ export function fillCommon(ev, src, { occasions, privacy, showTz, icon }) {
   $('#privacy-opts').open = privacy.some(([key]) => ev[key]);
   if (src.edit) {
     $('#create h1').textContent = 'Edit your poll';
+    $('#create .lede')?.remove();
+    $('#create .back').hidden = false;
+    $('#create .back').setAttribute('data-link', '');
     $('#create .back').textContent = '‹ Back to the poll';
     $('#create .back').setAttribute('href', `/e/${src.id}`);
     $('#submit').textContent = 'Save changes';
@@ -75,6 +78,7 @@ export function fillCommon(ev, src, { occasions, privacy, showTz, icon }) {
     $('#notify-off').remove();
   } else if (next()) {
     $('#create h1').textContent = 'Plan the next one';
+    $('#create .lede')?.remove();
     toast('Same again. Check the dates, then create the poll.');
   } else toast('Copied. Change anything you like, then create the new poll.');
 }

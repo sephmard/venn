@@ -74,6 +74,29 @@ export async function renderEvent(id, navigate) {
     const [participantId, editToken] = hash.get('edit').split('.');
     if (participantId && editToken) save(id, { participantId, editToken });
   }
+  // The organizer's tools (Pick, editing, notifications) are for the organizer's link: their private
+  // link, or this tab once they've created the poll. On the plain link they see what guests see, with
+  // a button back to their tools. Per tab, so a guest link opened later never shows Pick.
+  const orgKey = `venn-organizer:${id}`;
+  const organizerView = {
+    on() {
+      try {
+        return sessionStorage.getItem(orgKey) === '1';
+      } catch {
+        return false;
+      }
+    },
+    set() {
+      try {
+        sessionStorage.setItem(orgKey, '1');
+      } catch {
+        /* without storage, only the organizer link itself shows the tools */
+      }
+    },
+  };
+  const viaOrganizerLink = !!hash.get('admin') || !!saved(id).justCreated;
+  if (viaOrganizerLink) organizerView.set();
+  const asOrganizer = () => viaOrganizerLink || organizerView.on();
   // Links in notification emails: stop the emails.
   const unsubscribeToken = hash.get('unsubscribe');
   if (location.hash) history.replaceState(null, '', location.pathname);
@@ -95,13 +118,13 @@ export async function renderEvent(id, navigate) {
   };
   // The edit token also gets your own answer back when the organizer hides everyone's answers.
   const authHeaders = ({ adminToken: a, editToken: e } = saved(id)) => ({
-    ...(a && { 'x-admin-token': a }),
+    ...(a && asOrganizer() && { 'x-admin-token': a }),
     ...(e && { 'x-edit-token': e }),
   });
 
   async function load() {
     st.ev = await api(`events/${id}`, { headers: authHeaders() });
-    if (!st.ev.isAdmin && saved(id).adminToken) forget(id, 'adminToken');
+    if (!st.ev.isAdmin && saved(id).adminToken && asOrganizer()) forget(id, 'adminToken');
     // With the organizer link on another device, the organizer's own answer is still theirs.
     if (st.ev.isAdmin && !saved(id).participantId && st.ev.participants.some((p) => p.id === st.ev.hostId))
       save(id, { participantId: st.ev.hostId });
@@ -121,7 +144,7 @@ export async function renderEvent(id, navigate) {
     document.title = e.status === 404 ? 'Poll not found · Venn' : 'Venn';
     app.innerHTML =
       e.status === 404
-        ? `<div class="sheet empty"><h1>Poll not found</h1><p class="muted">This poll may have been deleted, or the link wasn't copied in full. Check the link with whoever sent it.</p><a class="btn btn-primary" href="/new" data-link>Create a poll</a></div>`
+        ? `<div class="sheet empty"><h1>Poll not found</h1><p class="muted">This poll may have been deleted, or the link wasn't copied in full. Check the link with whoever sent it.</p><a class="btn btn-primary" href="/new" data-link>Create a Venn</a></div>`
         : `<div class="sheet empty"><h1>Can't open this poll</h1><p class="muted">${esc(e.message)}</p><button class="btn btn-primary" onclick="location.reload()">Try again</button></div>`;
     if (e.status === 404) import('./finn.js').then((m) => m.lost(app.querySelector('.sheet'))).catch(() => {});
     return () => {};
@@ -204,6 +227,11 @@ export async function renderEvent(id, navigate) {
         </div>
         ${guest ? '' : `<div class="poll-share"><button class="btn btn-primary" id="copy">${canShare ? 'Share the poll' : 'Copy invite link'}</button></div>`}
       </header>
+      ${
+        guest && saved(id).adminToken
+          ? `<p class="org-switch"><span>You made this poll. This is what your guests see.</span><button type="button" class="btn btn-sm" id="org-view">Organizer view</button></p>`
+          : ''
+      }
       <div id="banners"></div>
       <div id="notify-box"></div>
       <div id="privacy-box"></div>
@@ -238,7 +266,7 @@ export async function renderEvent(id, navigate) {
                       </div>`
                     : ''
                 }
-                ${partsMode ? '<p class="hint legend"><span class="sw sw-y"></span>Tap: available <span class="sw sw-m"></span>Tap again: if needed</p>' : ''}
+                ${partsMode ? '<p class="hint legend"><span class="sw sw-y"></span>Tap: available <span class="sw sw-m"></span>Tap again: if needed <span class="sw sw-n"></span>Tap again: unavailable</p>' : ''}
                 <div id="mine" class="rows"></div>
                 <div id="mine-cal" hidden></div>`
               : `<p class="hview-h" id="hview-h">Answer with</p>
@@ -251,7 +279,7 @@ export async function renderEvent(id, navigate) {
                 <div class="seg brush" role="group" aria-label="Brush">
                   <button type="button" data-brush="${YES}"><span class="swatch swatch-yes"></span>Available</button>
                   <button type="button" data-brush="${IF_NEEDED}"><span class="swatch swatch-maybe"></span>If needed</button>
-                  <button type="button" data-brush="0"><span class="swatch swatch-no"></span>Busy</button>
+                  <button type="button" data-brush="0"><span class="swatch swatch-no"></span>Unavailable</button>
                 </div>
                 <div class="tv-strip" id="hour-days" role="group" aria-label="Days" hidden></div>
                 <div class="grid-scroll"><div class="grid" id="mine" role="group" aria-label="Your availability. Use the arrow keys to move and Space to mark a time."></div></div>
@@ -304,8 +332,8 @@ export async function renderEvent(id, navigate) {
             }
           </div>
           <aside class="sheet grow-card" id="grow" hidden>
-            <p><b>Planning something yourself?</b> Make your own poll in a minute. It's free, and nobody needs an account.</p>
-            <a class="btn btn-primary" href="/new" data-link>Create your own poll</a>
+            <p><b>Planning something yourself?</b> Make your own Venn in a minute. It's free, and nobody needs an account.</p>
+            <a class="btn btn-primary" href="/new" data-link>Create your own Venn</a>
           </aside>
         </section>
       </div>
@@ -321,6 +349,14 @@ export async function renderEvent(id, navigate) {
         <select id="tz">${tzOptions(st.tz)}</select>
       </details>
     </article>`;
+
+  // Back to the organizer's tools: the same as opening the organizer link.
+  const orgView = $('#org-view');
+  if (orgView)
+    orgView.onclick = () => {
+      location.replace(`${location.pathname}#admin=${saved(id).adminToken}`);
+      location.reload();
+    };
 
   // The share sheet sends a short nudge with the link; a copy is the bare link, which chat apps unfurl.
   $('#copy').onclick = () => {
@@ -1150,7 +1186,7 @@ export async function renderEvent(id, navigate) {
           ? null
           : {
               label: 'Planning something? Make yours in 30 seconds',
-              href: `/new/${optionsMode && !partsMode ? 'pick' : 'free'}?from=guest${ev().emoji ? `&template=${encodeURIComponent(ev().emoji)}` : ''}`,
+              href: `/new?from=guest${ev().emoji ? `&template=${encodeURIComponent(ev().emoji)}` : ''}`,
             },
       });
       await p?.shown;
@@ -1675,7 +1711,7 @@ export async function renderEvent(id, navigate) {
             </div>
           </details>`
               : `<button type="button" class="link-btn" id="share-card">${canShare ? 'Share as a picture' : 'Save as a picture'}</button>
-          <a class="link-btn" data-link href="/new/${optionsMode && !partsMode ? 'pick' : 'free'}?from=set${ev().emoji ? `&template=${encodeURIComponent(ev().emoji)}` : ''}">Make your own poll</a>`
+          <a class="link-btn" data-link href="/new?from=set${ev().emoji ? `&template=${encodeURIComponent(ev().emoji)}` : ''}">Make your own Venn</a>`
           }
         </div>
       </section>`;

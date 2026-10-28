@@ -1,4 +1,4 @@
-// "Ask when people are available" (/new/free): you pick a range of days, everyone marks when
+// Creating a Venn (/new): you pick the days (and times) that could work, everyone marks when
 // they're available, and Venn finds the overlap. Loaded only on that page.
 
 import {
@@ -62,7 +62,7 @@ let pt = null;
 const loadPaint = async () => (pt ??= await import('./paint.js'));
 
 export function renderFree() {
-  document.title = 'Ask when people are available · Venn';
+  document.title = 'Create a Venn';
   const src = source();
   if (!src?.edit) track('view', { page: 'free', ...(fromUrl() && { from: fromUrl() }) });
   startForm();
@@ -82,8 +82,9 @@ export function renderFree() {
 
   app.innerHTML = `
     <form id="create" class="create" novalidate>
-      <a class="back" href="/new" data-link>‹ Both kinds of poll</a>
-      <h1>Ask when people are available</h1>
+      <a class="back" href="/" hidden>‹ Back</a>
+      <h1>Create a Venn</h1>
+      <p class="lede create-lede">Tap the days that could work. Everyone marks when they're free, and Venn finds the overlap.</p>
       ${planFields('free')}
       <section class="sheet" aria-labelledby="when-h">
         <h2 id="when-h">When could it be?</h2>
@@ -119,7 +120,7 @@ export function renderFree() {
         <div id="free-list" class="opt-list" aria-live="polite"></div>
       </section>
       ${youFields()}
-      ${createBar('Create poll')}
+      ${createBar('Create Venn')}
     </form>`;
 
   const occasion = wirePlan((o) => {

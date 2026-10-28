@@ -32,7 +32,7 @@ for (const path of ['/', '/privacy', '/templates/book-club']) {
 test('picking a link on the same page closes the menu', async ({ page }) => {
   await page.goto('/');
   await page.getByLabel('Menu').click();
-  await page.locator('.menu-panel').getByRole('link', { name: 'For groups' }).click();
-  await expect(page).toHaveURL(/#groups$/);
+  await page.locator('.menu-panel').getByRole('link', { name: 'How it works' }).click();
+  await expect(page).toHaveURL(/#how$/);
   await expect(page.locator('.menu-panel')).toBeHidden();
 });

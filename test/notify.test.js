@@ -36,7 +36,7 @@ test('emails keep links few: the one button, the link to copy, and a way to stop
     assert.match(m.html, /user-select:all/);
     assert.doesNotMatch(m.html + m.text, /wa\.me|sms:|mailto:|\/new\?from=email/);
   }
-  assert.match(ready.html, />Open your poll</);
+  assert.match(ready.html, />Open your Venn</);
   assert.ok(hasLine(ready.text, pollUrl));
   assert.ok(hasLine(answered.text, 'Waiting on anyone? Send them the same link.'));
   // Titles are escaped.
@@ -81,7 +81,7 @@ test("every notification email shows Venn's dog, from the instance's own site", 
 test("the emails: a proud poll-ready email, an excited one per answer, and the guest's own link", () => {
   const pollUrl = 'https://venn.example/e/abc';
   const ready = pollReadyEmail({ title: 'Dinner <3', pollUrl, unsubscribeUrl: `${pollUrl}#unsubscribe=u` });
-  assert.equal(ready.subject, 'Your poll “Dinner <3” is ready 🎉');
+  assert.equal(ready.subject, 'Your Venn “Dinner <3” is ready 🎉');
   assert.match(ready.text, /proud of you for bringing people together/);
   assert.ok(hasLine(ready.text, pollUrl));
   assert.match(ready.html, /Dinner &lt;3/);
@@ -279,7 +279,7 @@ test('the organizer gets their poll link straight away, then an email per answer
   // No confirmation step: the first email is the poll's link.
   assert.equal(emails().length, 1);
   assert.deepEqual(emails()[0].body.to, ['sam@example.com']);
-  assert.equal(emails()[0].body.subject, 'Your poll “Design review” is ready 🎉');
+  assert.equal(emails()[0].body.subject, 'Your Venn “Design review” is ready 🎉');
   assert.ok(hasLine(emails()[0].body.text, `${base}/e/${id}`));
   assert.doesNotMatch(emails()[0].body.text, /confirm/i);
   assert.equal(emails()[0].body.headers['List-Unsubscribe-Post'], 'List-Unsubscribe=One-Click');

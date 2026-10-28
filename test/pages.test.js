@@ -27,13 +27,9 @@ test('pages: each has its own address, title and description, of a length search
   }
 });
 
-test('pages: buttons open a template that exists, on the kind of poll it belongs to', () => {
-  for (const p of PAGES.filter((x) => x.template)) {
-    const t = TEMPLATES[templateIndex(p.template)];
-    assert.ok(t, `${p.slug}: no template ${p.template}`);
-    // Several days in a row are found by "ask when people are available".
-    if (t.days) assert.equal(p.kind, 'free', p.slug);
-  }
+test('pages: buttons open a template that exists', () => {
+  for (const p of PAGES.filter((x) => x.template))
+    assert.ok(TEMPLATES[templateIndex(p.template)], `${p.slug}: no template ${p.template}`);
 });
 
 test('pages: the structured data search engines read is valid JSON, and the sitemap lists every page', async () => {

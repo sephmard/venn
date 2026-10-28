@@ -146,9 +146,9 @@ for (const scheme of ['light', 'dark']) {
       await page.fill('#title', 'Celebration check');
       await page.click('#q-2w');
       await page.click('#submit');
-      await expect(page.locator('.party [role=status]')).toContainText('Poll created!');
+      await expect(page.locator('.party [role=status]')).toContainText('Your Venn is ready!');
       // A modal dialog, named by its heading, with everything behind it out of reach.
-      await expect(page.getByRole('dialog', { name: 'Poll created!' })).toBeVisible();
+      await expect(page.getByRole('dialog', { name: 'Your Venn is ready!' })).toBeVisible();
       await expect(page.locator('.party')).toHaveAttribute('aria-modal', 'true');
       expect(await page.evaluate(() => [...document.body.children].filter((n) => n.inert).map((n) => n.tagName))).toEqual(
         expect.arrayContaining(['HEADER', 'MAIN', 'FOOTER']),

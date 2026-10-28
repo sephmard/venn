@@ -192,12 +192,13 @@ test('template pages: served at clean paths, in the sitemap, each with its own t
       const title = html.match(/<title>([^<]+)<\/title>/)[1];
       assert.ok(!titles.has(title), title);
       titles.add(title);
-      // Every link into the app names a template the app knows, on the right kind of poll.
-      for (const [, kind, name] of html.matchAll(/href="\/new\/(pick|free)\?template=([\w-]+)(?:&amp;from=[\w-]+)?"/g))
-        assert.ok(templateIndex(name) >= 0 && (kind === 'free') === !!TEMPLATES[templateIndex(name)].days, name);
+      // Every link into the app names a template the app knows, and opens a Venn.
+      assert.doesNotMatch(html, /href="\/new\/(pick|free)/, path);
+      for (const [, name] of html.matchAll(/href="\/new\?template=([\w-]+)(?:&amp;from=[\w-]+)?"/g))
+        assert.ok(templateIndex(name) >= 0, name);
       if (path === '/templates') continue;
       const slug = path.split('/').pop();
-      assert.ok(html.includes(`href="/new/pick?template=${slug}&amp;from=${slug}"`), path);
+      assert.ok(html.includes(`href="/new?template=${slug}&amp;from=${slug}"`), path);
       // The questions, for search engines, are the ones on the page.
       const faq = JSON.parse(html.match(/<script type="application\/ld\+json">([\s\S]*?)<\/script>/)[1]);
       assert.equal(faq['@type'], 'FAQPage');

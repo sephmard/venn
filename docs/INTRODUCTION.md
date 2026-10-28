@@ -1,6 +1,6 @@
 # Venn developer docs
 
-[Venn](https://venn.day) is a free, open-source poll for finding a date for dinners, book clubs, trips and other get-togethers. Someone suggests a few dates or asks when people are free, shares one link, and Venn finds where everyone overlaps. These docs are for people who run, change or build on it. To use Venn, go to [venn.day](https://venn.day).
+[Venn](https://venn.day) is a free, open-source poll for finding a date for dinners, book clubs, trips and other get-togethers. Someone makes a Venn (taps the days that could work), shares one link, everyone marks when they're free, and Venn finds where everyone overlaps. These docs are for people who run, change or build on it. To use Venn, go to [venn.day](https://venn.day).
 
 ## Run it locally
 
@@ -34,10 +34,9 @@ public/            the whole front end, served as-is
   app.html         app shell, served for /new and /e/:id
   og.png, og-set.png  link-preview images: asking, and once the date is picked
   app.js           router
-  chooser.js       the chooser (/new): which kind of poll
   create.js        the create pages' shared form parts
-  create-pick.js   "vote on a few dates", loaded only on that page
-  create-free.js   "ask when people are available", loaded only on that page
+  create-free.js   creating a Venn (/new): every new poll
+  create-pick.js   the older "vote on a few dates" page (/new/pick), for editing and copying polls made with it
   event.js         the poll page: answering, the group's results, organizer tools
   organizer.js     the organizer's tools, Notifications and Privacy panels and AI summary, loaded only for organizers
   add-to-calendar.js  "Add to your calendar", loaded once a date is picked

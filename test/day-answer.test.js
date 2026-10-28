@@ -57,6 +57,7 @@ test('stepDay: arrows move between the poll days, a week up and down, Home and E
   assert.equal(stepDay(days, '2026-11-03', 'a'), null);
 });
 
-test('the tap key says how to answer, like the create page, and what a blank day means', () => {
-  for (const text of ['Tap: available', 'Tap again: if needed', 'Left blank: no']) assert.ok(TAP_KEY.includes(text));
+test('the tap key says how to answer, like the create page, and how to mark unavailable', () => {
+  for (const text of ['Tap: available', 'Tap again: if needed', 'Tap again, or leave blank: unavailable'])
+    assert.ok(TAP_KEY.includes(text));
 });

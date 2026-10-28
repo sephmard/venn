@@ -24,7 +24,7 @@ const pageOf = (slug) => PAGES.find((p) => p.slug === slug);
 /** Where a page's picture for link previews is (scripts/og-image.js draws it). */
 export const ogImage = (p) => `/og/${p.section}-${p.slug}.png`;
 /** The button's link: the template's form, saying which page it came from (for usage stats). */
-const startUrl = (p) => (p.template ? `/new/${p.kind}?template=${p.template}&from=${p.slug}` : `/new?from=${p.slug}`);
+const startUrl = (p) => (p.template ? `/new?template=${p.template}&from=${p.slug}` : `/new?from=${p.slug}`);
 
 const GITHUB_MARK =
   'M8 0c4.42 0 8 3.58 8 8a8.013 8.013 0 0 1-5.45 7.59c-.4.08-.55-.17-.55-.38 0-.27.01-1.13.01-2.2 0-.75-.25-1.23-.54-1.48 1.78-.2 3.65-.88 3.65-3.95 0-.88-.31-1.59-.82-2.15.08-.2.36-1.02-.08-2.12 0 0-.67-.22-2.2.82-.64-.18-1.32-.27-2-.27-.68 0-1.36.09-2 .27-1.53-1.03-2.2-.82-2.2-.82-.44 1.1-.16 1.92-.08 2.12-.51.56-.82 1.28-.82 2.15 0 3.06 1.86 3.75 3.64 3.95-.23.2-.44.55-.51 1.07-.46.21-1.61.55-2.33-.66-.15-.24-.6-.83-1.23-.82-.67.01-.27.38.01.53.34.19.73.9.82 1.13.16.45.68 1.31 2.69.94 0 .67.01 1.3.01 1.49 0 .21-.15.45-.55.38A7.995 7.995 0 0 1 0 8c0-4.42 3.58-8 8-8Z';
@@ -67,7 +67,7 @@ ${jsonLd.map((d) => `<script type="application/ld+json">${JSON.stringify(d).repl
 <a href="https://docs.venn.day" class="hide-md">Docs</a>
 <a href="/privacy" class="hide-md">Privacy</a>
 <a href="https://github.com/sephmard/venn" class="gh-link"><svg class="gh-mark" viewBox="0 0 16 16" width="18" height="18" aria-hidden="true"><path fill="currentColor" d="${GITHUB_MARK}" /></svg><span class="gh-label">GitHub</span></a>
-<a href="/new" class="btn btn-sm">Create a poll</a>
+<a href="/new" class="btn btn-sm">Create a Venn</a>
 <details class="menu">
 <summary aria-label="Menu"><svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16" stroke="currentColor" stroke-width="2" stroke-linecap="round" /></svg></summary>
 <div class="menu-panel">
@@ -243,14 +243,14 @@ ${[
   ['hike', 'pick', 'Hike'],
   ['party', 'pick', 'Party'],
 ]
-  .map(([t, k, l]) => `<li><a href="/new/${k}?template=${t}">${l}</a></li>`)
+  .map(([t, , l]) => `<li><a href="/new?template=${t}">${l}</a></li>`)
   .join('\n')}
 </ul>
 </section>
 </div>
 <section class="wrap closing">
 <h2>Or start <em>from scratch.</em></h2>
-<a href="/new" class="btn btn-lg">Create a poll</a>
+<a href="/new" class="btn btn-lg">Create a Venn</a>
 </section>
 </main>
 ${FOOTER}`;
@@ -268,12 +268,12 @@ ${['/', '/templates', ...TEMPLATE_PAGES.map((p) => `/templates/${p.slug}`), '/pr
  */
 const llms = () => `# Venn
 
-> Venn is a free, open-source scheduling poll for groups: suggest a few dates (or ask when people are available), share one link, and see the date that works for everyone. Nobody needs an account, there are no ads, and it works on any phone.
+> Venn is a free, open-source scheduling poll for groups. You make a Venn: tap the days (or times) that could work, share one link, everyone marks when they're free, and Venn shows where everyone overlaps. Nobody needs an account, there are no ads, and it works on any phone.
 
 Facts:
 
 - Free for everyone, every feature. No ads, no paid plan, no accounts for organizers or guests.
-- Two kinds of poll: "Vote on a few dates" (guests answer yes, if needed or no to each date or time) and "Ask when people are available" (guests mark whole days, mornings, afternoons and evenings, or hours, and Venn finds the overlap, including several days in a row).
+- One kind of poll, a Venn: guests mark when they're available or available if needed, by whole days, mornings, afternoons and evenings, or hours, and Venn finds the overlap, including several days in a row for trips.
 - The organizer picks the date, and everyone can add it to Google Calendar, Outlook or Apple Calendar.
 - Times show in each person's own time zone. Organizers can hide names or answers and collect emails.
 - Open source (MIT) at https://github.com/sephmard/venn. It runs on Cloudflare Workers or Node, and has a JSON API.
@@ -281,7 +281,7 @@ Facts:
 
 ## Start a poll
 
-- [Create a poll](${ORIGIN}/new): choose a kind of poll; no sign-up.
+- [Create a Venn](${ORIGIN}/new): no sign-up.
 - [All templates](${ORIGIN}/templates): polls with the plan filled in.
 
 ## Templates

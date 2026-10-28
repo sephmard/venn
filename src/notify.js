@@ -240,12 +240,12 @@ const stopFooter = (unsubscribeUrl) =>
 
 /** To the organizer, the moment their poll exists: well done, and here's the link to share. */
 export function pollReadyEmail({ title, pollUrl, unsubscribeUrl }) {
-  const subject = `Your poll “${title}” is ready 🎉`;
-  const text = `Your poll “${title}” is ready!\n\nFinn is so proud of you for bringing people together. Here's the link to share with everyone:\n\n${pollUrl}\n\nCopy it into your group chat, or send it by text or email.\n\nWe'll email you here whenever someone answers.\n\nStop these emails: ${unsubscribeUrl}\n`;
+  const subject = `Your Venn “${title}” is ready 🎉`;
+  const text = `Your Venn “${title}” is ready!\n\nFinn is so proud of you for bringing people together. Here's the link to share with everyone:\n\n${pollUrl}\n\nCopy it into your group chat, or send it by text or email.\n\nWe'll email you here whenever someone answers.\n\nStop these emails: ${unsubscribeUrl}\n`;
   const html = emailLayout(
-    `${heading('Your poll is ready! 🎉')}${para(
+    `${heading('Your Venn is ready! 🎉')}${para(
       `Finn is so proud of you for bringing people together. Share <strong>${escHtml(title)}</strong> with everyone:`,
-    )}${button(pollUrl, 'Open your poll')}${copyBox(pollUrl, 'Copy link to share')}${para("We'll email you here whenever someone answers.")}`,
+    )}${button(pollUrl, 'Open your Venn')}${copyBox(pollUrl, 'Copy link to share')}${para("We'll email you here whenever someone answers.")}`,
     stopFooter(unsubscribeUrl),
     pollUrl,
     { signed: false },

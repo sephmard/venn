@@ -196,11 +196,10 @@ function render({ days, since, counts, outcomes }, earlier) {
     ${breakdown(
       'From visit to poll',
       [
-        { label: 'Opened "New poll"', n: views('chooser') },
-        { label: 'Opened "Vote on a few dates"', n: views('pick') },
-        { label: '… and created one', n: of('poll.created', { kind: 'pick' }) },
-        { label: 'Opened "Ask when people are available"', n: views('free') },
+        { label: 'Opened "Create a Venn"', n: views('free') },
         { label: '… and created one', n: of('poll.created', { kind: 'free' }) },
+        { label: 'Opened the older "Vote on a few dates"', n: views('pick') },
+        { label: '… and created one', n: of('poll.created', { kind: 'pick' }) },
       ],
       { sort: false },
     )}
@@ -251,7 +250,7 @@ function render({ days, since, counts, outcomes }, earlier) {
       { sort: false },
     )}
     ${breakdown('Sharing', [
-      { label: 'From "Poll created!"', n: of('share', { from: 'created' }) },
+      { label: 'From "Your Venn is ready!"', n: of('share', { from: 'created' }) },
       { label: 'From the poll page', n: of('share', { from: 'poll' }) },
       { label: 'As a picture of the date', n: of('share', { from: 'card' }) },
     ])}

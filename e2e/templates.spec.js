@@ -1,7 +1,7 @@
 import { test, expect } from '@playwright/test';
 import { PAGES } from '../pages/pages.js';
 import { TEMPLATES, templateIndex } from '../public/templates.js';
-import { addOptions } from './helpers.js';
+import { showNextMonth } from './helpers.js';
 
 // Templates on the create page (a row of cards, seasonal ones first), the ?template= link that
 // chooses one, the template pages on the website, and Finn's little surprises.
@@ -88,21 +88,19 @@ test('templates: holiday ones lead in December, and the trip leads when asking w
   await noSideways(page);
 });
 
-test('a ?template= link chooses that template, even out of season, and the chooser passes it on', async ({ page }) => {
+test('a ?template= link chooses that template, even out of season', async ({ page }) => {
   await page.clock.setFixedTime(new Date(2026, 6, 1, 12)); // July
   await page.goto('/new?template=secret-santa');
-  await expect(page.locator('a[href="/new/pick?template=secret-santa"]')).toBeVisible();
-  await page.click('a[href="/new/pick?template=secret-santa"]');
   await expect(card(page, 'Secret Santa')).toHaveAttribute('aria-pressed', 'true');
   await expect(cards(page).first()).toHaveText(/Secret Santa/); // out of season, it shows up front
   await expect(page.locator('#emoji-tile')).toHaveText('🎁');
   await expect(page.locator('#desc')).toHaveValue(/Gift budget/);
-  await expect(page).toHaveURL(/\/new\/pick$/);
-  // An everyday one, by its name, on the other kind of poll.
-  await page.goto('/new/free?template=trip');
+  await expect(page).toHaveURL(/\/new$/);
+  // An everyday one, by its name.
+  await page.goto('/new?template=trip');
   await expect(card(page, 'Trip')).toHaveAttribute('aria-pressed', 'true');
   // A name it doesn't know is ignored.
-  await page.goto('/new/pick?template=nope');
+  await page.goto('/new?template=nope');
   await expect(page.locator('.templates [aria-pressed="true"]')).toHaveCount(0);
 });
 
@@ -128,8 +126,8 @@ for (const path of ['/templates/friendsgiving', '/templates/holiday-party', '/te
     await page.locator('.faq summary').first().click();
     await expect(page.locator('.faq details').first().locator('p')).toBeVisible();
     const slug = path.split('/').pop();
-    await page.locator(`.tpl-hero a[href^="/new/pick?template=${slug}&"]`).click();
-    await expect(page).toHaveURL(new RegExp(`/new/pick\\?from=${slug}$`)); // the template's name is gone, where they came from stays
+    await page.locator(`.tpl-hero a[href^="/new?template=${slug}&"]`).click();
+    await expect(page).toHaveURL(new RegExp(`/new\\?from=${slug}$`)); // the template's name is gone, where they came from stays
     await expect(page.locator('.templates [aria-pressed="true"]')).toHaveCount(1);
     await expect(page.locator('#desc')).not.toHaveValue('');
   });
@@ -173,7 +171,8 @@ test('a poll made from a landing page is counted as coming from it', async ({ pa
   await page.locator('.tpl-hero .btn').click();
   await page.fill('#title', 'Book club');
   await page.fill('#organizer', 'Sam');
-  await addOptions(page, 1);
+  await showNextMonth(page);
+  await page.locator('#when .cal-day:not(:disabled)').first().click();
   await page.click('#submit');
   await expect(page).toHaveURL(/\/e\//);
   const stats = await (await request.get('/api/stats?days=2', { headers: { authorization: 'Bearer test-stats' } })).json();

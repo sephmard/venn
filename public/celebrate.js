@@ -48,7 +48,7 @@ const SHOW_MS = 3600;
 export function celebrate({
   emoji = '🎉',
   title = '',
-  heading = 'Poll created!',
+  heading = 'Your Venn is ready!',
   message = 'Finn is so proud of you for bringing people together.',
   button = title ? `Open ${title} →` : 'Open my poll →',
   share = null,
