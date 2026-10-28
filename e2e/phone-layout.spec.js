@@ -110,9 +110,9 @@ test('times that run past midnight name their days, like the other ranges', asyn
   const when = page.locator('#mine .row-when').first();
   await expect(when).toHaveText(/^[A-Z][a-z]{2} 11:00\sPM\s–\s[A-Z][a-z]{2} 1:00\sAM$/);
   await expect(when).not.toHaveText(/\d\/\d/);
-  // The group's table heads each option with its start time.
+  // Everyone's answers names each option's times too.
   if (await page.locator('#tab-group').isVisible()) await page.click('#tab-group');
-  await expect(page.locator('.matrix .m-time').first()).toHaveText(/^11:00\sPM$/);
+  await expect(page.locator('#overlap .ov-when').first()).toContainText(/11:00\sPM/);
 });
 
 test.describe('on a 320px phone', () => {
@@ -199,6 +199,7 @@ test.describe('on a 320px phone', () => {
       }
       expect(new Set(tops).size).toBe(1);
     };
+    await expect(page.locator('[data-mode="time"]')).toBeVisible(); // once the page is drawn
     await lines('[data-level="days"], [data-mode="time"]');
     await page.click('[data-mode="time"]');
     await expect(page.locator('#time-levels')).toBeVisible(); // once the painter has loaded

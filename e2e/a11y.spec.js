@@ -179,7 +179,9 @@ for (const scheme of ['light', 'dark']) {
       await page.click('[data-mine-view="list"]');
       await page.fill('#name', 'Sam');
       await submit(page);
-      await expect(page.locator('.matrix')).toBeVisible();
+      await expect(page.locator('.ov-list')).toBeVisible();
+      await page.locator('.ov-row').first().click(); // who's free, and Pick
+      await audit(page, "everyone's answers, a row open");
       await page.locator('.best-hero [data-pick]').click();
       await expect(page.locator('.banner-final')).toBeVisible();
       await page.click('#notify-open');
@@ -258,7 +260,7 @@ for (const scheme of ['light', 'dark']) {
       await page.locator('.part-vote').first().click();
       await page.fill('#name', 'Sam');
       await submit(page);
-      await page.locator('.heat-btn').first().click();
+      await page.locator('.ov-row').first().click();
       await audit(page, 'parts of the day poll');
     });
   });
@@ -324,13 +326,12 @@ test('a long link in the note, or a long name, never makes the poll page scroll 
   expect(share.x + share.width).toBeLessThanOrEqual(375);
   const title = await page.locator('#ev-title').boundingBox();
   expect(title.x + title.width).toBeLessThanOrEqual(375);
-  // The group: names wrap in their chips, and the results keep a narrow name column with "…".
+  // The group: names wrap in their chips, and everyone's answers fit, a long name opened up too.
   await page.click('#tab-group');
-  await expect(page.locator('.matrix')).toBeVisible();
+  await expect(page.locator('.ov-list')).toBeVisible();
+  await page.locator('.ov-row').first().click();
+  await expect(page.locator('.ov-who')).toBeVisible();
   expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(375);
-  const name = page.locator('.matrix tbody th').first();
-  expect((await name.boundingBox()).width).toBeLessThanOrEqual(110);
-  expect(await name.locator('> :last-child').evaluate((el) => el.scrollWidth > el.clientWidth)).toBe(true);
 });
 
 for (const width of [375, 412]) {

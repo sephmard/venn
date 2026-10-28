@@ -118,7 +118,7 @@ Time zones, ranking and calendar files live in `public/core.js`, shared by the b
 
 ## What people get
 
-- **Two kinds of poll.** Vote on a few dates, or ask when people are free: paint the hours on a calendar, or pick whole days, or days in a row for a trip.
+- **One kind of poll, a Venn.** Tap the dates that could work (by month or week), or dates and times (parts of the day or hours), or days in a row for a trip. Everyone marks when they're free, and Venn shows where they overlap.
 - **Links that look like the plan.** Pasted into iMessage, WhatsApp, Slack or Discord, a poll shows its own title, and once it's set, the date.
 - **Places that are easy to find.** Start typing where you're meeting and pick the real address, or keep what you typed (a video link works too). Guests tap it to open a map.
 - **Any emoji, or your own picture,** as the poll's icon: on the poll, in its link preview and on its calendar event.
