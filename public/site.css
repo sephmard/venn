@@ -374,80 +374,29 @@ h2 em {
   clip-path: inset(50%);
   white-space: nowrap;
 }
-/* The way in: what you're planning, then Venn it (it opens the create page with that name). */
+/* The way in: one button, straight to the create page. */
 .start {
-  display: flex;
-  gap: 8px;
-  max-width: 520px;
-  margin: 0 auto;
-  padding: 6px;
-  border: 1px solid var(--line);
-  border-radius: 999px;
-  background: var(--card);
-  box-shadow: var(--card-shadow);
+  margin: 8px 0 0;
 }
-.start input {
-  flex: 1 1 auto;
-  min-width: 0;
-  min-height: 48px;
-  padding: 0 8px 0 18px;
-  border: 0;
-  border-radius: 999px;
-  background: transparent;
-  color: var(--ink);
-  font: 1.0625rem var(--sans);
-}
-.start input::placeholder {
-  color: var(--ink-2);
-}
-.start input:focus-visible {
-  outline: 2px solid var(--green);
-  outline-offset: 2px;
-}
-.start .btn {
-  flex: none;
-  gap: 8px;
-  border: 0;
-  cursor: pointer;
-}
-/* Or a plan, one tap away. */
-.start-plans {
-  list-style: none;
-  display: flex;
-  flex-wrap: wrap;
-  justify-content: center;
-  gap: 8px;
-  margin: 18px 0 0;
-  padding: 0;
-}
-.start-plans a {
-  display: inline-flex;
-  align-items: center;
-  min-height: 44px;
-  padding: 0 16px;
-  border: 1px solid var(--line);
-  border-radius: 999px;
-  background: color-mix(in srgb, var(--card) 80%, transparent);
-  color: var(--ink);
-  font-weight: 600;
-  text-decoration: none;
+.btn-start {
+  gap: 10px;
+  min-height: 64px;
+  padding: 0 40px;
+  font-size: 1.1875rem;
+  box-shadow: 0 18px 40px -18px var(--green-deep);
   transition:
-    border-color 0.15s,
-    transform 0.15s;
+    transform 0.15s,
+    box-shadow 0.15s;
 }
-.start-plans a:hover {
-  border-color: var(--green);
+.btn-start span {
+  transition: translate 0.15s;
+}
+.btn-start:hover {
   transform: translateY(-2px);
+  box-shadow: 0 22px 44px -16px var(--green-deep);
 }
-@media (max-width: 480px) {
-  .start {
-    flex-direction: column;
-    border-radius: 28px;
-  }
-  .start input {
-    padding: 0 14px;
-    text-align: center;
-  }
+.btn-start:hover span {
+  translate: 4px 0;
 }
 
 /* The idea in one picture: three friends' free days, overlapping on the one that works. */
@@ -803,19 +752,31 @@ h3 {
 .hl-finn {
   position: relative;
   margin: 0;
-  padding-top: 64px;
+  padding-top: 92px;
   justify-self: center;
 }
 .hl-finn img {
   display: block;
   width: 110px;
   height: auto;
+}
+/* Finn and the party hat sticker, bobbing together. */
+.finn-body {
+  position: relative;
+  display: block;
   transform: rotate(-4deg);
   transform-origin: 50% 100%;
   animation: finn-bob 3.2s ease-in-out infinite;
 }
-.hl-finn:hover img {
+.hl-finn:hover .finn-body {
   animation: finn-wiggle 0.5s ease-in-out 2;
+}
+.finn-hat {
+  position: absolute;
+  top: -40px;
+  left: 26px;
+  rotate: -16deg;
+  filter: drop-shadow(0 3px 4px rgb(0 0 0 / 0.25));
 }
 .hl-bubble {
   position: absolute;
@@ -914,31 +875,117 @@ h3 {
   }
 }
 @media (prefers-reduced-motion: reduce) {
-  .hl-finn img,
-  .hl-finn:hover img {
+  .finn-body,
+  .hl-finn:hover .finn-body {
     animation: none;
   }
 }
-/* The home page's contact: one centred column, headings the size of the others. */
-.center-col {
-  max-width: 720px;
-  margin-inline: auto;
+/* Ideas and questions: a button in the corner that opens them in a dialog. */
+.ask-open {
+  position: fixed;
+  right: 16px;
+  bottom: 16px;
+  z-index: 20;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 48px;
+  padding: 0 18px 0 14px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: var(--card);
+  color: var(--ink);
+  font: 600 0.9375rem/1 var(--sans);
+  box-shadow: var(--card-shadow);
+  cursor: pointer;
 }
-.center-col > h2 {
-  margin: 0 0 24px;
-  font-size: clamp(2.4rem, 5vw, 4rem);
+.ask-open:hover {
+  border-color: var(--green);
+}
+.ask-open:focus-visible {
+  outline: 2px solid var(--green);
+  outline-offset: 2px;
+}
+@media (max-width: 480px) {
+  .ask-open {
+    width: 48px;
+    padding: 0;
+    justify-content: center;
+  }
+  .ask-label {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+  }
+}
+.ask {
+  width: min(560px, calc(100% - 32px));
+  max-height: calc(100dvh - 32px);
+  padding: 0;
+  border: 0;
+  border-radius: 24px;
+  background: var(--card);
+  color: var(--ink);
+  box-shadow: 0 30px 80px -30px rgb(0 0 0 / 0.5);
+}
+.ask::backdrop {
+  background: rgb(10 20 15 / 0.45);
+  backdrop-filter: blur(2px);
+}
+.ask[open] {
+  animation: ask-in 0.2s ease-out;
+}
+@keyframes ask-in {
+  from {
+    opacity: 0;
+    transform: translateY(12px) scale(0.98);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .ask[open] {
+    animation: none;
+  }
+}
+.ask-body {
+  position: relative;
+  padding: 28px 24px 24px;
+}
+.ask h2 {
+  margin: 0 48px 8px 0;
+  font-size: clamp(1.75rem, 5vw, 2.25rem);
+  line-height: 1.1;
+}
+.ask .section-lede {
+  margin: 0;
+}
+.ask-x button {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  width: 44px;
+  height: 44px;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  color: var(--ink-2);
+  font-size: 1.75rem;
   line-height: 1;
-  text-align: center;
+  cursor: pointer;
 }
-.center-col > .section-lede,
-.center-col > .contact-alt {
-  margin-inline: auto;
-  text-align: center;
+.ask-x button:hover {
+  background: var(--line);
+  color: var(--ink);
+}
+.ask-x button:focus-visible {
+  outline: 2px solid var(--green);
 }
 .contact-form {
   display: grid;
   gap: 8px;
-  margin-top: 28px;
+  margin-top: 20px;
 }
 .contact-form[hidden],
 .contact-form [hidden] {
@@ -1380,4 +1427,8 @@ h3 {
     filter: blur(6px);
     translate: 0 32px;
   }
+}
+/* Room under the footer, so the Ideas & questions button never covers its links. */
+body:has(.ask-open) .footer {
+  padding-bottom: 88px;
 }

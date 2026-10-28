@@ -958,18 +958,12 @@ test('landing page: nav bar with GitHub, and one way in: Create a Venn', async (
   expect((await create.boundingBox()).height).toBeGreaterThanOrEqual(44);
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
   await page.evaluate(() => scrollTo(0, 0));
-  // The hero asks what you're planning; Venn it opens the create page with it filled in.
-  await page.getByLabel('What are you planning?').fill('Dinner at Rosa’s');
-  await page.getByRole('button', { name: 'Venn it' }).click();
+  // The hero's one button opens the create page; no plans or templates to choose from first.
+  await expect(page.locator('.hero a[href^="/new?"]')).toHaveCount(0);
+  await page.locator('.hero').getByRole('link', { name: 'Create a Venn' }).click();
   await expect(page).toHaveURL(/\/new$/);
   await expect(page.locator('#create h1')).toHaveText('Create a Venn');
-  await expect(page.locator('#title')).toHaveValue('Dinner at Rosa’s');
   await expect(page.getByRole('button', { name: 'Create Venn' })).toBeVisible();
-  // Or a plan, one tap away.
-  await page.getByRole('link', { name: 'Venn', exact: true }).click();
-  await expect(page).toHaveURL(/\/$/);
-  await page.getByRole('link', { name: '🎲 Game night' }).click();
-  await expect(page.locator('#emoji-tile')).toHaveText('🎲');
 });
 
 test('the poll created celebration shows the dog; Share poll copies the link and opens the poll', async ({ page, context }) => {

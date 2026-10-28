@@ -35,8 +35,12 @@ for (const scheme of ['light', 'dark']) {
     test('landing and privacy pages', async ({ page }) => {
       await mockContact(page);
       await page.goto('/');
-      await expect(page.locator('.contact-form')).toBeVisible();
       await audit(page, 'landing page');
+      await page.getByRole('button', { name: 'Ideas & questions' }).click();
+      await expect(page.locator('.contact-form')).toBeVisible();
+      // Once it has faded in.
+      await page.locator('dialog.ask').evaluate((d) => Promise.all(d.getAnimations().map((a) => a.finished)));
+      await audit(page, 'ideas and questions');
       // "Contact us", with its message after sending.
       await page.getByText('Contact us', { exact: true }).click();
       await page.getByLabel('Your message').fill('Hello');

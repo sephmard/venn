@@ -86,7 +86,6 @@ ${jsonLd.map((d) => `<script type="application/ld+json">${JSON.stringify(d).repl
 const FOOTER = `<footer class="wrap footer">
 <span>© Venn · Free and open source</span>
 <nav aria-label="Footer">
-<a href="/templates">Templates</a>
 <a href="/privacy">Privacy</a>
 <a href="https://docs.venn.day">Docs</a>
 <a href="https://github.com/sephmard/venn">GitHub</a>

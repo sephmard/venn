@@ -133,10 +133,8 @@ for (const path of ['/templates/friendsgiving', '/templates/holiday-party', '/te
   });
 }
 
-test('the templates page and the home page link to the template pages', async ({ page }) => {
-  await page.goto('/');
-  await page.getByRole('contentinfo').getByRole('link', { name: 'Templates' }).click();
-  await expect(page).toHaveURL(/\/templates$/);
+test('the templates page links to the template pages', async ({ page }) => {
+  await page.goto('/templates');
   await page.locator('.tpl-cards a', { hasText: 'Friendsgiving' }).click();
   await expect(page.locator('h1')).toContainText('Friendsgiving');
   await page.getByRole('navigation', { name: 'Breadcrumb' }).getByRole('link', { name: 'Templates' }).click();

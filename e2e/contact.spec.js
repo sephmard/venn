@@ -3,7 +3,12 @@ import { mockContact } from './helpers.js';
 
 test('the home page takes feature requests and messages, with an email to reply to', async ({ page }) => {
   const sent = await mockContact(page);
-  await page.goto('/#contact');
+  await page.goto('/');
+  // Ideas & questions: a button in the corner opens them in a dialog.
+  const dialog = page.getByRole('dialog', { name: 'Ideas and questions' });
+  await expect(dialog).toBeHidden();
+  await page.getByRole('button', { name: 'Ideas & questions' }).click();
+  await expect(dialog).toBeVisible();
   const form = page.locator('.contact-form');
   await expect(form).toBeVisible();
 
@@ -26,16 +31,27 @@ test('the home page takes feature requests and messages, with an email to reply 
   await expect(page.getByRole('status')).toHaveText(/get back to you/);
   expect(sent[1]).toEqual({ kind: 'contact', message: 'Can I host my own Venn?', email: 'ana@example.com', website: '' });
 
-  // The footer links here from every page.
+  // Escape closes it.
+  await page.keyboard.press('Escape');
+  await expect(dialog).toBeHidden();
+
+  // The footer links here from every page, and the link opens the dialog; closed, it stays closed on a reload.
   await page.goto('/privacy');
   await page.getByRole('contentinfo').getByRole('link', { name: 'Contact' }).click();
   await expect(page).toHaveURL(/\/#contact$/);
+  await expect(dialog).toBeVisible();
   await expect(form).toBeInViewport();
+  await page.getByRole('button', { name: 'Close' }).click();
+  await expect(dialog).toBeHidden();
+  await expect(page).toHaveURL(/\/$/);
+  // On the home page, the footer's Contact link opens it too.
+  await page.getByRole('contentinfo').getByRole('link', { name: 'Contact' }).click();
+  await expect(dialog).toBeVisible();
 });
 
 test('when sending fails, the form says why and keeps the message', async ({ page }) => {
   await mockContact(page, { status: 429, json: { error: "That's a few messages already. Try again in an hour." } });
-  await page.goto('/');
+  await page.goto('/#contact');
   await page.getByLabel('Your idea').fill('Dark mode');
   await page.getByRole('button', { name: 'Send' }).click();
   await expect(page.getByRole('status')).toHaveText(/Try again in an hour/);
@@ -44,6 +60,7 @@ test('when sending fails, the form says why and keeps the message', async ({ pag
 
 test('without email set up there is no form, only the GitHub link', async ({ page }) => {
   await page.goto('/');
+  await page.getByRole('button', { name: 'Ideas & questions' }).click();
   await expect(page.getByRole('heading', { name: 'Ideas and questions' })).toBeVisible();
   await expect(page.locator('.contact-form')).toBeHidden();
   await expect(page.getByRole('link', { name: 'open an issue on GitHub' })).toBeVisible();
