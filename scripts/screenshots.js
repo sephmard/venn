@@ -1,5 +1,4 @@
-// Regenerates the README images (docs/screenshots/*.png, docs/demo.gif) and the phone screens on the
-// home page (public/img/shots/*.webp): `npm run screenshots`.
+// Regenerates the README images (docs/screenshots/*.png and docs/demo.gif): `npm run screenshots`.
 // Needs Playwright's Chromium (`npx playwright install chromium`) and ffmpeg (for the GIF).
 
 import { execFileSync } from 'node:child_process';
@@ -12,29 +11,8 @@ import { DAY_PARTS, zonedToUtc, addDays, weekdayOf } from '../public/core.js';
 
 const root = join(dirname(fileURLToPath(import.meta.url)), '..');
 const out = join(root, 'docs', 'screenshots');
-const shots = join(root, 'public', 'img', 'shots');
 const TZ = 'America/New_York';
 mkdirSync(out, { recursive: true });
-mkdirSync(shots, { recursive: true });
-
-// A phone screen for the home page: the viewport as a small WebP (ffmpeg), 600px wide for 300px on screen.
-async function homeShot(page, name) {
-  const png = join(shots, `${name}.png`);
-  await page.screenshot({ path: png });
-  execFileSync('ffmpeg', [
-    '-y',
-    '-loglevel',
-    'error',
-    '-i',
-    png,
-    '-vf',
-    'scale=600:-1:flags=lanczos',
-    '-quality',
-    '78',
-    join(shots, `${name}.webp`),
-  ]);
-  rmSync(png);
-}
 
 const server = createApp({ dbPath: ':memory:' });
 await new Promise((r) => server.listen(0, r));
@@ -212,52 +190,7 @@ async function stills(dark) {
   });
   await phone.waitForTimeout(500); // let Submit finish turning ready
   await phone.screenshot({ path: join(out, `mobile-${suffix}.png`) });
-  await homeShot(phone, `answer-${suffix}`);
-
-  // Then send it and see the Venn: everyone's answers, where they overlap.
-  await phone.click('#save');
-  // "Submit your answer?" is only asked for a partial answer.
-  await phone
-    .locator('#sc-yes')
-    .waitFor({ timeout: 1500 })
-    .then(
-      () => phone.click('#sc-yes'),
-      () => {},
-    );
-  await phone.click('.party-go');
-  await phone.waitForSelector('.party', { state: 'detached' });
-  await phone.addStyleTag({ content: HIDE_TOAST });
-  await phone.evaluate(() => {
-    const tabs = document.querySelector('.tabs').getBoundingClientRect().height;
-    const venn = document.querySelector('#group-h').getBoundingClientRect().top + window.scrollY;
-    window.scrollTo({ top: venn - tabs - 16, behavior: 'instant' });
-  });
-  await phone.waitForSelector('#overlap .ov-list');
-  await phone.waitForTimeout(500);
-  await homeShot(phone, `results-${suffix}`);
   await phone.context().close();
-
-  // Making a Venn on a phone: the plan, then the evenings tapped on a week of parts of the day.
-  const maker = await newPage({ dark, mobile: true });
-  await maker.goto(`${base}/new`);
-  await maker.addStyleTag({ content: HIDE_TOAST });
-  await maker.click('[data-occasion="0"]');
-  await maker.fill('#title', 'Dinner at Rosa’s');
-  await maker.fill('#organizer', 'Priya');
-  await maker.click('[data-mode="time"]');
-  await maker.click('#when [data-pview="week"]');
-  await showDay(maker, fri);
-  for (const d of [0, 1, 2])
-    await maker.locator(`#when .pg-cell[data-d="${addDays(fri, d)}"][data-m="${EVENING.start}"]`).click();
-  await maker.locator(`#when .pg-cell[data-d="${addDays(fri, 1)}"][data-m="${EVENING.start}"]`).click(); // Saturday again: if needed
-  await maker.locator('#organizer').blur();
-  await maker.evaluate(() => {
-    const top = document.querySelector('.sheet:has(#when-h)').getBoundingClientRect().top + window.scrollY;
-    window.scrollTo({ top: top - 12, behavior: 'instant' });
-  });
-  await maker.waitForTimeout(500);
-  await homeShot(maker, `create-${suffix}`);
-  await maker.context().close();
 }
 
 // ---------- animated demo ----------
@@ -347,7 +280,7 @@ async function recordDemo() {
 try {
   await stills(false);
   await stills(true);
-  console.log('wrote docs/screenshots/*.png and public/img/shots/*.webp');
+  console.log('wrote docs/screenshots/*.png');
   try {
     execFileSync('ffmpeg', ['-version'], { stdio: 'ignore' });
     await recordDemo();

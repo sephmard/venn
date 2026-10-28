@@ -204,9 +204,10 @@ test('template pages: served at clean paths, in the sitemap, each with its own t
       assert.equal(faq['@type'], 'FAQPage');
       for (const q of faq.mainEntity) assert.ok(html.includes(`<summary>${q.name}</summary>`), q.name);
     }
-    // The home page links to them.
+    // The home page links to them (in its footer), and starts a Venn from a few plans.
     const home = await (await fetch(`${base}/`)).text();
-    for (const path of ['/templates', '/templates/friendsgiving']) assert.ok(home.includes(`href="${path}"`), path);
+    assert.ok(home.includes('href="/templates"'));
+    for (const [, name] of home.matchAll(/href="\/new\?template=([\w-]+)"/g)) assert.ok(templateIndex(name) >= 0, name);
   } finally {
     server.close();
   }
