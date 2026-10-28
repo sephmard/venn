@@ -32,7 +32,7 @@ function row(r, n, { kind, open, final, pick, mine }) {
   const said = `${yes} of ${n} available${maybe ? `, ${maybe} if needed` : ''}${no ? `, ${no} unavailable` : ''}${kind === 'all' ? ". Everyone's free" : kind === 'best' ? '. The most overlap' : ''}`;
   return `<li class="ov-item">
     <button type="button" class="ov-row${kind ? ` ${kind}` : ''}${final ? ' final' : ''}" data-ov="${r.start}" aria-expanded="${open}">
-      <span class="ov-when">${r.day ? `<span class="sr-only">${esc(dayName(r.day))}, </span>` : ''}${esc(r.label)}</span>
+      <span class="ov-when">${r.day ? `<span class="sr-only">${esc(dayName(r.day))}, </span>` : ''}${esc(r.label)}${final ? ' <span class="ov-picked">✓ Picked</span>' : ''}</span>
       <span class="ov-count">${kind === 'all' ? '✓ Everyone' : `${yes + maybe} of ${n}`}${mine ? ` <span class="ov-mine">${esc(mine)}</span>` : ''}<span class="sr-only">. ${esc(said)}</span></span>
       <span class="ov-bar" aria-hidden="true">${bar(yes, maybe, no)}</span>
     </button>
@@ -40,8 +40,11 @@ function row(r, n, { kind, open, final, pick, mine }) {
   </li>`;
 }
 
-const pickBtn = (start, label) =>
-  `<button type="button" class="btn btn-sm btn-primary" data-pick="${start}">${esc(label)}</button>`;
+/** The organizer's Pick: "Pick this", or "Pick this instead" once another date is picked; on the picked one, how to change it. */
+const pickBtn = (ev, start, label, what = 'time') =>
+  ev.finalStart === start
+    ? `<p class="hint">Picked. To change it, open another ${what} and pick that.</p>`
+    : `<button type="button" class="btn btn-sm btn-primary" data-pick="${start}">${esc(ev.finalStart != null ? `${label} instead` : label)}</button>`;
 
 /**
  * ctx: { ev, people (with availability), tz, inspect (the open row's start), focus (a person, or null),
@@ -80,7 +83,7 @@ function listHtml({ ev, people, tz, inspect, focus, windows, days, parts, when }
         kind: r.yes.length === n ? 'all' : top && can(r) === top ? 'best' : '',
         open: String(r.start) === String(inspect),
         final: r.start === ev.finalStart,
-        pick: ev.isAdmin && ev.finalStart !== r.start && pickBtn(r.start, 'Pick this'),
+        pick: ev.isAdmin && pickBtn(ev, r.start, 'Pick this', what),
         mine: focus && `${focus.name}: ${v === YES ? '✓' : v === IF_NEEDED ? '~' : '✕'}`,
       })}`;
     })
@@ -161,9 +164,7 @@ function hoursHtml({ ev, people, tz, inspect }) {
               open: String(sp.start) === String(inspect),
               final: sp.start === final,
               pick:
-                ev.isAdmin &&
-                final !== sp.start &&
-                pickBtn(sp.start, `Pick ${fmtTimeRange(sp.start, sp.start + ev.durationMinutes * 60_000, tz)}`),
+                ev.isAdmin && pickBtn(ev, sp.start, `Pick ${fmtTimeRange(sp.start, sp.start + ev.durationMinutes * 60_000, tz)}`),
             },
           ),
         )

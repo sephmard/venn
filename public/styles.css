@@ -1292,6 +1292,20 @@ ol.best .when {
   gap: 8px;
   margin-top: 16px;
 }
+/* Changing the picked date, right under it. */
+.final-change {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 16px;
+  margin: 10px 0 4px;
+}
+.final-change > * {
+  min-height: 44px;
+  color: inherit;
+}
+.final-change .btn {
+  border: 1.5px solid;
+}
 .final-tell .btn {
   width: 100%;
   background: var(--surface);
@@ -2275,7 +2289,16 @@ pre.code {
 }
 .ov-row.final {
   outline: 2.5px solid var(--final);
-  outline-offset: 1px;
+  outline-offset: 2px;
+}
+/* The picked date, on its row. */
+.ov-picked {
+  margin-left: 6px;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: var(--final);
+  color: var(--final-ink);
+  font-size: 0.8rem;
 }
 .ov-row[class*='focus-no'] .ov-mine {
   color: var(--muted);
