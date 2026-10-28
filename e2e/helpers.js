@@ -146,3 +146,9 @@ export async function mockContact(page, reply = { status: 204 }) {
   });
   return sent;
 }
+
+/** On the create page, how guests answer: 'days' (Dates only), or 'parts' or 'hours' (Date and time). */
+export async function setLevel(page, level) {
+  if (level !== 'days' && !(await page.locator(`[data-level="${level}"]`).isVisible())) await page.click('[data-mode="time"]');
+  await page.click(`[data-level="${level}"]`);
+}

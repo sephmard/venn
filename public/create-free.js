@@ -16,7 +16,7 @@ import {
   zonedToUtc,
 } from './core.js';
 import { monthView, timeView, tinyTime } from './picker.js';
-import { $, $$, app, dateParts, dayLabel, esc, fmtDay, lengthLabel, plural, shortTime, todayStr, track } from './ui.js';
+import { $, $$, app, dateParts, dayLabel, esc, fmtDay, lengthLabel, plural, shortTime, toast, todayStr, track } from './ui.js';
 
 import {
   brush,
@@ -49,11 +49,10 @@ const CLEAR = '<button type="button" class="link-btn" id="q-clear">Clear all</bu
 const NOTHING = '<p class="hint">Nothing yet.</p>';
 const HOUR_LENGTHS = [30, 60, 120];
 const fitLength = (v) => HOUR_LENGTHS.findLast((m) => m <= v) ?? HOUR_LENGTHS[0];
-// How detailed guests' answers are, from the broadest to the finest.
-const LEVELS = [
-  // Short, so all three fit on one line on a phone.
-  ['days', 'Days'],
-  ['parts', 'Parts of day'],
+// How detailed guests' answers are: dates only (whole days), or a date and time, as parts of the
+// day or as hours.
+const TIME_LEVELS = [
+  ['parts', 'Parts of the day'],
   ['hours', 'Hours'],
 ];
 // Parts of the day and hours: the painter, and what the page does with what's painted. Most
@@ -75,7 +74,10 @@ export function renderFree() {
   const st = { days: selected, parts: partsSel, hours: painted, maybe, defaultParts: new Set(DAY_PARTS.map((p) => p.key)) };
   let before = new Set(); // what the level had at the last update, to see what's new
   let level = 'days';
-  let length = 120; // minutes, for hours
+  let timeLevel = 'parts'; // where "Date and time" opens: the last of parts of the day or hours
+  let length = null; // minutes, for hours: optional, the shortest time worth finding
+  let dateView = 'month'; // Dates only: a month, or a week of bigger days
+  let range = [1080, 1260]; // hours: the quick fill's times, 6 – 9 PM, or the plan's usual part of the day
   let painter = null;
   let cal = null;
   let mounts = 0; // the painter loads on demand: only the latest level shows when it arrives
@@ -89,24 +91,28 @@ export function renderFree() {
       <section class="sheet" aria-labelledby="when-h">
         <h2 id="when-h">When could it be?</h2>
         <div class="zoom">
-          <span class="scope-label" id="level-l">Guests answer with</span>
-          <div class="seg" role="radiogroup" aria-labelledby="level-l">
-            ${LEVELS.map(([k, l]) => `<button type="button" role="radio" data-level="${k}">${l}</button>`).join('')}
+          <div class="seg" role="radiogroup" aria-label="Guests answer with">
+            <button type="button" role="radio" data-level="days">Dates only</button>
+            <button type="button" role="radio" data-mode="time">Date and time</button>
+          </div>
+          <div class="seg seg-sub" role="radiogroup" aria-label="Times as" id="time-levels" hidden>
+            ${TIME_LEVELS.map(([k, l]) => `<button type="button" role="radio" data-level="${k}">${l}</button>`).join('')}
           </div>
         </div>
-        <div class="inline-field inline-row" data-for="days">
-          <label class="switch"><input type="checkbox" role="switch" id="in-row"> Days in a row</label>
+        <div class="inline-field inline-row optional" data-for="days">
+          <label class="switch"><input type="checkbox" role="switch" id="in-row"> Days in a row <small class="opt-note">optional, for trips</small></label>
           <div class="stepper" id="span-box" hidden>
             <button type="button" class="icon-btn" data-step="-1" aria-label="One day fewer">−</button>
             <input id="span" type="number" min="2" max="${MAX_SPAN_DAYS}" value="2" inputmode="numeric" aria-label="Days in a row">
             <button type="button" class="icon-btn" data-step="1" aria-label="One day more">+</button>
           </div>
         </div>
-        <div class="inline-field" data-for="hours">
-          <h3 class="sub-h" id="len-h">How long is it?</h3>
-          <div class="pills" role="group" aria-labelledby="len-h">
+        <div class="inline-field optional" data-for="hours">
+          <h3 class="sub-h" id="len-h">How long is it? <small class="opt-note">optional</small></h3>
+          <div class="pills" role="group" aria-labelledby="len-h" aria-describedby="len-hint">
             ${HOUR_LENGTHS.map((m) => `<button type="button" class="pill" data-flength="${m}" aria-pressed="false">${lengthLabel(m)}</button>`).join('')}
           </div>
+          <p class="hint" id="len-hint">Venn looks for times at least this long. Leave it off to see any overlap.</p>
         </div>
         <p class="hint" id="when-help" hidden></p>
         ${TAP_KEY}
@@ -130,8 +136,12 @@ export function renderFree() {
       return setLevel('days');
     }
     if (typeof o.length === 'number') setLength(fitLength(o.length));
-    // Days picked from now on get the plan's usual part of the day.
-    if (o.part) st.defaultParts = new Set([o.part]);
+    // Days picked from now on get the plan's usual part of the day, and the quick fill its times.
+    if (o.part) {
+      st.defaultParts = new Set([o.part]);
+      const p = DAY_PARTS.find((x) => x.key === o.part);
+      if (p) range = [p.start, p.end];
+    }
     update();
   });
 
@@ -152,15 +162,19 @@ export function renderFree() {
     pt?.zoom(st, level, next);
     before = new Set(st[next]);
     level = next;
+    if (level !== 'days') timeLevel = level;
     for (const b of $$('[data-level]')) b.setAttribute('aria-checked', b.dataset.level === level);
+    $('[data-mode="time"]').setAttribute('aria-checked', level !== 'days');
+    $('#time-levels').hidden = level === 'days';
     for (const el of $$('[data-for]')) el.hidden = el.dataset.for !== level;
     mount();
     update();
   }
+  /** How long it is, for hours, or null: any overlap is worth finding. */
   function setLength(v) {
-    length = v;
+    length = v || null;
     // An edited poll keeps its own length.
-    if (!$(`[data-flength="${v}"]`))
+    if (length && !$(`[data-flength="${v}"]`))
       $('[data-flength]').parentElement.insertAdjacentHTML(
         'beforeend',
         `<button type="button" class="pill" data-flength="${v}" aria-pressed="false">${lengthLabel(v)}</button>`,
@@ -215,11 +229,20 @@ export function renderFree() {
     $('#when-help').hidden = false;
     if (level === 'days') {
       const said = (d) => (selected.has(d) ? (maybe.days.has(d) ? 'If needed' : 'Available') : '');
-      cal = monthView(root, { selected, onChange: tapped, dayClass: band, marks: said });
+      cal = monthView(root, {
+        selected,
+        onChange: tapped,
+        dayClass: band,
+        marks: said,
+        views: ['month', 'week'],
+        onView: (v) => (dateView = v),
+      });
       const first = [...selected].sort()[0];
       if (first) cal.show(first);
+      if (dateView !== 'month') cal.setView(dateView);
       $('#quick').innerHTML = `
         <button type="button" class="pill" id="q-2w">Next 2 weeks</button>
+        <button type="button" class="pill" id="q-weekdays">Weekdays</button>
         <button type="button" class="pill" id="q-weekends">Next 4 weekends</button>`;
       return;
     }
@@ -242,6 +265,7 @@ export function renderFree() {
       parts: parts && DAY_PARTS,
       maybe: maybe[level],
       marking: () => brush() === IF_NEEDED,
+      views: ['week', 'day'],
     });
     $('#when-help').textContent = paintHelp();
     $('#quick').innerHTML = fillPills();
@@ -278,7 +302,7 @@ export function renderFree() {
       label: 'Calendar',
       views: ['week', 'day'],
       range: () => [420, 1440],
-      tapLength: () => length,
+      tapLength: () => length || 60,
       startAt: () => null,
       blocks: () =>
         pt.windowsAt(st, 'hours').map((w) => ({
@@ -343,7 +367,18 @@ export function renderFree() {
     };
     painter = { render: view.render, week, cleanup: view.cleanup };
     $('#when-help').textContent = 'Drag on the calendar to add times.';
-    $('#quick').innerHTML = fillPills();
+    // The quick fills, and any times of your own, on every day of the week shown.
+    const times = (sel) =>
+      Array.from({ length: 48 }, (_, i) => i * 30)
+        .filter((m) => m >= 360)
+        .map((m) => `<option value="${m}"${m === sel ? ' selected' : ''}>${shortTime(m)}</option>`)
+        .join('');
+    $('#quick').innerHTML = `${fillPills()}
+      <div class="fill-range" role="group" aria-label="Your own times, every day this week">
+        <label for="fr-from">From</label><select id="fr-from">${times(range[0])}</select>
+        <label for="fr-to">to</label><select id="fr-to">${times(range[1])}<option value="1440"${range[1] === 1440 ? ' selected' : ''}>Midnight</option></select>
+        <button type="button" class="pill" id="fr-add">Add every day this week</button>
+      </div>`;
   }
 
   const fill = (n, keep) => {
@@ -366,9 +401,10 @@ export function renderFree() {
   $('#create').addEventListener('click', (e) => {
     const lv = e.target.closest('[data-level]');
     if (lv) setLevel(lv.dataset.level);
+    // How long is it: tap again to leave it off.
     const l = e.target.closest('[data-flength]');
     if (l) {
-      setLength(+l.dataset.flength);
+      setLength(+l.dataset.flength === length ? null : +l.dataset.flength);
       update();
     }
     const s = e.target.closest('[data-step]');
@@ -381,7 +417,17 @@ export function renderFree() {
       pt.fillWeek(st[level], level === 'parts', +f.dataset.fill, painter.week());
       redraw();
     }
+    const mode = e.target.closest('[data-mode]');
+    if (mode && level === 'days') setLevel(timeLevel);
     if (e.target.closest('#q-2w')) fill(14, () => true);
+    if (e.target.closest('#q-weekdays')) fill(10, (wd) => wd > 0 && wd < 6);
+    if (e.target.closest('#fr-add')) {
+      const [from, to] = [+$('#fr-from').value, +$('#fr-to').value];
+      if (to <= from) return toast('Pick an end time after the start.');
+      range = [from, to];
+      for (const d of painter.week()) for (let m = from; m < to; m += 30) painted.add(`${d}|${m}`);
+      redraw();
+    }
     if (e.target.closest('#q-weekends')) fill(12, (wd) => wd === 5 || wd === 6 || wd === 0);
     if (e.target.closest('#q-clear')) {
       painted.clear();
@@ -481,7 +527,7 @@ export function renderFree() {
         `${plural(dates.length, 'day')} to choose from`,
         [!windows.length, 'Add at least one time to create the poll', gridFocus, null, 'times'],
         [
-          windows.length && !windows.some((w) => w.end - w.start >= length),
+          length && windows.length && !windows.some((w) => w.end - w.start >= length),
           `Your times are shorter than ${lengthLabel(length)}. Make one longer`,
           gridFocus,
           null,
@@ -501,8 +547,8 @@ export function renderFree() {
     }
     const dates = [...selected].sort();
     const k = span();
-    // Days in a row are whole days: parts of the day and hours wait until it's back to one.
-    for (const b of $$('[data-level]')) if (b.dataset.level !== 'days') b.disabled = k > 1;
+    // Days in a row are whole days: dates and times wait until it's back to one.
+    for (const b of $$('[data-level], [data-mode]')) if (b.dataset.level !== 'days') b.disabled = k > 1;
     // The tap key above the calendar says the rest.
     $('#when-help').hidden = k < 2;
     $('#when-help').textContent = `Tap a day to pick ${k} in a row from it.`;
@@ -530,7 +576,7 @@ export function renderFree() {
     // The organizer's own answer: what they picked, available or if needed.
     const answer = hostAnswer(st[level], maybe[level], tz);
     if (level === 'hours')
-      return submit({ windows: pt.toWindows(painted), slotMinutes: 30, durationMinutes: length }, occasion, answer);
+      return submit({ windows: pt.toWindows(painted), slotMinutes: 30, durationMinutes: length || 30 }, occasion, answer);
     if (level === 'parts') {
       const options = pt
         .windowsAt(st, level)
@@ -561,7 +607,7 @@ export function renderFree() {
       for (const d of ev.dates) selected.add(d);
     } else {
       next = 'hours';
-      setLength(ev.durationMinutes);
+      setLength(ev.durationMinutes > 30 ? ev.durationMinutes : null);
       const ranges = ev.windows || ev.dates.map((date) => ({ date, start: ev.startMinute, end: ev.endMinute }));
       for (const w of ranges) for (let m = w.start - (w.start % 30); m < w.end; m += 30) painted.add(`${w.date}|${m}`);
     }
@@ -572,7 +618,7 @@ export function renderFree() {
     setLevel(next);
   }
 
-  setLength(120);
+  setLength(null);
   setLevel('days');
   // Fetch the painter as soon as the organizer heads for the levels, so zooming in doesn't wait.
   const warm = () => loadPaint().catch(() => {});

@@ -189,15 +189,20 @@ test.describe('on a 320px phone', () => {
   test('ask when people are available: the answer choices and days in a row fit, in a wide font too', async ({ page }) => {
     await page.goto('/new/free');
     await page.addStyleTag({ content: "* { font-family: 'DejaVu Sans', Verdana, sans-serif !important }" });
-    // Days, Parts of day and Hours each on one line, side by side.
-    await expect(page.locator('[data-level]')).toHaveCount(3);
-    const tops = [];
-    for (const b of await page.locator('[data-level]').all()) {
-      const r = await box(b);
-      expect(r.height).toBeLessThan(50);
-      tops.push(Math.round(r.top));
-    }
-    expect(new Set(tops).size).toBe(1);
+    // Dates only and Date and time each on one line, side by side; then Parts of the day and Hours.
+    const lines = async (sel) => {
+      const tops = [];
+      for (const b of await page.locator(sel).all()) {
+        const r = await box(b);
+        expect(r.height).toBeLessThan(50);
+        tops.push(Math.round(r.top));
+      }
+      expect(new Set(tops).size).toBe(1);
+    };
+    await lines('[data-level="days"], [data-mode="time"]');
+    await page.click('[data-mode="time"]');
+    await lines('#time-levels [data-level]');
+    await page.click('[data-level="days"]');
     // No sentences explaining it: the tap key says how to tap.
     await expect(page.locator('#when-help')).toBeHidden();
     await expect(page.locator('.tap-key')).toBeVisible();
