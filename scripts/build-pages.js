@@ -93,6 +93,7 @@ const FOOTER = `<footer class="wrap footer">
 <a href="/#contact">Contact</a>
 </nav>
 </footer>
+<script type="module" src="/menu.js"></script>
 </body>
 </html>`;
 
