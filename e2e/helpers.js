@@ -132,3 +132,17 @@ export async function mockPlaces(page, provider = 'photon') {
   });
   return searches;
 }
+
+/** The home page's contact form on (the test server has no email); returns the messages sent. */
+export async function mockContact(page, reply = { status: 204 }) {
+  const sent = [];
+  await page.route('**/api/config', async (route) => {
+    const res = await route.fetch();
+    await route.fulfill({ response: res, json: { ...(await res.json()), contact: true } });
+  });
+  await page.route('**/api/contact', (route) => {
+    sent.push(route.request().postDataJSON());
+    route.fulfill(reply);
+  });
+  return sent;
+}

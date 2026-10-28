@@ -90,7 +90,7 @@ const FOOTER = `<footer class="wrap footer">
 <a href="/privacy">Privacy</a>
 <a href="https://docs.venn.day">Docs</a>
 <a href="https://github.com/sephmard/venn">GitHub</a>
-<a href="https://github.com/sephmard/venn/issues/new/choose">Feedback</a>
+<a href="/#contact">Contact</a>
 </nav>
 </footer>
 </body>

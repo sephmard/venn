@@ -2,8 +2,9 @@
 // organizer that someone answered) through whichever provider the server has set up.
 //
 // Each provider says whether its settings are present and how to send one message:
-//   { to, subject, text, html, headers }  →  resolves when accepted, throws otherwise
-// EMAIL_REPLY_TO, when set, is where replies go (a real inbox, so people can write back).
+//   { to, subject, text, html, headers, replyTo }  →  resolves when accepted, throws otherwise
+// EMAIL_REPLY_TO, when set, is where replies go (a real inbox, so people can write back). A message's
+// own `replyTo` wins: a home-page message is answered by replying to whoever sent it.
 // To add a provider (Postmark, SES, an SMTP relay behind an HTTP API, ...), add an entry below and
 // document its settings in docs/NOTIFICATIONS.md. `EMAIL_PROVIDER` picks one when several are set up.
 
@@ -20,8 +21,8 @@ export const EMAIL_PROVIDERS = [
     // Cloudflare Email Sending, through a `send_email` binding named EMAIL. No API key needed.
     name: 'cloudflare',
     configured: (env) => typeof env.EMAIL?.send === 'function',
-    async send(env, { to, subject, text, html, headers }) {
-      const replyTo = env.EMAIL_REPLY_TO && parseAddress(env.EMAIL_REPLY_TO);
+    async send(env, { to, subject, text, html, headers, replyTo: own }) {
+      const replyTo = (own || env.EMAIL_REPLY_TO) && parseAddress(own || env.EMAIL_REPLY_TO);
       await env.EMAIL.send({ from: parseAddress(env.EMAIL_FROM), ...(replyTo && { replyTo }), to, subject, text, html, headers });
     },
   },
@@ -29,14 +30,14 @@ export const EMAIL_PROVIDERS = [
     // Resend (resend.com), over HTTPS. Works on Cloudflare and on the Node server.
     name: 'resend',
     configured: (env) => Boolean(env.RESEND_API_KEY),
-    async send(env, { to, subject, text, html, headers }, { fetchImpl }) {
+    async send(env, { to, subject, text, html, headers, replyTo }, { fetchImpl }) {
       const res = await fetchImpl('https://api.resend.com/emails', {
         method: 'POST',
         signal: AbortSignal.timeout(TIMEOUT_MS),
         headers: { authorization: `Bearer ${env.RESEND_API_KEY}`, 'content-type': 'application/json' },
         body: JSON.stringify({
           from: env.EMAIL_FROM,
-          ...(env.EMAIL_REPLY_TO && { reply_to: env.EMAIL_REPLY_TO }),
+          ...((replyTo || env.EMAIL_REPLY_TO) && { reply_to: replyTo || env.EMAIL_REPLY_TO }),
           to: [to],
           subject,
           text,

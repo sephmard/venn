@@ -147,7 +147,7 @@ export function summaryText(s) {
   return text;
 }
 
-const escHtml = (s) =>
+export const escHtml = (s) =>
   String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
 
 // Venn's dog, shown in every notification. Served from the instance's own public/ folder, so it
