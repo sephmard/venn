@@ -141,6 +141,7 @@
               <a href="/#developers">For developers</a>
               <a href="https://docs.venn.day">Docs</a>
               <a href="/privacy">Privacy</a>
+              <a href="/#contact">Contact</a>
               <a href="https://github.com/sephmard/venn">GitHub</a>
             </div>
           </details>
@@ -456,6 +457,38 @@
         </div>
       </section>
 
+      <section id="contact" class="section" aria-labelledby="contact-h">
+        <div class="wrap">
+          <div class="contact">
+            <h2 id="contact-h">Ideas and questions</h2>
+            <p class="section-lede">Something you wish Venn did, or something to ask? We read every message.</p>
+            <form class="contact-form" hidden>
+              <fieldset class="contact-kind">
+                <legend>What's it about?</legend>
+                <label><input type="radio" name="kind" value="feature" checked /> Request a feature</label>
+                <label><input type="radio" name="kind" value="contact" /> Contact us</label>
+              </fieldset>
+              <label for="contact-message" data-for="feature">Your idea</label>
+              <label for="contact-message" data-for="contact" hidden>Your message</label>
+              <textarea id="contact-message" name="message" rows="5" maxlength="2000" required></textarea>
+              <label for="contact-email"
+                >Your email <span data-for="feature">(optional, if you'd like to hear back)</span
+                ><span data-for="contact" hidden>(so we can reply)</span></label
+              >
+              <input id="contact-email" name="email" type="email" autocomplete="email" inputmode="email" />
+              <p class="contact-hp" aria-hidden="true">
+                <label>Leave this empty <input name="website" tabindex="-1" autocomplete="off" /></label>
+              </p>
+              <button class="btn" type="submit">Send</button>
+              <p class="contact-status" role="status"></p>
+            </form>
+            <p class="contact-alt">
+              You can also <a href="https://github.com/sephmard/venn/issues/new/choose">open an issue on GitHub</a>.
+            </p>
+          </div>
+        </div>
+      </section>
+
       <section class="wrap closing">
         <h2>Stop the <em>back-and-forth.</em></h2>
         <a href="#top" class="btn btn-lg">Create a poll</a>
@@ -473,8 +506,9 @@
         <a href="/privacy">Privacy</a>
         <a href="https://docs.venn.day">Docs</a>
         <a href="https://github.com/sephmard/venn">GitHub</a>
-        <a href="https://github.com/sephmard/venn/issues/new/choose">Feedback</a>
+        <a href="/#contact">Contact</a>
       </nav>
     </footer>
+    <script type="module" src="/contact-form.js"></script>
   </body>
 </html>

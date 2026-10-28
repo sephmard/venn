@@ -26,9 +26,11 @@ import {
 } from './notify.js';
 import { pollKind, planOf, recordUsage, sizeOf, usageEnabled, usageReport } from './usage.js';
 import { AiUnavailableError, aiEnabled, allowAiRequest, answerForMe, draftPoll, summarize, writeMessage } from './ai.js';
+import { allowContactRequest, contactEmail, contactEnabled, contactInbox, normalizeContact } from './contact.js';
 import { allowPlacesRequest, placesProvider, placesState, searchPlaces } from './places.js';
 
 const sharedPlaces = placesState();
+const sharedContactWindows = new Map();
 
 const MAX_BODY = 200_000;
 const MAX_DATE_EMAILS = 3;
@@ -190,6 +192,7 @@ export async function handleApi(
     anthropic,
     aiWindows,
     places = sharedPlaces,
+    contactWindows = sharedContactWindows,
   } = {},
 ) {
   const url = new URL(request.url);
@@ -287,6 +290,8 @@ export async function handleApi(
         email: emailEnabled(env),
         ai: aiEnabled(env),
         usage: usageEnabled(env),
+        // The home page's feature requests and "Contact us", emailed to EMAIL_REPLY_TO.
+        contact: contactEnabled(env),
         // Address search in "Where": 'photon' or 'google' (each needs its own attribution), or false.
         places: placesProvider(env) || false,
         // OAuth client IDs are public by design; they only identify the app to Google/Microsoft.
@@ -296,6 +301,24 @@ export async function handleApi(
           microsoftTenant: env.MICROSOFT_TENANT || 'common',
         },
       });
+    }
+
+    // POST /api/contact  { kind: 'feature' | 'contact', message, email?, website? }: email it to EMAIL_REPLY_TO
+    if (parts.length === 1 && parts[0] === 'contact' && method === 'POST') {
+      if (!contactEnabled(env)) return error(404, "Messages aren't turned on for this server");
+      const body = await readJson(request, 10_000);
+      // `website` is a field people never see. Bots fill it in; pretend it worked.
+      if (body.website) return new Response(null, { status: 204, headers: SECURITY_HEADERS });
+      const msg = normalizeContact(body);
+      if (!(await allowContactRequest(env, clientIp, now(), contactWindows)))
+        return error(429, "That's a few messages already. Try again in an hour.");
+      try {
+        await sendEmail(env, { to: contactInbox(env), ...contactEmail(msg, origin) }, { fetchImpl });
+      } catch (e) {
+        console.error('contact email failed', e.message);
+        return error(502, "Your message didn't send. Try again in a minute.");
+      }
+      return new Response(null, { status: 204, headers: SECURITY_HEADERS });
     }
 
     // POST /api/usage  { name, props }: a count from the browser, for usage stats
