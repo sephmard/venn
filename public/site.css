@@ -365,14 +365,186 @@ h2 em {
   max-width: 32em;
 }
 
-.hero .btn-lg {
-  min-width: 240px;
+/* Read out, not shown. */
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
 }
-.hero-small {
-  margin: 18px auto 0;
-  max-width: 32em;
-  font-size: 0.9375rem;
+/* The way in: what you're planning, then Venn it (it opens the create page with that name). */
+.start {
+  display: flex;
+  gap: 8px;
+  max-width: 520px;
+  margin: 0 auto;
+  padding: 6px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: var(--card);
+  box-shadow: var(--card-shadow);
+}
+.start input {
+  flex: 1 1 auto;
+  min-width: 0;
+  min-height: 48px;
+  padding: 0 8px 0 18px;
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+  color: var(--ink);
+  font: 1.0625rem var(--sans);
+}
+.start input::placeholder {
   color: var(--ink-2);
+}
+.start input:focus-visible {
+  outline: 2px solid var(--green);
+  outline-offset: 2px;
+}
+.start .btn {
+  flex: none;
+  gap: 8px;
+  border: 0;
+  cursor: pointer;
+}
+/* Or a plan, one tap away. */
+.start-plans {
+  list-style: none;
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 8px;
+  margin: 18px 0 0;
+  padding: 0;
+}
+.start-plans a {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+  padding: 0 16px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--card) 80%, transparent);
+  color: var(--ink);
+  font-weight: 600;
+  text-decoration: none;
+  transition:
+    border-color 0.15s,
+    transform 0.15s;
+}
+.start-plans a:hover {
+  border-color: var(--green);
+  transform: translateY(-2px);
+}
+@media (max-width: 480px) {
+  .start {
+    flex-direction: column;
+    border-radius: 28px;
+  }
+  .start input {
+    padding: 0 14px;
+    text-align: center;
+  }
+}
+
+/* The idea in one picture: three friends' free days, overlapping on the one that works. */
+.venn {
+  position: relative;
+  width: min(340px, 100%);
+  height: 270px;
+  margin: 48px auto 0;
+}
+.venn-c {
+  position: absolute;
+  display: grid;
+  align-content: start;
+  justify-items: center;
+  gap: 2px;
+  width: 170px;
+  height: 170px;
+  padding-top: 34px;
+  border-radius: 50%;
+  font-size: 0.8125rem;
+  color: var(--ink);
+  mix-blend-mode: multiply;
+  animation: venn-in 1s cubic-bezier(0.2, 0.8, 0.2, 1) both;
+}
+.venn-c b {
+  font-size: 1rem;
+}
+.venn-c.c1 {
+  left: 0;
+  top: 0;
+  background: #b8ecd6;
+  --from: -24px, -12px;
+}
+.venn-c.c2 {
+  right: 0;
+  top: 0;
+  background: #ffd9a0;
+  --from: 24px, -12px;
+  animation-delay: 0.12s;
+}
+.venn-c.c3 {
+  left: calc(50% - 85px);
+  top: 96px;
+  padding-top: 92px;
+  background: #b9d4f5;
+  --from: 0, 24px;
+  animation-delay: 0.24s;
+}
+.venn-hit {
+  position: absolute;
+  left: 50%;
+  top: 112px;
+  translate: -50% 0;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: var(--green);
+  color: var(--green-ink);
+  font-weight: 700;
+  font-size: 0.875rem;
+  box-shadow: 0 8px 20px -8px var(--green-deep);
+  animation: venn-hit 0.5s 1s cubic-bezier(0.3, 1.6, 0.5, 1) both;
+}
+@keyframes venn-in {
+  from {
+    opacity: 0;
+    translate: var(--from);
+  }
+}
+@keyframes venn-hit {
+  from {
+    opacity: 0;
+    scale: 0.4;
+  }
+}
+@media (prefers-color-scheme: dark) {
+  .venn-c {
+    mix-blend-mode: screen;
+    color: #f1eee8;
+  }
+  .venn-c.c1 {
+    background: #1d5c46;
+  }
+  .venn-c.c2 {
+    background: #6b4a16;
+  }
+  .venn-c.c3 {
+    background: #24456e;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .venn-c,
+  .venn-hit {
+    animation: none;
+  }
 }
 
 /* ---------- sections ---------- */
@@ -386,56 +558,11 @@ h2 em {
   line-height: 1;
 }
 
-/* How it works: three phone screens, side by side; on a phone, a row to swipe through. */
 .section-lede {
   max-width: 560px;
   margin: 18px 0 0;
   font-size: 1.125rem;
   color: var(--ink-2);
-}
-.shots {
-  list-style: none;
-  margin: 48px 0 0;
-  padding: 0;
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 40px;
-}
-.shots li {
-  min-width: 0;
-}
-.shots img {
-  display: block;
-  width: 100%;
-  max-width: 300px;
-  height: auto;
-  margin: 0 0 24px;
-  border: 1px solid var(--line);
-  border-radius: 28px;
-  background: var(--card);
-  box-shadow: var(--shot-shadow);
-}
-/* The middle phone sits a little higher, so the three read as steps. */
-@media (min-width: 901px) {
-  .shots li:nth-child(2) {
-    margin-top: -32px;
-  }
-  .shots li:nth-child(3) {
-    margin-top: -12px;
-  }
-}
-.shots img {
-  transition:
-    transform 0.35s cubic-bezier(0.2, 0.8, 0.2, 1),
-    box-shadow 0.35s;
-}
-.shots li:hover img {
-  transform: translateY(-6px) rotate(-1deg);
-}
-.shots:focus-visible {
-  outline: 3px solid var(--green);
-  outline-offset: 8px;
-  border-radius: 12px;
 }
 
 /* "Make it yours": a poll's own picture, on the poll and in its link preview. */
@@ -1081,19 +1208,6 @@ h3 {
   .story {
     max-width: 560px;
   }
-  .shots {
-    display: flex;
-    gap: 20px;
-    overflow-x: auto;
-    scroll-snap-type: x mandatory;
-    margin-inline: calc(-1 * var(--gutter));
-    padding: 0 var(--gutter) 24px;
-    scroll-padding-inline: var(--gutter);
-  }
-  .shots li {
-    flex: 0 0 min(260px, 72vw);
-    scroll-snap-align: start;
-  }
 }
 @media (max-width: 640px) {
   :root {
@@ -1193,7 +1307,6 @@ h3 {
   @supports (animation-timeline: view()) {
     .section h2,
     .section-lede,
-    .shots li,
     .story,
     .demo,
     .tpl-cards li,

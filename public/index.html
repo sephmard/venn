@@ -125,8 +125,6 @@
           Venn
         </a>
         <nav class="nav-links" aria-label="Main">
-          <a href="/#how" class="hide-md">How it works</a>
-          <a href="/templates" class="hide-md">Templates</a>
           <a href="https://github.com/sephmard/venn" class="gh-link"
             ><svg class="gh-mark" viewBox="0 0 16 16" width="18" height="18" aria-hidden="true">
               <path
@@ -143,8 +141,6 @@
               </svg>
             </summary>
             <div class="menu-panel">
-              <a href="/#how">How it works</a>
-              <a href="/templates">Templates</a>
               <a href="/#contact">Contact</a>
               <a href="/privacy">Privacy</a>
               <a href="https://docs.venn.day">Docs</a>
@@ -163,63 +159,36 @@
         <div class="wrap hero-inner">
           <p class="kicker">Free · No sign-up · No ads</p>
           <h1>Find the day that works for <em>everyone.</em></h1>
-          <p class="lede">Tap the days that could work, share one link, and see where everyone's free. Just Venn it.</p>
-          <a href="/new" class="btn btn-lg">Create a Venn</a>
-          <p class="hero-small">For dinners, book clubs, game nights and trips. Nobody needs an account.</p>
-        </div>
-      </section>
-
-      <section id="how" class="section">
-        <div class="wrap">
-          <p class="eyebrow">How it works</p>
-          <h2>Three taps to <em>a date.</em></h2>
-          <ol class="shots" tabindex="0" aria-label="Venn on a phone, in three steps">
-            <li>
-              <picture>
-                <source media="(prefers-color-scheme: dark)" srcset="/img/shots/create-dark.webp" />
-                <img
-                  src="/img/shots/create-light.webp"
-                  width="600"
-                  height="1298"
-                  loading="lazy"
-                  decoding="async"
-                  alt="Making a Venn for dinner on a phone: Friday to Sunday evenings tapped on a week of parts of the day, Saturday only if needed"
-                />
-              </picture>
-              <h3>1. Make a Venn</h3>
-              <p>Name the plan and tap the days that could work.</p>
-            </li>
-            <li>
-              <picture>
-                <source media="(prefers-color-scheme: dark)" srcset="/img/shots/answer-dark.webp" />
-                <img
-                  src="/img/shots/answer-light.webp"
-                  width="600"
-                  height="1298"
-                  loading="lazy"
-                  decoding="async"
-                  alt="Answering on a phone: each evening tapped as available or if needed"
-                />
-              </picture>
-              <h3>2. Everyone taps when they're free</h3>
-              <p>Available, or if needed. Nothing to install.</p>
-            </li>
-            <li>
-              <picture>
-                <source media="(prefers-color-scheme: dark)" srcset="/img/shots/results-dark.webp" />
-                <img
-                  src="/img/shots/results-light.webp"
-                  width="600"
-                  height="1298"
-                  loading="lazy"
-                  decoding="async"
-                  alt="Everyone's answers on a phone: each evening with a bar of who's available, if needed or unavailable, and where everyone can make it"
-                />
-              </picture>
-              <h3>3. See the Venn</h3>
-              <p>Where everyone overlaps rises to the top. Pick it, and it's in everyone's calendar.</p>
-            </li>
-          </ol>
+          <p class="lede">Everyone taps when they're free. Venn finds the overlap.</p>
+          <form class="start" action="/new" method="get">
+            <label for="start-title" class="sr-only">What are you planning?</label>
+            <input
+              id="start-title"
+              name="title"
+              type="text"
+              maxlength="120"
+              placeholder="What are you planning?"
+              autocomplete="off"
+              enterkeyhint="go"
+            />
+            <button class="btn btn-lg" type="submit">Venn it <span aria-hidden="true">→</span></button>
+          </form>
+          <ul class="start-plans" aria-label="Or start from a plan">
+            <li><a href="/new?template=dinner">🍝 Dinner</a></li>
+            <li><a href="/new?template=book-club">📚 Book club</a></li>
+            <li><a href="/new?template=game-night">🎲 Game night</a></li>
+            <li><a href="/new?template=trip">✈️ Trip</a></li>
+          </ul>
+          <figure
+            class="venn"
+            role="img"
+            aria-label="Three friends' free days as overlapping circles. Ana is free Thursday to Saturday, Sam Friday to Sunday, and Lee Wednesday and Saturday. They all overlap on Saturday."
+          >
+            <span class="venn-c c1" aria-hidden="true"><b>Ana</b>Thu · Fri · Sat</span>
+            <span class="venn-c c2" aria-hidden="true"><b>Sam</b>Fri · Sat · Sun</span>
+            <span class="venn-c c3" aria-hidden="true"><b>Lee</b>Wed · Sat</span>
+            <span class="venn-hit" aria-hidden="true">Sat <span>✓</span></span>
+          </figure>
         </div>
       </section>
 
@@ -295,34 +264,6 @@
               </div>
             </div>
           </figure>
-        </div>
-      </section>
-
-      <section id="templates" class="section">
-        <div class="wrap tpl-list">
-          <p class="eyebrow">Templates</p>
-          <h2>Planning for <em>the holidays?</em></h2>
-          <ul class="tpl-cards">
-            <li>
-              <a class="tpl-card" href="/templates/friendsgiving"
-                ><strong>Friendsgiving</strong><span>Find the weekend around Thanksgiving that works for the whole crew.</span
-                ><em>See the template →</em></a
-              >
-            </li>
-            <li>
-              <a class="tpl-card" href="/templates/holiday-party"
-                ><strong>Holiday party</strong><span>Pick an evening before December fills up, for friends or the team.</span
-                ><em>See the template →</em></a
-              >
-            </li>
-            <li>
-              <a class="tpl-card" href="/templates/secret-santa"
-                ><strong>Secret Santa</strong><span>Find the night everyone can be there to swap gifts.</span
-                ><em>See the template →</em></a
-              >
-            </li>
-          </ul>
-          <a class="link-arrow" href="/templates">All templates <span aria-hidden="true">→</span></a>
         </div>
       </section>
 

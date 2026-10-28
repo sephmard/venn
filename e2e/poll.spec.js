@@ -948,8 +948,6 @@ test('landing page: nav bar with GitHub, and one way in: Create a Venn', async (
     await page.locator('.menu summary').click();
     await expect(page.locator('.menu-panel').getByRole('link', { name: 'Privacy' })).toBeVisible();
     await page.locator('.menu summary').click();
-  } else {
-    await expect(nav.getByRole('link', { name: 'How it works' })).toBeVisible();
   }
   await expect(page.locator('h1')).toHaveText(/Find the day that works/);
   // "Create a Venn" stays in the sticky bar however far down people scroll, without sideways scrolling.
@@ -960,14 +958,18 @@ test('landing page: nav bar with GitHub, and one way in: Create a Venn', async (
   expect((await create.boundingBox()).height).toBeGreaterThanOrEqual(44);
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
   await page.evaluate(() => scrollTo(0, 0));
-  // One kind of poll: the hero's button opens it straight away, with no choice to make first.
-  await page.locator('.hero').getByRole('link', { name: 'Create a Venn' }).click();
+  // The hero asks what you're planning; Venn it opens the create page with it filled in.
+  await page.getByLabel('What are you planning?').fill('Dinner at Rosa’s');
+  await page.getByRole('button', { name: 'Venn it' }).click();
   await expect(page).toHaveURL(/\/new$/);
   await expect(page.locator('#create h1')).toHaveText('Create a Venn');
-  await expect(page.locator('#title')).toBeVisible();
+  await expect(page.locator('#title')).toHaveValue('Dinner at Rosa’s');
   await expect(page.getByRole('button', { name: 'Create Venn' })).toBeVisible();
+  // Or a plan, one tap away.
   await page.getByRole('link', { name: 'Venn', exact: true }).click();
   await expect(page).toHaveURL(/\/$/);
+  await page.getByRole('link', { name: '🎲 Game night' }).click();
+  await expect(page.locator('#emoji-tile')).toHaveText('🎲');
 });
 
 test('the poll created celebration shows the dog; Share poll copies the link and opens the poll', async ({ page, context }) => {
