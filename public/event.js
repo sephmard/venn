@@ -5,7 +5,6 @@
 import {
   YES,
   IF_NEEDED,
-  DAY_PARTS,
   addDays,
   allDaySpan,
   eventWindows,
@@ -321,14 +320,25 @@ export async function renderEvent(id, navigate) {
             <div id="best"></div>
           </div>
           <div class="sheet"${hideAll ? ' hidden' : ''}>
-            <h2 class="panel-title" id="group-h">Everyone's answers</h2>
+            <div class="sheet-head">
+              <h2 class="panel-title" id="group-h">Everyone's answers</h2>
+              ${
+                listMode
+                  ? ''
+                  : `<div class="seg ov-views" role="radiogroup" aria-label="Show everyone's answers as">
+                      <button type="button" role="radio" data-gview="list">List</button>
+                      <button type="button" role="radio" data-gview="grid">Grid</button>
+                    </div>`
+              }
+            </div>
             <div class="people" id="people" role="group" aria-label="People who answered"></div>
+            <div id="overlap"></div>
             ${
               listMode
-                ? '<div id="group"></div>'
-                : `<div class="grid-scroll"><div class="grid readonly" id="group" role="group" aria-label="Everyone's availability"></div></div>
+                ? ''
+                : `<div id="grid-wrap" hidden><div class="grid-scroll"><div class="grid readonly" id="group" role="group" aria-label="Everyone's availability"></div></div>
                    <div class="legend" id="legend"></div>
-                   <div class="hover-info" id="inspect"></div>`
+                   <div class="hover-info" id="inspect"></div></div>`
             }
           </div>
           <aside class="sheet grow-card" id="grow" hidden>
@@ -1235,131 +1245,59 @@ export async function renderEvent(id, navigate) {
   // ----- the group -----
   const groupEl = $('#group');
 
-  function renderGroupList() {
+  // Everyone's answers as the Venn (overlap.js), with my unsaved edits shown live. It loads just
+  // after the page is drawn: guests start on their own answer.
+  let overlap = null;
+  import('./overlap.js')
+    .then((m) => {
+      overlap = m;
+      renderOverlap();
+    })
+    .catch(() => {});
+  function renderOverlap() {
     const people = others();
-    if (!people.length) {
-      groupEl.innerHTML = '';
-      return;
-    }
-    const top = rankTimes(ev(), ev().slots, people, 1)[0];
-    const topCount = top ? top.yes.length + top.ifNeeded.length : -1;
-    const isTop = (s) => !daysMode && people.filter((p) => p.availability[s]).length === topCount && topCount > 0;
-    const cls = (w) => [isTop(w.start) ? 'top' : '', w.start === ev().finalStart ? 'final' : ''].join(' ');
-    const head = windows
-      .map((w) => {
-        const z = utcToZoned(w.start, st.tz);
-        const time = optionsMode && !allDaySpan(w.start, w.end, st.tz) ? fmtTimeRange(w.start, w.start, st.tz) : '';
-        return `<th class="${cls(w)}" scope="col"><span class="m-day">${esc(fmtDow.format(dateParts(z.date)))}</span><span class="m-date">${esc(fmtMonthDay.format(dateParts(z.date)))}</span>${time ? `<span class="m-time">${esc(time)}</span>` : ''}</th>`;
-      })
-      .join('');
-    const myId = me()?.id;
-    const rows = people
-      .map((p) => {
-        const cells = windows
-          .map((w) => {
-            const v = p.availability[w.start];
-            return v === YES
-              ? `<td class="m-yes ${cls(w)}"><span aria-hidden="true">✓</span><span class="sr-only">Yes</span></td>`
-              : v === IF_NEEDED
-                ? `<td class="m-maybe ${cls(w)}"><span aria-hidden="true">~</span><span class="sr-only">If needed</span></td>`
-                : `<td class="m-no ${cls(w)}"><span aria-hidden="true">✕</span><span class="sr-only">No</span></td>`;
-          })
-          .join('');
-        return `<tr class="${p.id === st.focus ? 'focus' : ''}"><th scope="row">${avatar(p.name, 'av-sm')}<span title="${esc(p.name)}">${esc(p.name)}${p.id === myId ? ' <span class="muted">(you)</span>' : ''}</span></th>${cells}</tr>`;
-      })
-      .join('');
-    const totals = windows
-      .map((w) => {
-        const n = people.filter((p) => p.availability[w.start]).length;
-        return `<td class="${cls(w)}"><b>${n}</b></td>`;
-      })
-      .join('');
-    groupEl.innerHTML = `<div class="matrix-scroll" tabindex="0" role="region" aria-label="Everyone's answers"><table class="matrix">
-      <thead><tr><th></th>${head}</tr></thead>
-      <tbody>${rows}</tbody>
-      <tfoot><tr><th scope="row">Can come</th>${totals}</tr></tfoot>
-    </table></div>
-    <p class="hint">✓ yes · ~ if needed · ✕ no</p>`;
+    if (!overlap) return;
+    $('#overlap').innerHTML = people.length
+      ? overlap.overlapHtml({
+          ev: ev(),
+          people,
+          tz: st.tz,
+          inspect: st.inspect,
+          focus: people.find((p) => p.id === st.focus),
+          windows,
+          days: daysMode,
+          parts: partsMode,
+          list: listMode,
+          when,
+        })
+      : '';
   }
-
-  // Parts of the day: a day-by-part table, shaded by how many people are available.
-  function renderGroupParts() {
-    const people = others();
-    const n = people.length;
-    if (!n) return (groupEl.innerHTML = '');
-    const parts = DAY_PARTS.filter((p) => windows.some((w) => partOf(w.start, w.end, ev().timezone)?.key === p.key));
-    const top = Math.max(0, ...windows.map((w) => people.filter((x) => x.availability[w.start] === YES).length));
-    const rows = [...byDay()]
-      .map(([d, ws]) => {
-        const cells = parts
-          .map((p) => {
-            const w = ws.find((x) => partOf(x.start, x.end, ev().timezone)?.key === p.key);
-            if (!w) return '<td></td>';
-            const yes = people.filter((x) => x.availability[w.start] === YES).length;
-            const maybe = people.filter((x) => x.availability[w.start] === IF_NEEDED).length;
-            const no = n - yes - maybe;
-            const label = `${when(w.start, w.end)}: ${yes} of ${n} available${maybe ? `, ${maybe} if needed` : ''}${no ? `, ${no} unavailable` : ''}${yes === n ? ". Everyone's available" : ''}`;
-            // The bar under the number: available, if needed and unavailable, in their colours.
-            const bar = [
-              ['y', yes],
-              ['m', maybe],
-              ['n', no],
-            ]
-              .filter(([, k]) => k)
-              .map(([c, k]) => `<i class="${c}" style="flex:${k}"></i>`)
-              .join('');
-            // Where everyone's available, solid green with a tick; the most available, outlined.
-            const best = yes === n ? ' all' : yes && yes === top ? ' best' : '';
-            return `<td><button type="button" class="heat-btn${best}${String(w.start) === String(st.inspect) ? ' active' : ''}${w.start === ev().finalStart ? ' final' : ''}" data-inspect="${w.start}" aria-label="${esc(label)}">${yes === n ? '✓ ' : ''}${yes + maybe}<span class="heat-bar" aria-hidden="true">${bar}</span></button></td>`;
-          })
-          .join('');
-        return `<tr><th scope="row">${esc(fmtDay.format(dateParts(d)))}</th>${cells}</tr>`;
-      })
-      .join('');
-    groupEl.innerHTML = `<div class="matrix-scroll"><table class="heat-table">
-        <thead><tr><th></th>${parts.map((p) => `<th scope="col">${esc(p.label)}</th>`).join('')}</tr></thead>
-        <tbody>${rows}</tbody>
-      </table></div>
-      <p class="hint legend"><span class="sw sw-y"></span>Available <span class="sw sw-m"></span>If needed <span class="sw sw-n"></span>Unavailable</p>
-      <div class="hover-info" id="parts-inspect"></div>`;
-    renderPartsInspect();
-  }
-  function renderPartsInspect() {
-    const box = $('#parts-inspect');
-    if (!box || st.inspect == null) return;
-    const s = +st.inspect;
-    const w = windows.find((x) => x.start === s);
-    if (!w) return;
-    const people = others();
-    const chips = (list, cls) =>
-      list.map((p) => `<span class="chip ${cls}">${avatar(p.name, 'av-xs')}${esc(p.name)}</span>`).join('');
-    box.innerHTML = `
-      <div class="sheet-head">
-        <b>${esc(when(w.start, w.end))}</b>
-        ${ev().isAdmin && ev().finalStart !== s ? `<button class="btn btn-sm" data-pick="${s}">Pick this</button>` : ''}
-      </div>
-      <div class="chips">${chips(
-        people.filter((p) => p.availability[s] === YES),
-        'yes',
-      )}${chips(
-        people.filter((p) => p.availability[s] === IF_NEEDED),
-        'maybe',
-      )}${chips(
-        people.filter((p) => !p.availability[s]),
-        'no',
-      )}</div>`;
-  }
-  groupEl.addEventListener('click', (e) => {
-    const b = e.target.closest('[data-inspect]');
+  $('#overlap').addEventListener('click', (e) => {
+    const b = e.target.closest('[data-ov]');
     if (!b) return;
-    st.inspect = b.dataset.inspect;
-    renderGroupParts();
+    st.inspect = String(st.inspect) === b.dataset.ov ? null : b.dataset.ov;
+    renderOverlap();
+    $(`#overlap [data-ov="${b.dataset.ov}"]`)?.focus();
   });
+  // Hours: the list, or the grid of half hours.
+  st.gview = 'list';
+  function showGroupView() {
+    for (const b of $$('[data-gview]')) b.setAttribute('aria-checked', b.dataset.gview === st.gview);
+    if ($('#grid-wrap')) $('#grid-wrap').hidden = st.gview !== 'grid';
+    $('#overlap').hidden = !listMode && st.gview === 'grid';
+  }
+  for (const b of $$('[data-gview]'))
+    b.onclick = () => {
+      st.gview = b.dataset.gview;
+      st.inspect = null;
+      renderGroup();
+    };
 
   function renderGroup() {
     $('#group-count').textContent = ev().responses ?? (ev().participants.length || '');
-    if (partsMode) return renderGroupParts();
-    if (listMode) return renderGroupList();
+    showGroupView();
+    renderOverlap();
+    if (listMode || st.gview !== 'grid') return;
     const people = others();
     const n = people.length;
     const fs = finalSet();

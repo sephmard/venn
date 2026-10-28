@@ -1077,89 +1077,6 @@ ol.best .when {
 .chip.no {
   opacity: 0.7;
 }
-.matrix-scroll {
-  position: relative; /* keeps screen-reader-only labels inside the scroll box */
-  overflow-x: auto;
-  margin: 0 -20px;
-  padding: 0 20px 4px;
-  /* fades at the edge: there's more */
-  mask-image: linear-gradient(to left, transparent, #000 20px);
-}
-.matrix-scroll:focus-visible {
-  mask-image: none;
-}
-.matrix {
-  border-collapse: separate;
-  border-spacing: 3px;
-  font-size: 0.9rem;
-}
-.matrix th {
-  font-weight: 600;
-  text-align: center;
-  padding: 4px 6px;
-  white-space: nowrap;
-}
-.matrix thead th {
-  font-size: 0.8rem;
-  vertical-align: bottom;
-}
-.matrix thead span {
-  display: block;
-}
-.m-day {
-  color: var(--muted);
-}
-.m-date {
-  font-family: var(--display);
-  font-weight: 750;
-  font-size: 0.95rem;
-}
-.m-time {
-  color: var(--muted);
-}
-.matrix tbody th,
-.matrix tfoot th {
-  text-align: left;
-  position: sticky;
-  left: 0;
-  background: var(--surface);
-  z-index: 1;
-}
-.matrix tbody th {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-.matrix td {
-  min-width: 44px;
-  height: 36px;
-  text-align: center;
-  border-radius: 8px;
-  font-weight: 800;
-}
-.m-yes {
-  background: var(--yes);
-  color: var(--yes-ink);
-}
-.m-maybe {
-  background: var(--maybe);
-  color: var(--maybe-ink);
-}
-.m-no {
-  background: var(--no-soft);
-  color: var(--no);
-}
-.matrix thead th.top,
-.matrix tfoot td.top {
-  color: var(--yes);
-}
-.matrix .final {
-  outline: 2px solid var(--final);
-  outline-offset: -2px;
-}
-.matrix tr.focus th {
-  color: var(--accent);
-}
 
 /* Hours grid (paint and heatmap) */
 /* Three buttons on a line, which never push past a phone's edge: in a wide font, the last moves to
@@ -1578,17 +1495,6 @@ details.organizer > .danger {
     margin: 0 -16px;
     padding: 2px 16px 4px;
   }
-  .matrix-scroll {
-    margin: 0 -16px;
-    padding: 0 16px 4px;
-  }
-  .matrix tbody th {
-    max-width: 104px;
-  }
-  .matrix tbody th > :last-child {
-    overflow: hidden;
-    text-overflow: ellipsis;
-  }
   .save-bar {
     margin: 16px -16px -18px;
     padding-left: 16px;
@@ -1943,59 +1849,12 @@ details.organizer > .danger {
 .part-vote.final {
   outline: 2.5px solid var(--final);
 }
-.heat-table {
-  border-collapse: separate;
-  border-spacing: 4px;
-  width: 100%;
-}
-.heat-table th {
-  font-size: 0.85rem;
-  font-weight: 650;
-  text-align: left;
-  white-space: nowrap;
-}
-.heat-table thead th {
-  text-align: center;
-  color: var(--muted);
-}
-.heat-btn {
-  width: 100%;
-  min-height: 44px;
-  border: 1.5px solid transparent;
-  border-radius: 10px;
-  background: var(--cell-empty);
-  color: var(--text);
-  font-weight: 800;
-  cursor: pointer;
-}
-.heat-btn.all {
-  background: var(--yes);
-  color: var(--yes-ink);
-}
-.heat-btn.best {
-  border-color: var(--yes);
-}
-.heat-btn.active {
-  border-color: var(--text);
-}
-/* Available, if needed and unavailable, in proportion, under each count. */
-.heat-bar {
-  display: flex;
-  gap: 2px;
-  height: 6px;
-  margin: 4px 6px 0;
-  border-radius: 3px;
-  overflow: hidden;
-}
-.heat-bar i,
 .legend .sw {
   background: var(--yes);
 }
-.heat-bar .m,
 .legend .sw-m {
   background: var(--maybe);
 }
-.heat-bar .n,
 .legend .sw-n {
   background: var(--no);
 }
@@ -2024,9 +1883,6 @@ details.organizer > .danger {
 }
 .legend .sw:first-child {
   margin-left: 0;
-}
-.heat-btn.final {
-  outline: 2.5px solid var(--final);
 }
 
 /* ---------- guests: what I've picked, and calendar coming soon ---------- */
@@ -2313,4 +2169,184 @@ pre.code {
   border: 1px dashed var(--border);
   border-radius: 16px;
   color: var(--muted);
+}
+
+/* Everyone's answers, as the Venn: a row per date or time, its bar showing who's available, if
+   needed and unavailable, and where everyone overlaps solid green. */
+.ov-views {
+  grid-auto-columns: auto;
+}
+.ov-summary {
+  margin: 4px 0 6px;
+  font-size: 1.05rem;
+}
+.ov-legend {
+  margin: 0 0 12px;
+}
+.ov-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 8px;
+}
+.ov-day h3 {
+  margin: 10px 0 0;
+  font-size: 0.95rem;
+}
+.ov-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 8px 12px;
+  align-items: center;
+  width: 100%;
+  min-height: 56px;
+  padding: 10px 14px 12px;
+  border: 1.5px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface);
+  color: var(--text);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+@media (hover: hover) {
+  .ov-row:hover {
+    border-color: var(--accent);
+  }
+}
+.ov-row:focus-visible {
+  outline: 3px solid var(--accent);
+  outline-offset: 2px;
+}
+.ov-when {
+  font-weight: 650;
+  overflow-wrap: anywhere;
+}
+.ov-count {
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.ov-mine {
+  margin-left: 6px;
+  font-weight: 500;
+  color: var(--muted);
+}
+.ov-bar {
+  grid-column: 1 / -1;
+  display: flex;
+  gap: 2px;
+  height: 10px;
+  border-radius: 999px;
+  overflow: hidden;
+}
+.ov-bar i {
+  min-width: 4px;
+}
+.ov-bar .y {
+  background: var(--yes);
+}
+.ov-bar .m {
+  background: var(--maybe);
+}
+.ov-bar .n {
+  background: var(--no-cell);
+}
+/* Where everyone overlaps: the Venn itself. */
+.ov-row.all {
+  border-color: var(--yes);
+  background: var(--yes);
+  color: var(--yes-ink);
+  box-shadow: 0 10px 24px -14px var(--yes);
+}
+.ov-row.all .ov-bar {
+  background: rgb(255 255 255 / 0.35);
+}
+.ov-row.all .ov-bar .y {
+  background: var(--yes-ink);
+}
+.ov-row.all .ov-mine {
+  color: inherit;
+}
+.ov-row.best {
+  border-color: var(--yes);
+  background: var(--yes-soft);
+}
+.ov-row.final {
+  outline: 2.5px solid var(--final);
+  outline-offset: 1px;
+}
+.ov-row[class*='focus-no'] .ov-mine {
+  color: var(--muted);
+}
+.ov-who {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  padding: 10px 4px 2px;
+}
+.ov-pick {
+  flex-basis: 100%;
+  margin-top: 6px;
+}
+/* Hours: a card a day, the day as a timeline of half hours. */
+.ov-days {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 18px;
+}
+.ov-card h3 {
+  margin: 0 0 8px;
+  font-size: 1rem;
+}
+.ov-tl {
+  margin-bottom: 10px;
+}
+.ov-cols {
+  display: flex;
+  align-items: stretch;
+  gap: 2px;
+  height: 56px;
+}
+.ov-slot {
+  flex: 1 1 0;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  border-radius: 4px;
+  background: var(--no-cell);
+  overflow: hidden;
+}
+.ov-slot .y {
+  background: var(--yes);
+}
+.ov-slot .m {
+  background: var(--maybe);
+}
+.ov-slot.hot {
+  outline: 2px solid var(--yes);
+  outline-offset: 1px;
+}
+.ov-slot.all {
+  outline: 2px solid var(--yes);
+  outline-offset: 1px;
+  box-shadow: 0 6px 14px -8px var(--yes);
+}
+.ov-slot.final {
+  outline: 2.5px solid var(--final);
+}
+.ov-gap {
+  flex: 0 0 8px;
+}
+.ov-axis {
+  display: grid;
+  grid-template-columns: repeat(var(--n), minmax(0, 1fr));
+  margin-top: 4px;
+  font-size: 0.72rem;
+  color: var(--muted);
+  white-space: nowrap;
 }

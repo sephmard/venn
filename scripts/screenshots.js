@@ -8,7 +8,7 @@ import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { chromium } from '@playwright/test';
 import { createApp } from '../server.js';
-import { zonedToUtc, addDays, weekdayOf } from '../public/core.js';
+import { DAY_PARTS, zonedToUtc, addDays, weekdayOf } from '../public/core.js';
 
 const root = join(dirname(fileURLToPath(import.meta.url)), '..');
 const out = join(root, 'docs', 'screenshots');
@@ -56,16 +56,16 @@ function nextFriday() {
   return d;
 }
 
-const HOUR = 3_600_000;
 const fri = nextFriday();
-const at = (dayOffset, h, m = 0) => zonedToUtc(addDays(fri, dayOffset), h * 60 + m, TZ);
-// Dinner: Friday and Saturday evenings this week and next.
-const OPTIONS = [at(0, 19), at(1, 19), at(1, 19, 30), at(7, 19), at(8, 19, 30)].map((start) => ({
-  start,
-  end: start + 2.5 * HOUR,
+const EVENING = DAY_PARTS.find((p) => p.key === 'evening');
+// Dinner, a Venn of evenings: Friday to Sunday this week, and Friday and Saturday next.
+const DAYS = [0, 1, 2, 7, 8];
+const OPTIONS = DAYS.map((d) => ({
+  start: zonedToUtc(addDays(fri, d), EVENING.start, TZ),
+  end: zonedToUtc(addDays(fri, d), EVENING.end, TZ),
 }));
 
-// Votes per option: 2 = yes, 1 = if needed, 0 = no.
+// Answers per evening: 2 = available, 1 = if needed, 0 = unavailable.
 const PEOPLE = {
   'Priya Shah': [2, 0, 2, 2, 1],
   'Marcus Lee': [0, 2, 1, 2, 2],
@@ -86,6 +86,7 @@ async function seedPoll() {
     organizer: 'Priya Shah',
     timezone: TZ,
     mode: 'options',
+    layout: 'parts',
     options: OPTIONS,
   });
   for (const [name, votes] of Object.entries(PEOPLE))
@@ -95,37 +96,15 @@ async function seedPoll() {
 
 const HIDE_TOAST = '#toast { display: none !important; }';
 
-// The create page's week calendar: go forward a week at a time until `date` shows (as e2e/helpers.js does).
-async function showDate(page, date, step = (sel) => page.click(sel)) {
-  const col = page.locator(`#picker .tg-col[data-date="${date}"]`);
-  for (let i = 0; i < 60 && !(await col.count()); i++) {
-    // On a phone it shows one day; the strip's chips pick a day in the week shown.
-    const chip = page.locator(`#picker .tv-chip[data-day="${date}"]`);
-    if (await chip.isVisible()) {
-      await step(`#picker .tv-chip[data-day="${date}"]`);
-      continue;
-    }
-    const shown = await page.locator('#picker .tg-col').first().getAttribute('data-date');
-    await step(`#picker .tv-nav [data-step="${date < shown ? -1 : 1}"]`);
-  }
-  return col;
+// On the create page's parts of the day, the week shown from today: forward until `date` shows.
+async function showDay(page, date, step = (sel) => page.click(sel)) {
+  const cell = page.locator(`#when .pg-cell[data-d="${date}"][data-m="${EVENING.start}"]`);
+  for (let i = 0; i < 10 && !(await cell.count()); i++) await step('#when [data-pstep="1"]');
+  return cell;
 }
 
-// Scroll a day's column so `minutes` shows, and return its y offset in the column.
-const rowY = (col, minutes) =>
-  col.evaluate((el, m) => {
-    const row = parseFloat(getComputedStyle(el.closest('.tg')).getPropertyValue('--row')) || 24;
-    const y = ((m - 420) / 30) * row + row / 2;
-    el.closest('.tg-scroll').scrollTop = y - 2 * row;
-    return y;
-  }, minutes);
-
-async function tapAt(page, date, minutes) {
-  const col = await showDate(page, date);
-  const y = await rowY(col, minutes);
-  const b = await col.boundingBox();
-  await page.mouse.click(b.x + 6, b.y + y);
-}
+/** Tap a part of the day's answer as many times as `v` needs: once for available, twice for if needed. */
+const TAPS = { 2: 1, 1: 2, 0: 0 };
 
 // Screenshot `selector` from the top of `from` (default: the page, so the header shows) to its bottom,
 // cropped to the width of `crop` (default: the whole page).
@@ -168,8 +147,8 @@ async function newPage({ dark = false, mobile = false, video } = {}) {
 // Answer the seeded poll as "Sam" through the UI so the page shows Sam as "you".
 async function answerAsSam(page, id) {
   await page.goto(`${base}/e/${id}`);
-  await page.waitForSelector('#mine .row');
-  for (const [i, v] of SAM.entries()) await page.locator('#mine .row').nth(i).locator(`[data-vote="${v}"]`).click();
+  await page.waitForSelector('#mine .part-vote');
+  for (const [i, v] of SAM.entries()) for (let t = 0; t < TAPS[v]; t++) await page.locator('#mine .part-vote').nth(i).click();
   await page.fill('#name', 'Sam');
   // Confirm, then skip the "Answer submitted!" celebration.
   await page.click('#save');
@@ -183,7 +162,7 @@ async function answerAsSam(page, id) {
     );
   await page.click('.party-go');
   await page.waitForSelector('.party', { state: 'detached' });
-  await page.waitForSelector('.matrix');
+  await page.waitForSelector('#overlap .ov-list');
   await page.evaluate(() => scrollTo(0, 0));
 }
 
@@ -197,21 +176,18 @@ async function stills(dark) {
   await desktop.addStyleTag({ content: `${HIDE_TOAST} .save-bar { position: static !important; }` });
   await shoot(desktop, '#panel-group', join(out, `results-${suffix}.png`), { crop: '#event-root' });
 
-  await desktop.goto(`${base}/new/pick`);
+  await desktop.goto(`${base}/new`);
   await desktop.addStyleTag({ content: HIDE_TOAST });
   await desktop.click('[data-occasion="0"]');
   await desktop.fill('#title', 'Dinner at Rosa’s');
   await desktop.click('#more-box summary'); // Where is under More details
   await desktop.fill('#location', 'Rosa’s Trattoria, 14 Elm St');
-  // Tap 7 PM on two Fridays and Saturdays on the week calendar, then come back to the first week.
-  for (const d of [0, 1, 7, 8]) await tapAt(desktop, addDays(fri, d), 19 * 60);
-  await showDate(desktop, fri);
-  // A second tap on Saturday makes it "if needed", so the picture shows both colours.
-  await desktop.locator(`#picker .tg-col[data-date="${addDays(fri, 1)}"] .tg-block`).click();
-  await desktop.locator(`#picker .tg-col[data-date="${fri}"]`).evaluate((el) => {
-    const s = el.closest('.tg-scroll');
-    s.scrollTop = s.scrollHeight;
-  });
+  // Date and time, by parts of the day: Friday to Sunday evenings, Saturday only if needed.
+  await desktop.click('[data-mode="time"]');
+  await showDay(desktop, fri);
+  for (const d of [0, 1, 2])
+    await desktop.locator(`#when .pg-cell[data-d="${addDays(fri, d)}"][data-m="${EVENING.start}"]`).click();
+  await desktop.locator(`#when .pg-cell[data-d="${addDays(fri, 1)}"][data-m="${EVENING.start}"]`).click();
   await desktop.locator('#title').blur();
   await desktop.mouse.move(0, 0); // no hover ×
   await desktop.addStyleTag({ content: '.create-bar { position: static; }' });
@@ -223,21 +199,22 @@ async function stills(dark) {
 
   const phone = await newPage({ dark, mobile: true });
   await phone.goto(`${base}/e/${id}`);
-  await phone.waitForSelector('#mine .row');
-  for (const [i, v] of [2, 1, 0, 2, 2].entries()) await phone.locator('#mine .row').nth(i).locator(`[data-vote="${v}"]`).tap();
+  await phone.waitForSelector('#mine .part-vote');
+  for (const [i, v] of [2, 1, 0, 2, 2].entries())
+    for (let t = 0; t < TAPS[v]; t++) await phone.locator('#mine .part-vote').nth(i).tap();
   await phone.fill('#name', 'Jamie');
   await phone.locator('#name').blur();
   // The tabs stick to the top, so line the first answer up just below them.
   await phone.evaluate(() => {
     const tabs = document.querySelector('.tabs').getBoundingClientRect().height;
-    const row = document.querySelector('#mine .row').getBoundingClientRect().top + window.scrollY;
+    const row = document.querySelector('#mine').getBoundingClientRect().top + window.scrollY;
     window.scrollTo(0, row - tabs - 24);
   });
   await phone.waitForTimeout(500); // let Submit finish turning ready
   await phone.screenshot({ path: join(out, `mobile-${suffix}.png`) });
   await homeShot(phone, `answer-${suffix}`);
 
-  // Then send it and see the group's best options.
+  // Then send it and see the Venn: everyone's answers, where they overlap.
   await phone.click('#save');
   // "Submit your answer?" is only asked for a partial answer.
   await phone
@@ -252,22 +229,27 @@ async function stills(dark) {
   await phone.addStyleTag({ content: HIDE_TOAST });
   await phone.evaluate(() => {
     const tabs = document.querySelector('.tabs').getBoundingClientRect().height;
-    const best = document.querySelector('#panel-group').getBoundingClientRect().top + window.scrollY;
-    window.scrollTo({ top: best - tabs - 16, behavior: 'instant' });
+    const venn = document.querySelector('#group-h').getBoundingClientRect().top + window.scrollY;
+    window.scrollTo({ top: venn - tabs - 16, behavior: 'instant' });
   });
+  await phone.waitForSelector('#overlap .ov-list');
   await phone.waitForTimeout(500);
   await homeShot(phone, `results-${suffix}`);
   await phone.context().close();
 
-  // Creating a poll on a phone: the plan, then two evenings tapped on the calendar.
+  // Making a Venn on a phone: the plan, then the evenings tapped on a week of parts of the day.
   const maker = await newPage({ dark, mobile: true });
-  await maker.goto(`${base}/new/pick`);
+  await maker.goto(`${base}/new`);
   await maker.addStyleTag({ content: HIDE_TOAST });
   await maker.click('[data-occasion="0"]');
   await maker.fill('#title', 'Dinner at Rosa’s');
   await maker.fill('#organizer', 'Priya');
-  for (const d of [0, 1]) await tapAt(maker, addDays(fri, d), 19 * 60);
-  await maker.locator(`#picker .tg-col[data-date="${addDays(fri, 1)}"] .tg-block`).click(); // Saturday again: if needed
+  await maker.click('[data-mode="time"]');
+  await maker.click('#when [data-pview="week"]');
+  await showDay(maker, fri);
+  for (const d of [0, 1, 2])
+    await maker.locator(`#when .pg-cell[data-d="${addDays(fri, d)}"][data-m="${EVENING.start}"]`).click();
+  await maker.locator(`#when .pg-cell[data-d="${addDays(fri, 1)}"][data-m="${EVENING.start}"]`).click(); // Saturday again: if needed
   await maker.locator('#organizer').blur();
   await maker.evaluate(() => {
     const top = document.querySelector('.sheet:has(#when-h)').getBoundingClientRect().top + window.scrollY;
@@ -318,23 +300,14 @@ async function recordDemo() {
     await page.keyboard.type(text, { delay: 45 });
   };
 
-  // 1. Create a poll.
+  // 1. Make a Venn: the evenings that could work.
   await page.goto(`${base}/new`);
   await page.waitForTimeout(700);
-  await click('a[href="/new/pick"]', 600);
   await click('[data-occasion="0"]', 300);
   await type('#title', 'Dinner at Rosa’s');
-  for (const d of [0, 1, 7, 8]) {
-    const col = await showDate(page, addDays(fri, d), (sel) => click(sel, 300));
-    const y = await rowY(col, 19 * 60);
-    const b = await col.boundingBox();
-    await page.mouse.move(b.x + 8, b.y + y, { steps: 12 });
-    mouse = { x: b.x + 8, y: b.y + y };
-    await page.mouse.down();
-    await page.mouse.up();
-    await page.waitForTimeout(300);
-  }
-  await showDate(page, fri, (sel) => click(sel, 300));
+  await click('[data-mode="time"]', 500);
+  await showDay(page, fri, (sel) => click(sel, 300));
+  for (const d of [0, 1, 2]) await click(`#when .pg-cell[data-d="${addDays(fri, d)}"][data-m="${EVENING.start}"]`, 300);
   await page.waitForTimeout(600);
   await type('#organizer', 'Priya');
   // Creating celebrates, then opens the poll with the organizer's own answer already in.
@@ -344,15 +317,17 @@ async function recordDemo() {
   // 2. Others answer (behind the scenes), then pick the winner.
   const id = page.url().split('/e/')[1];
   const ev = await api(`/api/events/${id}`);
-  const others = { Marcus: [0, 2, 2, 1], Ana: [2, 1, 2, 0], Jordan: [1, 0, 2, 2], Lee: [2, 2, 1, 0] };
+  const others = { Marcus: [0, 2, 2], Ana: [2, 1, 2], Jordan: [1, 0, 2], Lee: [2, 2, 2] };
   for (const [name, v] of Object.entries(others)) {
     const availability = Object.fromEntries(ev.slots.map((s, i) => [s, v[i]]).filter(([, x]) => x));
     await api(`/api/events/${id}/participants`, { name, availability });
   }
   await page.reload();
-  await page.waitForSelector('.matrix');
-  await page.waitForTimeout(1500);
-  await click(page.locator('.best-hero [data-pick]'), 400);
+  await page.waitForSelector('#overlap .ov-list');
+  await page.waitForTimeout(800);
+  // The Venn: everyone's answers, where they overlap. Tap it to see who, then pick it.
+  await click(page.locator('#overlap .ov-row.all, #overlap .ov-row.best').first(), 1200);
+  await click(page.locator('#overlap [data-pick]').first(), 400);
   await page.evaluate(() => window.scrollTo({ top: 0, behavior: 'smooth' }));
   await page.waitForTimeout(2500);
   await page.context().close();

@@ -38,6 +38,7 @@ public/            the whole front end, served as-is
   create-free.js   creating a Venn (/new): every new poll
   create-pick.js   the older "vote on a few dates" page (/new/pick), for editing and copying polls made with it
   event.js         the poll page: answering, the group's results, organizer tools
+  overlap.js       everyone's answers as the Venn: a row a date or time, or a timeline a day for hours
   organizer.js     the organizer's tools, Notifications and Privacy panels and AI summary, loaded only for organizers
   add-to-calendar.js  "Add to your calendar", loaded once a date is picked
   ai-answer.js     "Answer for me" with AI, loaded when a guest opens it

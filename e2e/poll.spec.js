@@ -91,9 +91,9 @@ test('vote on a few dates: collect votes, pick the final date', async ({ page, r
   });
 
   await page.reload();
-  await expect(page.locator('.matrix tbody tr')).toHaveCount(2);
-  // A "no" is shown in red with a cross, not as an empty cell.
-  await expect(page.locator('.matrix tbody tr').first().locator('td.m-no').first()).toContainText('✕');
+  // Everyone's answers: a row an option, each with its mix; unavailable shows in its own colour.
+  await expect(page.locator('.ov-row')).toHaveCount(ev.slots.length);
+  await expect(page.locator('.ov-bar .n').first()).toBeVisible();
   const best = page.locator('.best-hero');
   await expect(best).toContainText('Everyone can make it');
   // The host sees everyone by their full name.
@@ -392,7 +392,7 @@ test('page never scrolls sideways', async ({ page }) => {
   await page.click('#fill');
   await page.fill('#name', 'Sam');
   await submit(page);
-  await expect(page.locator('.matrix')).toBeVisible();
+  await expect(page.locator('.ov-list')).toBeVisible();
   // Against the device's width: on a phone, content that's too wide makes the browser zoom out instead.
   const overflow = await page.evaluate(() => document.documentElement.scrollWidth - screen.width);
   expect(overflow).toBeLessThanOrEqual(0);
@@ -1391,14 +1391,17 @@ test('ask when people are free: parts of the day', async ({ page, request }) => 
   await submit(page);
   await expect(page.locator('.best-hero')).toContainText('afternoon (12 – 5 PM)');
   // Everyone's answers are colour-coded: available, if needed and unavailable, with a key.
-  const heat = page.locator('.heat-btn');
-  await expect(heat.nth(0).locator('.heat-bar i')).toHaveClass(['y']);
-  await expect(heat.nth(1).locator('.heat-bar i')).toHaveClass(['m']);
-  await expect(heat.nth(2).locator('.heat-bar i')).toHaveClass(['n']);
-  await expect(heat.nth(2)).toHaveAccessibleName(/1 unavailable/);
+  const rows = page.locator('#overlap .ov-row');
+  await expect(rows.nth(0).locator('.ov-bar i')).toHaveClass(['y']);
+  await expect(rows.nth(1).locator('.ov-bar i')).toHaveClass(['m']);
+  await expect(rows.nth(2).locator('.ov-bar i')).toHaveClass(['n']);
+  await expect(rows.nth(2)).toHaveAccessibleName(/1 unavailable/);
+  await expect(rows.nth(0)).toContainText('✓ Everyone');
   await expect(page.locator('#panel-group .legend', { hasText: 'Unavailable' })).toBeVisible();
-  await heat.first().click();
-  await expect(page.locator('#parts-inspect')).toContainText('Sam');
+  // A tap shows who.
+  await rows.first().click();
+  await expect(rows.first()).toHaveAttribute('aria-expanded', 'true');
+  await expect(page.locator('.ov-who')).toContainText('Sam');
 });
 
 test('guests can see the options on a calendar and answer there', async ({ page, request }) => {
@@ -2929,6 +2932,19 @@ test("everyone's answers: each time shows its mix of available, if needed and un
 
   await page.goto(`/e/${id}#admin=${adminToken}`);
   if (isMobile) await page.click('#tab-group');
+  // The list: a card a day, its timeline with the overlap in green, and the best stretch to tap.
+  await expect(page.locator('.ov-summary')).toContainText("Everyone's free");
+  const cards = page.locator('.ov-card');
+  await expect(cards).toHaveCount(3);
+  await expect(cards.nth(0).locator('.ov-slot.all')).toHaveCount(4);
+  await expect(cards.nth(0).locator('.ov-row')).toContainText('✓ Everyone');
+  await expect(cards.nth(1).locator('.ov-row')).toHaveAccessibleName(/1 of 2 available, 1 if needed/);
+  await cards.nth(0).locator('.ov-row').click();
+  await expect(cards.nth(0).locator('.ov-who')).toContainText('John');
+  await expect(cards.nth(0).locator('[data-pick]')).toBeVisible();
+  // The grid of half hours, a tap away.
+  await page.click('[data-gview="grid"]');
+  await expect(page.locator('#overlap')).toBeHidden();
   const cells = page.locator('#group .cell[data-slot]');
   await expect(cells).toHaveCount(12);
   // The overlap: the first evening, where both are available, ticked.
@@ -2994,7 +3010,10 @@ test('a big group: a few people then "+N more", names a tap away, and ticks on t
   await expect(hero.locator('.names')).toBeVisible();
   await expect(page.locator('ol.best .names')).toHaveCount(0);
 
-  // Only the 2 hours everyone can make are ticked, not the lone half hour on the first evening.
+  // Only the 2 hours everyone can make are the Venn, not the lone half hour on the first evening.
+  await expect(page.locator('.ov-slot.all')).toHaveCount(4);
+  await expect(page.locator('.ov-card').nth(5).locator('.ov-slot.all')).toHaveCount(4);
+  await page.click('[data-gview="grid"]');
   await expect(page.locator('#group .cell.best.all')).toHaveCount(4);
   for (const cell of await page.locator('#group .cell.best').all())
     expect(day(+(await cell.getAttribute('data-slot')))).toBe(dates[5]);
