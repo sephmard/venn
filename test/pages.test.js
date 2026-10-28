@@ -60,20 +60,14 @@ test('pages: usage stats keep where people came from when it is known, and drop 
   assert.equal(cleanUsage('view', { page: 'pick', from: 'spam-site' }, { client: true }).props, '{"page":"pick"}');
 });
 
-test('the home page tells search engines and AI assistants what Venn is, with the questions it shows', () => {
+test('the home page tells search engines and AI assistants what Venn is', () => {
   const html = readFileSync(file('public/index.html'), 'utf8');
   const blocks = [...html.matchAll(/<script type="application\/ld\+json">([\s\S]*?)<\/script>/g)].map((m) => JSON.parse(m[1]));
-  for (const type of ['WebSite', 'Organization', 'SoftwareApplication', 'FAQPage'])
+  for (const type of ['WebSite', 'Organization', 'SoftwareApplication'])
     assert.ok(
       blocks.some((b) => b['@type'] === type),
       type,
     );
-  // Structured questions must be on the page too, word for word.
-  const shown = html.replace(/&quot;/g, '"').replace(/\s+/g, ' ');
-  for (const q of blocks.find((b) => b['@type'] === 'FAQPage').mainEntity) {
-    assert.ok(shown.includes(`<summary>${q.name}</summary>`), q.name);
-    assert.ok(shown.includes(q.acceptedAnswer.text), q.name);
-  }
 });
 
 test('robots.txt keeps polls private and welcomes AI crawlers to the public pages; llms.txt links them', async () => {

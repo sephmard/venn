@@ -148,7 +148,8 @@ test('Finn turns up when a poll or page is not found', async ({ page }) => {
   await page.goto('/no-such-page');
   await expect(page.locator('main')).toContainText('Finn couldn’t sniff out this page.');
   await page.goto('/');
-  await expect(page.locator('.meet-finn')).toContainText('Meet Finn, the Venn dog.');
+  await expect(page.locator('.hl-meet')).toContainText('Meet Finn, the Venn dog.');
+  await expect(page.locator('.hl-bubble')).toHaveText('Free, always. Woof!');
 });
 
 test('with reduced motion, Finn still shows, without moving', async ({ page, request }) => {
