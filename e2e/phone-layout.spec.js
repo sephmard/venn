@@ -199,6 +199,7 @@ test.describe('on a 320px phone', () => {
       }
       expect(new Set(tops).size).toBe(1);
     };
+    await expect(page.locator('[data-mode="time"]')).toBeVisible(); // once the page is drawn
     await lines('[data-level="days"], [data-mode="time"]');
     await page.click('[data-mode="time"]');
     await expect(page.locator('#time-levels')).toBeVisible(); // once the painter has loaded
