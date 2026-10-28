@@ -24,7 +24,17 @@ const STEP = 30;
  */
 export function paintView(
   root,
-  { selected, onChange, from = 420, to = 1440, startAt = null, parts = null, maybe = new Set(), marking = () => false },
+  {
+    selected,
+    onChange,
+    onRender = () => {},
+    from = 420,
+    to = 1440,
+    startAt = null,
+    parts = null,
+    maybe = new Set(),
+    marking = () => false,
+  },
 ) {
   const day = isPhone();
   let start = startAt && startAt > todayStr() ? startAt : todayStr(); // first day of the week strip
@@ -84,6 +94,7 @@ export function paintView(
       const row = $('.pg-cell', grid)?.offsetHeight || 24;
       $('.pg-scroll', root).scrollTop = Math.max(0, (first >= 0 ? first : rows.indexOf(1020)) - 1) * row;
     }
+    onRender();
   }
   const refresh = () => {
     for (const el of $$('.pg-cell', grid)) {
@@ -230,6 +241,8 @@ const ALL_DAY = [DAY_PARTS[0].start, DAY_PARTS.at(-1).end];
 // the same mornings, afternoons and evenings as "Parts of the day", so the levels agree.
 const FILLS = [...DAY_PARTS.map((p) => [`${p.label}s`, p.start, p.end]), ['All day', ...ALL_DAY]];
 const LEVELS = ['days', 'parts', 'hours'];
+/** Hours that cover the whole day read as the day: "All day", not "9 AM – 10 PM". */
+export const hoursLabel = (a, b) => (a <= ALL_DAY[0] && b >= ALL_DAY[1] ? 'All day' : shortRange(a, b));
 const slots = (from, to) => Array.from({ length: (to - from) / STEP }, (_, i) => from + i * STEP);
 export const datesOf = (keys) => [...new Set([...keys].map((k) => k.split('|')[0]))].sort();
 // The part of the day a painted half hour belongs to (the gaps between parts go to the nearest).
@@ -339,12 +352,12 @@ export function windowKeys(level, value) {
 export function windowWhat(level, value) {
   const [ds, from, to] = value.split('|');
   const n = ds.split(',').length;
-  return level === 'parts' ? `these ${n} ${partAt(from).label.toLowerCase()}s` : `${shortRange(+from, +to)} on these ${n} days`;
+  return level === 'parts' ? `these ${n} ${partAt(from).label.toLowerCase()}s` : `${hoursLabel(+from, +to)} on these ${n} days`;
 }
 
 /** The windows as a list: days in a row with the same times together, each time a chip. */
 export function windowList(windows, level, chip, dayRange) {
-  const label = level === 'parts' ? (a, b) => `${partAt(a).label} ${shortRange(a, b)}` : shortRange;
+  const label = level === 'parts' ? (a, b) => `${partAt(a).label} ${shortRange(a, b)}` : hoursLabel;
   const groups = [];
   for (const d of datesOf(windows.map((w) => w.date))) {
     const ranges = windows.filter((w) => w.date === d).map((w) => [w.start, w.end, !!w.maybe]);
@@ -370,17 +383,20 @@ export function paintHelp() {
   const tap = isPhone() ? 'Tap' : 'Click';
   return `Drag across several, or ${tap.toLowerCase()} a day name for the whole day.`;
 }
-/** The quick fills, for the week shown. */
-export const fillPills = (parts) =>
-  `<span class="scope-label">Fill this week:</span>${FILLS.map(
-    ([l, a, b], i) =>
-      `<button type="button" class="pill" data-fill="${i}">${l}${parts ? '' : ` <small>${esc(shortRange(a, b))}</small>`}</button>`,
-  ).join('')}`;
-/** A quick fill: that part of the day on every day of `week`, or cleared if it's all there. */
-export function fillWeek(set, parts, i, week) {
+/** The quick fills, for the week shown: on when every day has it, so a second tap clearly takes it away. */
+export const fillPills = () =>
+  `<h3 class="sub-h fill-h" id="fill-h">Every day this week</h3><div class="pills" role="group" aria-labelledby="fill-h">${FILLS.map(
+    ([l], i) => `<button type="button" class="pill" data-fill="${i}" aria-pressed="false">${l}</button>`,
+  ).join('')}</div>`;
+const fillKeys = (parts, i, week) => {
   const [, from, to] = FILLS[i];
   const mins = parts ? DAY_PARTS.filter((p) => p.start >= from && p.start < to).map((p) => p.start) : slots(from, to);
-  const keys = week.flatMap((d) => mins.map((m) => `${d}|${m}`));
-  const all = keys.every((k) => set.has(k));
-  for (const k of keys) all ? set.delete(k) : set.add(k);
+  return week.flatMap((d) => mins.map((m) => `${d}|${m}`));
+};
+/** Whether every day of `week` has that fill. */
+export const filled = (set, parts, i, week) => week.length > 0 && fillKeys(parts, i, week).every((k) => set.has(k));
+/** A quick fill: that part of the day on every day of `week`, or cleared if it's all there. */
+export function fillWeek(set, parts, i, week) {
+  const all = filled(set, parts, i, week);
+  for (const k of fillKeys(parts, i, week)) all ? set.delete(k) : set.add(k);
 }
