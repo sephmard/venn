@@ -65,7 +65,7 @@ export function renderPick() {
 
   app.innerHTML = `
     <form id="create" class="create" novalidate>
-      <a class="back" href="/new" data-link>‹ Both kinds of poll</a>
+      <a class="back" href="/" hidden>‹ Back</a>
       <h1>Vote on a few dates</h1>
       ${planFields('pick')}
       <section class="sheet" aria-labelledby="length-h">

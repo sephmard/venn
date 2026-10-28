@@ -5,7 +5,7 @@
 //
 // In headings, *words* are set in italics. Everything else is plain text.
 //   slug         its address, and the `from` it sends to usage stats (src/usage.js)
-//   template     the template its button opens (public/templates.js), on /new/<kind>
+//   template     the template its button opens (public/templates.js), on /new
 //   group        where it's listed on /templates: 'season' or 'everyday'
 //   title        the browser tab and search result (about 60 characters at most)
 //   description  under it in search results (about 155 at most)
@@ -25,7 +25,6 @@ export const TEMPLATE_PAGES = [
   {
     slug: 'friendsgiving',
     template: 'friendsgiving',
-    kind: 'pick',
     group: 'season',
     name: 'Friendsgiving',
     card: 'Find the weekend around Thanksgiving that works for the whole crew.',
@@ -62,7 +61,7 @@ export const TEMPLATE_PAGES = [
         ],
         [
           'Let people say "if needed".',
-          'Everyone answers yes, if needed or no for each date, so you can see which day is a stretch and which is simply out.',
+          'Everyone marks the days they can make, or can make if needed, so you can see which day is a stretch and which is simply out.',
         ],
         [
           'Pick the date and lock it in.',
@@ -115,7 +114,6 @@ export const TEMPLATE_PAGES = [
   {
     slug: 'holiday-party',
     template: 'holiday-party',
-    kind: 'pick',
     group: 'season',
     name: 'Holiday party',
     card: 'Pick an evening before December fills up, for friends or the team.',
@@ -144,7 +142,7 @@ export const TEMPLATE_PAGES = [
         ['Offer weeknights too.', 'A Thursday can beat a packed Saturday, especially for a work party.'],
         [
           'Let people say "if needed".',
-          'Yes, if needed or no for each evening shows which night is easy for most people, not just possible.',
+          'Available or if needed for each evening shows which night is easy for most people, not just possible.',
         ],
         [
           'Pick the date and share it.',
@@ -194,7 +192,6 @@ export const TEMPLATE_PAGES = [
   {
     slug: 'secret-santa',
     template: 'secret-santa',
-    kind: 'pick',
     group: 'season',
     name: 'Secret Santa',
     card: 'Find the night everyone can be there to swap gifts.',
@@ -266,7 +263,6 @@ export const TEMPLATE_PAGES = [
   {
     slug: 'book-club',
     template: 'book-club',
-    kind: 'pick',
     group: 'everyday',
     name: 'Book club',
     card: 'Find the evening everyone has finished the book, every month.',
@@ -322,7 +318,6 @@ export const TEMPLATE_PAGES = [
   {
     slug: 'game-night',
     template: 'game-night',
-    kind: 'pick',
     group: 'everyday',
     name: 'Board game night',
     card: 'Get the whole table together for a long evening of games.',
@@ -375,7 +370,6 @@ export const TEMPLATE_PAGES = [
   {
     slug: 'dnd',
     template: 'dnd',
-    kind: 'pick',
     group: 'everyday',
     name: 'D&D session',
     card: 'Find the next session your whole party can make, without the scheduling boss fight.',
@@ -422,7 +416,10 @@ export const TEMPLATE_PAGES = [
         'Does it work for online groups?',
         'Yes. Put your VTT or video link in “Where”. Everyone sees the times in their own time zone.',
       ],
-      ['Can players answer "if needed"?', 'Yes. Each player answers yes, if needed or no for every night you offer.'],
+      [
+        'Can players answer "if needed"?',
+        'Yes. Each player marks every night you offer as available, if needed, or leaves it blank.',
+      ],
       ['Can I post it to Discord?', 'Yes. Share the poll’s link in your server; it shows a preview with the poll’s name.'],
       FREE,
     ],
@@ -431,7 +428,6 @@ export const TEMPLATE_PAGES = [
   {
     slug: 'dinner-party',
     template: 'dinner',
-    kind: 'pick',
     group: 'everyday',
     name: 'Dinner party',
     card: 'Find the evening your friends can all make it to dinner.',
@@ -456,7 +452,7 @@ export const TEMPLATE_PAGES = [
       heading: 'How to find a date for dinner with friends',
       steps: [
         ['Offer three or four evenings.', 'Enough to find one that works, few enough that everyone answers quickly.'],
-        ['Share one link.', 'In the group chat or by email. Friends tap yes, if needed or no for each evening.'],
+        ['Share one link.', 'In the group chat or by email. Friends tap the evenings they can make.'],
         ['See the best night.', 'Venn puts the evening that works for the most people at the top.'],
         ['Pick it and add it to calendars.', 'Book the table once you know the night and how many are coming.'],
       ],
@@ -481,7 +477,6 @@ export const TEMPLATE_PAGES = [
   {
     slug: 'band-practice',
     template: 'band-practice',
-    kind: 'pick',
     group: 'everyday',
     name: 'Band practice',
     card: 'Find a rehearsal slot when every member can make it.',
@@ -531,7 +526,6 @@ export const TEMPLATE_PAGES = [
   {
     slug: 'study-group',
     template: 'study-group',
-    kind: 'pick',
     group: 'everyday',
     name: 'Study group',
     card: 'Find a time the whole group can study, before the exam.',
@@ -581,7 +575,6 @@ export const TEMPLATE_PAGES = [
   {
     slug: 'group-trip',
     template: 'trip',
-    kind: 'free',
     group: 'everyday',
     name: 'Group trip',
     card: 'Find the days in a row when everyone can get away.',
@@ -592,7 +585,7 @@ export const TEMPLATE_PAGES = [
     h1: 'Find trip dates *everyone can make.*',
     lede: 'Pick a range of days, share one link, and everyone marks the days they’re free. Venn finds the days in a row that work for the most people.',
     cta: 'Start a trip poll',
-    small: 'Opens “ask when people are available” with a trip filled in: three days in a row. Change it to suit.',
+    small: 'Opens a Venn with a trip filled in: three days in a row. Change it to suit.',
     poll: {
       name: 'Lisbon trip',
       of: 6,
@@ -634,7 +627,6 @@ export const TEMPLATE_PAGES = [
   {
     slug: 'family-reunion',
     template: 'family-reunion',
-    kind: 'free',
     group: 'everyday',
     name: 'Family reunion',
     card: 'Find the day the whole family can get together, from every branch.',
@@ -645,7 +637,7 @@ export const TEMPLATE_PAGES = [
     h1: 'Find a day *the whole family* can make.',
     lede: 'Grandparents, cousins and in-laws all have their own calendars. Pick a range of days, share one link, and see the day that works for the most people.',
     cta: 'Start a family reunion poll',
-    small: 'Opens “ask when people are available” for whole days, with a family reunion filled in.',
+    small: 'Opens a Venn for whole days, with a family reunion filled in.',
     poll: {
       name: 'Family reunion',
       of: 14,
@@ -684,7 +676,6 @@ export const TEMPLATE_PAGES = [
   {
     slug: 'bachelor-party',
     template: 'bachelor-party',
-    kind: 'free',
     group: 'everyday',
     name: 'Bachelor & bachelorette weekend',
     card: 'Find the weekend the whole crew can get away before the wedding.',
@@ -695,7 +686,7 @@ export const TEMPLATE_PAGES = [
     h1: 'Find the weekend *the whole crew* can make.',
     lede: 'Pick a few months before the wedding, share one link, and everyone marks the days they’re free. Venn finds the weekend that works for the most people.',
     cta: 'Start a weekend poll',
-    small: 'Opens “ask when people are available” with three days in a row filled in.',
+    small: 'Opens a Venn with three days in a row filled in.',
     poll: {
       name: "Sam's bachelor weekend",
       of: 8,
@@ -737,7 +728,6 @@ export const TEMPLATE_PAGES = [
   {
     slug: 'team-offsite',
     template: 'team-offsite',
-    kind: 'free',
     group: 'everyday',
     name: 'Team offsite',
     card: 'Find two days the whole team can travel and be in one room.',
@@ -748,7 +738,7 @@ export const TEMPLATE_PAGES = [
     h1: 'Find offsite days *the whole team* can make.',
     lede: 'Pick a range of weeks, share one link, and everyone marks the days they can travel. Venn finds the days in a row that work for the most people.',
     cta: 'Start an offsite poll',
-    small: 'Opens “ask when people are available” with two days in a row filled in.',
+    small: 'Opens a Venn with two days in a row filled in.',
     poll: {
       name: 'Q1 offsite',
       of: 12,

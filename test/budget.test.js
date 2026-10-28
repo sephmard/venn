@@ -39,7 +39,8 @@ const PAGES = {
   // (template by emoji) and the day labels that fit.
   'ask when people are available page': ['create-free.js', ['create.css'], 48.5], // +0.5: the above, and days in a row as a switch
   // +0.5 for big groups: "+N more" people, names behind "See who", ticks on whole best times.
-  'poll page': ['event.js', [], 45.5],
+  // +0.5 for the organizer's tools only on their own link, with "Organizer view" on the guest link.
+  'poll page': ['event.js', [], 46],
 };
 
 for (const [name, [entry, css, PAGE_KB]] of Object.entries(PAGES)) {

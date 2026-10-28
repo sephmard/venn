@@ -9,7 +9,7 @@
     <title>Venn: free scheduling polls, no sign-up</title>
     <meta
       name="description"
-      content="Find the time that works for everyone, for dinners, book clubs and trips. Suggest a few dates or ask when people are available, share one link, and see where everyone overlaps. Free, no accounts, no ads."
+      content="Find the time that works for everyone, for dinners, book clubs and trips. Make a Venn: tap the days that could work, share one link, and see where everyone overlaps. Free, no accounts, no ads."
     />
     <link rel="canonical" href="https://venn.day/" />
     <meta property="og:type" content="website" />
@@ -37,7 +37,7 @@
         "@type": "WebSite",
         "name": "Venn",
         "url": "https://venn.day/",
-        "description": "Free group scheduling polls. Suggest dates, share one link, see the date that works for everyone."
+        "description": "Free group scheduling polls. Make a Venn, share one link, and see where everyone overlaps."
       }
     </script>
     <script type="application/ld+json">
@@ -72,7 +72,15 @@
             "name": "What is Venn?",
             "acceptedAnswer": {
               "@type": "Answer",
-              "text": "Venn is a free scheduling poll for groups. Suggest a few dates, or ask when people are available, share one link, and see the date that works for everyone."
+              "text": "Venn is a free scheduling poll for groups. Tap the days that could work, share one link, and everyone marks when they're free. Venn shows where everyone overlaps."
+            }
+          },
+          {
+            "@type": "Question",
+            "name": "Why is it called Venn?",
+            "acceptedAnswer": {
+              "@type": "Answer",
+              "text": "Like a Venn diagram, it finds where everyone's free times overlap. You make a Venn, your friends fill it in, and the overlap is your date. Just Venn it."
             }
           },
           {
@@ -96,7 +104,7 @@
             "name": "How is Venn different from Doodle or When2meet?",
             "acceptedAnswer": {
               "@type": "Answer",
-              "text": "Venn has no ads and no accounts, lets people answer \"if needed\", works with whole days, parts of the day or hours, and is made for phones. When the date is picked, everyone can add it to their calendar."
+              "text": "Venn has no ads and no accounts, lets people answer \"if needed\", works with whole days, parts of the day, hours or several days in a row, and is made for phones. When the date is picked, everyone can add it to their calendar."
             }
           },
           {
@@ -117,10 +125,8 @@
           Venn
         </a>
         <nav class="nav-links" aria-label="Main">
-          <a href="/#groups" class="hide-md">For groups</a>
-          <a href="/#developers" class="hide-md">For developers</a>
-          <a href="https://docs.venn.day" class="hide-md">Docs</a>
-          <a href="/privacy" class="hide-md">Privacy</a>
+          <a href="/#how" class="hide-md">How it works</a>
+          <a href="/templates" class="hide-md">Templates</a>
           <a href="https://github.com/sephmard/venn" class="gh-link"
             ><svg class="gh-mark" viewBox="0 0 16 16" width="18" height="18" aria-hidden="true">
               <path
@@ -129,7 +135,7 @@
               /></svg
             ><span class="gh-label">GitHub</span></a
           >
-          <a href="/new" class="btn btn-sm">Create a poll</a>
+          <a href="/new" class="btn btn-sm">Create a Venn</a>
           <details class="menu">
             <summary aria-label="Menu">
               <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true">
@@ -137,11 +143,11 @@
               </svg>
             </summary>
             <div class="menu-panel">
-              <a href="/#groups">For groups</a>
-              <a href="/#developers">For developers</a>
-              <a href="https://docs.venn.day">Docs</a>
-              <a href="/privacy">Privacy</a>
+              <a href="/#how">How it works</a>
+              <a href="/templates">Templates</a>
               <a href="/#contact">Contact</a>
+              <a href="/privacy">Privacy</a>
+              <a href="https://docs.venn.day">Docs</a>
               <a href="https://github.com/sephmard/venn">GitHub</a>
             </div>
           </details>
@@ -155,31 +161,11 @@
           <span class="blob blob-green"></span><span class="blob blob-amber"></span><span class="blob blob-blue"></span>
         </div>
         <div class="wrap hero-inner">
-          <p class="kicker">Free group polls · No sign-up</p>
+          <p class="kicker">Free · No sign-up · No ads</p>
           <h1>Find the day that works for <em>everyone.</em></h1>
-          <p class="lede">Dinners, book clubs, game nights and trips. Share one link and see the day everyone can make.</p>
-          <div class="start-cards">
-            <a class="poll-card" href="/new/free">
-              <span class="poll-art art-free" aria-hidden="true"><i></i><i></i><i></i></span>
-              <span class="poll-title">Ask when people are available</span>
-              <span class="poll-text">Pick a range of days. Everyone marks when they're available; Venn finds the overlap.</span>
-              <span class="poll-fit">For trips, or when any day works</span>
-              <span class="poll-go" aria-hidden="true">Create <span>→</span></span>
-            </a>
-            <a class="poll-card" href="/new/pick">
-              <span class="poll-art art-dates" aria-hidden="true"><i>Fri</i><i class="on">Sat</i><i>Sun</i></span>
-              <span class="poll-title">Vote on a few dates</span>
-              <span class="poll-text">Suggest some dates or times. Everyone says yes, if needed or no.</span>
-              <span class="poll-fit">For dinners, book clubs and parties</span>
-              <span class="poll-go" aria-hidden="true">Create <span>→</span></span>
-            </a>
-          </div>
-          <ul class="trust" aria-label="Venn is">
-            <li>No sign-up</li>
-            <li>No ads</li>
-            <li>No tracking</li>
-            <li>Open source</li>
-          </ul>
+          <p class="lede">Tap the days that could work, share one link, and see where everyone's free. Just Venn it.</p>
+          <a href="/new" class="btn btn-lg">Create a Venn</a>
+          <p class="hero-small">For dinners, book clubs, game nights and trips. Nobody needs an account.</p>
         </div>
       </section>
 
@@ -187,7 +173,6 @@
         <div class="wrap">
           <p class="eyebrow">How it works</p>
           <h2>Three taps to <em>a date.</em></h2>
-          <p class="section-lede">Make a poll, drop the link in the group chat, and watch the best day rise to the top.</p>
           <ol class="shots" tabindex="0" aria-label="Venn on a phone, in three steps">
             <li>
               <picture>
@@ -201,8 +186,8 @@
                   alt="Creating a dinner poll on a phone: two evenings tapped on the calendar, and a Create poll button"
                 />
               </picture>
-              <h3>1. Make a poll</h3>
-              <p>Name the plan and tap a few evenings. No account needed.</p>
+              <h3>1. Make a Venn</h3>
+              <p>Name the plan and tap the days that could work.</p>
             </li>
             <li>
               <picture>
@@ -216,8 +201,8 @@
                   alt="Answering a poll on a phone: Yes, If needed and No buttons for each evening"
                 />
               </picture>
-              <h3>2. Friends tap their answers</h3>
-              <p>Yes, if needed or no for each option. Nothing to install.</p>
+              <h3>2. Everyone taps when they're free</h3>
+              <p>Available, or if needed. Nothing to install.</p>
             </li>
             <li>
               <picture>
@@ -231,8 +216,8 @@
                   alt="The best options on a phone: Friday, November 13 works for everyone"
                 />
               </picture>
-              <h3>3. The best day rises to the top</h3>
-              <p>See who can make each option, then pick the date.</p>
+              <h3>3. See the Venn</h3>
+              <p>Where everyone overlaps rises to the top. Pick it, and it's in everyone's calendar.</p>
             </li>
           </ol>
         </div>
@@ -241,35 +226,17 @@
       <section id="groups" class="section">
         <div class="wrap groups">
           <div>
-            <p class="eyebrow">For groups</p>
+            <p class="eyebrow">Why Venn</p>
             <h2>Less group chat. <em>More plans.</em></h2>
-            <ul class="benefits">
-              <li>
-                <h3>No sign-ups, for anyone</h3>
-                <p>Friends open the link, type a name and tap. Nothing to install.</p>
-              </li>
-              <li>
-                <h3>Dates, or free days</h3>
-                <p>Vote on a few dates, or let everyone mark when they're free, even days in a row for a trip.</p>
-              </li>
-              <li>
-                <h3>See who's in at a glance</h3>
-                <p>The best date rises to the top, with everyone who can make it.</p>
-              </li>
-              <li>
-                <h3>Lock it in</h3>
-                <p>Pick the date and everyone adds it to Google, Apple or Outlook Calendar.</p>
-              </li>
-              <li>
-                <h3>Never chase replies</h3>
-                <p>Get an email, or a Slack or Discord message, when someone answers.</p>
-              </li>
-            </ul>
+            <p class="section-lede">
+              No more "which week?" threads. Everyone marks their free days once, and the day that works for the whole group is
+              right there, with everyone who can make it.
+            </p>
           </div>
           <figure
             class="story"
             role="img"
-            aria-label="A group chat going back and forth about which day works, next to a Venn poll for Dinner at Rosa's showing Friday, November 13 at 7 PM works for all six people"
+            aria-label="A group chat going back and forth about which day works, next to a Venn for Dinner at Rosa's showing Friday, November 13 at 7 PM works for all six people"
           >
             <div class="chat" aria-hidden="true">
               <p class="chat-head">Dinner crew · 6</p>
@@ -278,7 +245,7 @@
               <p class="msg"><b>Ana</b>Wed or Thu?</p>
               <p class="msg"><b>Jordan</b>Thu's out for me</p>
               <p class="msg"><b>Lee</b>wait which week</p>
-              <p class="msg msg-me">ok I'll just make a poll</p>
+              <p class="msg msg-me">ok I'll just Venn it</p>
             </div>
             <div class="story-arrow" aria-hidden="true">→</div>
             <div class="result" aria-hidden="true">
@@ -302,20 +269,15 @@
             <p class="eyebrow">Make it yours</p>
             <h2>Your picture, <em>right in the chat.</em></h2>
             <p class="yours-lede">
-              Add a photo of the cabin, the restaurant or your club's logo. It's on your poll, and on the link preview when you
-              share it, with Finn stuck on if you like.
+              Add a photo of the cabin, the restaurant or your club's logo. It shows on your Venn and on the link preview, with a
+              Finn sticker if you like.
             </p>
-            <ol class="yours-steps">
-              <li><b>Tap the icon</b> next to your poll's name.</li>
-              <li><b>Add a picture</b>, and pick a Finn sticker or none.</li>
-              <li><b>Share the link.</b> iMessage, WhatsApp, Slack and Discord show your picture.</li>
-            </ol>
             <a class="btn" href="/new">Make yours</a>
           </div>
           <figure
             class="demo"
             role="img"
-            aria-label="A poll called Cabin weekend with a photo of a cabin by a lake as its icon, and the same photo in its link preview in a group chat, with a Finn sticker saying Can't wait"
+            aria-label="A Venn called Cabin weekend with a photo of a cabin by a lake as its icon, and the same photo in its link preview in a group chat, with a Finn sticker saying Can't wait"
           >
             <div class="demo-poll" aria-hidden="true">
               <img src="/img/shots/preview-icon.webp" width="96" height="96" alt="" />
@@ -360,66 +322,7 @@
               >
             </li>
           </ul>
-          <p class="tpl-also">
-            And for any time of year: <a href="/templates/book-club">book clubs</a>,
-            <a href="/templates/game-night">game nights</a>, <a href="/templates/dnd">D&amp;D</a>,
-            <a href="/templates/group-trip">group trips</a> and <a href="/templates/team-offsite">team offsites</a>.
-          </p>
           <a class="link-arrow" href="/templates">All templates <span aria-hidden="true">→</span></a>
-        </div>
-      </section>
-
-      <section id="developers" class="band">
-        <div class="wrap dev">
-          <div>
-            <p class="eyebrow">For developers</p>
-            <h2>Open source. <em>Built to build on.</em></h2>
-            <p class="lede">
-              MIT licensed, no framework and no build step. Call the API, wire up webhooks, or run your own Venn for free.
-            </p>
-            <ul class="dev-points">
-              <li>
-                <h3>JSON API</h3>
-                <p>Create polls, collect answers and pick the date over plain HTTP.</p>
-              </li>
-              <li>
-                <h3>Signed webhooks</h3>
-                <p>Every answer can post to Slack, Discord or your own endpoint.</p>
-              </li>
-              <li>
-                <h3>Self-host for free</h3>
-                <p>Deploy to Cloudflare Workers and D1, or any server with Node.</p>
-              </li>
-              <li>
-                <h3>Private by design</h3>
-                <p>Edit links carry secrets the server only stores as hashes.</p>
-              </li>
-            </ul>
-            <div class="cta-row">
-              <a href="https://docs.venn.day/api.html" class="btn">Read the API docs</a>
-              <a href="https://github.com/sephmard/venn" class="btn btn-ghost-light"
-                ><svg class="gh-mark" viewBox="0 0 16 16" width="20" height="20" aria-hidden="true">
-                  <path
-                    fill="currentColor"
-                    d="M8 0c4.42 0 8 3.58 8 8a8.013 8.013 0 0 1-5.45 7.59c-.4.08-.55-.17-.55-.38 0-.27.01-1.13.01-2.2 0-.75-.25-1.23-.54-1.48 1.78-.2 3.65-.88 3.65-3.95 0-.88-.31-1.59-.82-2.15.08-.2.36-1.02-.08-2.12 0 0-.67-.22-2.2.82-.64-.18-1.32-.27-2-.27-.68 0-1.36.09-2 .27-1.53-1.03-2.2-.82-2.2-.82-.44 1.1-.16 1.92-.08 2.12-.51.56-.82 1.28-.82 2.15 0 3.06 1.86 3.75 3.64 3.95-.23.2-.44.55-.51 1.07-.46.21-1.61.55-2.33-.66-.15-.24-.6-.83-1.23-.82-.67.01-.27.38.01.53.34.19.73.9.82 1.13.16.45.68 1.31 2.69.94 0 .67.01 1.3.01 1.49 0 .21-.15.45-.55.38A7.995 7.995 0 0 1 0 8c0-4.42 3.58-8 8-8Z"
-                  /></svg
-                >View on GitHub</a
-              >
-            </div>
-          </div>
-          <figure class="code-card">
-            <figcaption>Create a poll</figcaption>
-            <pre><code><span class="prompt">$</span> curl https://venn.day/api/events \
-    -H 'content-type: application/json' \
-    -d '{"title": "Book club",
-         "timezone": "Europe/London",
-         "mode": "options",
-         "options": [{"start": 1794337200000,
-                      "end": 1794344400000}]}'
-
-<span class="comment"># {"id": "cXar7oEEBo", "adminToken": "…"}</span>
-<span class="comment"># Share venn.day/e/cXar7oEEBo</span></code></pre>
-          </figure>
         </div>
       </section>
 
@@ -430,8 +333,15 @@
             <details>
               <summary>What is Venn?</summary>
               <p>
-                Venn is a free scheduling poll for groups. Suggest a few dates, or ask when people are available, share one link,
-                and see the date that works for everyone.
+                Venn is a free scheduling poll for groups. Tap the days that could work, share one link, and everyone marks when
+                they're free. Venn shows where everyone overlaps.
+              </p>
+            </details>
+            <details>
+              <summary>Why is it called Venn?</summary>
+              <p>
+                Like a Venn diagram, it finds where everyone's free times overlap. You make a Venn, your friends fill it in, and
+                the overlap is your date. Just Venn it.
               </p>
             </details>
             <details>
@@ -445,8 +355,8 @@
             <details>
               <summary>How is Venn different from Doodle or When2meet?</summary>
               <p>
-                Venn has no ads and no accounts, lets people answer "if needed", works with whole days, parts of the day or hours,
-                and is made for phones. When the date is picked, everyone can add it to their calendar.
+                Venn has no ads and no accounts, lets people answer "if needed", works with whole days, parts of the day, hours or
+                several days in a row, and is made for phones. When the date is picked, everyone can add it to their calendar.
               </p>
             </details>
             <details>
@@ -490,11 +400,11 @@
       </section>
 
       <section class="wrap closing">
-        <h2>Stop the <em>back-and-forth.</em></h2>
-        <a href="#top" class="btn btn-lg">Create a poll</a>
+        <h2>Stop the back-and-forth. <em>Just Venn it.</em></h2>
+        <a href="/new" class="btn btn-lg">Create a Venn</a>
         <div class="meet-finn">
           <img src="/img/dog.webp" width="37" height="80" alt="" loading="lazy" />
-          <p><b>Meet Finn, the Venn dog.</b> Finn cheers on every poll you make and every answer that comes in.</p>
+          <p><b>Meet Finn, the Venn dog.</b> Finn cheers on every Venn you make and every answer that comes in.</p>
         </div>
       </section>
     </main>

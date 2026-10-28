@@ -13,7 +13,7 @@ test.beforeEach(async ({ page }) => {
   });
 });
 
-/** Skip the "Poll created!" celebration and open the new poll. */
+/** Skip the "Your Venn is ready!" celebration and open the new poll. */
 const openNewPoll = (page) => page.getByRole('button', { name: /^(View poll|Open .+ →)$/ }).click();
 
 /** Whether "Mark many as if needed" says it's on, beside its name. */
@@ -47,7 +47,7 @@ test('vote on a few dates: collect votes, pick the final date', async ({ page, r
 
   await page.click('#submit');
   // A celebration, then the new poll.
-  await expect(page.locator('.party [role=status]')).toHaveText(/Poll created!.*bringing people together/);
+  await expect(page.locator('.party [role=status]')).toHaveText(/Your Venn is ready!.*bringing people together/);
   // Sharing is the next step, so it's the main button.
   await expect(page.getByRole('button', { name: 'Share poll' })).toBeFocused();
   await expect(page.locator('#mine .row')).toHaveCount(14);
@@ -929,44 +929,32 @@ test('"Or add a time" adds an option on any day ahead, and the calendar goes the
   await expect(day).toBeFocused();
 });
 
-test('landing page: nav bar with GitHub, and the way to both kinds of poll', async ({ page, isMobile }) => {
+test('landing page: nav bar with GitHub, and one way in: Create a Venn', async ({ page, isMobile }) => {
   await page.goto('/');
   const nav = page.getByRole('navigation', { name: 'Main' });
-  await expect(nav.getByRole('link', { name: 'GitHub' }).first()).toBeVisible();
-  await expect(page.getByRole('link', { name: 'View on GitHub' })).toHaveAttribute('href', 'https://github.com/sephmard/venn');
+  await expect(nav.getByRole('link', { name: 'GitHub' }).first()).toHaveAttribute('href', 'https://github.com/sephmard/venn');
   if (isMobile) {
     await page.locator('.menu summary').click();
     await expect(page.locator('.menu-panel').getByRole('link', { name: 'Privacy' })).toBeVisible();
     await page.locator('.menu summary').click();
   } else {
-    await expect(nav.getByRole('link', { name: 'Privacy' })).toBeVisible();
+    await expect(nav.getByRole('link', { name: 'How it works' })).toBeVisible();
   }
   await expect(page.locator('h1')).toHaveText(/Find the day that works/);
-  // "Create a poll" stays in the sticky bar however far down people scroll, without sideways scrolling.
-  const create = page.locator('.topbar').getByRole('link', { name: 'Create a poll' });
+  // "Create a Venn" stays in the sticky bar however far down people scroll, without sideways scrolling.
+  const create = page.locator('.topbar').getByRole('link', { name: 'Create a Venn' });
   await expect(create).toHaveAttribute('href', '/new');
   await page.locator('footer').scrollIntoViewIfNeeded();
   await expect(create).toBeInViewport();
   expect((await create.boundingBox()).height).toBeGreaterThanOrEqual(44);
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
   await page.evaluate(() => scrollTo(0, 0));
-  // The hero's two cards are the way in: each opens its kind of poll.
-  await page
-    .locator('.start-cards')
-    .getByRole('link', { name: /Ask when people are available/ })
-    .click();
-  await expect(page).toHaveURL(/\/new\/free$/);
+  // One kind of poll: the hero's button opens it straight away, with no choice to make first.
+  await page.locator('.hero').getByRole('link', { name: 'Create a Venn' }).click();
+  await expect(page).toHaveURL(/\/new$/);
+  await expect(page.locator('#create h1')).toHaveText('Create a Venn');
   await expect(page.locator('#title')).toBeVisible();
-  await page.goto('/');
-  await page
-    .locator('.start-cards')
-    .getByRole('link', { name: /Vote on a few dates/ })
-    .click();
-  await expect(page).toHaveURL(/\/new\/pick$/);
-  await expect(page.locator('#title')).toHaveAttribute('placeholder', "Dinner at Rosa's");
-  // /new (linked from the privacy and 404 pages) still offers both kinds of poll.
-  await page.goto('/new');
-  await expect(page.getByRole('heading', { name: 'What kind of poll?' })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Create Venn' })).toBeVisible();
   await page.getByRole('link', { name: 'Venn', exact: true }).click();
   await expect(page).toHaveURL(/\/$/);
 });
@@ -978,7 +966,7 @@ test('the poll created celebration shows the dog; Share poll copies the link and
   await page.getByRole('button', { name: 'Book club' }).click();
   await addOptions(page, 7, [1140]);
   await page.click('#submit');
-  await expect(page.locator('.party [role=status]')).toContainText('Poll created!');
+  await expect(page.locator('.party [role=status]')).toContainText('Your Venn is ready!');
   await expect.poll(() => page.locator('.party-hero img').evaluate((img) => img.naturalWidth)).toBeGreaterThan(0);
   await context.grantPermissions(['clipboard-read', 'clipboard-write']);
   await page.evaluate(() => (navigator.share = undefined)); // no share sheet here: the link is copied
@@ -1398,7 +1386,7 @@ test('ask when people are free: parts of the day', async ({ page, request }) => 
   await expect(heat.nth(1).locator('.heat-bar i')).toHaveClass(['m']);
   await expect(heat.nth(2).locator('.heat-bar i')).toHaveClass(['n']);
   await expect(heat.nth(2)).toHaveAccessibleName(/1 unavailable/);
-  await expect(page.locator('.legend', { hasText: 'Unavailable' })).toBeVisible();
+  await expect(page.locator('#panel-group .legend', { hasText: 'Unavailable' })).toBeVisible();
   await heat.first().click();
   await expect(page.locator('#parts-inspect')).toContainText('Sam');
 });
@@ -1643,7 +1631,7 @@ test('on a phone, a new poll leads with sharing: one share button, the group, an
   // The organizer's tools are open, short: one line, the buttons, and what the private link is for.
   const tools = page.locator('details.organizer');
   await expect(tools).toHaveAttribute('open', '');
-  await expect(tools.locator('summary')).toHaveText(/^Your poll is ready\. Share the link with your group\.$/);
+  await expect(tools.locator('summary')).toHaveText(/^Your Venn is ready\. Share the link with your group\.$/);
   await expect(tools.locator('#notify-open')).not.toHaveClass(/btn-primary/);
   await expect(tools.getByRole('button', { name: 'Copy private organizer link' })).toHaveAccessibleDescription(
     /another device\. Don't share it/,
@@ -1796,7 +1784,7 @@ test('parts of the day: "All day" marks every part of a day in one tap', async (
     await request.post('/api/events', { data: { title: 'Coffee', timezone: 'UTC', mode: 'options', layout: 'parts', options } })
   ).json();
   await page.goto(`/e/${id}`);
-  await expect(page.locator('#panel-mine .legend')).toHaveText(/Tap: available\s+Tap again: if needed/);
+  await expect(page.locator('#panel-mine .legend')).toHaveText(/Tap: available\s+Tap again: if needed\s+Tap again: unavailable/);
   const allDay = page.getByRole('button', { name: /^All day\W+Tue, Jan 8$/ });
   const parts = page.locator('.parts-row').first().locator('.part-vote');
   await expect(allDay).toHaveAttribute('aria-pressed', 'false');
@@ -2280,7 +2268,7 @@ test('usage stats: counted as people use Venn, and shown to whoever has the toke
   await page.click('#login button[type=submit]');
   await expect(page.locator('h2', { hasText: 'What happens to polls' })).toBeVisible();
   await expect(page.locator('.tile').first()).toContainText('polls created');
-  await expect(page.locator('section', { hasText: 'From visit to poll' })).toContainText('Ask when people are available');
+  await expect(page.locator('section', { hasText: 'From visit to poll' })).toContainText('Create a Venn');
   // The trend: a column a day, switched between metrics, folded into weeks over a year.
   await expect(page.locator('.cols .col')).toHaveCount(30);
   await expect(page.locator('h2', { hasText: 'Polls created by day of the week' })).toBeVisible();
@@ -2534,8 +2522,8 @@ test('guests are one tap from making their own poll: from the celebration, and o
   await expect(go).toBeFocused();
   const own = page.getByRole('link', { name: 'Planning something? Make yours in 30 seconds' });
   await expect(own).toBeVisible();
-  // Straight to the same kind of poll, with the same template.
-  await expect(own).toHaveAttribute('href', `/new/pick?from=guest&template=${encodeURIComponent('🍝')}`);
+  // Straight to a new Venn, with the same template.
+  await expect(own).toHaveAttribute('href', `/new?from=guest&template=${encodeURIComponent('🍝')}`);
   // Both are full-size buttons that fit a phone, and Tab goes round them.
   for (const b of [go, own]) {
     const box = await b.boundingBox();
@@ -2547,7 +2535,7 @@ test('guests are one tap from making their own poll: from the celebration, and o
   await page.keyboard.press('Tab');
   await expect(go).toBeFocused();
   await own.click();
-  await expect(page).toHaveURL(/\/new\/pick\?from=guest$/);
+  await expect(page).toHaveURL(/\/new\?from=guest$/);
   await expect(page.locator('.party')).toHaveCount(0);
   // Their name and the template are filled in: only the dates are left to choose.
   await expect(page.getByRole('button', { name: 'Dinner' })).toHaveAttribute('aria-pressed', 'true');
@@ -2556,8 +2544,8 @@ test('guests are one tap from making their own poll: from the celebration, and o
   // Once the date is picked: guests can make their own, the organizer can plan the next one.
   await request.post(`/api/events/${id}/finalize`, { data: { start: t0 }, headers: { 'x-admin-token': adminToken } });
   await page.goto(`/e/${id}`);
-  await expect(page.locator(`.final-more a[href="/new/pick?from=set&template=${encodeURIComponent('🍝')}"]`)).toHaveText(
-    'Make your own poll',
+  await expect(page.locator(`.final-more a[href="/new?from=set&template=${encodeURIComponent('🍝')}"]`)).toHaveText(
+    'Make your own Venn',
   );
   await page.goto(`/e/${id}#admin=${adminToken}`);
   await expect(page.locator(`.final-more a[href="/new/pick?copy=${id}&next"]`)).toHaveText('Plan the next one');
@@ -2694,7 +2682,9 @@ test('guests answer a whole-day poll on a calendar of its days: tap, tap again, 
   // The calendar is the guest's way to answer, with the create page's key; the list is a tap away.
   await expect(page.locator('[data-mine-view="calendar"]')).toHaveAttribute('aria-checked', 'true');
   await expect(page.locator('#mine')).toBeHidden();
-  await expect(page.locator('.tap-key')).toHaveText(/Tap: available\s*Tap again: if needed\s*Left blank: no/);
+  await expect(page.locator('.tap-key')).toHaveText(
+    /Tap: available\s*Tap again: if needed\s*Tap again, or leave blank: unavailable/,
+  );
   await expect(page.locator('button.dcal-day')).toHaveCount(14);
   await expect(page.locator('.dcal-off').first()).toBeVisible(); // other days of those weeks, dimmed
   await expect(page.locator('.dcal-month')).toHaveText(['January 2030']);
@@ -3051,4 +3041,36 @@ test('the week view goes a week with ‹ › and a month with « », never befor
   await page.getByRole('button', { name: 'Back a month' }).click();
   await page.getByRole('button', { name: 'Back a month' }).click();
   expect(await first()).toBe(sunday); // back to this week, not before
+});
+
+test('Pick and the organizer tools are only on the organizer link; on the guest link the organizer sees what guests see', async ({
+  page,
+  context,
+  request,
+}) => {
+  const start = Date.UTC(2031, 0, 6, 18);
+  const { id, adminToken } = await (
+    await request.post('/api/events', {
+      data: { title: 'Dinner', timezone: 'UTC', mode: 'options', options: [{ start, end: start + 7_200_000 }] },
+    })
+  ).json();
+  await request.post(`/api/events/${id}/participants`, { data: { name: 'Ana', availability: { [start]: 2 } } });
+
+  await page.goto(`/e/${id}#admin=${adminToken}`);
+  await expect(page.locator('[data-pick]').first()).toBeVisible();
+  await expect(page.locator('.org-switch')).toHaveCount(0);
+  // Reloading the tab keeps the organizer's tools.
+  await page.reload();
+  await expect(page.locator('[data-pick]').first()).toBeVisible();
+
+  // The plain link, in another tab on the same device: what guests see, and no Pick.
+  const guestTab = await context.newPage();
+  await guestTab.goto(`/e/${id}`);
+  await expect(guestTab.locator('.org-switch')).toContainText('This is what your guests see');
+  await expect(guestTab.locator('[data-pick]')).toHaveCount(0);
+  await expect(guestTab.locator('#tab-mine')).toHaveAttribute('aria-selected', 'true');
+  // One tap back to the organizer's tools.
+  await guestTab.getByRole('button', { name: 'Organizer view' }).click();
+  await expect(guestTab.locator('[data-pick]').first()).toBeVisible();
+  await expect(guestTab).toHaveURL(new RegExp(`/e/${id}$`)); // the secret doesn't stay in the address bar
 });

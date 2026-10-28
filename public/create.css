@@ -1,99 +1,5 @@
-/* The create pages' own styles (/new, /new/pick, /new/free), loaded only there so people
+/* The create pages' own styles (/new, and /new/pick for older polls), loaded only there so people
    answering a poll don't download them. Everything shared is in styles.css. */
-
-/* ---------- chooser ---------- */
-.chooser {
-  max-width: 880px;
-  margin: 24px auto 0;
-}
-.choices {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
-  gap: 16px;
-  margin-top: 24px;
-}
-.choice {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  padding: 24px;
-  border-radius: 28px;
-  background: var(--surface);
-  border: 1.5px solid var(--border);
-  color: var(--text);
-  text-decoration: none;
-  transition:
-    border-color 0.15s,
-    transform 0.15s;
-}
-.choice:hover {
-  border-color: var(--accent);
-  transform: translateY(-2px);
-}
-.choice-title {
-  font-family: var(--serif);
-  font-size: 1.9rem;
-  font-weight: 400;
-  line-height: 1.15;
-}
-.choice-text {
-  color: var(--muted);
-}
-.choice-fit {
-  margin-top: auto;
-  padding-top: 8px;
-  font-size: 0.875rem;
-  font-weight: 650;
-  color: var(--accent);
-}
-.choice-art {
-  height: 84px;
-  display: flex;
-  align-items: center;
-  margin-bottom: 8px;
-}
-/* Three date tiles, one voted for */
-.art-pick {
-  gap: 8px;
-}
-.art-pick i {
-  font-style: normal;
-  font-family: var(--display);
-  font-weight: 800;
-  width: 62px;
-  height: 70px;
-  border-radius: 16px;
-  display: grid;
-  place-items: center;
-  background: var(--surface-2);
-  color: var(--muted);
-  border: 1.5px solid var(--border);
-}
-.art-pick i.on {
-  background: var(--yes);
-  color: var(--yes-ink);
-  border-color: var(--yes);
-  transform: rotate(-4deg);
-}
-/* Two overlapping circles: the Venn */
-.art-free i {
-  width: 76px;
-  height: 76px;
-  border-radius: 50%;
-  background: var(--accent);
-  opacity: 0.55;
-}
-.art-free i + i {
-  margin-left: -30px;
-  background: var(--maybe);
-  opacity: 0.75;
-  mix-blend-mode: multiply;
-}
-@media (prefers-color-scheme: dark) {
-  .art-free i + i {
-    mix-blend-mode: screen;
-  }
-}
 
 /* ---------- create pages ---------- */
 .create {
@@ -102,6 +8,10 @@
 }
 .create > h1 {
   margin-bottom: 20px;
+}
+.create-lede {
+  margin: -4px 0 20px;
+  font-size: 1rem;
 }
 .back {
   display: inline-flex;

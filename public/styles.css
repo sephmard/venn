@@ -1162,10 +1162,16 @@ ol.best .when {
 }
 
 /* Hours grid (paint and heatmap) */
+/* Three buttons on a line, which never push past a phone's edge: in a wide font, the last moves to
+   a second line instead. */
 .brush {
+  display: flex;
+  flex-wrap: wrap;
+  border-radius: 22px;
   margin-bottom: 4px;
 }
 .brush button {
+  flex: 1 1 auto;
   white-space: nowrap;
   padding: 6px 8px;
 }
@@ -1174,13 +1180,10 @@ ol.best .when {
     padding-inline: 4px;
     font-size: 0.9375rem;
   }
-  .brush {
-    grid-auto-columns: auto;
-  }
   .brush button {
-    padding: 6px 4px;
+    padding: 6px 3px;
     gap: 4px;
-    font-size: 0.875rem;
+    font-size: 0.8125rem;
   }
 }
 .swatch {
@@ -2172,6 +2175,11 @@ pre.code {
   border-color: var(--accent);
   color: var(--accent);
 }
+@media (max-width: 374px) {
+  .btn-new {
+    padding-inline: 12px;
+  }
+}
 .hview-h {
   margin: 0 0 6px;
   font-weight: 650;
@@ -2291,4 +2299,18 @@ pre.code {
 .sc-actions .btn {
   min-height: 48px;
   width: 100%;
+}
+
+/* The organizer, on the plain poll link: what guests see, and the way back to their tools. */
+.org-switch {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px 12px;
+  margin: 0 0 16px;
+  padding: 10px 10px 10px 16px;
+  border: 1px dashed var(--border);
+  border-radius: 16px;
+  color: var(--muted);
 }

@@ -15,10 +15,10 @@ async function route() {
   let off;
   if (poll) off = await (await import('./event.js')).renderEvent(poll[1], navigate);
   else {
-    // Each kind of poll has its own module, as does the chooser; the shared form parts are in create.js.
+    // Every new poll is a Venn (create-free.js). /new/pick is the older "vote on a few dates" page,
+    // still used to edit or copy polls made with it; nothing links to it otherwise.
     if (path === '/new/pick') off = (await import('./create-pick.js')).renderPick();
-    else if (path === '/new/free') off = (await import('./create-free.js')).renderFree();
-    else off = (await import('./chooser.js')).renderChooser();
+    else off = (await import('./create-free.js')).renderFree();
   }
   if (typeof off === 'function') cleanup = off;
 }

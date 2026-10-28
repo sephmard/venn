@@ -1,12 +1,12 @@
 // Answering a whole-day poll on a month calendar of just the poll's days: tap a day for available,
-// again for if needed, again to clear it. Days left blank count as no. The poll page loads this when
+// again for if needed, again to clear it. Days left blank count as unavailable. The poll page loads this when
 // a guest opens a whole-day poll; the list of rows stays a tap away for anyone who prefers it.
 
 import { IF_NEEDED, YES, addDays } from './core.js';
 import { $, $$, dateParts, esc, fmtDowLong, fmtMonth } from './ui.js';
 
-/** How to answer, the same key as the create page's calendars, plus what a blank day means. */
-export const TAP_KEY = `<p class="hint tap-key"><span><span class="swatch swatch-yes" aria-hidden="true"></span>Tap: available</span><span><span class="swatch swatch-maybe" aria-hidden="true"></span>Tap again: if needed</span><span><span class="swatch swatch-no" aria-hidden="true"></span>Left blank: no</span></p>`;
+/** How to answer, the same key as the create page's calendars, plus unavailable: tapped a third time, or left blank. */
+export const TAP_KEY = `<p class="hint tap-key"><span><span class="swatch swatch-yes" aria-hidden="true"></span>Tap: available</span><span><span class="swatch swatch-maybe" aria-hidden="true"></span>Tap again: if needed</span><span><span class="swatch swatch-no" aria-hidden="true"></span>Tap again, or leave blank: unavailable</span></p>`;
 
 const CSS = `
 .tap-key{display:flex;flex-wrap:wrap;gap:4px 16px;margin:0 0 10px}

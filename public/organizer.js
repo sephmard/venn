@@ -16,7 +16,7 @@ export function tools(box, ctx) {
   const copyOnly = ev.participants.some((p) => p.id !== ev.hostId);
   // Fresh from creating: one line and the buttons, so sharing (the big button above) comes first.
   box.innerHTML = `<details class="organizer"${ctx.open ? ' open' : ''}>
-    <summary><b>${fresh ? 'Your poll is ready.' : "You're the organizer."}</b> ${fresh ? 'Share the link with your group.' : 'Organizer tools'}</summary>
+    <summary><b>${fresh ? 'Your Venn is ready.' : "You're the organizer."}</b> ${fresh ? 'Share the link with your group.' : 'Organizer tools'}</summary>
     ${fresh ? '' : `<p class="hint">When you're ready, press <b>Pick</b> on the best ${ctx.what} in the group view.</p>`}
     ${fresh && ctx.notifyPending ? '<p class="hint"><b>Check your inbox</b> for your poll\'s link. We\'ll email you when people answer.</p>' : ''}
     <div class="btn-row">

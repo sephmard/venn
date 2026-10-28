@@ -1,6 +1,6 @@
-// The create pages' shared parts. There are two quite different polls (the chooser, chooser.js, offers both):
-//   /new/pick  You suggest some dates (and times). Everyone votes on each one.
-//   /new/free  You pick a range of days. Everyone marks when they're available; Venn finds the overlap.
+// The create pages' shared parts. Every new poll is a Venn:
+//   /new       You pick the days (and times) that could work. Everyone marks when they're available; Venn finds the overlap.
+//   /new/pick  The older "vote on a few dates" page, for editing and copying polls made with it.
 
 import { IF_NEEDED, YES, isEmail } from './core.js';
 import { TEMPLATES, orderTemplates, templateIndex } from './templates.js';
@@ -40,7 +40,7 @@ const PRIVACY = [
 export const OCCASIONS = TEMPLATES;
 
 // The landing page's "What are you planning?" box sends its text as ?title=, and a template page
-// (/templates/friendsgiving) its template as ?template=. The chooser passes them on; the form uses them.
+// (/templates/friendsgiving) its template as ?template=. The form uses them.
 const titleFromUrl = () => (new URLSearchParams(location.search).get('title') || '').trim().slice(0, 120);
 const templateFromUrl = () => templateIndex(new URLSearchParams(location.search).get('template'));
 export function prefillTitle() {
