@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 
 // ui.js looks up the page's elements when it loads; a stand-in document is enough for these helpers.
 globalThis.document ??= { getElementById: () => null };
-const { monthWeeks, stepDay, TAP_KEY } = await import('../public/day-answer.js');
+const { monthWeeks, stepDay, TAP_KEY, tripFrom, tripKey, tripRuns } = await import('../public/day-answer.js');
 
 const run = (from, n) =>
   Array.from({ length: n }, (_, i) => {
@@ -60,4 +60,25 @@ test('stepDay: arrows move between the poll days, a week up and down, Home and E
 test('the tap key says how to answer, like the create page, and how to mark unavailable', () => {
   for (const text of ['Tap: available', 'Tap again: if needed', 'Tap again, or leave blank: unavailable'])
     assert.ok(TAP_KEY.includes(text));
+});
+
+test('trips: a tap marks the days in a row from it, or ending on it when the poll runs out', () => {
+  const days = ['2030-01-04', '2030-01-05', '2030-01-06', '2030-01-07', '2030-01-10', '2030-01-11'];
+  assert.deepEqual(tripFrom(days, '2030-01-04', 3), ['2030-01-04', '2030-01-05', '2030-01-06']);
+  // Only two days left after the 6th: the three ending on the 7th.
+  assert.deepEqual(tripFrom(days, '2030-01-07', 3), ['2030-01-05', '2030-01-06', '2030-01-07']);
+  // A stretch shorter than the trip: all of it.
+  assert.deepEqual(tripFrom(days, '2030-01-10', 3), ['2030-01-10', '2030-01-11']);
+  assert.deepEqual(tripFrom(days, '2030-01-11', 3), ['2030-01-10', '2030-01-11']);
+});
+
+test('trips: the marked stretches long enough to go', () => {
+  const marked = ['2030-01-04', '2030-01-05', '2030-01-06', '2030-01-10', '2030-01-11', '2030-01-30'];
+  assert.deepEqual(tripRuns(marked, 3), [['2030-01-04', '2030-01-06']]);
+  assert.deepEqual(tripRuns(marked, 2), [
+    ['2030-01-04', '2030-01-06'],
+    ['2030-01-10', '2030-01-11'],
+  ]);
+  assert.deepEqual(tripRuns([], 2), []);
+  assert.match(tripKey(3), /Tap a day: 3 days from it/);
 });

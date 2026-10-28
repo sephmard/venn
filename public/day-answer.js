@@ -3,10 +3,44 @@
 // a guest opens a whole-day poll; the list of rows stays a tap away for anyone who prefers it.
 
 import { IF_NEEDED, YES, addDays } from './core.js';
-import { $, $$, dateParts, esc, fmtDowLong, fmtMonth } from './ui.js';
+import { $, $$, dateParts, esc, fmtDay, fmtDowLong, fmtMonth } from './ui.js';
 
 /** How to answer, the same key as the create page's calendars, plus unavailable: tapped a third time, or left blank. */
 export const TAP_KEY = `<p class="hint tap-key"><span><span class="swatch swatch-yes" aria-hidden="true"></span>Tap: available</span><span><span class="swatch swatch-maybe" aria-hidden="true"></span>Tap again: if needed</span><span><span class="swatch swatch-no" aria-hidden="true"></span>Tap again, or leave blank: unavailable</span></p>`;
+
+/** For trips (days in a row): a first tap marks the stretch, a tap on a marked day changes just it. */
+export const tripKey = (span) =>
+  `<p class="hint tap-key"><span><span class="swatch swatch-yes" aria-hidden="true"></span>Tap a day: ${span} days from it</span><span><span class="swatch swatch-maybe" aria-hidden="true"></span>Tap a marked day: if needed, then unavailable</span></p>`;
+
+/**
+ * The days a tap on `at` marks, for a trip of `span` days: `span` poll days in a row from it, or
+ * ending on it when the poll's days run out first, or as many in a row as there are. `days` sorted.
+ */
+export function tripFrom(days, at, span) {
+  const has = new Set(days);
+  const run = (from, step) => {
+    const out = [];
+    for (let d = from; has.has(d) && out.length < span; d = addDays(d, step)) out.push(d);
+    return out;
+  };
+  const ahead = run(at, 1);
+  if (ahead.length === span) return ahead;
+  const back = run(at, -1).reverse();
+  if (back.length === span) return back;
+  // Not enough either way on its own: the whole stretch of days around it, up to span.
+  return [...back, ...ahead.slice(1)].slice(0, span);
+}
+
+/** The stretches of `marked` days (sorted) at least `span` long: [[first, last]]. */
+export function tripRuns(marked, span) {
+  const runs = [];
+  for (const d of marked) {
+    const last = runs.at(-1);
+    if (last && addDays(last[1], 1) === d) last[1] = d;
+    else runs.push([d, d]);
+  }
+  return runs.filter(([a, b]) => (Date.parse(b) - Date.parse(a)) / 86_400_000 + 1 >= span);
+}
 
 const CSS = `
 .tap-key{display:flex;flex-wrap:wrap;gap:4px 16px;margin:0 0 10px}
@@ -22,6 +56,12 @@ const CSS = `
 .dcal-day[data-v="${IF_NEEDED}"]{background:var(--maybe);border-color:var(--maybe);color:var(--maybe-ink)}
 .dcal-day.final{outline:2.5px solid var(--final);outline-offset:1px}
 .dcal-day:focus-visible{outline:3px solid var(--text);outline-offset:2px;position:relative;z-index:1}
+.dcal-day{position:relative}
+.dcal-day.run-r{border-top-right-radius:4px;border-bottom-right-radius:4px}
+.dcal-day.run-l{border-top-left-radius:4px;border-bottom-left-radius:4px}
+.dcal-day.run-r::after{content:'';position:absolute;right:-6px;top:-1.5px;bottom:-1.5px;width:6px;background:inherit}
+.dcal-trips{margin:12px 0 0;display:flex;flex-wrap:wrap;gap:6px 8px;align-items:center}
+.dcal-trips .chip{font-weight:600}
 @media (hover:hover){.dcal-day:not(.dcal-off):hover{border-color:var(--accent)}}`;
 
 /**
@@ -71,7 +111,7 @@ const STATE = { [YES]: ['true', 'Yes'], [IF_NEEDED]: ['mixed', 'If needed'] };
  *   final(key) whether the day is part of the picked date
  * Returns { render() (show the answers again, keeping focus), cleanup() }.
  */
-export function dayAnswer(root, { days, value, onTap, final = () => false }) {
+export function dayAnswer(root, { days, value, onTap, final = () => false, span = 1 }) {
   if (!document.getElementById('day-answer-css'))
     document.head.append(Object.assign(document.createElement('style'), { id: 'day-answer-css', textContent: CSS }));
   const keyOf = new Map(days.map((d) => [d.date, String(d.key)]));
@@ -89,7 +129,7 @@ export function dayAnswer(root, { days, value, onTap, final = () => false }) {
     // The number is what's seen; the weekday and month are read out with it, then the answer.
     return `<button type="button" class="dcal-day" data-key="${esc(keyOf.get(d))}" data-date="${d}"><span class="sr-only">${esc(fmtDowLong.format(dt))} </span>${n}<span class="sr-only"> ${esc(fmtMonth.format(dt))}</span><small></small></button>`;
   };
-  root.innerHTML = `${TAP_KEY}<div class="dcal">${monthWeeks(order)
+  root.innerHTML = `${span > 1 ? tripKey(span) : TAP_KEY}<div class="dcal">${monthWeeks(order)
     .map(
       ({ month, weeks }, i) => `<div>
         <h3 class="dcal-month" id="dcal-m${i}">${esc(fmtMonthYear.format(dateParts(`${month}-01`)))}</h3>
@@ -99,7 +139,8 @@ export function dayAnswer(root, { days, value, onTap, final = () => false }) {
           .join('')}</div>
       </div>`,
     )
-    .join('')}</div>`;
+    .join('')}</div>${span > 1 ? '<p class="dcal-trips" aria-live="polite"></p>' : ''}`;
+  const marked = (d) => keyOf.has(d) && value(keyOf.get(d)) > 0;
 
   function render() {
     for (const b of $$('button.dcal-day', root)) {
@@ -110,6 +151,22 @@ export function dayAnswer(root, { days, value, onTap, final = () => false }) {
       b.classList.toggle('final', final(b.dataset.key));
       b.tabIndex = b.dataset.date === current ? 0 : -1;
       $('small', b).innerHTML = text && `<span class="sr-only">, </span>${text}`;
+      // Days in a row, joined into one band on the calendar's line.
+      const d = b.dataset.date;
+      const wd = dateParts(d).getUTCDay();
+      b.classList.toggle('run-r', span > 1 && marked(d) && wd < 6 && marked(addDays(d, 1)));
+      b.classList.toggle('run-l', span > 1 && marked(d) && wd > 0 && marked(addDays(d, -1)));
+    }
+    if (span > 1) {
+      const trips = tripRuns(order.filter(marked), span);
+      const day = (d) => fmtDay.format(dateParts(d));
+      $('.dcal-trips', root).innerHTML = trips.length
+        ? `<span>${trips.length > 1 ? 'Trips' : 'A trip'} that ${trips.length > 1 ? 'work' : 'works'} for you:</span>${trips
+            .map(([a, b2]) => `<span class="chip yes">${esc(`${day(a)} – ${day(b2)}`)}</span>`)
+            .join('')}`
+        : order.some(marked)
+          ? `<span class="hint">Mark ${span} days in a row for a trip that works for you.</span>`
+          : '';
     }
   }
   const go = (d) => {
@@ -121,6 +178,12 @@ export function dayAnswer(root, { days, value, onTap, final = () => false }) {
     const b = e.target.closest('button.dcal-day');
     if (!b) return;
     current = b.dataset.date;
+    // A trip's first tap marks the stretch from that day; on a marked day, it changes just that day.
+    if (span > 1 && !marked(b.dataset.date))
+      return onTap(
+        b.dataset.key,
+        tripFrom(order, b.dataset.date, span).map((d) => keyOf.get(d)),
+      );
     onTap(b.dataset.key);
   });
   // Arrow keys move between the days (one tab stop for the whole calendar); Space and Enter tap.
