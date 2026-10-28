@@ -2691,7 +2691,8 @@ test('guests answer a whole-day poll on a calendar of its days: tap, tap again, 
   page,
   request,
 }) => {
-  const { id, adminToken } = await daysPoll(request, { days: 2, from: '2030-01-08' }); // a Tuesday
+  // One day at a time (trips, days in a row, have a test of their own).
+  const { id, adminToken } = await daysPoll(request, { days: 1, from: '2030-01-08' }); // a Tuesday
   await page.goto(`/e/${id}`);
   const day = (d) => page.locator(`button.dcal-day[data-date="${d}"]`);
   // The calendar is the guest's way to answer, with the create page's key; the list is a tap away.
@@ -2730,8 +2731,7 @@ test('guests answer a whole-day poll on a calendar of its days: tap, tap again, 
   const ev = await (await request.get(`/api/events/${id}`, { headers: { 'x-admin-token': adminToken } })).json();
   const ana = ev.participants.find((p) => p.name === 'Ana');
   expect(ana.availability).toEqual({ [dayKey('2030-01-08')]: 2, [dayKey('2030-01-09')]: 2, [dayKey('2030-01-10')]: 1 });
-  // Two days in a row still find each other.
-  await expect(page.locator('.best-hero')).toContainText('(2 days)');
+  await expect(page.locator('.best-hero')).toContainText('Jan 8');
 
   // The organizer answers on the list, as before.
   await page.goto(`/e/${id}#admin=${adminToken}`);
