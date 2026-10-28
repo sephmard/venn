@@ -1,0 +1,31 @@
+name: Try it in a codespace
+
+# Comments once on each new pull request with an "Open in GitHub Codespaces" button: a private
+# machine with the pull request's code, running `npm run staging` (see .devcontainer/). Uses
+# pull_request_target so it also works for forks; it never checks out or runs the pull request's code.
+
+on:
+  pull_request_target:
+    types: [opened]
+
+permissions:
+  contents: read
+
+jobs:
+  comment:
+    if: github.event.pull_request.user.login != 'dependabot[bot]'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      pull-requests: write
+    steps:
+      - name: Comment with the codespace button
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          NUMBER: ${{ github.event.pull_request.number }}
+        run: |
+          url="https://codespaces.new/$REPO/pull/$NUMBER?quickstart=1"
+          gh pr comment "$NUMBER" --repo "$REPO" --body "**Try this pull request:** [![Open in GitHub Codespaces](https://github.com/codespaces/badge.svg)]($url)
+
+          It opens a private machine with this branch running \`npm run staging\`: Venn with a fresh test database full of polls. Stop the codespace when you're done."
