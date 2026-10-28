@@ -40,7 +40,7 @@
   --sans: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
   --width: 1120px;
   --gutter: 24px;
-  --section: 128px;
+  --section: 96px;
   color-scheme: light;
 }
 @media (prefers-color-scheme: dark) {
@@ -565,76 +565,6 @@ h2 em {
   color: var(--ink-2);
 }
 
-/* "Make it yours": a poll's own picture, on the poll and in its link preview. */
-.yours {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
-  gap: 64px;
-  align-items: center;
-}
-.yours-lede {
-  margin: 0 0 20px;
-  font-size: 1.125rem;
-  color: var(--ink-2);
-}
-.demo {
-  display: grid;
-  gap: 16px;
-  margin: 0;
-  padding: 20px;
-  background: var(--paper-2);
-  border: 1px solid var(--line);
-  border-radius: 24px;
-}
-.demo-poll {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  width: fit-content;
-  padding: 10px 16px 10px 10px;
-  background: var(--card);
-  border-radius: 16px;
-  box-shadow: var(--card-shadow);
-  font: 400 1.5rem / 1.1 var(--serif);
-}
-.demo-poll img {
-  width: 48px;
-  height: 48px;
-  border-radius: 12px;
-}
-.demo-chat {
-  display: grid;
-  gap: 6px;
-  justify-items: end;
-}
-.demo-chat .msg-me {
-  margin: 0;
-}
-.link-card {
-  width: min(100%, 360px);
-  overflow: hidden;
-  background: var(--card);
-  border: 1px solid var(--line);
-  border-radius: 18px 18px 4px 18px;
-}
-.link-card img {
-  display: block;
-  width: 100%;
-  height: auto;
-}
-.link-card p {
-  display: grid;
-  gap: 2px;
-  margin: 0;
-  padding: 10px 14px 12px;
-  font-size: 0.875rem;
-  line-height: 1.35;
-}
-.link-card span,
-.link-card small {
-  color: var(--ink-2);
-}
-
 /* For groups */
 .groups {
   display: grid;
@@ -806,29 +736,6 @@ h3 {
 }
 
 /* ---------- Finn, the Venn dog ---------- */
-.meet-finn {
-  display: flex;
-  align-items: flex-end;
-  justify-content: center;
-  gap: 12px;
-  max-width: 30em;
-  margin: 40px auto 0;
-  text-align: left;
-  color: var(--ink-2);
-}
-.meet-finn img {
-  flex: none;
-  transform: rotate(-4deg);
-  transform-origin: 50% 100%;
-}
-.meet-finn p {
-  margin: 0 0 6px;
-  font-size: 1rem;
-  line-height: 1.5;
-}
-.meet-finn b {
-  color: var(--ink);
-}
 .finn-lost {
   position: relative;
   width: 70px;
@@ -881,6 +788,152 @@ h3 {
 /* ---------- ideas and questions (home page) ---------- */
 .contact {
   max-width: 40em;
+}
+/* The good stuff: Finn, with what Venn always is. */
+.hl {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 88px;
+  align-items: center;
+  max-width: 960px;
+}
+.hl h2 {
+  margin: 0 0 28px;
+}
+.hl-finn {
+  position: relative;
+  margin: 0;
+  padding-top: 64px;
+  justify-self: center;
+}
+.hl-finn img {
+  display: block;
+  width: 110px;
+  height: auto;
+  transform: rotate(-4deg);
+  transform-origin: 50% 100%;
+  animation: finn-bob 3.2s ease-in-out infinite;
+}
+.hl-finn:hover img {
+  animation: finn-wiggle 0.5s ease-in-out 2;
+}
+.hl-bubble {
+  position: absolute;
+  top: 0;
+  left: 50%;
+  translate: -50% 0;
+  padding: 10px 14px;
+  border-radius: 18px;
+  background: var(--green);
+  color: var(--green-ink);
+  font-weight: 700;
+  white-space: nowrap;
+  box-shadow: 0 10px 24px -12px var(--green-deep);
+}
+.hl-bubble::after {
+  content: '';
+  position: absolute;
+  left: 50%;
+  bottom: -6px;
+  width: 12px;
+  height: 12px;
+  translate: -50% 0;
+  rotate: 45deg;
+  background: var(--green);
+}
+.hl-list {
+  list-style: none;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 18px 32px;
+  margin: 0;
+  padding: 0;
+}
+.hl-list li {
+  position: relative;
+  padding-left: 34px;
+  color: var(--ink-2);
+  line-height: 1.5;
+}
+.hl-list li::before {
+  content: '✓';
+  position: absolute;
+  left: 0;
+  top: 1px;
+  display: grid;
+  place-items: center;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: var(--green-soft);
+  color: var(--green);
+  font-size: 0.8rem;
+  font-weight: 800;
+}
+.hl-list b {
+  display: block;
+  color: var(--ink);
+}
+.hl-list a {
+  color: var(--green);
+}
+.hl-meet {
+  margin: 32px 0 0;
+  padding-top: 20px;
+  border-top: 1px solid var(--line);
+  color: var(--ink-2);
+}
+.hl-meet b {
+  color: var(--ink);
+}
+@keyframes finn-bob {
+  50% {
+    translate: 0 -6px;
+  }
+}
+@keyframes finn-wiggle {
+  25% {
+    transform: rotate(-12deg);
+  }
+  75% {
+    transform: rotate(6deg);
+  }
+}
+@media (max-width: 760px) {
+  .hl {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 32px;
+  }
+  .hl h2 {
+    text-align: center;
+  }
+}
+@media (max-width: 520px) {
+  .hl-list {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .hl-finn img,
+  .hl-finn:hover img {
+    animation: none;
+  }
+}
+/* The home page's contact: one centred column, headings the size of the others. */
+.center-col {
+  max-width: 720px;
+  margin-inline: auto;
+}
+.center-col > h2 {
+  margin: 0 0 24px;
+  font-size: clamp(2.4rem, 5vw, 4rem);
+  line-height: 1;
+  text-align: center;
+}
+.center-col > .section-lede,
+.center-col > .contact-alt {
+  margin-inline: auto;
+  text-align: center;
 }
 .contact-form {
   display: grid;
@@ -1187,7 +1240,7 @@ h3 {
 /* ---------- responsive ---------- */
 @media (max-width: 900px) {
   :root {
-    --section: 88px;
+    --section: 64px;
   }
   .hide-md {
     display: none !important;
@@ -1196,8 +1249,6 @@ h3 {
     display: block;
   }
   .groups,
-  .yours,
-  .dev,
   .tpl-hero {
     grid-template-columns: minmax(0, 1fr);
     gap: 48px;
@@ -1308,7 +1359,6 @@ h3 {
     .section h2,
     .section-lede,
     .story,
-    .demo,
     .tpl-cards li,
     .faq details,
     .closing h2 {
