@@ -1,6 +1,17 @@
 import { readFileSync } from 'node:fs';
 import { test, expect } from '@playwright/test';
-import { addDays, addOptions, changeAnswer, nextMonth, showDate, showNextMonth, tapAt, todayIn, submit } from './helpers.js';
+import {
+  addDays,
+  addOptions,
+  changeAnswer,
+  nextMonth,
+  showDate,
+  setLevel,
+  showNextMonth,
+  tapAt,
+  todayIn,
+  submit,
+} from './helpers.js';
 
 test.beforeEach(async ({ page }) => {
   page.on('dialog', (d) => d.accept());
@@ -269,14 +280,14 @@ test('ask when people are available: what the organizer picks is available or if
   await expect(page.locator('.cal-day.day-maybe')).toHaveCount(1);
 
   // Zooming in, the if needed day's mornings, afternoons and evenings are if needed; and back out.
-  await page.click('[data-level="parts"]');
+  await setLevel(page, 'parts');
   await expect(page.locator('.pg-cell.part.on.maybe')).toHaveCount(3);
   await expect(page.locator('.pg-cell.part.on:not(.maybe)')).toHaveCount(isMobile ? 0 : 3); // phones show a day at a time
   await expect(page.locator('#free-list .chip.maybe')).toHaveCount(3);
-  await page.click('[data-level="hours"]');
+  await setLevel(page, 'hours');
   await expect(page.locator('#free-list .od-row').first().locator('.chip.maybe')).toHaveCount(2);
   await expect(page.locator('#free-list .chip:not(.maybe)')).toHaveCount(2);
-  await page.click('[data-level="days"]');
+  await setLevel(page, 'days');
   await expect(page.locator('.cal-day.day-maybe')).toHaveCount(1);
   await expect(day(0)).toHaveClass(/day-maybe/);
 
@@ -294,7 +305,7 @@ test('ask when people are available: what the organizer picks is available or if
   // Painted hours too: a week of mornings, if needed.
   await page.goto('/new/free');
   await page.fill('#title', 'Coffee');
-  await page.click('[data-level="hours"]');
+  await setLevel(page, 'hours');
   // Many at once, if needed: the switch folded away under the calendar.
   await page.click('#brush-box summary');
   await page.check('#brush');
@@ -331,7 +342,7 @@ test('ask when people are free: paint hours and see the best time', async ({ pag
   await page.goto('/new/free');
   await page.fill('#organizer', 'Sam');
   await page.fill('#title', 'Book club');
-  await page.click('[data-level="hours"]');
+  await setLevel(page, 'hours');
   await page.click('[data-flength="60"]');
   await expect(page.locator('#submit')).toHaveAttribute('aria-disabled', 'true');
   // The quick fills are the same mornings, afternoons and evenings as the parts of the day.
@@ -595,7 +606,7 @@ test('switching lengths keeps the days picked, and organizers are asked before o
   await page.goto('/new/free');
   await page.fill('#organizer', 'Sam');
   await page.click('#q-2w');
-  await page.click('[data-level="parts"]');
+  await setLevel(page, 'parts');
   await expect(page.locator('[data-level="parts"]')).toHaveAttribute('aria-checked', 'true'); // the painter loads first
   const rows = page.locator('#free-list .od-row');
   const before = await page.locator('#free-list .chip').count();
@@ -754,7 +765,7 @@ test('phone: the calendars leave room to scroll the page, and say how to use the
   expect((await page.locator('.tg-scroll').boundingBox()).height).toBeLessThanOrEqual(half);
   await page.goto('/new/free');
   await page.fill('#organizer', 'Sam');
-  await page.click('[data-level="hours"]');
+  await setLevel(page, 'hours');
   const hours = page.locator('#when .tg-scroll');
   expect((await hours.boundingBox()).height).toBeLessThanOrEqual(half);
   // The hint comes before the calendar, not after it.
@@ -1075,7 +1086,7 @@ test('hours: a whole day reads "All day", the week\'s fills show when they\'re o
   await page.clock.setFixedTime(new Date(2030, 0, 9, 12)); // a Wednesday
   await page.goto('/new/free');
   await page.fill('#organizer', 'Sam');
-  await page.click('[data-level="hours"]');
+  await setLevel(page, 'hours');
   const allDay = page.getByRole('button', { name: 'All day', exact: true });
   await expect(page.locator('#fill-h')).toHaveText('Every day this week');
   await allDay.click();
@@ -1089,20 +1100,19 @@ test('hours: a whole day reads "All day", the week\'s fills show when they\'re o
   await expect(allDay).toHaveAttribute('aria-pressed', 'false');
   await expect(page.locator('#free-list')).toHaveText('Nothing yet.');
 
-  // Days in a row are whole days: parts of the day and hours wait until it's off again.
-  await page.click('[data-level="days"]');
+  // Days in a row are whole days: dates and times wait until it's off again.
+  await setLevel(page, 'days');
   await page.check('#in-row');
-  await expect(page.locator('[data-level="parts"]')).toBeDisabled();
-  await expect(page.locator('[data-level="hours"]')).toBeDisabled();
+  await expect(page.locator('[data-mode="time"]')).toBeDisabled();
   await page.uncheck('#in-row');
-  await expect(page.locator('[data-level="hours"]')).toBeEnabled();
+  await expect(page.locator('[data-mode="time"]')).toBeEnabled();
 });
 
 test('"when are you free" polls come back to edit at their level: hours, or parts of the day', async ({ page }) => {
   await page.goto('/new/free');
   await page.fill('#organizer', 'Sam');
   await page.fill('#title', 'Book club');
-  await page.click('[data-level="hours"]');
+  await setLevel(page, 'hours');
   await page.click('[data-fill="0"]'); // mornings, all week
   await page.click('#submit');
   await openNewPoll(page);
@@ -1116,7 +1126,7 @@ test('"when are you free" polls come back to edit at their level: hours, or part
   await page.fill('#organizer', 'Sam');
   await page.fill('#title', 'Coffee');
   await page.click('#q-2w');
-  await page.click('[data-level="parts"]');
+  await setLevel(page, 'parts');
   await expect(page.locator('#summary')).toHaveText('42 times to choose from');
   await page.click('[data-fill="2"]'); // no evenings in the first week
   await expect(page.locator('#summary')).toHaveText('35 times to choose from');
@@ -1516,7 +1526,7 @@ test('organizers add hours on different days, drag them longer, switch one to if
   await page.goto('/new/free');
   await page.fill('#organizer', 'Sam');
   await page.fill('#title', 'Drinks');
-  await page.click('[data-level="hours"]');
+  await setLevel(page, 'hours');
   await page.click('[data-flength="60"]');
   await page.click('#when .tv-nav [data-step="1"]'); // next week, so every day is in the future
   const col = (i) => page.locator('#when .tg-col').nth(i);
@@ -1581,7 +1591,7 @@ test('ask when people are free: zoom from whole days to parts of the day to hour
   await expect(page.locator('#summary')).toHaveText('2 days to choose from');
 
   // Parts of the day keeps the days, with mornings, afternoons and evenings on a calendar.
-  await page.click('[data-level="parts"]');
+  await setLevel(page, 'parts');
   await expect(page.locator('#summary')).toHaveText('6 times to choose from');
   await expect(page.locator('.pg-cell.part.on')).toHaveCount(isMobile ? 3 : 6); // phones show a day at a time
   // A tap makes the first day's morning if needed for the organizer; another takes it away.
@@ -1597,14 +1607,14 @@ test('ask when people are free: zoom from whole days to parts of the day to hour
   await expect(days.nth(1).locator('.chip')).toHaveCount(3);
 
   // Hours starts from those parts, and zooming out keeps the days.
-  await page.click('[data-level="hours"]');
+  await setLevel(page, 'hours');
   await expect(days).toHaveCount(2);
   await expect(days.nth(1)).toContainText('9 AM – 5 PM');
-  await page.click('[data-level="days"]');
+  await setLevel(page, 'days');
   await expect(page.locator('#summary')).toHaveText('2 days to choose from');
 
   // Back in, each day keeps its parts.
-  await page.click('[data-level="parts"]');
+  await setLevel(page, 'parts');
   await expect(page.locator('#summary')).toHaveText('5 times to choose from');
   await page.click('#submit');
   await expect(page.locator('.part-vote')).toHaveCount(5);
@@ -2152,7 +2162,7 @@ test('ask when people are available: a template’s length is one of the pills, 
   await page.click('[data-occasion="0"]'); // Dinner: two hours
   await page.click('#q-2w');
   await expect(page.locator('#summary')).toHaveText('14 days to choose from');
-  await page.click('[data-level="hours"]');
+  await setLevel(page, 'hours');
   // Hours are for short plans: 30 minutes, an hour or two. Longer ones suit parts of the day.
   await expect(page.locator('[data-flength]')).toHaveText(['30 min', '1 hour', '2 hours']);
   await expect(page.locator('[data-flength="120"]')).toHaveAttribute('aria-pressed', 'true');
@@ -2207,7 +2217,7 @@ test('marking many as if needed is folded away under the calendar, and works on 
   await expect(page.locator('#free-list .chip:not(.maybe)')).toHaveCount(0);
   await expect(page.locator('.cal-day.day-maybe').first()).toBeVisible();
   await page.uncheck('#brush');
-  await page.click('[data-level="parts"]');
+  await setLevel(page, 'parts');
   // Zoomed in, what was if needed stays so; new picks are available again.
   await expect(page.locator('#free-list .chip.maybe').first()).toBeVisible();
   await expect(page.locator('#free-list .chip:not(.maybe)')).toHaveCount(0);
@@ -3024,7 +3034,7 @@ test('a copied "when are you free" poll keeps its own length, even one there is 
 
 test('the week view goes a week with ‹ › and a month with « », never before this week', async ({ page }) => {
   await page.goto('/new/free');
-  await page.click('[data-level="hours"]');
+  await setLevel(page, 'hours');
   await page.click('#when [data-view="week"]');
   const first = () => page.locator('#when .tg-col').first().getAttribute('data-date');
   const today = await todayIn(page);
@@ -3073,4 +3083,60 @@ test('Pick and the organizer tools are only on the organizer link; on the guest 
   await guestTab.getByRole('button', { name: 'Organizer view' }).click();
   await expect(guestTab.locator('[data-pick]').first()).toBeVisible();
   await expect(guestTab).toHaveURL(new RegExp(`/e/${id}$`)); // the secret doesn't stay in the address bar
+});
+
+test('creating a Venn: dates only by month or week, date and time as parts or hours, and the optional extras', async ({
+  page,
+}) => {
+  await page.goto('/new');
+  await page.fill('#organizer', 'Sam');
+  await page.fill('#title', 'Dinner');
+  // Dates only, on a month; a week shows bigger days, a week at a time.
+  await expect(page.locator('[data-level="days"]')).toHaveAttribute('aria-checked', 'true');
+  await expect(page.locator('#time-levels')).toBeHidden();
+  await page.click('[data-cal-view="week"]');
+  await expect(page.locator('#when .cal-day')).toHaveCount(7);
+  await page.click('#when [data-nav="1"]');
+  await page.locator('#when .cal-day').nth(2).click();
+  await expect(page.locator('#summary')).toHaveText('1 day to choose from');
+  await page.click('[data-cal-view="month"]');
+  await expect(page.locator('#when .cal-day[aria-pressed="true"]')).toHaveCount(1);
+  // Weekdays: the next ten.
+  await page.click('#q-weekdays');
+  await expect(page.locator('#summary')).toHaveText('10 days to choose from');
+
+  // Date and time: parts of the day first, on a week or one day at a time.
+  await page.click('[data-mode="time"]');
+  await expect(page.locator('[data-level="parts"]')).toHaveAttribute('aria-checked', 'true');
+  await expect(page.locator('[data-mode="time"]')).toHaveAttribute('aria-checked', 'true');
+  await page.click('#when [data-pview="day"]');
+  await expect(page.locator('#when .pg-day')).toHaveCount(1);
+  await page.click('#when [data-pview="week"]');
+  await expect(page.locator('#when .pg-day')).toHaveCount(7);
+
+  // Hours: how long is optional, off until chosen, and a second tap leaves it off again.
+  await page.click('[data-level="hours"]');
+  await expect(page.locator('[data-flength][aria-pressed="true"]')).toHaveCount(0);
+  await page.click('[data-flength="60"]');
+  await expect(page.locator('[data-flength="60"]')).toHaveAttribute('aria-pressed', 'true');
+  await page.click('[data-flength="60"]');
+  await expect(page.locator('[data-flength][aria-pressed="true"]')).toHaveCount(0);
+  // Your own times, on every day of the week shown (after clearing the weekdays carried over).
+  await page.click('#q-clear');
+  await page.click('#when .tv-nav [data-step="1"]');
+  await page.selectOption('#fr-from', '1080');
+  await page.selectOption('#fr-to', '1260');
+  await page.click('#fr-add');
+  await expect(page.locator('#free-list')).toContainText('6 – 9 PM');
+  await expect(page.locator('#summary')).toHaveText('7 days to choose from');
+  // Dates only again keeps the days.
+  await page.click('[data-level="days"]');
+  await expect(page.locator('#time-levels')).toBeHidden();
+  await page.click('[data-mode="time"]');
+  await expect(page.locator('[data-level="hours"]')).toHaveAttribute('aria-checked', 'true'); // where it left off
+  await page.click('#submit');
+  await expect(page).toHaveURL(/\/e\//);
+  const id = page.url().split('/e/')[1];
+  const ev = await (await page.request.get(`/api/events/${id}`)).json();
+  expect(ev.durationMinutes).toBe(30); // no length: any overlap counts
 });

@@ -20,6 +20,7 @@ const STEP = 30;
  *              selected then holds "YYYY-MM-DD|<the part's start>"
  *   maybe      the selected keys that are only "if needed" for the organizer (a Set, changed in place):
  *              what's painted joins it while `marking()` is true, and leaves it otherwise
+ *   views      ['week', 'day'] adds a Week / Day switch; without it, phones show a day and others a week
  * Returns { render, week() (the 7 days around what's shown), cleanup }.
  */
 export function paintView(
@@ -34,13 +35,21 @@ export function paintView(
     parts = null,
     maybe = new Set(),
     marking = () => false,
+    views = null,
   },
 ) {
-  const day = isPhone();
+  let day = isPhone();
   let start = startAt && startAt > todayStr() ? startAt : todayStr(); // first day of the week strip
   let anchor = start; // first day shown; on phones, the day shown
   root.innerHTML = `
     <div class="tv-bar">
+      ${
+        views
+          ? `<div class="seg tv-views" role="radiogroup" aria-label="Calendar view">${views
+              .map((v) => `<button type="button" role="radio" data-pview="${v}">${v[0].toUpperCase() + v.slice(1)}</button>`)
+              .join('')}</div>`
+          : ''
+      }
       <div class="tv-nav">
         <button type="button" class="icon-btn" data-pstep="-1" aria-label="Earlier">‹</button>
         <span class="tv-label" aria-live="polite"></span>
@@ -63,6 +72,11 @@ export function paintView(
 
   function render() {
     const ds = shown();
+    for (const b of $$('[data-pview]', root)) b.setAttribute('aria-checked', (b.dataset.pview === 'day') === day);
+    strip.hidden = !day;
+    // A whole week on a phone: narrow columns, so the cells show their colour and the times sit at the side.
+    const narrow = !day && isPhone();
+    grid.classList.toggle('pg-narrow', narrow);
     $('.tv-label', root).textContent =
       ds.length > 1 ? `${fmtMonthDay.format(dateParts(ds[0]))} – ${fmtMonthDay.format(dateParts(ds.at(-1)))}` : dayLabel(ds[0]);
     $('[data-pstep="-1"]', root).disabled = start <= todayStr();
@@ -85,7 +99,7 @@ export function paintView(
         h += `<span class="pg-cell${parts ? ' part' : m % 60 ? '' : ' hour'}${on ? ' on' : ''}${on && maybe.has(key(d, m)) ? ' maybe' : ''}" role="button" tabindex="${r || c ? -1 : 0}" data-d="${d}" data-m="${m}" data-r="${r}" data-c="${c}" aria-pressed="${on}" aria-label="${esc(`${dayLabel(d)}, ${label(m)}${parts ? ` ${span(m)}${tag}` : on && maybe.has(key(d, m)) ? ', if needed' : ''}`)}">${parts ? `<small aria-hidden="true">${esc(span(m))}</small>${tag ? ` <small class="pg-tag" aria-hidden="true">${tag.trim()}</small>` : ''}` : ''}</span>`;
       });
     });
-    grid.style.gridTemplateColumns = `${parts ? 84 : 52}px repeat(${ds.length}, minmax(0, 1fr))`;
+    grid.style.gridTemplateColumns = `${parts ? (narrow ? 64 : 84) : narrow ? 40 : 52}px repeat(${ds.length}, minmax(0, 1fr))`;
     grid.innerHTML = h;
     if (!scrolled) {
       scrolled = true;
@@ -206,6 +220,12 @@ export function paintView(
         else if (!selected.has(key(d, m))) add(key(d, m));
       render();
       return onChange();
+    }
+    const pv = e.target.closest('[data-pview]');
+    if (pv) {
+      day = pv.dataset.pview === 'day';
+      if (day && !week().includes(anchor)) anchor = start;
+      return render();
     }
     const st = e.target.closest('[data-pstep]');
     if (st) {

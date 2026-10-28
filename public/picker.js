@@ -34,15 +34,29 @@ const ymd = (y, m, d) => `${y}-${String(m + 1).padStart(2, '0')}-${String(d).pad
  * - Open mode (`onDay`): tap a day to open it; `active()` is the open day.
  * `marks(date)` returns a short note shown under the day number (and read out with it).
  * `dayClass(date)` adds classes to a day, for ranges such as the days a trip covers.
+ * `views` ['month', 'week'] adds a Month / Week switch: a week shows bigger days, a week at a time.
  */
-export function monthView(root, { selected, onChange, onDay, active = () => null, marks = () => '', dayClass = () => '' }) {
+export function monthView(
+  root,
+  { selected, onChange, onDay, active = () => null, marks = () => '', dayClass = () => '', views = null, onView = () => {} },
+) {
   const today = todayStr();
   const toggle = !!selected;
   // Open on this month, or on next month when fewer than 7 days of this one are left.
   const now = new Date();
   const left = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate() - now.getDate() + 1;
   let cursor = new Date(now.getFullYear(), now.getMonth() + (left < 7 ? 1 : 0), 1);
+  let view = views?.[0] || 'month';
+  const weekOf = (d) => addDays(d, -dateParts(d).getUTCDay());
+  let weekStart = weekOf(today); // the Sunday of the week shown, in week view
   root.innerHTML = `
+    ${
+      views
+        ? `<div class="seg cal-views" role="radiogroup" aria-label="Calendar view">${views
+            .map((v) => `<button type="button" role="radio" data-cal-view="${v}">${v[0].toUpperCase() + v.slice(1)}</button>`)
+            .join('')}</div>`
+        : ''
+    }
     <div class="cal-head">
       <button type="button" class="icon-btn" data-nav="-1" aria-label="Previous month">‹</button>
       <h3 class="cal-month" aria-live="polite"></h3>
@@ -52,16 +66,26 @@ export function monthView(root, { selected, onChange, onDay, active = () => null
   const grid = $('.cal-grid', root);
 
   function render() {
-    $('.cal-month', root).textContent = cursor.toLocaleDateString(undefined, { month: 'long', year: 'numeric' });
+    const week = view === 'week';
+    for (const b of $$('[data-cal-view]', root)) b.setAttribute('aria-checked', b.dataset.calView === view);
+    grid.classList.toggle('cal-week', week);
     const y = cursor.getFullYear(),
       m = cursor.getMonth();
+    const days = week
+      ? Array.from({ length: 7 }, (_, i) => addDays(weekStart, i))
+      : Array.from({ length: new Date(y, m + 1, 0).getDate() }, (_, i) => ymd(y, m, i + 1));
+    $('.cal-month', root).textContent = week
+      ? `${fmtMonthDay.format(dateParts(days[0]))} – ${fmtMonthDay.format(dateParts(days[6]))}`
+      : cursor.toLocaleDateString(undefined, { month: 'long', year: 'numeric' });
+    $('[data-nav="-1"]', root).setAttribute('aria-label', week ? 'Previous week' : 'Previous month');
+    $('[data-nav="1"]', root).setAttribute('aria-label', week ? 'Next week' : 'Next month');
     let h = Array.from(
       { length: 7 },
       (_, i) => `<span class="cal-dow" aria-hidden="true">${fmtDow.format(new Date(Date.UTC(2023, 0, 1 + i)))}</span>`,
     ).join('');
-    h += '<span></span>'.repeat(new Date(y, m, 1).getDay());
-    for (let d = 1, n = new Date(y, m + 1, 0).getDate(); d <= n; d++) {
-      const ds = ymd(y, m, d);
+    if (!week) h += '<span></span>'.repeat(new Date(y, m, 1).getDay());
+    for (const ds of days) {
+      const d = +ds.slice(8);
       const mark = marks(ds);
       const state = toggle ? `aria-pressed="${selected.has(ds)}"` : ds === active() ? 'aria-current="date"' : '';
       const off = ds < today;
@@ -70,7 +94,9 @@ export function monthView(root, { selected, onChange, onDay, active = () => null
       h += `<button type="button" class="cal-day${ds === today ? ' today' : ''}${mark ? ' marked' : ''} ${dayClass(ds)}" data-date="${ds}" ${state}${off ? ' disabled' : ''}><span class="sr-only">${esc(fmtDow.format(dt))} </span>${d}<span class="sr-only"> ${esc(fmtMonth.format(dt))}${mark ? `, ${esc(mark)}` : ''}</span>${mark ? `<small aria-hidden="true">${esc(mark)}</small>` : ''}</button>`;
     }
     grid.innerHTML = h;
-    $('[data-nav="-1"]', root).disabled = y === new Date().getFullYear() && m === new Date().getMonth();
+    $('[data-nav="-1"]', root).disabled = week
+      ? weekStart <= today
+      : y === new Date().getFullYear() && m === new Date().getMonth();
   }
 
   // Toggle mode: drag across days with a mouse; a tap (or Enter/Space) toggles one.
@@ -111,9 +137,24 @@ export function monthView(root, { selected, onChange, onDay, active = () => null
     onChange();
   });
   root.addEventListener('click', (e) => {
+    const v = e.target.closest('[data-cal-view]');
+    if (v) {
+      // The week view opens on the first week of the month shown (or this week), and back.
+      if (v.dataset.calView === 'week' && view === 'month') {
+        const first = ymd(cursor.getFullYear(), cursor.getMonth(), 1);
+        weekStart = weekOf(first < today ? today : first);
+      } else if (v.dataset.calView === 'month' && view === 'week') {
+        const d = weekStart < today ? today : weekStart;
+        cursor = new Date(+d.slice(0, 4), +d.slice(5, 7) - 1, 1);
+      }
+      view = v.dataset.calView;
+      onView(view);
+      return render();
+    }
     const nav = e.target.closest('[data-nav]');
     if (!nav) return;
-    cursor = new Date(cursor.getFullYear(), cursor.getMonth() + +nav.dataset.nav, 1);
+    if (view === 'week') weekStart = addDays(weekStart, 7 * +nav.dataset.nav);
+    else cursor = new Date(cursor.getFullYear(), cursor.getMonth() + +nav.dataset.nav, 1);
     render();
   });
   render();
@@ -121,6 +162,12 @@ export function monthView(root, { selected, onChange, onDay, active = () => null
     render,
     show(date) {
       cursor = new Date(+date.slice(0, 4), +date.slice(5, 7) - 1, 1);
+      weekStart = weekOf(date < today ? today : date);
+      render();
+    },
+    /** 'month' or 'week'. */
+    setView(v) {
+      if (views?.includes(v)) view = v;
       render();
     },
     cleanup: () => window.removeEventListener('pointerup', end),

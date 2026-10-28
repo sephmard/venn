@@ -393,6 +393,29 @@ button.emoji-tile:focus-visible {
   font-size: 0.8rem;
   font-weight: 600;
 }
+/* A whole week of parts of the day on a phone: the colour says it, the times sit at the side. */
+.pg-narrow .pg-cell.part small {
+  display: none;
+}
+.pg-narrow .pg-cell.part {
+  height: 56px;
+}
+.pg-narrow .pg-time.part {
+  font-size: 0.72rem;
+  padding-right: 4px;
+}
+.pg-narrow .pg-day {
+  font-size: 0.7rem;
+  padding: 0 1px;
+}
+/* Dates only, a week at a time: bigger days to tap. */
+.cal-grid.cal-week .cal-day {
+  height: 72px;
+}
+.cal-views {
+  margin-bottom: 10px;
+  max-width: 260px;
+}
 .zoom {
   display: grid;
   gap: 6px;
@@ -410,6 +433,43 @@ button.emoji-tile:focus-visible {
     padding-inline: 6px;
     font-size: 0.875rem;
   }
+}
+/* Date and time: parts of the day or hours, a smaller switch under the first. */
+.zoom .seg-sub {
+  justify-self: start;
+  background: none;
+  padding: 0;
+  gap: 6px;
+}
+.zoom .seg-sub button {
+  min-height: 44px;
+  border: 1.5px solid var(--border);
+}
+.zoom .seg-sub button[aria-checked='true'] {
+  border-color: var(--accent);
+}
+.opt-note {
+  margin-left: 4px;
+  font-size: 0.8rem;
+  font-weight: 500;
+  color: var(--muted);
+}
+/* Hours: your own times, every day of the week shown. */
+.fill-range {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin-top: 10px;
+}
+.fill-range label {
+  margin: 0;
+  font-weight: 600;
+}
+.fill-range select {
+  width: auto;
+  min-height: 44px;
+  font-size: 1rem;
 }
 /* "Days in a row" and its stepper on one line. */
 .inline-row {

@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test';
-import { addOptions, changeAnswer, mockContact, mockPlaces, showNextMonth, submit } from './helpers.js';
+import { addOptions, changeAnswer, mockContact, mockPlaces, setLevel, showNextMonth, submit } from './helpers.js';
 import AxeBuilder from '@axe-core/playwright';
 import { PAGES } from '../pages/pages.js';
 
@@ -84,9 +84,9 @@ for (const scheme of ['light', 'dark']) {
       await page.click('#q-2w');
       await page.locator('#free-list').evaluate((el) => el.scrollIntoView({ block: 'center' })); // clear of the sticky bar
       await audit(page, 'ask when people are free (whole days)');
-      await page.click('[data-level="parts"]');
+      await setLevel(page, 'parts');
       await audit(page, 'ask when people are free (parts of the day)');
-      await page.click('[data-level="hours"]');
+      await setLevel(page, 'hours');
       await audit(page, 'ask when people are free (painting hours)');
     });
 
@@ -234,7 +234,7 @@ for (const scheme of ['light', 'dark']) {
       await page.goto('/new/free');
       await page.fill('#organizer', 'Sam');
       await page.fill('#title', 'Grid check');
-      await page.click('[data-level="hours"]');
+      await setLevel(page, 'hours');
       await page.click('[data-fill="3"]');
       await page.click('#submit');
       await changeAnswer(page);
