@@ -66,7 +66,7 @@ Lines stay under 65 characters. Italic serif is the only emphasis inside headlin
 - **Poll cards:** the hero's centrepiece and the main way into the app. Two equal `--card` panels (28px radius, `--card-shadow`), one per kind of poll, each a plain link: **Vote on a few dates** (`/new/pick`, with Fri · Sat · Sun chips) and **Ask when people are free** (`/new/free`, with the logo's three circles). Each has a serif title, one line on how it works, who it's for in `--green`, and a gradient **Create →** pill. Hover lifts the card and outlines it in `--green`. They stack on phones.
 - **Ghost button (on the dark band):** transparent with a light inset border. Used for **View on GitHub** next to **Read the API docs**.
 - **Code card:** near-black on the dark band, 20px radius, monospace at 14px (12px on phones, wrapping), `$` prompts in `--band-accent`. It shows a real API request that works against venn.day.
-- **Footer:** one row of small links on `--line` top border: Templates, Privacy, Docs, GitHub, Feedback.
+- **Footer:** one row of small links on `--line` top border: Templates, Privacy, Docs, GitHub, Contact (the home page's form).
 - **Template pages** (`/templates`, `/templates/friendsgiving`, `holiday-party`, `secret-santa`): a breadcrumb, a serif H1 with a big gradient button that opens the app with that template chosen, and a poll drawn in HTML (dates with bars for how many can make each, the best one in green). Then how-to steps, tips with the logo bullets, a sample timeline and questions (with FAQPage JSON-LD). The home page links to them in a "Planning for the holidays?" section of cards.
 - **Focus:** every interactive element shows the green ring with `:focus-visible`.
 

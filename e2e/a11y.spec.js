@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test';
-import { addOptions, changeAnswer, mockPlaces, showNextMonth, submit } from './helpers.js';
+import { addOptions, changeAnswer, mockContact, mockPlaces, showNextMonth, submit } from './helpers.js';
 import AxeBuilder from '@axe-core/playwright';
 import { PAGES } from '../pages/pages.js';
 
@@ -33,8 +33,17 @@ for (const scheme of ['light', 'dark']) {
     test.use({ colorScheme: scheme });
 
     test('landing and privacy pages', async ({ page }) => {
+      await mockContact(page);
       await page.goto('/');
+      await expect(page.locator('.contact-form')).toBeVisible();
       await audit(page, 'landing page');
+      // "Contact us", with its message after sending.
+      await page.getByText('Contact us', { exact: true }).click();
+      await page.getByLabel('Your message').fill('Hello');
+      await page.getByLabel(/Your email/).fill('ana@example.com');
+      await page.getByRole('button', { name: 'Send' }).click();
+      await expect(page.getByRole('status')).toHaveText(/Thanks/);
+      await audit(page, 'landing page, message sent');
       await page.goto('/privacy');
       await audit(page, 'privacy page');
     });

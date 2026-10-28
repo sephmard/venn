@@ -98,6 +98,12 @@ A new sending domain has no reputation yet, so the first emails can land in spam
 - **Scanner-safe links.** Unsubscribe links open the poll page, which finishes the action. Security scanners that pre-open links in emails can't trigger them by accident.
 - **No inbox flooding.** If the same person edits their answers several times within 10 minutes, the organizer gets one email.
 
+## Feature requests and "Contact us"
+
+The home page has an _Ideas and questions_ form: a feature request, or a message that needs a reply. Each one is emailed to the address in `EMAIL_REPLY_TO`, with the sender's email (if they gave one) as Reply-To, so you answer by replying. Nothing is stored.
+
+It switches on with email and `EMAIL_REPLY_TO` both set: `GET /api/config` then reports `"contact": true`. Until then the form stays hidden and the page points to GitHub issues. Each visitor (IP address) can send 3 messages an hour (`CONTACT_RATE_LIMIT`), or on Cloudflare use a [rate limiting binding](https://developers.cloudflare.com/workers/runtime-apis/bindings/rate-limit/) named `CONTACT_RATE_LIMITER`.
+
 ## Webhooks
 
 Paste any `https://` URL. Venn sends a `POST` with a JSON body each time someone responds:
