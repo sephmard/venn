@@ -30,10 +30,10 @@ const bar = (yes, maybe, no) =>
 function row(r, n, { kind, open, final, pick, mine }) {
   const [yes, maybe, no] = [r.yes.length, r.maybe.length, r.no.length];
   const said = `${yes} of ${n} available${maybe ? `, ${maybe} if needed` : ''}${no ? `, ${no} unavailable` : ''}${kind === 'all' ? ". Everyone's free" : kind === 'best' ? '. The most overlap' : ''}`;
-  return `<li class="ov-item">
+  return `<li class="ov-item${open ? ' open' : ''}">
     <button type="button" class="ov-row${kind ? ` ${kind}` : ''}${final ? ' final' : ''}" data-ov="${r.start}" aria-expanded="${open}">
       <span class="ov-when">${r.day ? `<span class="sr-only">${esc(dayName(r.day))}, </span>` : ''}${esc(r.label)}${final ? ' <span class="ov-picked">✓ Picked</span>' : ''}</span>
-      <span class="ov-count">${kind === 'all' ? '✓ Everyone' : `${yes + maybe} of ${n}`}${mine ? ` <span class="ov-mine">${esc(mine)}</span>` : ''}<span class="sr-only">. ${esc(said)}</span></span>
+      <span class="ov-count">${kind === 'all' ? '✓ Everyone' : `${yes + maybe} of ${n}`}${mine ? ` <span class="ov-mine">${esc(mine)}</span>` : ''}<span class="sr-only">. ${esc(said)}</span><span class="ov-chev" aria-hidden="true"></span></span>
       <span class="ov-bar" aria-hidden="true">${bar(yes, maybe, no)}</span>
     </button>
     ${open ? `<div class="ov-who">${chips(r.yes, 'yes')}${chips(r.maybe, 'maybe')}${chips(r.no, 'no')}${pick ? `<div class="ov-pick">${pick}</div>` : ''}</div>` : ''}
@@ -44,7 +44,7 @@ function row(r, n, { kind, open, final, pick, mine }) {
 const pickBtn = (ev, start, label, what = 'time') =>
   ev.finalStart === start
     ? `<p class="hint">Picked. To change it, open another ${what} and pick that.</p>`
-    : `<button type="button" class="btn btn-sm btn-primary" data-pick="${start}">${esc(ev.finalStart != null ? `${label} instead` : label)}</button>`;
+    : `<button type="button" class="btn btn-primary ov-pick-btn" data-pick="${start}">✓ ${esc(ev.finalStart != null ? `${label} instead` : label)}</button>`;
 
 /**
  * ctx: { ev, people (with availability), tz, inspect (the open row's start), focus (a person, or null),
