@@ -10,6 +10,7 @@
   },
   "scripts": {
     "start": "node server.js",
+    "staging": "node scripts/staging.js",
     "test": "node --test test/*.test.js",
     "test:e2e": "playwright test",
     "lint": "eslint .",
