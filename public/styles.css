@@ -1162,10 +1162,16 @@ ol.best .when {
 }
 
 /* Hours grid (paint and heatmap) */
+/* Three buttons on a line, which never push past a phone's edge: in a wide font, the last moves to
+   a second line instead. */
 .brush {
+  display: flex;
+  flex-wrap: wrap;
+  border-radius: 22px;
   margin-bottom: 4px;
 }
 .brush button {
+  flex: 1 1 auto;
   white-space: nowrap;
   padding: 6px 8px;
 }
@@ -1173,9 +1179,6 @@ ol.best .when {
   .seg button {
     padding-inline: 4px;
     font-size: 0.9375rem;
-  }
-  .brush {
-    grid-auto-columns: auto;
   }
   .brush button {
     padding: 6px 3px;
@@ -2171,6 +2174,11 @@ pre.code {
 .btn-new {
   border-color: var(--accent);
   color: var(--accent);
+}
+@media (max-width: 374px) {
+  .btn-new {
+    padding-inline: 12px;
+  }
 }
 .hview-h {
   margin: 0 0 6px;
