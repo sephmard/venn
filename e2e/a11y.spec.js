@@ -46,8 +46,8 @@ for (const scheme of ['light', 'dark']) {
     test('landing and privacy pages', { tag: '@site' }, async ({ page }) => {
       await mockContact(page);
       await page.goto('/');
-      // Once the Venn's circles have faded in (other sections animate as they scroll into view).
-      await page.locator('.venn').evaluate((v) => Promise.all(v.getAnimations({ subtree: true }).map((a) => a.finished)));
+      // Once the Venn's circles have met (other sections animate as they scroll into view).
+      await expect(page.locator('.venn')).toHaveAttribute('data-settled', 'true', { timeout: 8000 });
       await audit(page, 'landing page');
       await page.locator('footer').getByRole('link', { name: 'Contact' }).click();
       await expect(page.locator('.contact-form')).toBeVisible();

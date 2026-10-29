@@ -95,6 +95,10 @@ the same PR** (and CLAUDE.md if it's a rule that matters in review).
 **Website (venn.day)**
 
 - Simple and sexy. Four values, framed as benefits (what people get), not features.
+- The hero Venn tells the story in motion, **from noise to a plan**: a group chat's messages bounce
+  around, fly to the three friends, the circles drift together and the day that works pops out, then
+  they keep floating. It plays while in view. Tap replays it; press and hold a circle (a mouse just
+  drags) to pull a friend away, and the ✓ follows the overlap. Still for reduced motion.
 - The same top bar on every page: logo, Create a Venn, menu. GitHub lives in the menu and footer, not
   the bar. No floating buttons.
 
