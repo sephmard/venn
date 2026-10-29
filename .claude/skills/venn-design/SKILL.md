@@ -35,6 +35,8 @@ the same PR** (and CLAUDE.md if it's a rule that matters in review).
   two.
 - Parts of day and Hours show **the week only**, on phones too: no Week / Day switch.
 - Both use the same navigation: **« ‹ › »** (a month, a week), never before this week.
+- A tap goes round the same way at every level: **available, then if needed, then removed**.
+- Parts of day and Hours look alike: a plain head, times filling their day's column edge to edge.
 - A tap on Hours gives **the hour tapped**, as the labels read (half hours only with a 30-min length).
 - A whole day is one **"All day"** at every level, never split into parts or hours with gaps.
 - Templates shape the calendar only while nothing is picked; they never move or remove picks. A second

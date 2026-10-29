@@ -673,7 +673,16 @@ button.emoji-tile:focus-visible {
 #other-box select {
   margin-top: 4px;
 }
-/* Phones' narrow week: a short start time ("7p"); no ×, too small to tap (remove from the list) */
+/* Hours look like parts of the day */
+#when .tg-head {
+  background: var(--surface);
+}
+#when .tg-block.opt {
+  left: 1px !important;
+  width: calc(100% - 2px) !important;
+  border-radius: 3px;
+}
+/* Phones' narrow week: a short start time ("7p"); no × (a third tap removes) */
 .tg-narrow .tg-block {
   padding: 4px 2px 2px;
   align-items: center;

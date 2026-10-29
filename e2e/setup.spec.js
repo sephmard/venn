@@ -98,3 +98,17 @@ test('a tap on the hours calendar gives the hour tapped, as the labels read', as
   await tapAt(page, day, 1290, '#when');
   await expect(page.locator('#free-list')).toContainText('9:30 – 10:00 PM');
 });
+
+test('on the hours calendar a tap goes round, as on days: available, if needed, removed', async ({ page }) => {
+  await page.goto('/new');
+  await setLevel(page, 'hours');
+  const day = addDays(await nextMonth(page), 3);
+  await tapAt(page, day, 1140, '#when');
+  const block = page.locator('#when .tg-block');
+  await expect(block).toHaveCount(1);
+  await block.click();
+  await expect(page.locator('#when .tg-block.opt-maybe')).toHaveCount(1);
+  await block.click();
+  await expect(block).toHaveCount(0);
+  await expect(page.locator('#free-list .chip')).toHaveCount(0);
+});

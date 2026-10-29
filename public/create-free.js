@@ -76,8 +76,8 @@ export function renderFree() {
   let level = 'days';
   let timeLevel = null; // the last of parts of the day or hours visited: where a day's own times are
   let length = null; // minutes, for hours: optional, the shortest time worth finding
-  let planLength = null; // a template's usual length, shown on hours until the organizer picks one
-  let ownLength = false; // the organizer chose the length (or the poll being edited has one)
+  let planLength = null; // a template's length, until the organizer picks one
+  let ownLength = false; // the organizer chose the length
   let cleared = null; // what Clear all took, until something new is picked
   let painter = null;
   let cal = null;
@@ -125,7 +125,7 @@ export function renderFree() {
       ${createBar('Create Venn')}
     </form>`;
 
-  // A template shapes the calendar only while nothing is picked: it never moves or takes away picks.
+  // A template shapes the calendar only while nothing is picked.
   const empty = () => !selected.size && !partsSel.size && !painted.size;
   const occasion = wirePlan((o) => {
     // Days picked from now on get the plan's usual part of the day.
@@ -307,7 +307,7 @@ export function renderFree() {
       views: ['week'], // a week at a time, phones too: no Week / Day to choose
       range: () => [420, 1440],
       tapLength: () => length || 60,
-      // A tap gives the hour tapped, as the labels read; a half-hour length can start on the half hour.
+      // A tap gives the hour tapped (half hours for a 30-min length).
       tapSnap: () => (length && length < 60 ? 30 : 60),
       startAt: () => null,
       blocks: () =>
@@ -321,16 +321,18 @@ export function renderFree() {
           short: shortTime(w.start),
           tiny: pt.hoursLabel(w.start, w.end) === 'All day' ? 'All day' : tinyTime(w.start),
           tag: w.maybe ? 'If needed' : 'Available',
-          title: `${pt.hoursLabel(w.start, w.end)} ${w.maybe ? 'If needed' : 'Available'}, ${dayLabel(w.date)}. Tap to make it ${w.maybe ? 'available' : 'if needed'}`,
+          title: `${pt.hoursLabel(w.start, w.end)} ${w.maybe ? 'If needed' : 'Available'}, ${dayLabel(w.date)}. Tap to ${w.maybe ? 'remove it' : 'make it if needed'}`,
           remove: `Remove ${pt.hoursLabel(w.start, w.end)}, ${dayLabel(w.date)}`,
         })),
       onCreate: (date, from, to) => {
         put(date, from, to, brush() === IF_NEEDED);
         changed();
       },
+      // A tap goes round: available, if needed, removed.
       onBlock: (k) => {
         const w = find(k);
-        if (w) put(w.date, w.start, w.end, !w.maybe);
+        if (w?.maybe) take(w);
+        else if (w) put(w.date, w.start, w.end, true);
         changed();
       },
       onResize: (k, from, to) => {
