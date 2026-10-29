@@ -3,7 +3,7 @@ import { test, expect } from '@playwright/test';
 test.use({ viewport: { width: 375, height: 740 } });
 
 for (const path of ['/', '/privacy', '/templates/book-club']) {
-  test(`the phone menu closes on a tap outside it, Escape, or one of its links: ${path}`, async ({ page }) => {
+  test(`the phone menu closes on a tap outside it, Escape, or one of its links: ${path}`, { tag: '@site' }, async ({ page }) => {
     await page.goto(path);
     const menu = page.locator('details.menu');
     const toggle = page.getByLabel('Menu');
@@ -29,7 +29,7 @@ for (const path of ['/', '/privacy', '/templates/book-club']) {
   });
 }
 
-test('picking a link on the same page closes the menu', async ({ page }) => {
+test('picking a link on the same page closes the menu', { tag: '@site' }, async ({ page }) => {
   await page.goto('/');
   await page.getByLabel('Menu').click();
   await page.locator('.menu-panel').getByRole('link', { name: 'Contact' }).click();

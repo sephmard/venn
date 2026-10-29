@@ -1,7 +1,7 @@
 import { test, expect } from '@playwright/test';
 import { mockContact } from './helpers.js';
 
-test('the home page takes feature requests and messages, with an email to reply to', async ({ page }) => {
+test('the home page takes feature requests and messages, with an email to reply to', { tag: '@site' }, async ({ page }) => {
   const sent = await mockContact(page);
   await page.goto('/');
   // Ideas & questions: Contact, in the menu and the footer, opens them in a dialog (no button in the corner).
@@ -49,7 +49,7 @@ test('the home page takes feature requests and messages, with an email to reply 
   await expect(dialog).toBeVisible();
 });
 
-test('when sending fails, the form says why and keeps the message', async ({ page }) => {
+test('when sending fails, the form says why and keeps the message', { tag: '@site' }, async ({ page }) => {
   await mockContact(page, { status: 429, json: { error: "That's a few messages already. Try again in an hour." } });
   await page.goto('/#contact');
   await page.getByLabel('Your idea').fill('Dark mode');
@@ -58,7 +58,7 @@ test('when sending fails, the form says why and keeps the message', async ({ pag
   await expect(page.getByLabel('Your idea')).toHaveValue('Dark mode');
 });
 
-test('without email set up there is no form, only the GitHub link', async ({ page }) => {
+test('without email set up there is no form, only the GitHub link', { tag: '@site' }, async ({ page }) => {
   await page.goto('/');
   await page.locator('footer').getByRole('link', { name: 'Contact' }).click();
   await expect(page.getByRole('heading', { name: 'Ideas and questions' })).toBeVisible();
