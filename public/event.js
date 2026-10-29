@@ -111,7 +111,7 @@ export async function renderEvent(id, navigate) {
     touched: new Set(), // rows this visitor explicitly answered (so "No" shows as chosen)
     tab: null,
     fresh: !!saved(id).justCreated, // the organizer just created this poll
-    orgOpen: null, // organizer tools open? Starts open for a fresh poll.
+    orgOpen: null, // organizer tools open? Closed until wanted.
   };
   // The edit token also gets your own answer back when the organizer hides everyone's answers.
   const authHeaders = ({ adminToken: a, editToken: e } = saved(id)) => ({
@@ -322,7 +322,7 @@ export async function renderEvent(id, navigate) {
           ${hideAll ? `<p class="sheet">🔒 ${privacy} You'll see the date at the top once they pick it.</p>` : ''}
           <div class="sheet"${hideAll ? ' hidden' : ''}>
             <div class="sheet-head">
-              <h2 class="panel-title" id="best-h">${optionsMode ? 'Best options' : daysMode ? 'Best dates' : 'Best times'}</h2>
+              <h2 class="panel-title" id="best-h">${optionsMode ? 'Best option' : daysMode ? 'Best date' : 'Best time'}</h2>
               <button type="button" class="pill" id="ai-summary-btn" hidden>Summarize with AI</button>
             </div>
             <div id="ai-summary"></div>
@@ -1465,7 +1465,7 @@ export async function renderEvent(id, navigate) {
     sheet.hidden = hideAll || ev().finalStart != null;
     if (sheet.hidden) return;
     const people = others();
-    const best = rankTimes(ev(), ev().slots, people, 5);
+    const best = rankTimes(ev(), ev().slots, people, 1);
     const n = people.length;
     // Until a guest answers, the only answer is the organizer's own.
     const guests = people.some((p) => p.id !== ev().hostId);
@@ -1481,7 +1481,8 @@ export async function renderEvent(id, navigate) {
       $('#best').innerHTML = '<p class="hint">Nothing works for anyone yet.</p>';
       return;
     }
-    const [first, ...rest] = best;
+    // The best one; every other is in everyone's answers just below, once.
+    const [first] = best;
     const who = (b) => {
       const can = b.yes.length + b.ifNeeded.length;
       if (can === n && !b.ifNeeded.length) return n === 1 ? 'Works for the one person so far' : `Everyone can make it`;
@@ -1514,23 +1515,7 @@ export async function renderEvent(id, navigate) {
         <div class="best-who">${avatarStack([...first.yes, ...first.ifNeeded], 7)}<span>${esc(who(first))}</span></div>
         ${whoList(first)}
         ${pick(first) ? `<div class="btn-row">${pick(first).replace('btn btn-sm', guests ? 'btn btn-primary' : 'btn')}</div>` : ''}
-      </div>
-      ${
-        rest.length
-          ? `<h3 class="sub">Also good</h3><ol class="best">${rest
-              .map(
-                (b) => `<li>
-                  <div class="grow">
-                    <div class="when">${esc(when(b.start, b.end))}</div>
-                    <div class="best-who small">${avatarStack([...b.yes, ...b.ifNeeded], 4)}<span>${esc(who(b))}</span></div>
-                    ${big ? '' : names(b)}
-                  </div>
-                  ${pick(b)}
-                </li>`,
-              )
-              .join('')}</ol>`
-          : ''
-      }`;
+      </div>`;
   }
 
   // ----- picking the final time -----
@@ -1546,6 +1531,8 @@ export async function renderEvent(id, navigate) {
     if (!btn) return;
     const start = btn.id === 'unpick' ? null : +btn.dataset.pick;
     const was = ev().finalStart;
+    // Picking tells everyone: the date, big, and who can make it, before it goes out.
+    if (start != null && !(await confirmPick(start))) return btn.isConnected && btn.focus();
     st.changing = false;
     try {
       await api(`events/${id}/finalize`, { method: 'POST', body: { start }, headers: authHeaders() });
@@ -1564,6 +1551,48 @@ export async function renderEvent(id, navigate) {
       toast(ex.message);
     }
   });
+
+  /** "Pick this date?": the date in big type and who can make it, then Pick it or Back. */
+  function confirmPick(start) {
+    let d = $('#pick-check');
+    if (!d) {
+      d = document.createElement('dialog');
+      d.className = 'submit-check pick-check';
+      d.id = 'pick-check';
+      d.setAttribute('aria-labelledby', 'pc-h');
+      document.body.append(d);
+    }
+    const people = others();
+    const r = rankTimes(ev(), ev().slots, people, Infinity).find((x) => x.start === start);
+    const end = r ? r.end : meetingEnd(ev(), start);
+    const can = r ? r.yes.length + r.ifNeeded.length : 0;
+    const changing = ev().finalStart != null;
+    d.innerHTML = `<h2 id="pc-h">${changing ? 'Change the date to this?' : `Pick this ${daysMode ? 'date' : 'time'}?`}</h2>
+      <p class="pc-when">${bigWhen(start, end)}</p>
+      <p>${can} of ${people.length} can make it${r?.ifNeeded.length ? `, ${r.ifNeeded.length} if needed` : ''}.${
+        r?.no.length ? ` <span class="muted">Can't: ${r.no.map(esc).join(', ')}</span>` : ''
+      }</p>
+      ${changing ? '<p class="hint">Anyone who added the old date to their calendar will need to update it.</p>' : ''}
+      <div class="sc-actions">
+        <button type="button" class="btn" id="pc-no">Back</button>
+        <button type="button" class="btn btn-primary" id="pc-yes">${changing ? 'Change it' : 'Pick it'}</button>
+      </div>`;
+    return new Promise((done) => {
+      const close = (yes) => {
+        d.close();
+        done(yes);
+      };
+      $('#pc-no', d).onclick = () => close(false);
+      $('#pc-yes', d).onclick = () => close(true);
+      d.oncancel = (e) => {
+        e.preventDefault();
+        close(false);
+      };
+      d.onclick = (e) => e.target === d && close(false); // a tap outside the box
+      d.showModal();
+      $('#pc-yes', d).focus();
+    });
+  }
 
   // ----- organizer: notifications and privacy, from a module only organizers load -----
   const panels = {}; // which organizer panels are open: notify, privacy, writer
@@ -1584,13 +1613,15 @@ export async function renderEvent(id, navigate) {
   // ----- header, banners -----
   function renderHeader() {
     $('#ev-title').textContent = ev().title;
-    const n = ev().responses ?? ev().participants.length;
+    // The host is already "Hosted by": the count is everyone else who answered.
+    const guests = ev().participants.filter((p) => p.id !== ev().hostId);
+    const n = (ev().responses ?? ev().participants.length) - (ev().participants.length - guests.length);
     const by = ev().organizer
       ? `<span class="host">${avatar(ev().organizer, 'av-xs')}Hosted by ${esc(ev().organizer)}</span>`
       : '';
     const count = n
       ? `<span class="answered">${avatarStack(
-          ev().participants.map((p) => p.name),
+          guests.map((p) => p.name),
           4,
         )}${plural(n, 'person', 'people')} answered</span>`
       : '<span class="answered">No answers yet</span>';
@@ -1625,7 +1656,6 @@ export async function renderEvent(id, navigate) {
     return `<div class="change-list" id="change-list">
       <p class="kicker">Change the date to</p>
       ${rows ? `<ol>${rows}</ol>` : '<p>No other date works for anyone yet.</p>'}
-      <p class="change-note">Anyone who added the old date to their calendar will need to update it.</p>
       <button type="button" class="link-btn" id="change-cancel">Keep this date</button>
     </div>`;
   }
@@ -1665,6 +1695,7 @@ export async function renderEvent(id, navigate) {
       h += `<section class="banner-final${st.celebrate && !reducedMotion() ? ' celebrate' : ''}" aria-labelledby="final-h">
         <p class="kicker">It's happening</p>
         <h2 id="final-h">${bigWhen(start, end)}</h2>
+        ${ev().isAdmin && !st.changing ? '<button type="button" class="link-btn final-change" id="change-date" aria-label="Change the date">Change</button>' : ''}
         ${
           ev().isAdmin
             ? `<div class="final-tell">
@@ -1678,10 +1709,9 @@ export async function renderEvent(id, navigate) {
           <summary>More</summary>
           <div class="final-extras-body">
             ${
-              // Picked the wrong one, or plans changed: another date is a tap away in everyone's answers.
+              // Picked the wrong one, or plans changed: Change is under the date; clearing it is here.
               ev().isAdmin
-                ? `<button type="button" class="link-btn" id="change-date">Change the date</button>
-            <button type="button" class="link-btn" id="unpick">Clear the date</button>
+                ? `<button type="button" class="link-btn" id="unpick">Clear the date</button>
             ${mailAll ? `<a class="link-btn" id="email-all" href="${esc(mailAll)}">Email everyone the date</a>` : ''}
             ${pictureBtn}`
                 : `${pictureBtn}
@@ -1710,7 +1740,8 @@ export async function renderEvent(id, navigate) {
       ev: ev(),
       // Once the date is set, the banner leads and the tools wait, closed.
       fresh: st.fresh && ev().finalStart == null,
-      open: st.orgOpen ?? (st.fresh && ev().finalStart == null),
+      // Closed until wanted, so sharing (above) comes first; open only to say to check the inbox.
+      open: st.orgOpen ?? (st.fresh && ev().finalStart == null && !!saved(id).notifyPending),
       onToggle: (open) => (st.orgOpen = open), // stays open or closed across re-renders
       notifyPending: saved(id).notifyPending,
       ai: aiOn,

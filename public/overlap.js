@@ -3,7 +3,7 @@
 // green. Hours polls get a card a day: the day as a timeline of half hours, and its best stretches.
 // Tap a row for who's free (and, on the organizer's link, Pick).
 
-import { IF_NEEDED, YES, allDaySpan, partOf, rankTimes, utcToZoned } from './core.js';
+import { IF_NEEDED, YES, allDaySpan, meetingEnd, partOf, rankTimes, utcToZoned } from './core.js';
 import { avatar, dateParts, esc, fmtDay, plural, shortRange, shortTime } from './ui.js';
 import { fmtTimeRange } from './when.js';
 
@@ -34,17 +34,17 @@ function row(r, n, { kind, open, final, pick, mine }) {
     <button type="button" class="ov-row${kind ? ` ${kind}` : ''}${final ? ' final' : ''}" data-ov="${r.start}" aria-expanded="${open}">
       <span class="ov-when">${r.day ? `<span class="sr-only">${esc(dayName(r.day))}, </span>` : ''}${esc(r.label)}${final ? ' <span class="ov-picked">✓ Picked</span>' : ''}</span>
       <span class="ov-count">${kind === 'all' ? '✓ Everyone' : `${yes + maybe} of ${n}`}${mine ? ` <span class="ov-mine">${esc(mine)}</span>` : ''}<span class="sr-only">. ${esc(said)}</span><span class="ov-chev" aria-hidden="true"></span></span>
-      <span class="ov-bar" aria-hidden="true">${bar(yes, maybe, no)}</span>
+      ${kind === 'all' ? '' : `<span class="ov-bar" aria-hidden="true">${bar(yes, maybe, no)}</span>`}
     </button>
     ${open ? `<div class="ov-who">${chips(r.yes, 'yes')}${chips(r.maybe, 'maybe')}${chips(r.no, 'no')}${pick ? `<div class="ov-pick">${pick}</div>` : ''}</div>` : ''}
   </li>`;
 }
 
-/** The organizer's Pick: "Pick this", or "Pick this instead" once another date is picked; on the picked one, how to change it. */
-const pickBtn = (ev, start, label, what = 'time') =>
+/** The organizer's Pick, under who's free: it asks first (on the poll page), so a stray tap picks nothing. */
+const pickBtn = (ev, start, what = 'time') =>
   ev.finalStart === start
-    ? `<p class="hint">Picked. To change it, open another ${what} and pick that.</p>`
-    : `<button type="button" class="btn ov-pick-btn" data-pick="${start}">✓ ${esc(ev.finalStart != null ? `${label} instead` : label)}</button>`;
+    ? ''
+    : `<button type="button" class="btn ov-pick-btn" data-pick="${start}">${ev.finalStart != null ? `Pick this ${what} instead` : `Pick this ${what}`}</button>`;
 
 /**
  * ctx: { ev, people (with availability), tz, inspect (the open row's start), focus (a person, or null),
@@ -83,7 +83,7 @@ function listHtml({ ev, people, tz, inspect, focus, windows, days, parts, when }
         kind: r.yes.length === n ? 'all' : top && can(r) === top ? 'best' : '',
         open: String(r.start) === String(inspect),
         final: r.start === ev.finalStart,
-        pick: ev.isAdmin && pickBtn(ev, r.start, 'Pick this', what),
+        pick: ev.isAdmin && pickBtn(ev, r.start, what),
         mine: focus && `${focus.name}: ${v === YES ? '✓' : v === IF_NEEDED ? '~' : '✕'}`,
       })}`;
     })
@@ -106,7 +106,7 @@ function hoursHtml({ ev, people, tz, inspect }) {
   const dayOf = (x) => utcToZoned(x, tz).date;
   const step = ev.slotMinutes * 60_000;
   const final = ev.finalStart;
-  const finalEnd = final != null ? final + ev.durationMinutes * 60_000 : null;
+  const finalEnd = final != null ? meetingEnd(ev, final) : null;
   const byDay = new Map();
   for (const x of [...ev.slots].sort((a, b) => a - b)) {
     if (!byDay.has(dayOf(x))) byDay.set(dayOf(x), []);
@@ -163,8 +163,7 @@ function hoursHtml({ ev, people, tz, inspect }) {
               kind: all ? 'all' : score(sp) === topCan ? 'best' : '',
               open: String(sp.start) === String(inspect),
               final: sp.start === final,
-              pick:
-                ev.isAdmin && pickBtn(ev, sp.start, `Pick ${fmtTimeRange(sp.start, sp.start + ev.durationMinutes * 60_000, tz)}`),
+              pick: ev.isAdmin && pickBtn(ev, sp.start),
             },
           ),
         )

@@ -9,6 +9,7 @@ import {
   setLevel,
   showNextMonth,
   submit,
+  openTools,
 } from './helpers.js';
 import AxeBuilder from '@axe-core/playwright';
 import { PAGES } from '../pages/pages.js';
@@ -203,7 +204,10 @@ for (const scheme of ['light', 'dark']) {
       await page.locator('.ov-row').first().click(); // who's free, and Pick
       await audit(page, "everyone's answers, a row open");
       await page.locator('.best-hero [data-pick]').click();
+      await audit(page, 'pick this date?');
+      await page.click('#pc-yes');
       await expect(page.locator('.banner-final')).toBeVisible();
+      await openTools(page);
       await page.click('#notify-open');
       await expect(page.locator('#notify-form')).toBeVisible();
       await page.locator('.dev summary').click();
@@ -219,7 +223,7 @@ for (const scheme of ['light', 'dark']) {
       await addOptions(page, 2);
       await page.click('#submit');
       await page.getByRole('button', { name: /^(View poll|Open .+ →)$/ }).click();
-      await expect(page.locator('details.organizer')).toHaveAttribute('open', '');
+      await expect(page.locator('details.organizer')).not.toHaveAttribute('open', '');
       await expect(page.locator('#tab-group')).toHaveAttribute('aria-selected', 'true');
       await expect(page.locator('.finn [role=status]')).not.toBeEmpty();
       await audit(page, 'new poll on a phone (organizer, the group)');
@@ -360,7 +364,7 @@ for (const width of [375, 412]) {
     await openPoll(page, { picked: true });
     const banner = page.locator('.banner-final');
     await expect(banner).toBeVisible();
-    // Send everyone the date and Add to calendar; Change the date and the rest under "More".
+    // Send everyone the date and Add to calendar; Change under the date; the rest under "More".
     await banner.locator('.final-cal summary').click();
     await banner.locator('.final-extras summary').click();
     await expect(banner.getByRole('button', { name: 'Change the date' })).toBeVisible();
