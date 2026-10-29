@@ -3186,6 +3186,37 @@ test('days and times mix: a day keeps the hours drawn on it, and days added afte
   ]);
 });
 
+test('times drawn in hours stay on every level, and the poll asks about them wherever it is created', async ({ page }) => {
+  await page.goto('/new/free');
+  await page.fill('#organizer', 'Sam');
+  await page.fill('#title', 'Dinner');
+  const first = await nextMonth(page);
+  await setLevel(page, 'hours');
+  await addHours(page, 1, [1140]); // 7 to 8 PM on the 1st
+  const list = page.locator('#free-list');
+  for (const level of ['days', 'parts', 'days', 'parts']) {
+    await setLevel(page, level);
+    await expect(list).toContainText('7 – 8 PM');
+    await expect(list).not.toContainText('All day');
+    await expect(list).not.toContainText('Evening');
+  }
+  // On parts of the day, its evening is lit: if needed, then gone, takes the times with it.
+  const evening = page.locator(`#when .pg-cell[data-d="${first}"][data-m="1080"]`);
+  await expect(evening).toHaveAttribute('aria-pressed', 'true');
+  await evening.click();
+  await expect(list.locator('.chip.maybe')).toContainText('7 – 8 PM');
+  await evening.click();
+  await expect(list).not.toContainText('7 – 8 PM');
+  // Drawn again, and created from parts of the day: the poll asks about 7 to 8 PM.
+  await setLevel(page, 'hours');
+  await addHours(page, 1, [1140]);
+  await setLevel(page, 'parts');
+  await page.click('#submit');
+  await expect(page).toHaveURL(/\/e\//);
+  const ev = await (await page.request.get(`/api/events/${page.url().split('/e/')[1]}`)).json();
+  expect(ev.windows).toEqual([{ date: first, start: 1140, end: 1200 }]);
+});
+
 test('days in a row asks first when days have their own times, and keeping them leaves it off', async ({ page }) => {
   await page.goto('/new/free');
   const first = await nextMonth(page);

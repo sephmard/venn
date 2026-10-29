@@ -55,6 +55,9 @@ the same PR** (and CLAUDE.md if it's a rule that matters in review).
 - **"Guests choose from" reads the same on every level**: each day (or run of days) with its chips,
   "All day", "Morning 9 AM – 12 PM" or the times, whatever level is showing and however days, parts
   and hours are mixed. No notes beside it.
+- **Times drawn in hours stay as drawn on every level.** The list shows them on Days and Parts of day
+  too; on Parts of day their part is lit, and tapping it acts on those times. The poll asks about
+  them wherever Create is pressed.
 - Templates shape the calendar only while nothing is picked; they never move or remove picks. A second
   tap turns one off.
 - **Create Venn sits at the end of the form**, never stuck to the bottom of the screen.

@@ -327,8 +327,13 @@ export function zoom(st, from, to) {
     // From whole days: each day keeps its parts, and a new day gets the usual ones.
     const had = new Set(datesOf(parts));
     for (const k of [...parts]) if (!days.has(k.split('|')[0])) parts.delete(k);
-    for (const d of days)
-      if (!had.has(d)) for (const p of DAY_PARTS) if (st.defaultParts.has(p.key)) parts.add(`${d}|${p.start}`);
+    for (const d of days) {
+      if (had.has(d)) continue;
+      // A day with times of its own lights the parts they're in; another gets the usual ones.
+      const own = ownHours(st, d);
+      if (own) for (const w of own) for (const m of slots(w.start, w.end)) parts.add(`${d}|${partOfSlot(m).start}`);
+      else for (const p of DAY_PARTS) if (st.defaultParts.has(p.key)) parts.add(`${d}|${p.start}`);
+    }
   } else {
     // Into hours: keep painted times in the parts (or days) still picked, and paint the rest whole.
     const keep = from === 'parts' ? (d, m) => parts.has(`${d}|${partOfSlot(m).start}`) : (d) => days.has(d);
@@ -384,7 +389,87 @@ export function windowsAt(st, level) {
           ...toWindows([...st.hours].filter((k) => !st.maybe.hours.has(k))),
           ...toWindows(st.maybe.hours).map((w) => ({ ...w, maybe: true })),
         ];
-  return ws.sort((a, b) => a.date.localeCompare(b.date) || a.start - b.start);
+  return ws.sort(byTime);
+}
+const byTime = (a, b) => a.date.localeCompare(b.date) || a.start - b.start;
+
+/** A day's own times: what's drawn on it in hours, unless that's just the whole day or parts of it. */
+export function ownHours(st, d) {
+  const ws = windowsAt(st, 'hours').filter((w) => w.date === d);
+  const plain = (w) => (w.start === ALL_DAY[0] && w.end === ALL_DAY[1]) || partAt(w.start)?.end === w.end;
+  return ws.length && !ws.every(plain) ? ws : null;
+}
+
+/** Picked days' windows at parts of the day, a day with times of its own keeping them. */
+export const partsWindows = (st) => {
+  const ws = windowsAt(st, 'parts');
+  const own = new Map(datesOf(ws.map((w) => w.date)).map((d) => [d, ownHours(st, d)]));
+  return ws
+    .filter((w) => !own.get(w.date))
+    .concat(...[...own.values()].filter(Boolean))
+    .sort(byTime);
+};
+
+/**
+ * A tap on parts of the day, on a day with times of its own, acts on those times: a part taken away
+ * takes its times, a part added adds all of it, and if needed carries over.
+ */
+export function syncHours(st, was, wasMaybe) {
+  const { parts, hours, maybe } = st;
+  const inPart = (d, p) => [...hours].filter((k) => k.startsWith(`${d}|`) && partOfSlot(+k.split('|')[1]).start === +p);
+  const mark = (k, on) => (on ? maybe.hours.add(k) : maybe.hours.delete(k));
+  for (const k of was) {
+    const [d, p] = k.split('|');
+    if (!parts.has(k) && ownHours(st, d)) for (const h of inPart(d, p)) (hours.delete(h), maybe.hours.delete(h));
+  }
+  for (const k of parts) {
+    const [d, p] = k.split('|');
+    if (!ownHours(st, d)) continue;
+    if (!was.has(k))
+      for (const m of slots(partAt(p).start, partAt(p).end)) (hours.add(`${d}|${m}`), mark(`${d}|${m}`, maybe.parts.has(k)));
+    else if (maybe.parts.has(k) !== wasMaybe.has(k)) for (const h of inPart(d, p)) mark(h, maybe.parts.has(k));
+  }
+}
+
+/** Picked days with times of their own (less than the whole day): drawn in hours, or at `level`. */
+export function timedDays(st, level) {
+  const at = windowsAt(st, level);
+  const whole = (ws) =>
+    (ws.length === 1 && hoursLabel(ws[0].start, ws[0].end) === 'All day') ||
+    (level === 'parts' && ws.length === DAY_PARTS.length);
+  const out = new Map();
+  for (const d of st.days) {
+    const ws = ownHours(st, d) || at.filter((w) => w.date === d);
+    if (ws.length && !whole(ws)) out.set(d, ws);
+  }
+  return out;
+}
+
+/** What a chip in the list ("dates|from|to") stands for: a day's own times are hours on every
+ * level; on days, a whole day is the day ('days'); otherwise times at the last time level. */
+export function chipLevel(st, level, timeLevel, v) {
+  const [ds, a, b] = v.split('|');
+  if (level !== 'hours' && ownHours(st, ds.split(',')[0])) return 'hours';
+  if (level !== 'days') return level;
+  return +a === ALL_DAY[0] && +b === ALL_DAY[1] ? 'days' : timeLevel || 'hours';
+}
+
+/** After times are removed from the list: a day (on days) or a part (on parts) left without any goes. */
+export function tidy(st, level, lv, dates) {
+  for (const d of dates) {
+    if (level === 'days' && ![...st[lv]].some((k) => k.startsWith(`${d}|`))) st.days.delete(d);
+    if (level === 'parts' && lv === 'hours')
+      for (const p of DAY_PARTS)
+        if (![...st.hours].some((k) => k.startsWith(`${d}|`) && partOfSlot(+k.split('|')[1]) === p))
+          st.parts.delete(`${d}|${p.start}`);
+  }
+}
+
+/** Days no longer picked lose their times: picked again, they start afresh. */
+export function dropDays(st, was) {
+  for (const d of was)
+    if (!st.days.has(d))
+      for (const set of [st.parts, st.hours]) for (const k of [...set]) if (k.startsWith(`${d}|`)) set.delete(k);
 }
 
 /** The keys a window in the list ("dates|from|to") stands for. */
