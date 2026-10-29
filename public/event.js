@@ -1390,7 +1390,7 @@ export async function renderEvent(id, navigate) {
     box.innerHTML = `
       <div class="sheet-head">
         <b>${esc(fmtWhen(s, slotEnd(ev(), s), st.tz))}</b>
-        ${canPick ? `<button class="btn btn-sm" data-pick="${s}">Pick this start time</button>` : ''}
+        ${canPick ? `<button class="btn btn-sm" data-pick="${s}">${ev().finalStart != null ? 'Pick this start time instead' : 'Pick this start time'}</button>` : ''}
       </div>
       <div class="chips">${chips(yes, 'yes')}${chips(maybe, 'maybe')}${chips(no, 'no')}</div>`;
   }
@@ -1536,9 +1536,27 @@ export async function renderEvent(id, navigate) {
   // ----- picking the final time -----
   $('#event-root').addEventListener('click', async (e) => {
     if (e.target.closest('[data-share]')) return $('#copy').click();
+    // Change the date: everyone's answers, with the picked one open and Pick this instead on the others.
+    if (e.target.closest('#change-date')) {
+      st.inspect = String(ev().finalStart);
+      if ($('#tab-group') && $('#tab-group').offsetParent) $('#tab-group').click();
+      renderGroup();
+      return $('#group-h').scrollIntoView({ behavior: reducedMotion() ? 'auto' : 'smooth', block: 'start' });
+    }
     const btn = e.target.closest('[data-pick], #unpick');
     if (!btn) return;
     const start = btn.id === 'unpick' ? null : +btn.dataset.pick;
+    // Changing a date people may have in their calendars already: say so first.
+    const was = ev().finalStart;
+    if (
+      start != null &&
+      was != null &&
+      start !== was &&
+      !confirm(
+        `Change the date to ${when(start, meetingEnd(ev(), start))}? Anyone who added ${when(was, meetingEnd(ev(), was))} to their calendar will need to update it.`,
+      )
+    )
+      return;
     try {
       await api(`events/${id}/finalize`, { method: 'POST', body: { start }, headers: authHeaders() });
       await load();
@@ -1546,7 +1564,11 @@ export async function renderEvent(id, navigate) {
       renderAll();
       if (start != null) $('#banners').scrollIntoView({ behavior: reducedMotion() ? 'auto' : 'smooth', block: 'start' });
       toast(
-        start == null ? 'Date cleared. Pick another one below.' : "It's set. Share it so everyone can add it to their calendar.",
+        start == null
+          ? 'Date cleared. Pick another one below.'
+          : was != null
+            ? 'Date changed. Let everyone know, so they can update their calendars.'
+            : "It's set. Share it so everyone can add it to their calendar.",
       );
     } catch (ex) {
       toast(ex.message);
@@ -1632,6 +1654,12 @@ export async function renderEvent(id, navigate) {
         <p class="kicker">It's happening</p>
         <h2 id="final-h">${bigWhen(start, end)}</h2>
         ${
+          // Picked the wrong one, or plans changed: another date is a tap away in everyone's answers.
+          ev().isAdmin
+            ? `<p class="final-change"><button type="button" class="btn btn-sm btn-ghost" id="change-date">Change the date</button><button type="button" class="link-btn" id="unpick">Clear the date</button></p>`
+            : ''
+        }
+        ${
           // The organizer's next step: telling everyone. By email when the poll has their addresses.
           ev().isAdmin
             ? `<div class="final-tell">
@@ -1650,7 +1678,6 @@ export async function renderEvent(id, navigate) {
             <summary>More</summary>
             <div class="final-extras-body">
               <button type="button" class="link-btn" id="share-card">${canShare ? 'Share as a picture' : 'Save as a picture'}</button>
-              <button type="button" class="link-btn" id="unpick">Clear the date</button>
             </div>
           </details>`
               : `<button type="button" class="link-btn" id="share-card">${canShare ? 'Share as a picture' : 'Save as a picture'}</button>
