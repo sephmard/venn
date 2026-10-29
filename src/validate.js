@@ -140,6 +140,8 @@ function normalizeWindowsEvent(input, base) {
     endMinute: Math.max(...windows.map((w) => w.end)),
     slotMinutes,
     durationMinutes,
+    // No length chosen: any overlap counts, and a picked time runs as long as its overlap.
+    ...(input.anyLength === true && durationMinutes === slotMinutes && { anyLength: true }),
   };
   if (buildSlots(ev).length > LIMITS.slots) throw new ValidationError('Too many time slots: pick fewer or shorter times');
   return ev;

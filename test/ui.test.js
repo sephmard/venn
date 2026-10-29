@@ -207,12 +207,7 @@ test('a time range across midnight names its days, in the poll’s time zone, no
   assert.match(when.fmtTimeRange(sat11pm, sat11pm, 'America/New_York'), /^11:00\sPM$/);
 });
 
-test('time zones and relative times', () => {
-  assert.ok(ui.tzName('America/New_York').length > 3);
-  assert.equal(ui.tzName('Not/A_Zone'), 'Not/A Zone');
-  const opts = ui.tzOptions('Europe/London');
-  assert.match(opts, /<option value="Europe\/London" selected>Europe\/London<\/option>/);
-  assert.match(opts, /value="UTC"/);
+test('relative times', () => {
   const now = Date.now();
   assert.match(ui.ago(now - 5 * 60_000), /5 minutes ago/);
   assert.match(ui.ago(now - 3 * 3_600_000), /3 hours ago/);

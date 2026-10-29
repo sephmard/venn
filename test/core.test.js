@@ -12,6 +12,7 @@ import {
   hostAnswer,
   keySlot,
   meetingEnd,
+  overlapEnd,
   parseIcsBusy,
   rankTimes,
   utcToZoned,
@@ -345,4 +346,35 @@ test('inviteText: a short nudge to send with the link', () => {
   );
   assert.equal(inviteText({ title: 'Book club', pick: true }), 'When works for Book club? Tap the dates that work (no sign-up)');
   assert.equal(inviteText({ organizer: 'Sam', title: 'Dinner', set: true }), "It's set: Dinner! Add it to your calendar:");
+});
+
+test('any overlap (no length): back-to-back times with the same people are one time, picked whole', () => {
+  // 6 to 10 PM in 30-minute slots; everyone free 7 to 8, Ben and Cai on to 9.
+  const ev = {
+    timezone: 'UTC',
+    dates: ['2030-01-07'],
+    windows: [{ date: '2030-01-07', start: 1080, end: 1320 }],
+    slotMinutes: 30,
+    durationMinutes: 30,
+    anyLength: true,
+  };
+  const slots = buildSlots(ev);
+  const at = (h, m = 0) => Date.UTC(2030, 0, 7, h, m);
+  const free = (from, to) => Object.fromEntries(slots.filter((s) => s >= from && s < to).map((s) => [s, YES]));
+  const people = [
+    { name: 'Ana', availability: free(at(19), at(20)) },
+    { name: 'Ben', availability: free(at(19), at(21)) },
+    { name: 'Cai', availability: free(at(18), at(21)) },
+  ];
+  const [best, next] = rankTimes(ev, slots, people, 5);
+  assert.deepEqual([best.start, best.end, best.yes], [at(19), at(20), ['Ana', 'Ben', 'Cai']]);
+  assert.deepEqual([next.start, next.end, next.yes], [at(20), at(21), ['Ben', 'Cai']]);
+  // Picked from its start, or from inside it, it runs to the end of the overlap.
+  assert.equal(overlapEnd(ev, slots, people, at(19)), at(20));
+  assert.equal(overlapEnd(ev, slots, people, at(19, 30)), at(20));
+  assert.equal(meetingEnd({ ...ev, finalStart: at(19), finalEnd: at(20) }, at(19)), at(20));
+  // With a length chosen, nothing merges: every 30 minutes is its own start.
+  const fixed = { ...ev, anyLength: undefined };
+  assert.equal(rankTimes(fixed, slots, people, 5)[0].end, at(19, 30));
+  assert.equal(meetingEnd({ ...fixed, finalStart: at(19), finalEnd: at(20) }, at(19)), at(19, 30));
 });

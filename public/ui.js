@@ -165,28 +165,6 @@ export function lengthLabel(min) {
   return m ? `${h} hr ${m} min` : `${h} hour${h > 1 ? 's' : ''}`;
 }
 
-/** "Eastern Time" rather than "America/New_York". */
-export function tzName(tz) {
-  try {
-    const p = new Intl.DateTimeFormat(undefined, { timeZone: tz, timeZoneName: 'longGeneric' })
-      .formatToParts(new Date())
-      .find((x) => x.type === 'timeZoneName');
-    if (p) return p.value;
-  } catch {}
-  return tz.replace(/_/g, ' ');
-}
-
-export function tzOptions(selected) {
-  let zones = [];
-  try {
-    zones = Intl.supportedValuesOf('timeZone');
-  } catch {}
-  for (const z of [selected, localTz, 'UTC']) if (z && !zones.includes(z)) zones.unshift(z);
-  return zones
-    .map((z) => `<option value="${esc(z)}"${z === selected ? ' selected' : ''}>${esc(z.replace(/_/g, ' '))}</option>`)
-    .join('');
-}
-
 export function ago(ms) {
   const rtf = new Intl.RelativeTimeFormat(undefined, { numeric: 'auto' });
   const mins = Math.round((ms - Date.now()) / 60_000);

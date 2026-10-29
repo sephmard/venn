@@ -507,3 +507,58 @@ test('polls saved with a repeat, from before it was taken out, still open, and l
     rmSync(dir, { recursive: true, force: true });
   }
 });
+
+test('any overlap: a picked time runs to the end of its overlap, in the banner and the calendar', async () => {
+  const body = {
+    title: 'Drinks',
+    timezone: 'UTC',
+    windows: [{ date: '2030-01-07', start: 1080, end: 1320 }],
+    slotMinutes: 30,
+    durationMinutes: 30,
+    anyLength: true,
+  };
+  const { data } = await call('/api/events', { method: 'POST', body });
+  const admin = { 'x-admin-token': data.adminToken };
+  const at = (h) => Date.UTC(2030, 0, 7, h);
+  const free = (from, to, slots) => Object.fromEntries(slots.filter((s) => s >= from && s < to).map((s) => [s, 2]));
+  const { slots, anyLength } = (await call(`/api/events/${data.id}`)).data;
+  assert.equal(anyLength, true);
+  for (const [name, a, b] of [
+    ['Ana', at(19), at(20)],
+    ['Ben', at(19), at(21)],
+  ])
+    await call(`/api/events/${data.id}/participants`, { method: 'POST', body: { name, availability: free(a, b, slots) } });
+  await call(`/api/events/${data.id}/finalize`, { method: 'POST', body: { start: at(19) }, headers: admin });
+  assert.equal((await call(`/api/events/${data.id}`)).data.finalEnd, at(20));
+  const ics = (await call(`/api/events/${data.id}/event.ics`)).data;
+  assert.match(ics, /DTSTART:20300107T190000Z/);
+  assert.match(ics, /DTEND:20300107T200000Z/);
+  // Cleared, the end goes too.
+  await call(`/api/events/${data.id}/finalize`, { method: 'POST', body: { start: null }, headers: admin });
+  assert.equal((await call(`/api/events/${data.id}`)).data.finalEnd, null);
+  // Only a poll without a length is "any overlap".
+  const fixed = await call('/api/events', { method: 'POST', body: { ...body, durationMinutes: 60 } });
+  assert.equal((await call(`/api/events/${fixed.data.id}`)).data.anyLength, undefined);
+});
+
+test('editing a poll keeps its picked date while that date is still in it', async () => {
+  const body = {
+    title: 'Lunch',
+    timezone: 'UTC',
+    dates: ['2030-01-07', '2030-01-08'],
+    startMinute: 0,
+    endMinute: 1440,
+    slotMinutes: 1440,
+    durationMinutes: 1440,
+  };
+  const { data } = await call('/api/events', { method: 'POST', body });
+  const admin = { 'x-admin-token': data.adminToken };
+  const day = Date.UTC(2030, 0, 8);
+  await call(`/api/events/${data.id}/finalize`, { method: 'POST', body: { start: day }, headers: admin });
+  // A new title keeps it.
+  await call(`/api/events/${data.id}`, { method: 'PUT', body: { ...body, title: 'Lunch!' }, headers: admin });
+  assert.equal((await call(`/api/events/${data.id}`)).data.finalStart, day);
+  // Taking that day out of the poll clears it.
+  await call(`/api/events/${data.id}`, { method: 'PUT', body: { ...body, dates: ['2030-01-07'] }, headers: admin });
+  assert.equal((await call(`/api/events/${data.id}`)).data.finalStart, null);
+});

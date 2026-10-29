@@ -504,7 +504,11 @@ export function renderFree() {
     // The organizer's own answer: what they picked, available or if needed.
     const answer = hostAnswer(st[level], maybe[level], tz);
     if (level === 'hours')
-      return submit({ windows: pt.toWindows(painted), slotMinutes: 30, durationMinutes: length || 30 }, occasion, answer);
+      return submit(
+        { windows: pt.toWindows(painted), slotMinutes: 30, durationMinutes: length || 30, ...(!length && { anyLength: true }) },
+        occasion,
+        answer,
+      );
     if (level === 'parts') {
       const options = pt
         .windowsAt(st, level)
@@ -535,7 +539,7 @@ export function renderFree() {
       for (const d of ev.dates) selected.add(d);
     } else {
       next = 'hours';
-      setLength(ev.durationMinutes > 30 ? ev.durationMinutes : null);
+      setLength(ev.anyLength || ev.durationMinutes <= 30 ? null : ev.durationMinutes);
       const ranges = ev.windows || ev.dates.map((date) => ({ date, start: ev.startMinute, end: ev.endMinute }));
       for (const w of ranges) for (let m = w.start - (w.start % 30); m < w.end; m += 30) painted.add(`${w.date}|${m}`);
     }
