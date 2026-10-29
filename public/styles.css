@@ -365,9 +365,6 @@ a.link-btn {
 .pill:disabled {
   opacity: 0.5;
 }
-.quick {
-  margin-top: 12px;
-}
 
 /* Segmented control */
 .seg {

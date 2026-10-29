@@ -47,8 +47,8 @@ export function monthView(
   const left = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate() - now.getDate() + 1;
   let cursor = new Date(now.getFullYear(), now.getMonth() + (left < 7 ? 1 : 0), 1);
   let view = views?.[0] || 'month';
-  const weekOf = (d) => addDays(d, -dateParts(d).getUTCDay());
-  let weekStart = weekOf(today); // the Sunday of the week shown, in week view
+  const weekOf = (d) => addDays(d, -((dateParts(d).getUTCDay() + 6) % 7));
+  let weekStart = weekOf(today); // the Monday of the week shown, in week view
   root.innerHTML = `
     ${
       views
@@ -81,9 +81,9 @@ export function monthView(
     $('[data-nav="1"]', root).setAttribute('aria-label', week ? 'Next week' : 'Next month');
     let h = Array.from(
       { length: 7 },
-      (_, i) => `<span class="cal-dow" aria-hidden="true">${fmtDow.format(new Date(Date.UTC(2023, 0, 1 + i)))}</span>`,
+      (_, i) => `<span class="cal-dow" aria-hidden="true">${fmtDow.format(new Date(Date.UTC(2023, 0, 2 + i)))}</span>`,
     ).join('');
-    if (!week) h += '<span></span>'.repeat(new Date(y, m, 1).getDay());
+    if (!week) h += '<span></span>'.repeat((new Date(y, m, 1).getDay() + 6) % 7); // weeks start on Monday
     for (const ds of days) {
       const d = +ds.slice(8);
       const mark = marks(ds);
@@ -374,7 +374,7 @@ export function tinyTime(m) {
  *   onRender(dates)  after each render, with the days shown
  *   strip(day) organizers: the days in the day view's strip (day-nav.js), else the week of `day`
  * Plus the timeGrid options. Organizers (no `days`) page a week at a time in both views: the week
- * runs Sunday to Saturday, and the day view's strip picks the day.
+ * runs Monday to Sunday, and the day view's strip picks the day.
  */
 export function timeView(root, opts) {
   const { days = null, marks = () => '', label = 'Calendar', views = ['week', 'day'] } = opts;
@@ -398,7 +398,7 @@ export function timeView(root, opts) {
     <div class="tv-grid"></div>`;
   const strip = $('.tv-strip', root);
 
-  const weekOf = (d) => addDays(d, -dateParts(d).getUTCDay());
+  const weekOf = (d) => addDays(d, -((dateParts(d).getUTCDay() + 6) % 7));
   const shown = () => {
     if (days) return view === 'week' ? days.slice(anchor, anchor + 7) : [days[anchor]];
     if (view === 'day') return [anchor];

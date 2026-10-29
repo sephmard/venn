@@ -16,7 +16,7 @@ import {
   zonedToUtc,
 } from './core.js';
 import { monthView, timeView, tinyTime } from './picker.js';
-import { $, $$, app, dateParts, dayLabel, esc, fmtDay, lengthLabel, plural, shortTime, toast, todayStr, track } from './ui.js';
+import { $, $$, app, dateParts, dayLabel, esc, fmtDay, lengthLabel, plural, shortTime, track } from './ui.js';
 
 import {
   brush,
@@ -76,8 +76,6 @@ export function renderFree() {
   let level = 'days';
   let timeLevel = 'parts'; // where "Date and time" opens: the last of parts of the day or hours
   let length = null; // minutes, for hours: optional, the shortest time worth finding
-  let dateView = 'month'; // Dates only: a month, or a week of bigger days
-  let range = [1080, 1260]; // hours: the quick fill's times, 6 – 9 PM, or the plan's usual part of the day
   let painter = null;
   let cal = null;
   let mounts = 0; // the painter loads on demand: only the latest level shows when it arrives
@@ -107,17 +105,16 @@ export function renderFree() {
             <button type="button" class="icon-btn" data-step="1" aria-label="One day more">+</button>
           </div>
         </div>
-        <div class="inline-field optional" data-for="hours">
+        <p class="hint" id="when-help" hidden></p>
+        ${TAP_KEY}
+        <div id="when"></div>
+        <div class="inline-field optional len-after" data-for="hours">
           <h3 class="sub-h" id="len-h">How long is it? <small class="opt-note">optional</small></h3>
           <div class="pills" role="group" aria-labelledby="len-h" aria-describedby="len-hint">
             ${HOUR_LENGTHS.map((m) => `<button type="button" class="pill" data-flength="${m}" aria-pressed="false">${lengthLabel(m)}</button>`).join('')}
           </div>
           <p class="hint" id="len-hint">Venn looks for times at least this long. Leave it off to see any overlap.</p>
         </div>
-        <p class="hint" id="when-help" hidden></p>
-        ${TAP_KEY}
-        <div id="when"></div>
-        <div class="pills quick" role="group" aria-label="Quick picks" id="quick"></div>
         ${tzLine()}
         ${brushBox()}
       </section>
@@ -136,12 +133,8 @@ export function renderFree() {
       return setLevel('days');
     }
     if (typeof o.length === 'number') setLength(fitLength(o.length));
-    // Days picked from now on get the plan's usual part of the day, and the quick fill its times.
-    if (o.part) {
-      st.defaultParts = new Set([o.part]);
-      const p = DAY_PARTS.find((x) => x.key === o.part);
-      if (p) range = [p.start, p.end];
-    }
+    // Days picked from now on get the plan's usual part of the day.
+    if (o.part) st.defaultParts = new Set([o.part]);
     update();
   });
 
@@ -212,8 +205,8 @@ export function renderFree() {
     const month = (x) => x.slice(0, 7) === d.slice(0, 7);
     return [
       maybe.days.has(d) && 'day-maybe',
-      selected.has(prev) && (wd && month(prev) ? 'run-l' : 'run-cl'),
-      selected.has(next) && (wd < 6 && month(next) ? 'run-r' : 'run-cr'),
+      selected.has(prev) && (wd !== 1 && month(prev) ? 'run-l' : 'run-cl'), // weeks run Monday to Sunday
+      selected.has(next) && (wd !== 0 && month(next) ? 'run-r' : 'run-cr'),
     ]
       .filter(Boolean)
       .join(' ');
@@ -225,7 +218,7 @@ export function renderFree() {
     painter = cal = null;
     const root = $('#when');
     const at = ++mounts;
-    root.innerHTML = $('#quick').innerHTML = '';
+    root.innerHTML = '';
     $('#when-help').hidden = false;
     if (level === 'days') {
       const said = (d) => (selected.has(d) ? (maybe.days.has(d) ? 'If needed' : 'Available') : '');
@@ -234,33 +227,25 @@ export function renderFree() {
         onChange: tapped,
         dayClass: band,
         marks: said,
-        views: ['month', 'week'],
-        onView: (v) => (dateView = v),
       });
       const first = [...selected].sort()[0];
       if (first) cal.show(first);
-      if (dateView !== 'month') cal.setView(dateView);
-      $('#quick').innerHTML = `
-        <button type="button" class="pill" id="q-2w">Next 2 weeks</button>
-        <button type="button" class="pill" id="q-weekdays">Weekdays</button>
-        <button type="button" class="pill" id="q-weekends">Next 4 weekends</button>`;
       return;
     }
     const parts = level === 'parts';
     const set = st[level];
     // Parts of the day and hours need the painter, which most whole-day polls never load.
-    const { paintView, datesOf, paintHelp, fillPills } = await loadPaint();
+    const { paintView, datesOf, paintHelp } = await loadPaint();
     if (at !== mounts || !root.isConnected) return;
     // Hours are times on the week calendar, moved and stretched with block-edit.js, loaded then too.
     if (!parts) {
       const { editBlocks } = await import('./block-edit.js');
       if (at !== mounts || !root.isConnected) return;
-      return mountHours(root, datesOf(set)[0], fillPills, editBlocks);
+      return mountHours(root, datesOf(set)[0], editBlocks);
     }
     painter = paintView(root, {
       selected: set,
       onChange: update,
-      onRender: () => syncFills(),
       startAt: datesOf(set)[0],
       parts: parts && DAY_PARTS,
       maybe: maybe[level],
@@ -268,7 +253,6 @@ export function renderFree() {
       views: ['week', 'day'],
     });
     $('#when-help').textContent = paintHelp();
-    $('#quick').innerHTML = fillPills();
   }
 
   /**
@@ -276,7 +260,7 @@ export function renderFree() {
    * time, drag it or its edges to move or change it, tap it to switch between available and if
    * needed, or × to remove it. What's picked stays as half hours, so the levels still carry over.
    */
-  function mountHours(root, first, fillPills, editBlocks) {
+  function mountHours(root, first, editBlocks) {
     const slots = (from, to) => Array.from({ length: Math.max(0, (to - from) / 30) }, (_, i) => from + i * 30);
     const keyOf = (w) => `${w.date}|${w.start}|${w.end}`;
     const find = (k) => pt.windowsAt(st, 'hours').find((w) => keyOf(w) === k);
@@ -297,7 +281,6 @@ export function renderFree() {
       view.render();
       update();
     };
-    let shown = [];
     const view = timeView(root, {
       label: 'Calendar',
       views: ['week', 'day'],
@@ -354,44 +337,12 @@ export function renderFree() {
         const n = pt.windowsAt(st, 'hours').filter((w) => w.date === d).length;
         return n ? String(n) : '';
       },
-      onRender: (ds) => {
-        shown = ds;
-        syncFills();
-      },
     });
     if (first) view.show(first);
-    // The quick fills paint the days of the week shown, from today on.
-    const week = () => {
-      const sun = addDays(shown[0], -dateParts(shown[0]).getUTCDay());
-      return Array.from({ length: 7 }, (_, i) => addDays(sun, i)).filter((d) => d >= todayStr());
-    };
-    painter = { render: view.render, week, cleanup: view.cleanup };
+    painter = { render: view.render, cleanup: view.cleanup };
     $('#when-help').textContent = 'Drag on the calendar to add times.';
-    // The quick fills, and any times of your own, on every day of the week shown.
-    const times = (sel) =>
-      Array.from({ length: 48 }, (_, i) => i * 30)
-        .filter((m) => m >= 360)
-        .map((m) => `<option value="${m}"${m === sel ? ' selected' : ''}>${shortTime(m)}</option>`)
-        .join('');
-    $('#quick').innerHTML = `${fillPills()}
-      <div class="fill-range" role="group" aria-label="Your own times, every day this week">
-        <label for="fr-from">From</label><select id="fr-from">${times(range[0])}</select>
-        <label for="fr-to">to</label><select id="fr-to">${times(range[1])}<option value="1440"${range[1] === 1440 ? ' selected' : ''}>Midnight</option></select>
-        <button type="button" class="pill" id="fr-add">Add every day this week</button>
-      </div>`;
   }
 
-  const fill = (n, keep) => {
-    selected.clear();
-    for (let d = todayStr(), i = 0; selected.size < n && i < 120; d = addDays(d, 1), i++)
-      if (keep(dateParts(d).getUTCDay())) selected.add(d);
-    // Show the month that got most of the days picked.
-    const months = new Map();
-    for (const d of selected) months.set(d.slice(0, 7), (months.get(d.slice(0, 7)) || 0) + 1);
-    const [best] = [...months].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))[0] || [todayStr().slice(0, 7)];
-    update(); // first, so the calendar shows which are if needed
-    cal.show(`${best}-01`);
-  };
   /** After the picks change from outside the calendars: show them there too. */
   const redraw = () => {
     update();
@@ -412,23 +363,8 @@ export function renderFree() {
       $('#span').value = Math.max(2, Math.min(MAX_SPAN_DAYS, span() + +s.dataset.step));
       update();
     }
-    const f = e.target.closest('[data-fill]');
-    if (f) {
-      pt.fillWeek(st[level], level === 'parts', +f.dataset.fill, painter.week());
-      redraw();
-    }
     const mode = e.target.closest('[data-mode]');
     if (mode && level === 'days') setLevel(timeLevel);
-    if (e.target.closest('#q-2w')) fill(14, () => true);
-    if (e.target.closest('#q-weekdays')) fill(10, (wd) => wd > 0 && wd < 6);
-    if (e.target.closest('#fr-add')) {
-      const [from, to] = [+$('#fr-from').value, +$('#fr-to').value];
-      if (to <= from) return toast('Pick an end time after the start.');
-      range = [from, to];
-      for (const d of painter.week()) for (let m = from; m < to; m += 30) painted.add(`${d}|${m}`);
-      redraw();
-    }
-    if (e.target.closest('#q-weekends')) fill(12, (wd) => wd === 5 || wd === 6 || wd === 0);
     if (e.target.closest('#q-clear')) {
       painted.clear();
       partsSel.clear();
@@ -503,15 +439,7 @@ export function renderFree() {
       .join('')}</ul>`;
 
   // What guests will be able to mark, and whether the poll can be created yet.
-  /** "Every day this week" pills are on when every day of the week shown has them. */
-  function syncFills() {
-    const week = painter?.week();
-    for (const b of $$('[data-fill]'))
-      b.setAttribute('aria-pressed', !!week && pt.filled(st[level], level === 'parts', +b.dataset.fill, week));
-  }
-
   function update() {
-    syncFills();
     // What's new takes the brush: available or if needed for the organizer.
     const may = maybe[level];
     for (const k of st[level]) if (!before.has(k)) brush() === IF_NEEDED ? may.add(k) : may.delete(k);

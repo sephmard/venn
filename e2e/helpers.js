@@ -29,27 +29,29 @@ export const addDays = (date, n) => {
   return d.toISOString().slice(0, 10);
 };
 
-/** On the create page's week (or day) calendar, go forward until `date` is shown. */
-export async function showDate(page, date) {
+/** On the create page's week (or day) calendar, go forward until `date` is shown. `root` is the
+ * calendar's box: #picker on "vote on a few dates", #when on "Create a Venn". */
+export async function showDate(page, date, root = '#picker') {
   // The calendar's extra navigation loads just after the page (day-nav.js) and draws it again.
-  await page.locator('#picker .tv-pick').waitFor();
-  const col = page.locator(`#picker .tg-col[data-date="${date}"]`);
+  if (root === '#picker') await page.locator(`${root} .tv-pick`).waitFor();
+  else await page.locator(`${root} .tg-col`).first().waitFor();
+  const col = page.locator(`${root} .tg-col[data-date="${date}"]`);
   for (let i = 0; i < 60 && !(await col.count()); i++) {
     // ‹ › go a week at a time; on the day view, the strip's chips pick the day in that week.
-    const chip = page.locator(`#picker .tv-chip[data-day="${date}"]`);
+    const chip = page.locator(`${root} .tv-chip[data-day="${date}"]`);
     if (await chip.isVisible()) {
       await chip.click();
       continue;
     }
-    const shown = await page.locator('#picker .tg-col').first().getAttribute('data-date');
-    await page.click(`#picker .tv-nav [data-step="${date < shown ? -1 : 1}"]`);
+    const shown = await page.locator(`${root} .tg-col`).first().getAttribute('data-date');
+    await page.click(`${root} .tv-nav [data-step="${date < shown ? -1 : 1}"]`);
   }
   return col;
 }
 
-/** Tap the calendar at `minutes` after midnight on `date`: an option of the chosen length. */
-export async function tapAt(page, date, minutes) {
-  const col = await showDate(page, date);
+/** Tap the calendar at `minutes` after midnight on `date`: an option (or times) of the chosen length. */
+export async function tapAt(page, date, minutes, root = '#picker') {
+  const col = await showDate(page, date, root);
   const y = await col.evaluate((el, m) => {
     const row = parseFloat(getComputedStyle(el.closest('.tg')).getPropertyValue('--row')) || 24;
     const y = ((m - 420) / 30) * row + row / 2;
@@ -151,4 +153,45 @@ export async function mockContact(page, reply = { status: 204 }) {
 export async function setLevel(page, level) {
   if (level !== 'days' && !(await page.locator(`[data-level="${level}"]`).isVisible())) await page.click('[data-mode="time"]');
   await page.click(`[data-level="${level}"]`);
+}
+
+/**
+ * Tap `n` days on the create page's month calendar, from the first that can be picked, moving on a
+ * month when one runs out; `keep(weekday)` (0 is Sunday) skips the rest. Returns the days tapped.
+ */
+export async function pickDays(page, n, keep = () => true) {
+  const picked = [];
+  for (let month = 0; picked.length < n && month < 6; month++) {
+    const days = await page.$$eval('#when .cal-day:not(:disabled)', (els) => els.map((e) => e.dataset.date));
+    for (const d of days) {
+      if (picked.length >= n) break;
+      if (!keep(new Date(`${d}T12:00:00Z`).getUTCDay())) continue;
+      await page.click(`#when .cal-day[data-date="${d}"]`);
+      picked.push(d);
+    }
+    if (picked.length < n) await page.click('#when [data-nav="1"]');
+  }
+  return picked;
+}
+
+/** "Create a Venn" by hours: tap times on the first `days` days of next month (an hour each, unless a length is set). */
+export async function addHours(page, days, times = [1140]) {
+  const first = await nextMonth(page);
+  for (let i = 0; i < days; i++) for (const t of times) await tapAt(page, addDays(first, i), t, '#when');
+}
+
+/** Tap these days on the create page's month calendar, moving on a month when the next isn't shown. */
+export async function tapDays(page, dates) {
+  for (const d of dates) {
+    const day = page.locator(`#when .cal-day[data-date="${d}"]`);
+    for (let i = 0; i < 6 && !(await day.count()); i++) await page.click('#when [data-nav="1"]');
+    await day.click();
+  }
+}
+
+/** Fridays, Saturdays and Sundays: `weeks` weekends in a row, from the first Friday of next month. */
+export async function weekendsFrom(page, weeks) {
+  const first = await nextMonth(page);
+  const friday = addDays(first, (5 - new Date(`${first}T12:00:00Z`).getUTCDay() + 7) % 7);
+  return Array.from({ length: weeks }, (_, w) => [0, 1, 2].map((i) => addDays(friday, 7 * w + i))).flat();
 }
