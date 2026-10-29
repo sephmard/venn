@@ -788,10 +788,10 @@ details.organizer[open] summary::before {
   background: var(--maybe-soft);
   border-color: var(--maybe);
 }
-/* An explicit "no" is red, so it never looks like a row that hasn't been answered yet. */
+/* A "no" is the soft unavailable colour of everyone's answers: answered, never alarming. */
 .row[data-v='0'] {
   background: var(--no-soft);
-  border-color: var(--no);
+  border-color: var(--no-cell);
 }
 .row.final {
   outline: 2.5px solid var(--final);
@@ -870,10 +870,28 @@ details.organizer[open] summary::before {
 }
 .vote .v-no[aria-checked='true'],
 .part-vote[data-v='no'],
-.all-day[data-v='no'] {
-  background: var(--no);
-  border-color: var(--no);
-  color: var(--surface);
+.all-day[data-v='no'],
+.final-answer [data-final-vote='0'][aria-pressed='true'] {
+  background: var(--no-cell);
+  border-color: var(--no-cell);
+  color: var(--text);
+}
+/* Once the date is picked: Yes, If needed or No for it. */
+.final-answer {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+  margin: 4px 0 16px;
+}
+.final-answer [data-final-vote='2'][aria-pressed='true'] {
+  background: var(--yes);
+  border-color: var(--yes);
+  color: var(--yes-ink);
+}
+.final-answer [data-final-vote='1'][aria-pressed='true'] {
+  background: var(--maybe);
+  border-color: var(--maybe);
+  color: var(--maybe-ink);
 }
 @container (max-width: 420px) {
   .vote [aria-hidden='true'] {
@@ -1305,6 +1323,42 @@ ol.best .when {
 }
 .final-cal summary::-webkit-details-marker {
   display: none;
+}
+/* Tapped or open, it keeps its own text colour: a tint of it, never the white panel of the other
+   buttons (a phone keeps :hover after a tap). */
+.final-tell .final-cal summary:hover,
+.final-cal[open] summary {
+  background: color-mix(in srgb, currentColor 14%, transparent);
+}
+/* Change the date: the next best dates, in the banner. */
+.change-list {
+  margin-top: 14px;
+  padding-top: 12px;
+  border-top: 1px solid color-mix(in srgb, currentColor 30%, transparent);
+}
+.change-list ol {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.change-list li {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 8px 0;
+}
+.change-list li span {
+  display: grid;
+  gap: 2px;
+}
+.change-list small,
+.change-note {
+  font-size: 0.875rem;
+  opacity: 0.9;
+}
+.change-note {
+  margin: 8px 0 4px;
 }
 .final-cal .cal-add {
   margin-top: 10px;

@@ -193,6 +193,8 @@ export function slotEnd(ev, s) {
 
 /** End instant of the meeting that starts at `start`. */
 export function meetingEnd(ev, start) {
+  // "Any overlap": the picked time runs as long as the overlap it was picked from.
+  if (ev.anyLength && ev.finalEnd && start === ev.finalStart) return ev.finalEnd;
   if (isOptionsPoll(ev)) return ev.options.find((o) => o.start === start)?.end ?? start + ev.durationMinutes * MINUTE;
   if (isDaysPoll(ev)) return midnightAfter(start, ev.durationMinutes / DAY_MINUTES, ev.timezone);
   return start + ev.durationMinutes * MINUTE;
@@ -263,7 +265,28 @@ export function rankTimes(ev, slots, participants, limit = 5) {
     if (yes.length + ifNeeded.length === 0) continue;
     results.push({ start, end: days ? midnightAfter(start, k, ev.timezone) : start + k * slotMs, yes, ifNeeded, no });
   }
-  return sortRanked(results).slice(0, limit);
+  return sortRanked(ev.anyLength ? mergeRuns(results) : results).slice(0, limit);
+}
+
+/**
+ * With no length set ("any overlap"), back-to-back times with the same people become one: 7–8 PM,
+ * not 7:00–7:30 and 7:30–8:00.
+ */
+function mergeRuns(results) {
+  const same = (a, b) => a.yes.join('\n') === b.yes.join('\n') && a.ifNeeded.join('\n') === b.ifNeeded.join('\n');
+  const out = [];
+  for (const r of results) {
+    const last = out.at(-1);
+    if (last && last.end === r.start && same(last, r)) last.end = r.end;
+    else out.push({ ...r });
+  }
+  return out;
+}
+
+/** The end of a picked time: for "any overlap", the end of the overlap it starts (or falls in). */
+export function overlapEnd(ev, slots, participants, start) {
+  const run = rankTimes({ ...ev, finalEnd: null }, slots, participants, Infinity).find((r) => start >= r.start && start < r.end);
+  return run ? run.end : start + ev.slotMinutes * MINUTE;
 }
 
 function rankOptions(ev, participants, limit) {

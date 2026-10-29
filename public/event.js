@@ -51,8 +51,6 @@ import {
   shortTime,
   toast,
   track,
-  tzName,
-  tzOptions,
   dayChip,
   isPhone,
 } from './ui.js';
@@ -104,7 +102,7 @@ export async function renderEvent(id, navigate) {
 
   const st = {
     ev: null,
-    tz: saved(id).tz || localTz,
+    tz: localTz, // times in this device's time zone; whole-day polls read their days as dates (below)
     mine: {},
     brush: YES,
     dirty: false,
@@ -163,6 +161,9 @@ export async function renderEvent(id, navigate) {
   const shareUrl = `${location.origin}/e/${id}`;
   const optionsMode = isOptionsPoll(ev());
   const daysMode = isDaysPoll(ev());
+  // A date is the same date everywhere: whole days are read in the poll's own zone, where each runs
+  // midnight to midnight, so nobody sees "3:00 AM – 3:00 AM".
+  if (daysMode) st.tz = ev().timezone;
   const listMode = optionsMode || daysMode; // answered row by row
   const windows = eventWindows(ev());
   const partsMode = isPartsPoll(ev()); // people tap the mornings, afternoons and evenings they're available
@@ -179,7 +180,8 @@ export async function renderEvent(id, navigate) {
   const viewSwitch = (calendarOk && (!guest || windows.length > 6)) || daysMode;
   /** How an option reads: "Sat, Nov 7, evening (6 – 10 PM)" in parts polls, otherwise its date and time. */
   const when = (s, e) => {
-    const p = partsMode && partOf(s, e, ev().timezone);
+    // "Evening (6 – 10 PM)" is the organizer's evening: anyone elsewhere sees their own times.
+    const p = partsMode && st.tz === ev().timezone && partOf(s, e, ev().timezone);
     return p
       ? `${fmtDay.format(dateParts(utcToZoned(s, ev().timezone).date))}, ${p.label.toLowerCase()} (${shortRange(p.start, p.end)})`
       : fmtWhen(s, e, st.tz);
@@ -250,6 +252,12 @@ export async function renderEvent(id, navigate) {
                   : 'Which of these work for you?'
                 : 'When are you available?'
           }</h2>
+          <div class="final-answer" id="answer-final" role="group" aria-label="Can you make it?" hidden>
+            <button type="button" class="btn" data-final-vote="${YES}">Yes</button>
+            <button type="button" class="btn" data-final-vote="${IF_NEEDED}">If needed</button>
+            <button type="button" class="btn" data-final-vote="0">No</button>
+          </div>
+          <div id="answer-full">
           <div class="quick-actions" id="quick-top"${guest ? ' hidden' : ''}>
             ${optionsMode ? '<button type="button" class="pill" id="ai-answer-btn" hidden aria-expanded="false" aria-controls="ai-answer">Answer for me</button>' : ''}
             ${guest ? '' : quickPills}
@@ -285,6 +293,7 @@ export async function renderEvent(id, navigate) {
                 </div>`
           }
           ${guest ? `<div class="quick-actions">${quickPills}</div>` : ''}
+          </div>
           <div class="my-picks" id="my-picks" aria-live="polite" hidden></div>
           <div class="mine-footer">
             <p class="hint" id="edit-link" hidden></p>
@@ -353,11 +362,6 @@ export async function renderEvent(id, navigate) {
           ? `<p class="poll-share guest-share muted" style="text-align:center;margin:20px 0 0">Know someone who should answer too? <button type="button" class="link-btn" id="copy">${canShare ? 'Share the poll' : 'Copy invite link'}</button></p>`
           : ''
       }
-      <details class="tz-line">
-        <summary id="tz-summary"></summary>
-        <label for="tz">Show times in</label>
-        <select id="tz">${tzOptions(st.tz)}</select>
-      </details>
     </article>`;
 
   // Back to the organizer's tools: the same as opening the organizer link.
@@ -384,11 +388,6 @@ export async function renderEvent(id, navigate) {
   };
   $('#name').value = me()?.name || lastName();
   $('#name').oninput = () => setDirty(true);
-  $('#tz').onchange = (e) => {
-    st.tz = e.target.value;
-    save(id, { tz: st.tz });
-    renderAll();
-  };
 
   // ----- tabs (phones) -----
   function renderTabs() {
@@ -1054,6 +1053,7 @@ export async function renderEvent(id, navigate) {
   const needs = () => {
     const name = !$('#name').value.trim();
     const pick = !hasAnswer();
+    if (ev().finalStart != null && pick) return name ? 'Add your name and say if you can make it.' : 'Say if you can make it.';
     if (name && pick) return `Add your name and pick at least one ${listMode ? 'option' : 'time'} to submit.`;
     if (name) return 'Add your name to submit.';
     if (pick) return `Pick at least one ${listMode ? 'option' : 'time'} to submit, or choose "None of these work".`;
@@ -1536,27 +1536,17 @@ export async function renderEvent(id, navigate) {
   // ----- picking the final time -----
   $('#event-root').addEventListener('click', async (e) => {
     if (e.target.closest('[data-share]')) return $('#copy').click();
-    // Change the date: everyone's answers, with the picked one open and Pick this instead on the others.
-    if (e.target.closest('#change-date')) {
-      st.inspect = String(ev().finalStart);
-      if ($('#tab-group') && $('#tab-group').offsetParent) $('#tab-group').click();
-      renderGroup();
-      return $('#group-h').scrollIntoView({ behavior: reducedMotion() ? 'auto' : 'smooth', block: 'start' });
+    // Change the date: the next best dates, right in the banner, each with Pick.
+    if (e.target.closest('#change-date, #change-cancel')) {
+      st.changing = !!e.target.closest('#change-date');
+      renderBanners();
+      return (st.changing ? $('#change-list [data-pick]') || $('#change-cancel') : $('#final-h'))?.focus();
     }
     const btn = e.target.closest('[data-pick], #unpick');
     if (!btn) return;
     const start = btn.id === 'unpick' ? null : +btn.dataset.pick;
-    // Changing a date people may have in their calendars already: say so first.
     const was = ev().finalStart;
-    if (
-      start != null &&
-      was != null &&
-      start !== was &&
-      !confirm(
-        `Change the date to ${when(start, meetingEnd(ev(), start))}? Anyone who added ${when(was, meetingEnd(ev(), was))} to their calendar will need to update it.`,
-      )
-    )
-      return;
+    st.changing = false;
     try {
       await api(`events/${id}/finalize`, { method: 'POST', body: { start }, headers: authHeaders() });
       await load();
@@ -1615,10 +1605,29 @@ export async function renderEvent(id, navigate) {
         ? `<p class="hint">Looking for ${daysMode ? `${lengthLabel(ev().durationMinutes)} in a row` : `${lengthLabel(ev().durationMinutes)}`}.</p>`
         : '';
     $('#ev-details').innerHTML = where + (ev().description ? `<p class="note">${esc(ev().description)}</p>` : '') + what;
-    $('#tz-summary').textContent =
-      st.tz === ev().timezone
-        ? `Times are in ${tzName(st.tz)}`
-        : `Times are in your time zone, ${tzName(st.tz)}. The organizer is in ${tzName(ev().timezone)}.`;
+  }
+
+  /** Change the date: the next best dates, each with its count and Pick, and a way back. */
+  function changeList(picked) {
+    const people = others();
+    const n = people.length;
+    const next = rankTimes(ev(), ev().slots, people, 6)
+      .filter((b) => b.start !== picked)
+      .slice(0, 5);
+    const rows = next
+      .map(
+        (
+          b,
+        ) => `<li><span><b>${esc(when(b.start, b.end))}</b><small>${b.yes.length + b.ifNeeded.length} of ${n} can make it</small></span>
+          <button type="button" class="btn btn-sm" data-pick="${b.start}">Pick</button></li>`,
+      )
+      .join('');
+    return `<div class="change-list" id="change-list">
+      <p class="kicker">Change the date to</p>
+      ${rows ? `<ol>${rows}</ol>` : '<p>No other date works for anyone yet.</p>'}
+      <p class="change-note">Anyone who added the old date to their calendar will need to update it.</p>
+      <button type="button" class="link-btn" id="change-cancel">Keep this date</button>
+    </div>`;
   }
 
   function renderBanners() {
@@ -1664,6 +1673,7 @@ export async function renderEvent(id, navigate) {
         </div>`
             : cal
         }
+        ${ev().isAdmin && st.changing ? changeList(start) : ''}
         <details class="final-extras">
           <summary>More</summary>
           <div class="final-extras-body">
@@ -1769,6 +1779,33 @@ export async function renderEvent(id, navigate) {
     };
   }
 
+  /**
+   * Once the date is picked, answering is one question for that date: Yes, If needed or No. The
+   * rest of the poll is settled, so it steps aside.
+   */
+  function renderFinalAnswer() {
+    const picked = ev().finalStart != null;
+    $('#answer-final').hidden = !picked;
+    $('#answer-full').hidden = picked;
+    if (!picked) return;
+    const slots = [...finalSet()];
+    const said = st.declined ? 0 : (st.mine[slots[0]] ?? (st.touched.size ? 0 : null));
+    for (const b of $$('[data-final-vote]')) b.setAttribute('aria-pressed', said != null && +b.dataset.finalVote === said);
+  }
+  $('#answer-final').onclick = (e) => {
+    const b = e.target.closest('[data-final-vote]');
+    if (!b) return;
+    const v = +b.dataset.finalVote;
+    const slots = [...finalSet()];
+    for (const s of slots) v ? (st.mine[s] = v) : delete st.mine[s];
+    // An answer about the picked date covers the whole poll: nothing is left "unanswered".
+    for (const s of ev().slots) st.touched.add(String(s));
+    st.declined = !Object.values(st.mine).some((x) => x > 0);
+    refreshMine();
+    changed();
+    renderFinalAnswer();
+  };
+
   function renderAll() {
     if (!listMode) computeLayout();
     renderHeader();
@@ -1785,6 +1822,7 @@ export async function renderEvent(id, navigate) {
     renderBest();
     renderMeState();
     renderPicks();
+    renderFinalAnswer();
     setDirty(st.dirty);
   }
 
@@ -1802,6 +1840,7 @@ export async function renderEvent(id, navigate) {
         renderBest();
         renderMeState();
         if (listMode) refreshMine();
+        renderFinalAnswer();
       }
     } catch {}
   }, 20_000);

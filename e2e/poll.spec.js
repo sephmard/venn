@@ -638,36 +638,6 @@ test('organizers give their email when this server sends email', async ({ page }
   await expect(page.locator('#submit')).toHaveAttribute('aria-disabled', 'false');
 });
 
-test('the create pages say which time zone the times are in, and it can be changed', async ({ page, request }) => {
-  const zoneName = (tz) =>
-    page.evaluate(
-      (tz) =>
-        new Intl.DateTimeFormat(undefined, { timeZone: tz, timeZoneName: 'longGeneric' })
-          .formatToParts(new Date())
-          .find((x) => x.type === 'timeZoneName').value,
-      tz,
-    );
-  await startPick(page, 'Call with Tokyo', [1140]);
-  const line = page.locator('#tz-box summary');
-  const local = await page.evaluate(() => Intl.DateTimeFormat().resolvedOptions().timeZone);
-  await expect(line).toHaveText(`Times in ${await zoneName(local)} · Change`);
-  // It's the organizer's own time zone, so the choice stays out of the way until asked for.
-  await expect(page.locator('#tz')).toBeHidden();
-  await line.click();
-  await page.selectOption('#tz', 'Asia/Tokyo');
-  await expect(line).toHaveText(`Times in ${await zoneName('Asia/Tokyo')} · Change`);
-  await page.click('#submit');
-  await openNewPoll(page);
-  const ev = await (await request.get(`/api/events/${page.url().split('/e/')[1]}`)).json();
-  expect(ev.timezone).toBe('Asia/Tokyo');
-  // 7 PM in Tokyo.
-  expect(new Date(ev.options[0].start).toISOString()).toMatch(/T10:00:00/);
-
-  await page.goto('/new/free');
-  await page.fill('#organizer', 'Sam');
-  await expect(page.locator('#tz-box summary')).toHaveText(`Times in ${await zoneName(local)} · Change`);
-});
-
 test('phone: no zoom on focus, tap targets, tap-to-pick dates, Save always in reach', async ({ page, isMobile }) => {
   test.skip(!isMobile, 'phone-only behaviour');
   await page.goto('/new/pick');
@@ -1375,7 +1345,9 @@ test('ask when people are free: parts of the day', async ({ page, request }) => 
   await expect(part(1)).toHaveAttribute('aria-pressed', 'mixed');
   await page.fill('#name', 'Sam');
   await submit(page);
-  await expect(page.locator('.best-hero')).toContainText('afternoon (12 – 5 PM)');
+  // In this device's own time zone: its afternoon label only where it's the organizer's afternoon too.
+  const local = await page.evaluate((t) => new Date(t).toLocaleTimeString('en-US', { hour: 'numeric' }), day(8, 12));
+  await expect(page.locator('.best-hero')).toContainText(`Jan 8, ${local.split(/\s/)[0]}:00`);
   // Everyone's answers are colour-coded: available, if needed and unavailable, with a key.
   const rows = page.locator('#overlap .ov-row');
   await expect(rows.nth(0).locator('.ov-bar i')).toHaveClass(['y']);
@@ -1806,9 +1778,10 @@ test('parts of the day: "All day" marks every part of a day in one tap', async (
   await expect(no).toHaveCount(3);
   await expect(no.first()).toContainText('✕ Unavailable');
   await expect(allDay).toHaveAttribute('data-v', 'no');
+  // The soft unavailable colour of everyone's answers, never an alarming red.
   const red = await no.first().evaluate((el) => {
     const probe = document.createElement('i');
-    probe.style.color = 'var(--no)';
+    probe.style.color = 'var(--no-cell)';
     document.body.append(probe);
     const want = getComputedStyle(probe).color;
     probe.remove();
@@ -3218,20 +3191,19 @@ test('the picked date says so on its row, and the organizer changes it in two ta
   await expect(page.locator('.ov-row').first()).toHaveClass(/final/);
   await expect(page.locator('#change-date')).toHaveCount(0);
 
-  // The organizer: Change the date opens everyone's answers with the picked one open.
+  // The organizer: Change the date lists the other evenings right in the banner, saying what a
+  // change means for calendars (no pop-up, which some in-app browsers block).
   await page.goto(`/e/${id}#admin=${adminToken}`);
-  await page.locator('.final-extras summary').click();
-  await page.getByRole('button', { name: 'Change the date' }).click();
-  await expect(page.locator('.ov-row.final')).toHaveAttribute('aria-expanded', 'true');
-  await expect(page.locator('.ov-pick')).toContainText('To change it, open another time and pick that');
-  await expect(page.locator('#group-h')).toBeInViewport();
-  // Another evening: Pick this instead, after saying what it means for calendars.
-  await page.locator('.ov-row').nth(1).click();
   const asked = [];
   page.on('dialog', (d) => asked.push(d.message()));
-  await page.getByRole('button', { name: 'Pick this instead' }).click();
+  await page.locator('.final-extras summary').click();
+  await page.getByRole('button', { name: 'Change the date' }).click();
+  await expect(page.locator('#change-list')).toContainText(
+    'Anyone who added the old date to their calendar will need to update it',
+  );
+  await page.locator('#change-list li').first().getByRole('button', { name: 'Pick' }).click();
   await expect(page.locator('#toast')).toContainText('Date changed');
-  expect(asked.join(' ')).toMatch(/Anyone who added .* to their calendar will need to update it/);
+  expect(asked).toEqual([]);
   await expect(page.locator('.banner-final h2')).toContainText('Jan 7');
   await expect(page.locator('.ov-row').nth(1)).toContainText('✓ Picked');
   const ev = await (await request.get(`/api/events/${id}`)).json();

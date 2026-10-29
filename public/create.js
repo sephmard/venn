@@ -4,22 +4,7 @@
 
 import { IF_NEEDED, YES, isEmail } from './core.js';
 import { TEMPLATES, orderTemplates, templateIndex } from './templates.js';
-import {
-  $,
-  $$,
-  api,
-  esc,
-  getConfig,
-  lastEmail,
-  lastName,
-  localTz,
-  rememberEmail,
-  rememberName,
-  save,
-  toast,
-  tzName,
-  tzOptions,
-} from './ui.js';
+import { $, $$, api, esc, getConfig, lastEmail, lastName, localTz, rememberEmail, rememberName, save, toast } from './ui.js';
 
 // The create pages' own styles, so people answering a poll never download them. They load before
 // the page is drawn, so it never shows unstyled.
@@ -77,7 +62,7 @@ export async function loadSource(src) {
 }
 /** Fill in everything both kinds of poll share: the plan, the organizer and the privacy options. */
 export function fillCommon(ev, src) {
-  editPoll.fillCommon(ev, src, { occasions: OCCASIONS, privacy: PRIVACY, showTz, icon });
+  editPoll.fillCommon(ev, src, { occasions: OCCASIONS, privacy: PRIVACY, icon });
   if (src.edit) editing = src.id;
 }
 
@@ -160,14 +145,11 @@ export function ifNeededTip() {
   toast('Tip: tap it again to make it “if needed”.');
 }
 
-/** The time zone the times are in, under the calendar, with a way to change it. */
-export const tzLine = () => `
-  <details class="reveal tz-line" id="tz-box">
-    <summary><span>Times in <span id="tz-name">${esc(tzName(localTz))}</span> · Change</span></summary>
-    <label for="tz">Time zone for this poll</label>
-    <select id="tz">${tzOptions(localTz)}</select>
-  </details>`;
-const showTz = () => ($('#tz-name').textContent = tzName($('#tz').value));
+/**
+ * The time zone the times are in: this device's, always (everyone sees times in their own). No
+ * choosing; an edited poll keeps the zone it was made in, so its times stay where they are.
+ */
+export const tzLine = () => `<input type="hidden" id="tz" value="${esc(localTz)}">`;
 
 /** New picks are available for the organizer; switched on, if needed instead, to mark many at once. */
 export const brushBox = () => `
@@ -187,7 +169,6 @@ export function wirePlan(onOccasion) {
   let current = null;
   let noted = ''; // the note a template put in "Note for everyone", so another can take it back
   let taps = [];
-  $('#tz').addEventListener('change', showTz);
   // Address search (place-search.js), if switched on, loads when "Where" is first focused.
   const where = $('#location');
   const places = (c) => c.places && import('./place-search.js').then((m) => m.attach(where, c.places));

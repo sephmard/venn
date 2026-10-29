@@ -1,6 +1,6 @@
 // HTTP API built on web-standard Request/Response, shared by the Worker and the Node server.
 
-import { LIMITS, ValidationError, YES, allDaySpan, isValidTimeZone, buildSlots, meetingEnd } from '../public/core.js';
+import { LIMITS, ValidationError, YES, allDaySpan, isValidTimeZone, buildSlots, meetingEnd, overlapEnd } from '../public/core.js';
 import { buildIcs, googleCalendarUrl, outlookCalendarUrl } from '../public/calendar-export.js';
 import { setLabel } from './preview.js';
 import { normalizeAvailability, normalizeEventInput, normalizeName } from './validate.js';
@@ -469,8 +469,8 @@ export async function handleApi(
                 Object.fromEntries(Object.entries(host.availability).filter(([s]) => buildSlots(next).includes(+s))),
                 buildSlots(next),
               ));
-        await store.updateEvent(ev.id, next);
-        await store.setFinal(ev.id, null);
+        // The picked date stays when it's still one of the poll's times (a new title, a note…).
+        const keep = ev.finalStart != null && buildSlots(next).includes(ev.finalStart);
         if (host)
           await store.updateParticipant({
             id: host.id,
@@ -479,6 +479,12 @@ export async function handleApi(
             availability: hostAnswer,
             now: now(),
           });
+        if (keep && next.anyLength) {
+          const people = host ? [{ ...host, availability: hostAnswer }] : [];
+          next.finalEnd = overlapEnd(next, buildSlots(next), people, ev.finalStart);
+        }
+        await store.updateEvent(ev.id, next);
+        if (!keep) await store.setFinal(ev.id, null);
         count('poll.edited', kindOf(next));
         return json({ ok: true });
       }
@@ -638,6 +644,13 @@ export async function handleApi(
       const { start } = await readJson(request);
       if (start !== null && !buildSlots(ev).includes(start)) throw new ValidationError('That time is not part of this poll');
       await store.setFinal(ev.id, start);
+      // "Any overlap": the picked time runs to the end of the overlap it starts.
+      if (ev.anyLength) {
+        const finalEnd = start === null ? null : overlapEnd(ev, buildSlots(ev), await store.listParticipants(ev.id), start);
+        const { id: _id, adminHash, finalStart, createdAt, ...data } = ev;
+        await store.updateEvent(ev.id, { ...data, finalEnd });
+        Object.assign(ev, { finalStart: start, finalEnd });
+      }
       if (start !== null) {
         count('poll.finalized', kindOf(ev));
         await emailTheDate(ev, start);

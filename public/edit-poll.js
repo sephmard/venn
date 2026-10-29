@@ -3,7 +3,7 @@
 // dropped or moved on (copy-poll.js), and ?copy=<id>&next does the same for the next one of a plan,
 // which follows on from that poll. Only loaded for those links.
 
-import { $, api, saved, toast, tzOptions } from './ui.js';
+import { $, api, saved, toast } from './ui.js';
 import { freshPoll, groupMail } from './copy-poll.js';
 
 /** Whether this is the next one of the plan being copied (?next), not just a copy. */
@@ -46,11 +46,11 @@ export function inviteLast(url, title) {
 
 /**
  * Fill in everything both kinds of poll share: the plan, the organizer and the privacy options.
- * `occasions` are the kinds of plan, `privacy` the [setting, switch] pairs, `showTz` shows the time zone.
+ * `occasions` are the kinds of plan, `privacy` the [setting, switch] pairs.
  * `icon` (poll-image.js) takes the poll's own emoji and picture: an edit keeps them, and a copy gets
  * the same picture uploaded again, with a link-preview card for its own name.
  */
-export function fillCommon(ev, src, { occasions, privacy, showTz, icon }) {
+export function fillCommon(ev, src, { occasions, privacy, icon }) {
   const i = occasions.findIndex((o) => o.emoji === ev.emoji);
   if (i >= 0) $(`[data-occasion="${i}"]`).click();
   icon?.restore(ev, src, i < 0);
@@ -59,11 +59,8 @@ export function fillCommon(ev, src, { occasions, privacy, showTz, icon }) {
   $('#desc').value = ev.description || '';
   $('#more-box').open = !!(ev.location || ev.description);
   $('#organizer').value = ev.organizer || '';
-  // Times are in the organizer's time zone (everyone sees them in their own); a poll keeps its own.
-  if (ev.timezone) {
-    $('#tz').innerHTML = tzOptions(ev.timezone);
-    showTz();
-  }
+  // An edited poll keeps the time zone it was made in, so its times don't move.
+  if (ev.timezone) $('#tz').value = ev.timezone;
   for (const [key, el] of privacy) $(el).checked = !!ev[key];
   $('#privacy-opts').open = privacy.some(([key]) => ev[key]);
   if (src.edit) {
