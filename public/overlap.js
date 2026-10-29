@@ -110,7 +110,6 @@ function hoursHtml({ ev, people, tz, inspect }) {
   const score = (b) => b.yes.length + b.ifNeeded.length;
   const topCan = ranked[0] ? score(ranked[0]) : 0;
   const dayOf = (x) => utcToZoned(x, tz).date;
-  const step = ev.slotMinutes * 60_000;
   const final = ev.finalStart;
   const finalEnd = final != null ? meetingEnd(ev, final) : null;
   const byDay = new Map();
@@ -118,6 +117,12 @@ function hoursHtml({ ev, people, tz, inspect }) {
     if (!byDay.has(dayOf(x))) byDay.set(dayOf(x), []);
     byDay.get(dayOf(x)).push(x);
   }
+  // Every day on the same scale, from the earliest time asked about to the latest, so the days line
+  // up: 10 AM is in the same place on each.
+  const mins = (x) => utcToZoned(x, tz).minutes;
+  const lo = Math.min(...ev.slots.map(mins));
+  const hi = Math.max(...ev.slots.map(mins)) + ev.slotMinutes;
+  const scale = Array.from({ length: Math.max(1, (hi - lo) / ev.slotMinutes) }, (_, i) => lo + i * ev.slotMinutes);
   const cards = [...byDay]
     .map(([d, slots]) => {
       // The day's best: its top-ranked times, back-to-back ones with the same people joined up.
@@ -134,21 +139,24 @@ function hoursHtml({ ev, people, tz, inspect }) {
       }
       const all = !!first && first.yes.length === n;
       const hot = (x) => spans.some((sp) => x >= sp.start && x < sp.end);
-      const cols = slots.map((x, i) => {
+      const at = new Map(slots.map((x) => [mins(x), x]));
+      const cols = scale.map((m) => {
+        const x = at.get(m);
+        // Not asked about this day: an empty stretch of the track.
+        if (x == null) return '<span class="ov-slot off"></span>';
         const yes = people.filter((p) => p.availability[x] === YES).length;
         const maybe = people.filter((p) => p.availability[x] === IF_NEEDED).length;
-        const gap = i && x !== slots[i - 1] + step ? '<span class="ov-gap"></span>' : '';
         const cls = `${hot(x) ? (all ? ' all' : ' hot') : ''}${final != null && x >= final && x < finalEnd ? ' final' : ''}`;
-        return `${gap}<span class="ov-slot${cls}"><i class="m" style="height:${(100 * maybe) / n}%"></i><i class="y" style="height:${(100 * yes) / n}%"></i></span>`;
+        // One colour a half hour, as in the key: green where everyone's available, amber where everyone
+        // can but some only if needed, paler green the fewer can make it, bare where nobody can.
+        const can = yes + maybe;
+        const tone = yes === n ? ' everyone' : can === n ? ' ifn' : can ? ' some' : '';
+        const a = can && can < n ? ` style="--a:${Math.round(25 + (50 * can) / n)}%"` : '';
+        return `<span class="ov-slot${tone}${cls}"${a}></span>`;
       });
-      // Hour marks under the timeline: every hour, or every two on a long day.
-      const every = slots.length > 12 ? 120 : 60;
-      const axis = slots
-        .map((x) => {
-          const m = utcToZoned(x, tz).minutes;
-          return m % every ? '<span></span>' : `<span>${esc(shortTime(m))}</span>`;
-        })
-        .join('');
+      // Hour marks under the timeline: every hour, or every two or three on a long day.
+      const every = scale.length > 24 ? 180 : scale.length > 12 ? 120 : 60;
+      const axis = scale.map((m) => (m % every ? '<span></span>' : `<span>${esc(shortTime(m))}</span>`)).join('');
       const said = spans.length
         ? `Best: ${spans.map((sp) => fmtTimeRange(sp.start, sp.end, tz)).join(' and ')}, ${score(first)} of ${n}${all ? ", everyone's free" : ''}`
         : 'Nobody is free this day yet';
@@ -177,7 +185,7 @@ function hoursHtml({ ev, people, tz, inspect }) {
       return `<li class="ov-card"><h3>${esc(dayName(d))}</h3>
         <div class="ov-tl" role="img" aria-label="${esc(`${dayName(d)}: ${said}`)}">
           <div class="ov-cols">${cols.join('')}</div>
-          <div class="ov-axis" aria-hidden="true" style="--n:${slots.length}">${axis}</div>
+          <div class="ov-axis" aria-hidden="true" style="--n:${scale.length}">${axis}</div>
         </div>
         ${rows ? `<ol class="ov-list">${rows}</ol>` : '<p class="hint">Nobody is free this day yet.</p>'}</li>`;
     })

@@ -3,7 +3,7 @@
 // organizer zooms in from whole days, so most whole-day polls never do.
 
 import { DAY_PARTS, addDays } from './core.js';
-import { dayChip, isPhone } from './picker.js';
+import { addMonths, dayChip, isPhone } from './picker.js';
 import { $, $$, dateParts, dayHead, dayLabel, esc, fmtMonthDay, shortRange, shortTime, todayStr } from './ui.js';
 
 const STEP = 30;
@@ -20,7 +20,8 @@ const STEP = 30;
  *              selected then holds "YYYY-MM-DD|<the part's start>"
  *   maybe      the selected keys that are only "if needed" for the organizer (a Set, changed in place):
  *              what's painted joins it while `marking()` is true, and leaves it otherwise
- *   views      ['week', 'day'] adds a Week / Day switch; without it, phones show a day and others a week
+ *   views      ['week', 'day'] adds a Week / Day switch; ['week'], the week everywhere; without it, phones
+ *              show a day and others a week
  * Returns { render, week() (the 7 days around what's shown), cleanup }.
  */
 export function paintView(
@@ -38,7 +39,7 @@ export function paintView(
     views = null,
   },
 ) {
-  let day = isPhone();
+  let day = views?.length === 1 ? views[0] === 'day' : isPhone();
   // Weeks run Monday to Sunday; days before today show, but can't be painted.
   const monday = (d) => addDays(d, -((dateParts(d).getUTCDay() + 6) % 7));
   const thisWeek = monday(todayStr());
@@ -47,16 +48,18 @@ export function paintView(
   root.innerHTML = `
     <div class="tv-bar">
       ${
-        views
+        views?.length > 1
           ? `<div class="seg tv-views" role="radiogroup" aria-label="Calendar view">${views
               .map((v) => `<button type="button" role="radio" data-pview="${v}">${v[0].toUpperCase() + v.slice(1)}</button>`)
               .join('')}</div>`
           : ''
       }
       <div class="tv-nav">
+        <button type="button" class="icon-btn" data-pmonth="-1" aria-label="Back a month">«</button>
         <button type="button" class="icon-btn" data-pstep="-1" aria-label="Earlier">‹</button>
         <span class="tv-label" aria-live="polite"></span>
         <button type="button" class="icon-btn" data-pstep="1" aria-label="Later">›</button>
+        <button type="button" class="icon-btn" data-pmonth="1" aria-label="Forward a month">»</button>
       </div>
     </div>
     <div class="tv-strip" role="group" aria-label="Days"${day ? '' : ' hidden'}></div>
@@ -82,7 +85,7 @@ export function paintView(
     grid.classList.toggle('pg-narrow', narrow);
     $('.tv-label', root).textContent =
       ds.length > 1 ? `${fmtMonthDay.format(dateParts(ds[0]))} – ${fmtMonthDay.format(dateParts(ds.at(-1)))}` : dayLabel(ds[0]);
-    $('[data-pstep="-1"]', root).disabled = start <= thisWeek;
+    $('[data-pstep="-1"]', root).disabled = $('[data-pmonth="-1"]', root).disabled = start <= thisWeek;
     if (day)
       strip.innerHTML = week()
         .map((d) => {
@@ -230,9 +233,11 @@ export function paintView(
       if (day && !week().includes(anchor)) anchor = start < todayStr() ? todayStr() : start;
       return render();
     }
+    // ‹ › a week, « » a month: the week with the same day a month on (never before this week).
+    const mo = e.target.closest('[data-pmonth]');
     const st = e.target.closest('[data-pstep]');
-    if (st) {
-      start = addDays(start, 7 * +st.dataset.pstep);
+    if (st || mo) {
+      start = st ? addDays(start, 7 * +st.dataset.pstep) : monday(addMonths(start, +mo.dataset.pmonth));
       if (start < thisWeek) start = thisWeek;
       anchor = start < todayStr() ? todayStr() : start;
       return render();

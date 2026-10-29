@@ -39,17 +39,18 @@ const PAGES = {
   // organizer's Pick: an open row and its button as one card.
   // +0.25 each for switching lengths keeping the days, and the week's fills that show when they're on.
   // +0.25 for the shared stylesheet's change-the-date list and one-question answer.
-  'vote on a few dates page': ['create-pick.js', ['create.css'], 51.5], // +0.25 for the landing pages' link-only templates, +0.25 for a guest's one-tap own poll, +0.25 for calendar day heads
+  'vote on a few dates page': ['create-pick.js', ['create.css'], 52], // +0.25 for the landing pages' link-only templates, +0.25 for a guest's one-tap own poll, +0.25 for calendar day heads, +0.25 for the shared stylesheet's answers by who and the smooth timeline, +0.25 for « » on parts of the day and taps on the hour
   // +0.25 for usage stats, +0.25 for the landing pages' templates, +0.25 for a guest's one-tap own poll
   // (template by emoji) and the day labels that fit.
-  'ask when people are available page': ['create-free.js', ['create.css'], 50.5], // +0.5: the above, and days in a row as a switch; +0.25 for days and times mixed in one poll
+  'ask when people are available page': ['create-free.js', ['create.css'], 51], // +0.5: the above, and days in a row as a switch; +0.25 for days and times mixed in one poll; +0.25 for the shared stylesheet's answers by who and the smooth timeline, +0.25 for « » on parts of the day and taps on the hour
   // +0.5 for big groups: "+N more" people, names behind "See who", ticks on whole best times.
   // +0.5 for the organizer's tools only on their own link, with "Organizer view" on the guest link.
   // +1 for Change the date as a list in the banner, and one question once the date is picked.
   // +0.25 for "Pick this date?" before a date goes out to everyone.
   // +0.5 for calendar days as a weekday over its number, today circled, and past days striped (shared styles).
   // +0.25 for who answered what, a line per answer, when a row in everyone's answers is open.
-  'poll page': ['event.js', [], 48],
+  // +0.25 for removing an answer from the person tapped, and the smooth timeline (shared styles).
+  'poll page': ['event.js', [], 48.25],
 };
 
 for (const [name, [entry, css, PAGE_KB]] of Object.entries(PAGES)) {

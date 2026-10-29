@@ -187,6 +187,8 @@ export function monthView(
  *   onBlock(key)              tap a block
  *   editBlocks, onResize(key, from, to), onMove(key, date, from, to)  dragging blocks (block-edit.js)
  *   tapLength()               minutes for a tap
+ *   tapSnap()                 a tap starts on this many minutes (60: the hour tapped, as the labels
+ *                             read); drags and edges still move in half hours
  *   startAt()                 minutes to open at when the days shown have no blocks (null: 5 PM)
  * Returns { render, home() (scroll back to the start), cleanup }.
  */
@@ -203,6 +205,7 @@ function timeGrid(
     onMove,
     editBlocks,
     tapLength = () => 60,
+    tapSnap = () => STEP,
     startAt = () => null,
   },
 ) {
@@ -233,6 +236,11 @@ function timeGrid(
       `top:calc(${at(Math.max(a, from))} * var(--row));height:calc(${(Math.min(b, to) - Math.max(a, from)) / STEP} * var(--row))`;
     const all = blocks();
     const text = (b, n) => (narrow && b.tiny != null ? b.tiny : n > 1 && b.short ? b.short : b.label);
+    // Its name starts with what it shows ("7p"), so it can be said to be tapped by what's on it.
+    const named = (b, n) => {
+      const full = b.title || b.label;
+      return full.startsWith(text(b, n)) ? full : `${text(b, n)}: ${full}`;
+    };
     const today = todayStr();
     const cols = ds
       .map((d) => {
@@ -258,7 +266,7 @@ function timeGrid(
               _,
               style = `${pos(b.from, b.to)};left:calc(3px + (100% - 6px) * ${lane[i]} / ${n});width:calc((100% - 6px) / ${n} - 2px)`,
             ) =>
-              `<button type="button" class="tg-block ${b.cls || ''}${b.to - b.from < 60 ? ' tg-short' : ''}" data-key="${esc(b.key)}" style="${style}" aria-label="${esc(b.title || b.label)}">${editor?.top || ''}<span>${esc(text(b, n))}</span>${b.tag ? ` <small>${esc(b.tag)}</small>` : ''}${editor?.bottom || ''}</button>${editor ? editor.after(b, style) : ''}`,
+              `<button type="button" class="tg-block ${b.cls || ''}${b.to - b.from < 60 ? ' tg-short' : ''}" data-key="${esc(b.key)}" style="${style}" aria-label="${esc(named(b, n))}">${editor?.top || ''}<span>${esc(text(b, n))}</span>${b.tag ? ` <small>${esc(b.tag)}</small>` : ''}${editor?.bottom || ''}</button>${editor ? editor.after(b, style) : ''}`,
           )
           .join('');
         // Organizers can't add options on days that have gone by.
@@ -288,6 +296,9 @@ function timeGrid(
     const r = Math.floor((y - col.getBoundingClientRect().top) / rowPx(root));
     return Math.min(to - STEP, Math.max(from, from + r * STEP));
   };
+
+  // A tap's start, on the hour (or half hour) it lands in, never before the first time shown.
+  const snap = (m) => Math.max(range()[0], m - (m % tapSnap()));
 
   const editor = editBlocks?.(root, { blocks, range, minuteAt, rowPx, onResize, onMove });
 
@@ -327,7 +338,7 @@ function timeGrid(
     if (!drag) return;
     const { col, a, b, moved } = drag;
     drag = null;
-    const lo = Math.min(a, b);
+    const lo = moved ? Math.min(a, b) : snap(a);
     onCreate(col.dataset.date, lo, moved ? Math.max(a, b) + STEP : Math.min(lo + tapLength(), 1440));
   };
   window.addEventListener('pointerup', up);
@@ -337,7 +348,7 @@ function timeGrid(
     if (block) return onBlock?.(block.dataset.key);
     const col = e.target.closest('.tg-draw');
     if (!onCreate || !col || pointer === 'mouse') return;
-    const a = minuteAt(col, e.clientY);
+    const a = snap(minuteAt(col, e.clientY));
     onCreate(col.dataset.date, a, Math.min(a + tapLength(), 1440));
   });
   return {
@@ -354,7 +365,7 @@ function timeGrid(
 }
 
 /** The same day `n` months on, or the month's last day. */
-function addMonths(date, n) {
+export function addMonths(date, n) {
   const [y, m, d] = date.split('-').map(Number);
   const last = new Date(Date.UTC(y, m - 1 + n + 1, 0)).getUTCDate();
   return new Date(Date.UTC(y, m - 1 + n, Math.min(d, last))).toISOString().slice(0, 10);

@@ -6,6 +6,21 @@
   max-width: 720px;
   margin: 0 auto;
 }
+/* No empty stretch under the create bar */
+main:has(> .create) {
+  padding-bottom: 0;
+}
+main:has(> .create) + .footer {
+  padding-top: 16px;
+}
+/* Cards end at their last line */
+.create .sheet > :last-child,
+.create .sheet > :last-child > :last-child {
+  margin-bottom: 0;
+}
+.create .sheet:has(> :last-child.reveal:not([open])) {
+  padding-bottom: 10px;
+}
 .create > h1 {
   margin-bottom: 20px;
 }
@@ -658,9 +673,9 @@ button.emoji-tile:focus-visible {
 #other-box select {
   margin-top: 4px;
 }
-/* Narrow week columns on phones: a short start time ("7p"), at the top, under the × */
+/* Phones' narrow week: a short start time ("7p"); no ×, too small to tap (remove from the list) */
 .tg-narrow .tg-block {
-  padding: 20px 2px 2px;
+  padding: 4px 2px 2px;
   align-items: center;
   justify-content: flex-start;
 }
@@ -669,17 +684,14 @@ button.emoji-tile:focus-visible {
   display: none;
 }
 .tg-narrow .tg-block span {
-  white-space: nowrap;
   font-size: 0.7rem;
+  line-height: 1.15;
+  text-align: center;
+  overflow-wrap: normal;
 }
-/* A smaller × in a narrow column, so it doesn't cover the block */
+.tg-narrow .tg-x-box,
 .tg-narrow .tg-x {
-  top: 1px;
-  right: 1px;
-  width: 18px;
-  height: 18px;
-  border-width: 1px;
-  font-size: 0.75rem;
+  display: none;
 }
 /* Under an hour: the grips by the × */
 .create .tg-short {

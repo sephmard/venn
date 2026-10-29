@@ -272,7 +272,7 @@ export function renderFree() {
       parts: parts && DAY_PARTS,
       maybe: maybe[level],
       marking: () => brush() === IF_NEEDED,
-      views: ['week', 'day'],
+      views: ['week'], // a week at a time, phones too: no Week / Day to choose
     });
   }
 
@@ -304,9 +304,11 @@ export function renderFree() {
     };
     const view = timeView(root, {
       label: 'Calendar',
-      views: ['week', 'day'],
+      views: ['week'], // a week at a time, phones too: no Week / Day to choose
       range: () => [420, 1440],
       tapLength: () => length || 60,
+      // A tap gives the hour tapped, as the labels read; a half-hour length can start on the half hour.
+      tapSnap: () => (length && length < 60 ? 30 : 60),
       startAt: () => null,
       blocks: () =>
         pt.windowsAt(st, 'hours').map((w) => ({
@@ -317,7 +319,7 @@ export function renderFree() {
           cls: w.maybe ? 'opt opt-maybe' : 'opt',
           label: pt.hoursLabel(w.start, w.end),
           short: shortTime(w.start),
-          tiny: tinyTime(w.start),
+          tiny: pt.hoursLabel(w.start, w.end) === 'All day' ? 'All day' : tinyTime(w.start),
           tag: w.maybe ? 'If needed' : 'Available',
           title: `${pt.hoursLabel(w.start, w.end)} ${w.maybe ? 'If needed' : 'Available'}, ${dayLabel(w.date)}. Tap to make it ${w.maybe ? 'available' : 'if needed'}`,
           remove: `Remove ${pt.hoursLabel(w.start, w.end)}, ${dayLabel(w.date)}`,
@@ -462,7 +464,7 @@ export function renderFree() {
         const ok = run.length >= k;
         const len =
           run.length > 1 || k > 1
-            ? `<span class="od-len${ok ? '' : ' short'}">${plural(run.length, 'day')}${k > 1 ? (ok ? ' · long enough' : ` · too short`) : ''}</span>`
+            ? `<span class="od-len${ok ? '' : ' short'}">${plural(run.length, 'day')}${k > 1 && !ok ? ' · too short' : ''}</span>`
             : '';
         return `<li class="od-row"><span class="chips">${parts
           .map((p) => {
@@ -490,7 +492,7 @@ export function renderFree() {
         : NOTHING + (cleared ? UNDO : '');
       return setReady(
         `${plural(dates.length, 'day')} to choose from`,
-        [!windows.length, 'Add at least one time to create the poll', gridFocus, null, 'times'],
+        [!windows.length, 'Pick at least one day to create the poll', gridFocus, null, 'days'],
         [
           length && windows.length && !windows.some((w) => w.end - w.start >= length),
           `Your times are shorter than ${lengthLabel(length)}. Make one longer`,
@@ -506,7 +508,7 @@ export function renderFree() {
       box.innerHTML = windows.length ? pt.windowList(windows, level, chip, dayRange) + CLEAR : NOTHING + (cleared ? UNDO : '');
       return setReady(
         `${plural(windows.length, 'time')} to choose from`,
-        [!windows.length, 'Pick at least one morning, afternoon or evening', gridFocus, null, 'times'],
+        [!windows.length, 'Pick at least one day to create the poll', gridFocus, null, 'days'],
         ...nameAndEmail(),
       );
     }
