@@ -52,6 +52,9 @@ the same PR** (and CLAUDE.md if it's a rule that matters in review).
 - Hours has **no length to choose**: a tap adds the half hour tapped, a drag draws longer, and polls
   look for any overlap. No "Mark many as if needed": a second tap makes something if needed.
 - A whole day is one **"All day"** at every level, never split into parts or hours with gaps.
+- **"Guests choose from" reads the same on every level**: each day (or run of days) with its chips,
+  "All day", "Morning 9 AM – 12 PM" or the times, whatever level is showing and however days, parts
+  and hours are mixed. No notes beside it.
 - Templates shape the calendar only while nothing is picked; they never move or remove picks. A second
   tap turns one off.
 - **Create Venn sits at the end of the form**, never stuck to the bottom of the screen.

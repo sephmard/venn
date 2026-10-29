@@ -146,9 +146,7 @@ export function renderFree() {
     update();
   }
 
-  /** A tap (or click, Enter, Space, or a mouse drag) on the month calendar. With days in a row to
-   * find, a tap on a day that isn't picked picks that many days from it; on a picked one, it takes
-   * just that day away. */
+  /** A tap on the month calendar; with days in a row, a new day picks that many from it. */
   function tapped() {
     const added = [...selected].filter((d) => !before.has(d));
     const removed = [...before].filter((d) => !selected.has(d));
@@ -168,11 +166,7 @@ export function renderFree() {
     cal.render();
     if (focused) $(`#when [data-date="${focused}"]`)?.focus();
   }
-  /**
-   * Picked days with times of their own, from the last of parts of the day or hours visited: less
-   * than the whole day there. With any, the poll goes out at that level, and the other days whole,
-   * so days and times mix in one poll.
-   */
+  /** Picked days with times of their own (less than the whole day) at the last time level visited. */
   function timed(anyRow = false) {
     if (!pt || !timeLevel || (!anyRow && span() > 1)) return new Map();
     const ws = pt.windowsAt(st, timeLevel).filter((w) => selected.has(w.date));
@@ -187,12 +181,16 @@ export function renderFree() {
     }
     return out;
   }
+  /** The picked days as windows: their own times, or all day. */
+  const dayWindows = (dates) => {
+    const own = timed();
+    return dates.flatMap((d) => own.get(d) || [{ date: d, start: pt.ALL_DAY[0], end: pt.ALL_DAY[1], maybe: maybe.days.has(d) }]);
+  };
   /** "6 – 9 PM", or "Evening": a time of a day that has its own. */
   const timeOf = (w) =>
     timeLevel === 'hours' ? pt.hoursLabel(w.start, w.end) : DAY_PARTS.find((p) => p.start === w.start)?.label;
 
-  /** Days in a row read as one band: joined to the day before (l) and after (r) on the same line of
-   * the calendar, or carrying on over a line or month break (cl, cr). If needed days are amber. */
+  /** Days in a row as one band: joined left and right (l, r), or over a line break (cl, cr). */
   function band(d) {
     if (!selected.has(d)) return '';
     const [prev, next, wd] = [addDays(d, -1), addDays(d, 1), weekdayOf(d)];
@@ -230,7 +228,7 @@ export function renderFree() {
     const parts = level === 'parts';
     const set = st[level];
     // Parts of the day and hours need the painter, which most whole-day polls never load.
-    // The calendar on show stays until the next is ready, so switching never flashes empty.
+    // The calendar on show stays until the next is ready.
     const [{ paintView, datesOf }, { editBlocks }] = await Promise.all([loadPaint(), loadEdit()]);
     if (at !== mounts || !root.isConnected) return;
     root.innerHTML = '';
@@ -273,7 +271,7 @@ export function renderFree() {
       label: 'Calendar',
       views: ['week'], // a week at a time, phones too: no Week / Day to choose
       range: () => [420, 1440],
-      // A tap adds the half hour tapped; a drag (or press and hold, on touch) draws longer.
+      // A tap adds a half hour; a drag draws longer.
       tapLength: () => 30,
       tapSnap: () => 30,
       startAt: () => 660, // 11 AM
@@ -341,8 +339,8 @@ export function renderFree() {
     cal?.render();
   };
   $('#create').addEventListener('click', (e) => {
-    const lv = e.target.closest('[data-level]');
-    if (lv) setLevel(lv.dataset.level);
+    const to = e.target.closest('[data-level]');
+    if (to) setLevel(to.dataset.level);
     const s = e.target.closest('[data-step]');
     if (s) {
       $('#span').value = Math.max(2, Math.min(MAX_SPAN_DAYS, span() + +s.dataset.step));
@@ -371,10 +369,20 @@ export function renderFree() {
       $('#q-clear')?.focus();
     }
     // One × can stand for a whole week of evenings, or a run of days: ask first.
+    // On days, times are the last time level's; a whole day is the day.
+    const lv = level === 'days' ? timeLevel || 'hours' : level;
+    const whole = (v) => level === 'days' && v.endsWith(`|${pt.ALL_DAY.join('|')}`);
     const rm = e.target.closest('[data-rm-window]')?.dataset.rmWindow;
     if (rm) {
-      if (rm.includes(',') && !confirm(`Remove ${pt.windowWhat(level, rm)}?`)) return;
-      for (const k of pt.windowKeys(level, rm)) st[level].delete(k);
+      if (rm.includes(',') && !confirm(`Remove ${whole(rm) ? `these ${rm.split(',').length} days` : pt.windowWhat(lv, rm)}?`))
+        return;
+      const ds = rm.split('|')[0].split(',');
+      if (whole(rm)) for (const d of ds) selected.delete(d);
+      else {
+        for (const k of pt.windowKeys(lv, rm)) st[lv].delete(k);
+        // A day whose last time goes is gone, not all day.
+        if (level === 'days') for (const d of ds) if (![...st[lv]].some((k) => k.startsWith(`${d}|`))) selected.delete(d);
+      }
       redraw();
     }
     const rd = e.target.closest('[data-rm-days]')?.dataset.rmDays.split(',');
@@ -387,8 +395,9 @@ export function renderFree() {
     const fl = e.target.closest('[data-flip-days], [data-flip-window]');
     if (fl) {
       const { flipDays: fd, flipWindow: fw } = fl.dataset;
-      const keys = fd ? fd.split(',') : pt.windowKeys(level, fw);
-      const may = maybe[level];
+      const days = fd || whole(fw);
+      const keys = fd ? fd.split(',') : days ? fw.split('|')[0].split(',') : pt.windowKeys(lv, fw);
+      const may = maybe[days ? 'days' : lv];
       const all = keys.every((k) => may.has(k));
       for (const k of keys) all ? may.delete(k) : may.add(k);
       redraw();
@@ -459,8 +468,7 @@ export function renderFree() {
   const chip = (flip, rm, text, label, m) =>
     `<span class="chip ${m ? 'maybe' : 'yes'}"><button type="button" class="chip-flip" ${flip} aria-label="${esc(`${label}, ${m ? 'if needed' : 'available'} for you. Switch to ${m ? 'available' : 'if needed'}`)}">${esc(text)}${m ? ' <small class="chip-tag">If needed</small>' : ''}</button><button type="button" ${rm} aria-label="Remove ${esc(label)}">×</button></span>`;
 
-  /** Days in a row, each run as a range with its length: is it long enough for the days in a row
-   * asked for? Inside a run, the days that are if needed for the organizer are a chip of their own. */
+  /** Days in a row: each run with its length; if needed days a chip of their own. */
   const runList = (dates, k) =>
     `<ul class="od-list">${dayRuns(dates)
       .map((run) => {
@@ -495,7 +503,7 @@ export function renderFree() {
       const windows = pt.toWindows(painted);
       const dates = pt.datesOf(painted);
       box.innerHTML = windows.length
-        ? pt.windowList(pt.windowsAt(st, level), level, chip, dayRange) + CLEAR
+        ? pt.windowList(pt.windowsAt(st, level), chip, dayRange) + CLEAR
         : NOTHING + (cleared ? UNDO : '');
       return setReady(
         `${plural(dates.length, 'day')} to choose from`,
@@ -505,7 +513,7 @@ export function renderFree() {
     }
     if (level === 'parts') {
       const windows = pt.windowsAt(st, level);
-      box.innerHTML = windows.length ? pt.windowList(windows, level, chip, dayRange) + CLEAR : NOTHING + (cleared ? UNDO : '');
+      box.innerHTML = windows.length ? pt.windowList(windows, chip, dayRange) + CLEAR : NOTHING + (cleared ? UNDO : '');
       return setReady(
         `${plural(windows.length, 'time')} to choose from`,
         [!windows.length, 'Pick at least one day to create the poll', gridFocus, null, 'days'],
@@ -519,14 +527,15 @@ export function renderFree() {
     // The tap key above the calendar says the rest.
     $('#when-help').hidden = k < 2;
     $('#when-help').textContent = `Tap a day to pick ${k} in a row from it.`;
-    // Days with times of their own keep them; the rest are whole days.
-    const own = [...timed()].sort(([a], [b]) => a.localeCompare(b));
-    const mixed = own.length
-      ? `<p class="hint mix-note">${own
-          .map(([d, ws]) => `<b>${esc(dayLabel(d))}</b>: ${esc(ws.map(timeOf).join(', '))}`)
-          .join('<br>')}<br>The other days are all day.</p>`
-      : '';
-    box.innerHTML = dates.length ? runList(dates, k) + mixed + CLEAR : NOTHING + (cleared ? UNDO : '');
+    // The list reads as on the other levels (days in a row: runs, with their lengths).
+    if (k < 2 && dates.length && !pt) loadPaint().then(() => level === 'days' && update());
+    box.innerHTML = !dates.length
+      ? NOTHING + (cleared ? UNDO : '')
+      : k > 1
+        ? runList(dates, k) + CLEAR
+        : pt
+          ? pt.windowList(dayWindows(dates), chip, dayRange) + CLEAR
+          : box.innerHTML;
     setReady(
       `${plural(dates.length, 'day')} to choose from`,
       // Only the first that applies: no days, too few, or none in a row.
@@ -603,7 +612,7 @@ export function renderFree() {
   }
 
   setLevel('days');
-  // Fetch the painter and hours tools as the organizer heads for the levels, so switching doesn't wait.
+  // Fetch the levels' code as the organizer heads for them.
   const warm = () => Promise.all([loadPaint(), loadEdit()]).catch(() => {});
   for (const ev of ['pointerover', 'focusin']) $('.zoom').addEventListener(ev, warm, { once: true });
   showConfig(update);
