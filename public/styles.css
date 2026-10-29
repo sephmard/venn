@@ -2443,7 +2443,7 @@ pre.code {
   gap: 10px;
   padding: 12px 14px 14px;
 }
-/* Who's available, if needed and unavailable: each answer a line, with its colour from the key. */
+/* Who answered what: a line each, coloured as in the key */
 .ov-group {
   display: grid;
   grid-template-columns: 7.5em minmax(0, 1fr);
@@ -2531,8 +2531,7 @@ pre.code {
   flex-basis: 100%;
   justify-content: flex-start;
 }
-/* One smooth track a day: a colour a half hour (see overlap.js), the bare track where nobody can or
-   the time wasn't asked about that day. */
+/* A smooth track a day, a colour a half hour (overlap.js) */
 .ov-cols {
   display: flex;
   align-items: stretch;
