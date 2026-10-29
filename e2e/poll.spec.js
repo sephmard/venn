@@ -2690,7 +2690,8 @@ test('guests answer a whole-day poll on a calendar of its days: tap, tap again, 
   page,
   request,
 }) => {
-  const { id, adminToken } = await daysPoll(request, { days: 2, from: '2030-01-08' }); // a Tuesday
+  // One day at a time (trips, days in a row, have a test of their own).
+  const { id, adminToken } = await daysPoll(request, { days: 1, from: '2030-01-08' }); // a Tuesday
   await page.goto(`/e/${id}`);
   const day = (d) => page.locator(`button.dcal-day[data-date="${d}"]`);
   // The calendar is the guest's way to answer, with the create page's key; the list is a tap away.
@@ -2729,8 +2730,7 @@ test('guests answer a whole-day poll on a calendar of its days: tap, tap again, 
   const ev = await (await request.get(`/api/events/${id}`, { headers: { 'x-admin-token': adminToken } })).json();
   const ana = ev.participants.find((p) => p.name === 'Ana');
   expect(ana.availability).toEqual({ [dayKey('2030-01-08')]: 2, [dayKey('2030-01-09')]: 2, [dayKey('2030-01-10')]: 1 });
-  // Two days in a row still find each other.
-  await expect(page.locator('.best-hero')).toContainText('(2 days)');
+  await expect(page.locator('.best-hero')).toContainText('Jan 8');
 
   // The organizer answers on the list, as before.
   await page.goto(`/e/${id}#admin=${adminToken}`);
@@ -3159,6 +3159,46 @@ test('creating a Venn: dates only by month or week, date and time as parts or ho
   const id = page.url().split('/e/')[1];
   const ev = await (await page.request.get(`/api/events/${id}`)).json();
   expect(ev.durationMinutes).toBe(30); // no length: any overlap counts
+});
+
+test('a trip (days in a row): a guest marks the stretch in one tap, and fine-tunes a day', async ({ page, request }) => {
+  const dates = Array.from({ length: 10 }, (_, i) => `2031-01-${String(3 + i).padStart(2, '0')}`); // Fri 3 – Sun 12
+  const { id } = await (
+    await request.post('/api/events', {
+      data: {
+        title: 'Cabin weekend',
+        timezone: 'UTC',
+        dates,
+        startMinute: 0,
+        endMinute: 1440,
+        slotMinutes: 1440,
+        durationMinutes: 3 * 1440,
+      },
+    })
+  ).json();
+  await page.goto(`/e/${id}`);
+  if (!(await page.locator('.dcal').isVisible())) await page.click('[data-mine-view="calendar"]');
+  await expect(page.locator('.tap-key')).toContainText('Tap a day: 3 days from it');
+  const day = (d) => page.locator(`.dcal-day[data-date="2031-01-${String(d).padStart(2, '0')}"]`);
+  // One tap: Fri 3 to Sun 5, joined as one band.
+  await day(3).click();
+  for (const d of [3, 4, 5]) await expect(day(d)).toHaveAttribute('data-v', '2');
+  await expect(day(6)).toHaveAttribute('data-v', '0');
+  await expect(day(3)).toHaveClass(/run-r/);
+  await expect(page.locator('.dcal-trips')).toContainText('A trip that works for you');
+  // A marked day changes on its own: Saturday only if needed.
+  await day(4).click();
+  await expect(day(4)).toHaveAttribute('data-v', '1');
+  await expect(day(3)).toHaveAttribute('data-v', '2');
+  // Near the end, the trip ends on the day tapped: Fri 10 to Sun 12.
+  await day(12).click();
+  for (const d of [10, 11, 12]) await expect(day(d)).toHaveAttribute('data-v', '2');
+  await expect(page.locator('.dcal-trips .chip')).toHaveCount(2);
+  await page.fill('#name', 'Ana');
+  await submit(page);
+  const ev = await (await request.get(`/api/events/${id}`)).json();
+  const ana = ev.participants.find((p) => p.name === 'Ana');
+  expect(Object.values(ana.availability).sort()).toEqual([1, 2, 2, 2, 2, 2]);
 });
 
 test('the picked date says so on its row, and the organizer changes it in two taps', async ({ page, request }) => {
