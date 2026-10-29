@@ -212,7 +212,6 @@ export function renderFree() {
     painter = cal = null;
     const root = $('#when');
     const at = ++mounts;
-    if (at === 1) setTimeout(() => (loadPaint(), loadEdit()), 1000); // ready before the first switch
     $('#when-help').hidden = true;
     if (level === 'days') {
       root.innerHTML = '';
@@ -248,11 +247,7 @@ export function renderFree() {
     });
   }
 
-  /**
-   * Hours: the same week / day calendar as "vote on a few dates". Drag (or tap) to add a stretch of
-   * time, drag it or its edges to move or change it, tap it to switch between available and if
-   * needed, or × to remove it. What's picked stays as half hours, so the levels still carry over.
-   */
+  /** Hours: tap or drag to add, drag to move or stretch, tap to go round. Kept as half hours. */
   function mountHours(root, first, editBlocks) {
     const slots = (from, to) => Array.from({ length: Math.max(0, (to - from) / 30) }, (_, i) => from + i * 30);
     const keyOf = (w) => `${w.date}|${w.start}|${w.end}`;
@@ -608,8 +603,8 @@ export function renderFree() {
   }
 
   setLevel('days');
-  // Fetch the painter as soon as the organizer heads for the levels, so zooming in doesn't wait.
-  const warm = () => loadPaint().catch(() => {});
+  // Fetch the painter and hours tools as the organizer heads for the levels, so switching doesn't wait.
+  const warm = () => Promise.all([loadPaint(), loadEdit()]).catch(() => {});
   for (const ev of ['pointerover', 'focusin']) $('.zoom').addEventListener(ev, warm, { once: true });
   showConfig(update);
   if (src) prefill();
