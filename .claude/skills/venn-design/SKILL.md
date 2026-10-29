@@ -97,7 +97,7 @@ the same PR** (and CLAUDE.md if it's a rule that matters in review).
 - Simple and sexy. Four values, framed as benefits (what people get), not features.
 - **Retrofuturist** (website only, never the app or poll): a synthwave night of stars and scanlines,
   chrome Orbitron headlines with a sunset gradient on the key words, neon cyan and magenta, arcade
-  pixel labels, a striped sun on a moving grid, a neon logo (`logo-retro.svg`) and pixel-art Finn stickers (`img/stickers/retro/`). One look day or
+  pixel labels, a striped sun on a moving grid, a neon logo (`logo-retro.svg`) and Finn stickers on neon circles (`img/stickers/retro/`; Finn stays smooth, never chunky pixels). One look day or
   night. DESIGN.md has the tokens.
 - The hero Venn tells the story in motion, **from noise to a plan**: a group chat's messages bounce
   around, fly to the three friends, the circles drift together and the day that works pops out, then

@@ -6,7 +6,7 @@ const SIZE = 512;
 const EDGE = 11; // the white sticker edge
 const SERIF = '"Instrument Serif", "Iowan Old Style", "Palatino Linotype", Georgia, serif';
 // How a sticker looks: the app's (green, a serif caption, a white edge), or the website's retro one
-// (neon, pixel-art Finn, an arcade caption, a glowing cyan edge).
+// (neon circles, an arcade caption, a glowing cyan edge).
 const LOOKS = {
   plain: {
     green: '#0b7a5c',
@@ -26,7 +26,7 @@ const LOOKS = {
     font: '"Press Start 2P", monospace',
     caption: ['#ff3cac', '#0d0221'],
     edge: '#2de2e6',
-    pixels: 72, // Finn as pixel art, this many across
+    arcade: true, // the caption's pixel font is wide: smaller, on a square tag
   },
 };
 let look = LOOKS.plain;
@@ -215,21 +215,12 @@ function drawFace(ctx, sticker, dog) {
   if (sticker.extra.includes('confetti')) EXTRAS.confetti(ctx, x, y, w, h);
   ctx.drawImage(dog, x, y, w, h);
   for (const [i, draw] of extras.entries()) if (sticker.extra[i] !== 'confetti') draw(ctx, x, y, w, h);
-  if (look.pixels) {
-    // Pixel art: down to a few dozen pixels across, and back up with hard edges.
-    const small = Object.assign(document.createElement('canvas'), { width: look.pixels, height: look.pixels });
-    small.getContext('2d').drawImage(ctx.canvas, 0, 0, look.pixels, look.pixels);
-    ctx.clearRect(0, 0, SIZE, SIZE);
-    ctx.imageSmoothingEnabled = false;
-    ctx.drawImage(small, 0, 0, SIZE, SIZE);
-    ctx.imageSmoothingEnabled = true;
-  }
 
   // The caption, on a tilted green pill over Finn's paws.
-  let px = look.pixels ? 34 : 66;
+  let px = look.arcade ? 34 : 66;
   const font = (n) => `400 ${n}px ${look.font}`;
   ctx.font = font(px);
-  while (ctx.measureText(sticker.caption).width > 360 && px > (look.pixels ? 16 : 40)) ctx.font = font((px -= 2));
+  while (ctx.measureText(sticker.caption).width > 360 && px > (look.arcade ? 16 : 40)) ctx.font = font((px -= 2));
   const tw = ctx.measureText(sticker.caption).width;
   ctx.save();
   ctx.translate(256, 418);
@@ -237,10 +228,10 @@ function drawFace(ctx, sticker, dog) {
   ctx.beginPath();
   ctx.roundRect(
     -tw / 2 - 30,
-    -px * 0.72 - (look.pixels ? 8 : 0),
+    -px * 0.72 - (look.arcade ? 8 : 0),
     tw + 60,
-    px * 1.38 + (look.pixels ? 16 : 0),
-    look.pixels ? 8 : 999,
+    px * 1.38 + (look.arcade ? 16 : 0),
+    look.arcade ? 8 : 999,
   );
   ctx.fillStyle = look.caption[0];
   ctx.fill();
@@ -252,7 +243,7 @@ function drawFace(ctx, sticker, dog) {
 }
 
 /** A sticker as a PNG blob: the picture, a white edge all round it, and a soft shadow. With
- * `{ retro: true }`, the website's look: neon, pixel art, and a glowing cyan edge. */
+ * `{ retro: true }`, the website's look: neon, an arcade caption, and a glowing cyan edge. */
 export async function makeSticker(sticker, { retro = false } = {}) {
   look = retro ? LOOKS.retro : LOOKS.plain;
   const [dog] = await Promise.all([loadDog(), loadFont()]);
