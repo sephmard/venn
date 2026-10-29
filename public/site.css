@@ -411,13 +411,13 @@ h2 em {
   font-size: 1rem;
 }
 .venn-c.c1 {
-  left: 0;
+  left: 18px;
   top: 0;
   background: #b8ecd6;
   --from: -24px, -12px;
 }
 .venn-c.c2 {
-  right: 0;
+  right: 18px;
   top: 0;
   background: #ffd9a0;
   --from: 24px, -12px;
@@ -459,6 +459,52 @@ h2 em {
     opacity: 0;
     scale: 0.4;
   }
+}
+/* Live (hero-venn.js): the story plays by script; the circles can be picked up. */
+.venn-live {
+  touch-action: pan-y;
+  user-select: none;
+  -webkit-user-select: none;
+}
+.venn-live .venn-c,
+.venn-live .venn-hit {
+  animation: none;
+}
+.venn-live .venn-c {
+  cursor: grab;
+  transition: box-shadow 0.2s;
+}
+.venn-live .venn-c.held {
+  cursor: grabbing;
+  z-index: 3;
+  box-shadow: 0 16px 34px -12px rgb(0 0 0 / 0.35);
+}
+.venn-live .venn-hit {
+  z-index: 4;
+  pointer-events: none;
+  transition:
+    opacity 0.25s,
+    scale 0.35s cubic-bezier(0.3, 1.6, 0.5, 1);
+}
+.venn-live .venn-hit.off {
+  opacity: 0;
+  scale: 0.4;
+}
+.venn-chip {
+  position: absolute;
+  left: 0;
+  top: 0;
+  z-index: 2;
+  padding: 4px 10px;
+  border-radius: 14px 14px 14px 4px;
+  background: var(--card);
+  color: var(--ink);
+  font-size: 0.8125rem;
+  font-weight: 600;
+  white-space: nowrap;
+  box-shadow: 0 6px 16px -8px rgb(0 0 0 / 0.35);
+  pointer-events: none;
+  opacity: 0;
 }
 @media (prefers-color-scheme: dark) {
   .venn-c {
