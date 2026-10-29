@@ -12,6 +12,12 @@ const dayName = (d) => fmtDay.format(dateParts(d));
 const chips = (names, cls) =>
   names.map((name) => `<span class="chip ${cls}">${avatar(name, 'av-xs')}${esc(name)}</span>`).join('');
 
+/** Who answered what: a line each for available, if needed and unavailable, marked as in the key. */
+const group = (names, cls, label) =>
+  names.length
+    ? `<div class="ov-group"><span class="ov-group-h"><span class="sw sw-${cls}" aria-hidden="true"></span>${label}</span><span class="chips">${chips(names, cls)}</span></div>`
+    : '';
+
 /** Available, if needed and unavailable, in proportion. */
 const bar = (yes, maybe, no) =>
   [
@@ -36,7 +42,7 @@ function row(r, n, { kind, open, final, pick, mine }) {
       <span class="ov-count">${kind === 'all' ? '✓ Everyone' : `${yes + maybe} of ${n}`}${mine ? ` <span class="ov-mine">${esc(mine)}</span>` : ''}<span class="sr-only">. ${esc(said)}</span><span class="ov-chev" aria-hidden="true"></span></span>
       ${kind === 'all' ? '' : `<span class="ov-bar" aria-hidden="true">${bar(yes, maybe, no)}</span>`}
     </button>
-    ${open ? `<div class="ov-who">${chips(r.yes, 'yes')}${chips(r.maybe, 'maybe')}${chips(r.no, 'no')}${pick ? `<div class="ov-pick">${pick}</div>` : ''}</div>` : ''}
+    ${open ? `<div class="ov-who">${group(r.yes, 'yes', 'Available')}${group(r.maybe, 'maybe', 'If needed')}${group(r.no, 'no', 'Unavailable')}${pick ? `<div class="ov-pick">${pick}</div>` : ''}</div>` : ''}
   </li>`;
 }
 
