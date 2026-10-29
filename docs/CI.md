@@ -1,21 +1,21 @@
 # CI and review
 
-Every pull request gets fast, automatic checks, so reviewers can focus on what matters. The goal is high product quality without slowing anyone down: most pull requests are fully checked in about a minute, and docs-only changes in about 30 seconds.
+Every pull request gets fast, automatic checks, so reviewers can focus on what matters. The goal is high product quality without slowing anyone down: most pull requests are fully checked in about a minute, and docs-only changes in about 30 seconds. A change to the website alone (the landing and privacy pages, `site.css`, `hero-venn.js`, `menu.js`, `contact-form.js` and their tests) runs only the website's browser tests, tagged `@site`.
 
 ## What runs on a pull request
 
 | Check                                           | Runs when     | Blocks merging        | What it catches                                                                                              |
 | ----------------------------------------------- | ------------- | --------------------- | ------------------------------------------------------------------------------------------------------------ |
 | **Lint, format & docs**                         | Always        | Yes                   | ESLint, Prettier, broken links between docs, mistakes in workflow files (actionlint), npm package signatures |
-| **Unit & API tests**                            | Code changed  | Yes                   | Logic and API behaviour on Node 22 and 24, with a coverage floor and a page-weight budget                    |
+| **Unit & API tests**                            | App changed   | Yes                   | Logic and API behaviour on Node 22 and 24, with a coverage floor and a page-weight budget                    |
 | **Browser tests** (desktop, phone, in parallel) | Code changed  | Yes                   | Real user flows in Chromium, plus accessibility checks (axe, WCAG 2.2 AA) in light and dark mode             |
-| **Cloudflare Worker build**                     | Code changed  | Yes                   | The production build still bundles                                                                           |
+| **Cloudflare Worker build**                     | App changed   | Yes                   | The production build still bundles                                                                           |
 | **Dependency review**                           | Always on PRs | Yes                   | New dependencies with known vulnerabilities or non-permissive licenses                                       |
 | **CodeQL**                                      | Always        | Shown in Security tab | Security issues in the JavaScript and in the workflow files                                                  |
 | **Claude review**                               | Non-draft PRs | No (advisory)         | Bugs, security and privacy issues, missing tests. It leaves inline comments.                                 |
 | **Labels**                                      | Always        | No                    | Tags the PR by area (app, server, docs, tests, ci, dependencies)                                             |
 
-Branch protection requires one check, **CI passed**. It turns green only when every blocking job above has passed, or was skipped because the change is docs-only.
+Branch protection requires one check, **CI passed**. It turns green only when every blocking job above has passed, or was skipped because the change is docs-only (or, for the unit tests and Worker build, website-only).
 
 ### Quality gates
 

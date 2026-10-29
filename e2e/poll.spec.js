@@ -913,33 +913,37 @@ test('"Or add a time" adds an option on any day ahead, and the calendar goes the
   await expect(day).toBeFocused();
 });
 
-test('landing page: the logo, Create a Venn and the menu (GitHub is in it), and one way in', async ({ page }) => {
-  await page.goto('/');
-  const nav = page.getByRole('navigation', { name: 'Main' });
-  await expect(nav.getByRole('link', { name: 'GitHub' })).toBeHidden(); // not in the bar itself
-  await page.locator('.menu summary').click();
-  await expect(page.locator('.menu-panel').getByRole('link', { name: 'Privacy' })).toBeVisible();
-  await expect(page.locator('.menu-panel').getByRole('link', { name: 'GitHub' })).toHaveAttribute(
-    'href',
-    'https://github.com/sephmard/venn',
-  );
-  await page.locator('.menu summary').click();
-  await expect(page.locator('h1')).toHaveText(/Find the day that works/);
-  // "Create a Venn" stays in the sticky bar however far down people scroll, without sideways scrolling.
-  const create = page.locator('.topbar').getByRole('link', { name: 'Create a Venn' });
-  await expect(create).toHaveAttribute('href', '/new');
-  await page.locator('footer').scrollIntoViewIfNeeded();
-  await expect(create).toBeInViewport();
-  expect((await create.boundingBox()).height).toBeGreaterThanOrEqual(44);
-  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
-  await page.evaluate(() => scrollTo(0, 0));
-  // The hero's one button opens the create page; no plans or templates to choose from first.
-  await expect(page.locator('.hero a[href^="/new?"]')).toHaveCount(0);
-  await page.locator('.hero').getByRole('link', { name: 'Create a Venn' }).click();
-  await expect(page).toHaveURL(/\/new$/);
-  await expect(page.locator('#create h1')).toHaveText('Create a Venn');
-  await expect(page.getByRole('button', { name: 'Create Venn' })).toBeVisible();
-});
+test(
+  'landing page: the logo, Create a Venn and the menu (GitHub is in it), and one way in',
+  { tag: '@site' },
+  async ({ page }) => {
+    await page.goto('/');
+    const nav = page.getByRole('navigation', { name: 'Main' });
+    await expect(nav.getByRole('link', { name: 'GitHub' })).toBeHidden(); // not in the bar itself
+    await page.locator('.menu summary').click();
+    await expect(page.locator('.menu-panel').getByRole('link', { name: 'Privacy' })).toBeVisible();
+    await expect(page.locator('.menu-panel').getByRole('link', { name: 'GitHub' })).toHaveAttribute(
+      'href',
+      'https://github.com/sephmard/venn',
+    );
+    await page.locator('.menu summary').click();
+    await expect(page.locator('h1')).toHaveText(/Find the day that works/);
+    // "Create a Venn" stays in the sticky bar however far down people scroll, without sideways scrolling.
+    const create = page.locator('.topbar').getByRole('link', { name: 'Create a Venn' });
+    await expect(create).toHaveAttribute('href', '/new');
+    await page.locator('footer').scrollIntoViewIfNeeded();
+    await expect(create).toBeInViewport();
+    expect((await create.boundingBox()).height).toBeGreaterThanOrEqual(44);
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+    await page.evaluate(() => scrollTo(0, 0));
+    // The hero's one button opens the create page; no plans or templates to choose from first.
+    await expect(page.locator('.hero a[href^="/new?"]')).toHaveCount(0);
+    await page.locator('.hero').getByRole('link', { name: 'Create a Venn' }).click();
+    await expect(page).toHaveURL(/\/new$/);
+    await expect(page.locator('#create h1')).toHaveText('Create a Venn');
+    await expect(page.getByRole('button', { name: 'Create Venn' })).toBeVisible();
+  },
+);
 
 test('the poll created celebration shows the dog; Copy link copies the link and opens the poll', async ({ page, context }) => {
   await page.emulateMedia({ reducedMotion: 'reduce' });
