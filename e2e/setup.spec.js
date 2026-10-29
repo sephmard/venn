@@ -71,3 +71,18 @@ test('with nothing picked, every level says the same thing: pick at least one da
     await expect(page.locator('#summary')).toHaveText('Pick at least one day to create the poll');
   }
 });
+
+test('parts of the day and hours both go a week with ‹ › and a month with « »', async ({ page }) => {
+  await page.goto('/new');
+  for (const level of ['parts', 'hours']) {
+    await setLevel(page, level);
+    const label = page.locator('#when .tv-label');
+    await expect(label).not.toBeEmpty();
+    const now = await label.textContent();
+    await expect(page.locator('#when').getByRole('button', { name: 'Back a month' })).toBeDisabled();
+    await page.locator('#when').getByRole('button', { name: 'Forward a month' }).click();
+    await expect(label).not.toHaveText(now);
+    await page.locator('#when').getByRole('button', { name: 'Back a month' }).click();
+    await expect(label).toHaveText(now); // back to this week, not before
+  }
+});

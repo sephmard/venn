@@ -359,7 +359,7 @@ function timeGrid(
 }
 
 /** The same day `n` months on, or the month's last day. */
-function addMonths(date, n) {
+export function addMonths(date, n) {
   const [y, m, d] = date.split('-').map(Number);
   const last = new Date(Date.UTC(y, m - 1 + n + 1, 0)).getUTCDate();
   return new Date(Date.UTC(y, m - 1 + n, Math.min(d, last))).toISOString().slice(0, 10);

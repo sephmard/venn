@@ -3,7 +3,7 @@
 // organizer zooms in from whole days, so most whole-day polls never do.
 
 import { DAY_PARTS, addDays } from './core.js';
-import { dayChip, isPhone } from './picker.js';
+import { addMonths, dayChip, isPhone } from './picker.js';
 import { $, $$, dateParts, dayHead, dayLabel, esc, fmtMonthDay, shortRange, shortTime, todayStr } from './ui.js';
 
 const STEP = 30;
@@ -55,9 +55,11 @@ export function paintView(
           : ''
       }
       <div class="tv-nav">
+        <button type="button" class="icon-btn" data-pmonth="-1" aria-label="Back a month">«</button>
         <button type="button" class="icon-btn" data-pstep="-1" aria-label="Earlier">‹</button>
         <span class="tv-label" aria-live="polite"></span>
         <button type="button" class="icon-btn" data-pstep="1" aria-label="Later">›</button>
+        <button type="button" class="icon-btn" data-pmonth="1" aria-label="Forward a month">»</button>
       </div>
     </div>
     <div class="tv-strip" role="group" aria-label="Days"${day ? '' : ' hidden'}></div>
@@ -83,7 +85,7 @@ export function paintView(
     grid.classList.toggle('pg-narrow', narrow);
     $('.tv-label', root).textContent =
       ds.length > 1 ? `${fmtMonthDay.format(dateParts(ds[0]))} – ${fmtMonthDay.format(dateParts(ds.at(-1)))}` : dayLabel(ds[0]);
-    $('[data-pstep="-1"]', root).disabled = start <= thisWeek;
+    $('[data-pstep="-1"]', root).disabled = $('[data-pmonth="-1"]', root).disabled = start <= thisWeek;
     if (day)
       strip.innerHTML = week()
         .map((d) => {
@@ -231,9 +233,11 @@ export function paintView(
       if (day && !week().includes(anchor)) anchor = start < todayStr() ? todayStr() : start;
       return render();
     }
+    // ‹ › a week, « » a month: the week with the same day a month on (never before this week).
+    const mo = e.target.closest('[data-pmonth]');
     const st = e.target.closest('[data-pstep]');
-    if (st) {
-      start = addDays(start, 7 * +st.dataset.pstep);
+    if (st || mo) {
+      start = st ? addDays(start, 7 * +st.dataset.pstep) : monday(addMonths(start, +mo.dataset.pmonth));
       if (start < thisWeek) start = thisWeek;
       anchor = start < todayStr() ? todayStr() : start;
       return render();
