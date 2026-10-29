@@ -74,6 +74,7 @@ export function renderFree() {
   const st = { days: selected, parts: partsSel, hours: painted, maybe, defaultParts: new Set(DAY_PARTS.map((p) => p.key)) };
   let before = new Set(); // what the level had at the last update, to see what's new
   let level = 'days';
+  let timeLevel = null; // the last of parts of the day or hours visited: where a day's own times are
   let length = null; // minutes, for hours: optional, the shortest time worth finding
   let planLength = null; // a template's usual length, shown on hours until the organizer picks one
   let ownLength = false; // the organizer chose the length (or the poll being edited has one)
@@ -154,6 +155,7 @@ export function renderFree() {
     pt?.zoom(st, level, next);
     before = new Set(st[next]);
     level = next;
+    if (level !== 'days') timeLevel = level;
     if (level === 'hours' && !ownLength) setLength(planLength);
     for (const b of $$('[data-level]')) b.setAttribute('aria-checked', b.dataset.level === level);
     for (const el of $$('[data-for]')) el.hidden = el.dataset.for !== level;
@@ -194,6 +196,29 @@ export function renderFree() {
     cal.render();
     if (focused) $(`#when [data-date="${focused}"]`)?.focus();
   }
+  /**
+   * Picked days with times of their own, from the last of parts of the day or hours visited: less
+   * than the whole day there. With any, the poll goes out at that level, and the other days whole,
+   * so days and times mix in one poll.
+   */
+  function timed() {
+    if (!pt || !timeLevel || span() > 1) return new Map();
+    const ws = pt.windowsAt(st, timeLevel).filter((w) => selected.has(w.date));
+    const whole = (d, own) =>
+      timeLevel === 'hours'
+        ? own.length === 1 && pt.hoursLabel(own[0].start, own[0].end) === 'All day'
+        : DAY_PARTS.every((p) => partsSel.has(`${d}|${p.start}`));
+    const out = new Map();
+    for (const d of new Set(ws.map((w) => w.date))) {
+      const own = ws.filter((w) => w.date === d);
+      if (!whole(d, own)) out.set(d, own);
+    }
+    return out;
+  }
+  /** "6 – 9 PM", or "Evening": a time of a day that has its own. */
+  const timeOf = (w) =>
+    timeLevel === 'hours' ? pt.hoursLabel(w.start, w.end) : DAY_PARTS.find((p) => p.start === w.start)?.label;
+
   /** Days in a row read as one band: joined to the day before (l) and after (r) on the same line of
    * the calendar, or carrying on over a line or month break (cl, cr). If needed days are amber. */
   function band(d) {
@@ -218,7 +243,7 @@ export function renderFree() {
     root.innerHTML = '';
     $('#when-help').hidden = true;
     if (level === 'days') {
-      const said = (d) => (selected.has(d) ? (maybe.days.has(d) ? 'If needed' : 'Available') : '');
+      const said = (d) => (selected.has(d) ? (timed().has(d) ? 'Times' : maybe.days.has(d) ? 'If needed' : 'Available') : '');
       cal = monthView(root, {
         selected,
         onChange: tapped,
@@ -492,7 +517,14 @@ export function renderFree() {
     // The tap key above the calendar says the rest.
     $('#when-help').hidden = k < 2;
     $('#when-help').textContent = `Tap a day to pick ${k} in a row from it.`;
-    box.innerHTML = dates.length ? runList(dates, k) + CLEAR : NOTHING + (cleared ? UNDO : '');
+    // Days with times of their own keep them; the rest are whole days.
+    const own = [...timed()].sort(([a], [b]) => a.localeCompare(b));
+    const mixed = own.length
+      ? `<p class="hint mix-note">${own
+          .map(([d, ws]) => `<b>${esc(dayLabel(d))}</b>: ${esc(ws.map(timeOf).join(', '))}`)
+          .join('<br>')}<br>The other days are all day.</p>`
+      : '';
+    box.innerHTML = dates.length ? runList(dates, k) + mixed + CLEAR : NOTHING + (cleared ? UNDO : '');
     setReady(
       `${plural(dates.length, 'day')} to choose from`,
       // Only the first that applies: no days, too few, or none in a row.
@@ -513,17 +545,23 @@ export function renderFree() {
     e.preventDefault();
     if (explainNotReady()) return;
     const tz = $('#tz').value;
+    // Days, some with times of their own: the poll goes out at that level, the other days whole.
+    let lv = level;
+    if (lv === 'days' && timed().size) {
+      pt.zoom(st, 'days', timeLevel);
+      lv = timeLevel;
+    }
     // The organizer's own answer: what they picked, available or if needed.
-    const answer = hostAnswer(st[level], maybe[level], tz);
-    if (level === 'hours')
+    const answer = hostAnswer(st[lv], maybe[lv], tz);
+    if (lv === 'hours')
       return submit(
         { windows: pt.toWindows(painted), slotMinutes: 30, durationMinutes: length || 30, ...(!length && { anyLength: true }) },
         occasion,
         answer,
       );
-    if (level === 'parts') {
+    if (lv === 'parts') {
       const options = pt
-        .windowsAt(st, level)
+        .windowsAt(st, lv)
         .map((w) => ({ start: zonedToUtc(w.date, w.start, tz), end: zonedToUtc(w.date, w.end, tz) }));
       return submit({ mode: 'options', layout: 'parts', options }, occasion, answer);
     }
