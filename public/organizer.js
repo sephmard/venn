@@ -23,7 +23,7 @@ export function tools(box, ctx) {
       <button class="btn btn-sm" id="notify-open" aria-expanded="${!!panels.notify}" aria-controls="notify-box">${fresh ? 'Get notified when people answer' : 'Notifications'}</button>
       ${ctx.ai ? '<button class="btn btn-sm" id="writer-open" aria-controls="writer-box">Write a message</button>' : ''}
       <button class="btn btn-sm" id="privacy-open" aria-expanded="${!!panels.privacy}" aria-controls="privacy-box">Privacy</button>
-      <a class="btn btn-sm" href="/new/${ctx.kind}?${copyOnly ? 'copy' : 'edit'}=${id}" data-link>${copyOnly ? 'Duplicate' : 'Edit'} poll</a>
+      <a class="btn btn-sm" href="/new/${ctx.kind}?${copyOnly ? 'copy' : 'edit'}=${id}${copyOnly && ev.finalStart != null ? '&amp;next' : ''}" data-link>${copyOnly ? 'Duplicate' : 'Edit'} poll</a>
     </div>
     <div class="org-private">
       <button class="btn btn-sm" id="copy-admin" aria-describedby="copy-admin-hint">Copy private organizer link</button>

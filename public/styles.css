@@ -32,7 +32,7 @@
   --cell-empty: #ece8df;
   --cell-line: #8f8a80;
   --heat: 11, 122, 92;
-  --final: #4a63d9;
+  --final: #16181a;
   --final-ink: #ffffff;
   --radius: 14px;
   --radius-lg: 20px;
@@ -67,7 +67,7 @@
     --cell-empty: #23272a;
     --cell-line: #6e7378;
     --heat: 47, 196, 151;
-    --final: #7c95ff;
+    --final: #f4f3ef;
     --final-ink: #0f1112;
     --lift: none;
     color-scheme: dark;
@@ -1278,13 +1278,6 @@ ol.best .when {
 .banner-final .link-btn {
   color: inherit;
 }
-.final-more {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: flex-start;
-  gap: 0 20px;
-  margin-top: 8px;
-}
 /* The organizer's one big next step once the date is set: telling everyone. */
 .final-tell {
   display: grid;
@@ -1292,28 +1285,35 @@ ol.best .when {
   gap: 8px;
   margin-top: 16px;
 }
-/* Changing the picked date, right under it. */
-.final-change {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 4px 16px;
-  margin: 10px 0 4px;
-}
-.final-change > * {
-  min-height: 44px;
-  color: inherit;
-}
-.final-change .btn {
-  border: 1.5px solid;
-}
 .final-tell .btn {
   width: 100%;
+  min-height: 52px;
   background: var(--surface);
   color: var(--accent);
   border-color: transparent;
 }
 .final-tell .btn:hover {
   background: var(--surface-2);
+}
+/* Add to calendar: open, its calendars take the row. */
+.final-cal[open] {
+  grid-column: 1 / -1;
+}
+.final-tell .final-cal summary {
+  list-style: none;
+  background: transparent;
+  color: inherit;
+  border: 1.5px solid;
+  cursor: pointer;
+}
+.final-cal summary::-webkit-details-marker {
+  display: none;
+}
+.final-cal .cal-add {
+  margin-top: 10px;
+}
+.final-extras {
+  margin-top: 6px;
 }
 .final-extras summary {
   display: inline-flex;
@@ -2361,8 +2361,15 @@ pre.code {
 .ov-pick .hint {
   margin: 0;
 }
-.ov-pick-btn {
+.ov-pick .ov-pick-btn {
   width: 100%;
+  border-color: var(--final);
+  background: var(--final);
+  color: var(--final-ink);
+}
+.ov-pick .ov-pick-btn:hover {
+  background: var(--final);
+  opacity: 0.88;
 }
 /* Hours: a card a day, the day as a timeline of half hours. */
 .ov-days {

@@ -346,9 +346,10 @@ for (const width of [375, 412]) {
     await openPoll(page, { picked: true });
     const banner = page.locator('.banner-final');
     await expect(banner).toBeVisible();
-    // Change the date and Clear the date under the date, and the extras under "More".
-    await expect(banner.getByRole('button', { name: 'Change the date' })).toBeVisible();
+    // Send everyone the date and Add to calendar; Change the date and the rest under "More".
+    await banner.locator('.final-cal summary').click();
     await banner.locator('.final-extras summary').click();
+    await expect(banner.getByRole('button', { name: 'Change the date' })).toBeVisible();
     await expect(banner.getByRole('button', { name: 'Clear the date' })).toBeVisible();
     // Whatever is under the middle of each button is the button itself, not the decorative circles.
     for (const el of await banner.locator('a, button, select').all()) {
@@ -375,8 +376,10 @@ for (const scheme of ['light', 'dark']) {
     await page.emulateMedia({ colorScheme: scheme });
     await page.setViewportSize({ width: 375, height: 900 });
     await openPoll(page, { picked: true });
+    await page.locator('.final-cal summary').click();
+    await page.locator('.final-extras summary').click();
     await expect(page.getByRole('group', { name: 'Add to your calendar' })).toBeVisible();
-    await expect(page.getByRole('link', { name: 'Plan the next one' })).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Change the date' })).toBeVisible();
     await audit(page, `picked date (${scheme})`);
   });
 }

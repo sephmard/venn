@@ -1650,40 +1650,35 @@ export async function renderEvent(id, navigate) {
         `mailto:?bcc=${guests.map((g) => encodeURIComponent(g.email)).join(',')}&subject=${encodeURIComponent(
           `It's set: ${ev().title}`,
         )}&body=${encodeURIComponent(`It's set: ${ev().title}, ${when(start, end)}.\n\nAdd it to your calendar: ${shareUrl}\n`)}`;
+      const pictureBtn = `<button type="button" class="link-btn" id="share-card">${canShare ? 'Share as a picture' : 'Save as a picture'}</button>`;
+      const cal = calJs.addToCalendar({ id, info, day, url: shareUrl, guests });
+      // One or two big next steps, the rest under More.
       h += `<section class="banner-final${st.celebrate && !reducedMotion() ? ' celebrate' : ''}" aria-labelledby="final-h">
         <p class="kicker">It's happening</p>
         <h2 id="final-h">${bigWhen(start, end)}</h2>
         ${
-          // Picked the wrong one, or plans changed: another date is a tap away in everyone's answers.
-          ev().isAdmin
-            ? `<p class="final-change"><button type="button" class="btn btn-sm btn-ghost" id="change-date">Change the date</button><button type="button" class="link-btn" id="unpick">Clear the date</button></p>`
-            : ''
-        }
-        ${
-          // The organizer's next step: telling everyone. By email when the poll has their addresses.
           ev().isAdmin
             ? `<div class="final-tell">
-          ${mailAll ? `<a class="btn" id="email-all" href="${esc(mailAll)}">Email everyone the date</a>` : ''}
           <button type="button" class="btn" data-share>${canShare ? 'Send everyone the date' : 'Copy the link for everyone'}</button>
+          <details class="final-cal"><summary class="btn">Add to calendar</summary>${cal}</details>
         </div>`
-            : ''
+            : cal
         }
-        ${calJs.addToCalendar({ id, info, day, url: shareUrl, guests })}
-        <div class="final-more">
-          ${
-            // The next plan starts here: the organizer copies this poll, a guest makes their own.
-            ev().isAdmin
-              ? `<a class="link-btn" data-link href="/new/${optionsMode && !partsMode ? 'pick' : 'free'}?copy=${esc(id)}&amp;next">Plan the next one</a>
-          <details class="final-extras">
-            <summary>More</summary>
-            <div class="final-extras-body">
-              <button type="button" class="link-btn" id="share-card">${canShare ? 'Share as a picture' : 'Save as a picture'}</button>
-            </div>
-          </details>`
-              : `<button type="button" class="link-btn" id="share-card">${canShare ? 'Share as a picture' : 'Save as a picture'}</button>
-          <a class="link-btn" data-link href="/new?from=set${ev().emoji ? `&template=${encodeURIComponent(ev().emoji)}` : ''}">Make your own Venn</a>`
-          }
-        </div>
+        <details class="final-extras">
+          <summary>More</summary>
+          <div class="final-extras-body">
+            ${
+              // Picked the wrong one, or plans changed: another date is a tap away in everyone's answers.
+              ev().isAdmin
+                ? `<button type="button" class="link-btn" id="change-date">Change the date</button>
+            <button type="button" class="link-btn" id="unpick">Clear the date</button>
+            ${mailAll ? `<a class="link-btn" id="email-all" href="${esc(mailAll)}">Email everyone the date</a>` : ''}
+            ${pictureBtn}`
+                : `${pictureBtn}
+            <a class="link-btn" data-link href="/new?from=set${ev().emoji ? `&template=${encodeURIComponent(ev().emoji)}` : ''}">Make your own Venn</a>`
+            }
+          </div>
+        </details>
       </section>`;
     } else if (ev().isAdmin && ev().seriesOf) h += '<div id="series-box"></div>'; // bring last time's group back
     if (org) h += '<div id="org-tools"></div>';
@@ -1703,8 +1698,9 @@ export async function renderEvent(id, navigate) {
     org?.tools($('#org-tools'), {
       id,
       ev: ev(),
-      fresh: st.fresh,
-      open: st.orgOpen ?? st.fresh,
+      // Once the date is set, the banner leads and the tools wait, closed.
+      fresh: st.fresh && ev().finalStart == null,
+      open: st.orgOpen ?? (st.fresh && ev().finalStart == null),
       onToggle: (open) => (st.orgOpen = open), // stays open or closed across re-renders
       notifyPending: saved(id).notifyPending,
       ai: aiOn,
