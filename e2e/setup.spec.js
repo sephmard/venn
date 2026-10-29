@@ -179,7 +179,11 @@ test('on a phone, press and hold on hours to draw a time, or to move one; a swip
 test('hours open at 11 AM, and on a phone each part of the day shows its times', async ({ page, isMobile }) => {
   await page.goto('/new');
   await setLevel(page, 'parts');
-  if (isMobile) await expect(page.locator('#when .pg-cell.part').first()).toContainText(/9\s*a?\s*12/);
+  if (isMobile) {
+    const times = page.locator('#when .pg-cell.part small').first(); // "9a" over "12p"
+    await expect(times).toHaveAttribute('data-a', /^9/);
+    await expect(times).toHaveAttribute('data-b', /^12/);
+  }
   await setLevel(page, 'hours');
   const [top, row] = await page
     .locator('#when .tg-scroll')

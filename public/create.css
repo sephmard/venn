@@ -419,6 +419,15 @@ button.emoji-tile:focus-visible {
   line-height: 1.25;
   text-align: center;
 }
+/* Phones: "9a" over "12p", drawn by CSS so the cell's name stays its full times */
+.pg-narrow .pg-cell.part small::before,
+.pg-narrow .pg-cell.part small::after {
+  content: attr(data-a);
+  display: block;
+}
+.pg-narrow .pg-cell.part small::after {
+  content: attr(data-b);
+}
 .pg-narrow .pg-cell.part {
   height: 56px;
 }
