@@ -1737,12 +1737,11 @@ test('once the date is picked: add it to Google Calendar, Outlook or iCal', asyn
   expect(ics).toContain('SUMMARY:Dinner');
   expect(ics).toContain('DTSTART:20300108T180000Z');
 
-  // Telling everyone comes first; clearing the date is tucked under "More".
+  // Telling everyone; and changing or clearing the date, right under it.
   const banner = page.locator('.banner-final');
   await expect(banner.locator('.final-tell [data-share]')).toBeVisible();
   await expect(page.locator('.poll-share')).toBeHidden(); // the banner says how to share now
-  await expect(banner.getByRole('button', { name: 'Clear the date' })).toBeHidden();
-  await banner.locator('.final-extras summary').click();
+  await expect(banner.getByRole('button', { name: 'Change the date' })).toBeVisible();
   await banner.getByRole('button', { name: 'Clear the date' }).click();
   await expect(banner).toHaveCount(0);
   await expect(page.getByRole('group', { name: 'Add to your calendar' })).toHaveCount(0);
@@ -3154,4 +3153,46 @@ test('creating a Venn: dates only by month or week, date and time as parts or ho
   const id = page.url().split('/e/')[1];
   const ev = await (await page.request.get(`/api/events/${id}`)).json();
   expect(ev.durationMinutes).toBe(30); // no length: any overlap counts
+});
+
+test('the picked date says so on its row, and the organizer changes it in two taps', async ({ page, request }) => {
+  // Three evenings, as parts of the day; Ana can make the first two.
+  const day = (d, h) => Date.UTC(2031, 0, d, h);
+  const options = [6, 7, 8].map((d) => ({ start: day(d, 18), end: day(d, 22) }));
+  const { id, adminToken } = await (
+    await request.post('/api/events', { data: { title: 'Dinner', timezone: 'UTC', mode: 'options', layout: 'parts', options } })
+  ).json();
+  await request.post(`/api/events/${id}/participants`, {
+    data: { name: 'Ana', availability: { [options[0].start]: 2, [options[1].start]: 2 } },
+  });
+  await request.post(`/api/events/${id}/finalize`, {
+    data: { start: options[0].start },
+    headers: { 'x-admin-token': adminToken },
+  });
+
+  // Guests see which one was picked.
+  await page.goto(`/e/${id}`);
+  if (await page.locator('#tab-group').isVisible()) await page.click('#tab-group');
+  await expect(page.locator('.ov-row.final')).toHaveCount(1);
+  await expect(page.locator('.ov-row.final')).toContainText('✓ Picked');
+  await expect(page.locator('.ov-row').first()).toHaveClass(/final/);
+  await expect(page.locator('#change-date')).toHaveCount(0);
+
+  // The organizer: Change the date opens everyone's answers with the picked one open.
+  await page.goto(`/e/${id}#admin=${adminToken}`);
+  await page.getByRole('button', { name: 'Change the date' }).click();
+  await expect(page.locator('.ov-row.final')).toHaveAttribute('aria-expanded', 'true');
+  await expect(page.locator('.ov-pick')).toContainText('To change it, open another time and pick that');
+  await expect(page.locator('#group-h')).toBeInViewport();
+  // Another evening: Pick this instead, after saying what it means for calendars.
+  await page.locator('.ov-row').nth(1).click();
+  const asked = [];
+  page.on('dialog', (d) => asked.push(d.message()));
+  await page.getByRole('button', { name: 'Pick this instead' }).click();
+  await expect(page.locator('#toast')).toContainText('Date changed');
+  expect(asked.join(' ')).toMatch(/Anyone who added .* to their calendar will need to update it/);
+  await expect(page.locator('.banner-final h2')).toContainText('Jan 7');
+  await expect(page.locator('.ov-row').nth(1)).toContainText('✓ Picked');
+  const ev = await (await request.get(`/api/events/${id}`)).json();
+  expect(ev.finalStart).toBe(options[1].start);
 });
