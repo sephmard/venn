@@ -346,7 +346,8 @@ for (const width of [375, 412]) {
     await openPoll(page, { picked: true });
     const banner = page.locator('.banner-final');
     await expect(banner).toBeVisible();
-    // The organizer's "Plan the next one", and the extras under "More".
+    // Change the date and Clear the date under the date, and the extras under "More".
+    await expect(banner.getByRole('button', { name: 'Change the date' })).toBeVisible();
     await banner.locator('.final-extras summary').click();
     await expect(banner.getByRole('button', { name: 'Clear the date' })).toBeVisible();
     // Whatever is under the middle of each button is the button itself, not the decorative circles.
