@@ -46,7 +46,8 @@ const PAGES = {
   // +0.5 for big groups: "+N more" people, names behind "See who", ticks on whole best times.
   // +0.5 for the organizer's tools only on their own link, with "Organizer view" on the guest link.
   // +1 for Change the date as a list in the banner, and one question once the date is picked.
-  'poll page': ['event.js', [], 47],
+  // +0.25 for "Pick this date?" before a date goes out to everyone.
+  'poll page': ['event.js', [], 47.25],
 };
 
 for (const [name, [entry, css, PAGE_KB]] of Object.entries(PAGES)) {

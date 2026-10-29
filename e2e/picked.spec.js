@@ -52,7 +52,7 @@ test.describe('far from the organizer', () => {
   });
 });
 
-test('Change the date lists the next best dates, each one tap away, without a pop-up', async ({ page, request }) => {
+test('Change, under the date, lists the next best dates; picking one asks first, in the page', async ({ page, request }) => {
   const { id, adminToken } = await datesPoll(request, [
     ['Ana', dates],
     ['Ben', [dates[0], dates[2]]],
@@ -62,7 +62,7 @@ test('Change the date lists the next best dates, each one tap away, without a po
     throw new Error('No pop-up expected');
   });
   await page.goto(`/e/${id}#admin=${adminToken}`);
-  await page.locator('.final-extras summary').click();
+  await expect(page.locator('#change-date')).toHaveText('Change');
   await page.click('#change-date');
   const rows = page.locator('#change-list li');
   await expect(rows).toHaveCount(2);
@@ -72,9 +72,14 @@ test('Change the date lists the next best dates, each one tap away, without a po
   // Keep this date closes it; Pick changes it.
   await page.click('#change-cancel');
   await expect(page.locator('#change-list')).toHaveCount(0);
-  await page.locator('.final-extras summary').click();
   await page.click('#change-date');
   await rows.first().getByRole('button', { name: 'Pick' }).click();
+  // Back keeps the date; Change it changes it.
+  await expect(page.locator('#pick-check h2')).toHaveText('Change the date to this?');
+  await page.click('#pc-no');
+  await expect(page.locator('#final-h')).toHaveText(/Thu, Jan 10/);
+  await rows.first().getByRole('button', { name: 'Pick' }).click();
+  await page.click('#pc-yes');
   await expect(page.locator('#final-h')).toHaveText(/Sat, Jan 12/);
   await expect(page.locator('#change-list')).toHaveCount(0);
 });
@@ -106,4 +111,30 @@ test('once the date is picked, a new guest just says if they can make it', async
   await expect(page.locator('.party')).toBeVisible();
   const ev = await (await request.get(`/api/events/${id}`)).json();
   expect(ev.participants.find((p) => p.name === 'Riley').availability).toEqual({ [day(dates[1])]: 2 });
+});
+
+test('the organizer picks the whole overlap, and the timeline marks all of it', async ({ page, request, isMobile }) => {
+  const at = (h) => Date.parse(`2030-01-08T${h}:00:00-05:00`);
+  const { id, adminToken } = await (
+    await request.post('/api/events', {
+      data: {
+        title: 'Drinks',
+        timezone: 'America/New_York',
+        windows: [{ date: '2030-01-08', start: 1080, end: 1320 }],
+        slotMinutes: 30,
+        durationMinutes: 30,
+        anyLength: true,
+      },
+    })
+  ).json();
+  const two = Object.fromEntries([19, 19.5, 20, 20.5].map((h) => [at(19) + (h - 19) * 3_600_000, 2]));
+  for (const name of ['Ana', 'Ben']) await request.post(`/api/events/${id}/participants`, { data: { name, availability: two } });
+  await page.goto(`/e/${id}#admin=${adminToken}`);
+  if (isMobile) await page.click('#tab-group');
+  await page.locator('.best-hero [data-pick]').click();
+  await expect(page.locator('#pick-check')).toContainText('2 of 2 can make it');
+  await page.click('#pc-yes');
+  await expect(page.locator('.banner-final')).toBeVisible();
+  // Two hours, so four half hours marked picked, not just the first.
+  await expect(page.locator('.ov-slot.final')).toHaveCount(4);
 });
