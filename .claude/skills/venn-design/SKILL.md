@@ -37,6 +37,8 @@ the same PR** (and CLAUDE.md if it's a rule that matters in review).
 - Both use the same navigation: **« ‹ › »** (a month, a week), never before this week.
 - A tap goes round the same way at every level: **available, then if needed, then removed**.
 - Parts of day and Hours look alike: a plain head, times filling their day's column edge to edge.
+- Drag works on both: drag across parts of the day to paint them; on Hours, **press and hold, then
+  drag** to draw a time, or hold a time and drag to move it (a quick swipe still scrolls).
 - A tap on Hours gives **the hour tapped**, as the labels read (half hours only with a 30-min length).
 - A whole day is one **"All day"** at every level, never split into parts or hours with gaps.
 - Templates shape the calendar only while nothing is picked; they never move or remove picks. A second
@@ -63,7 +65,8 @@ the same PR** (and CLAUDE.md if it's a rule that matters in review).
 - Every Pick asks first, in the page ("Pick this time?" with the date in big type and who can make
   it): picking tells everyone. **Never `confirm()`**: in-app browsers block it.
 - **Change** sits right under the picked date; changing lists the next best dates.
-- Organizer tools start closed; sharing comes first.
+- Organizer tools start closed; sharing comes first: **Copy link** is the main button (after creating
+  and on the poll), with **Share** (the phone's share sheet) beside it.
 
 **Website (venn.day)**
 

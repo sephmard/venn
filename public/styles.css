@@ -674,6 +674,11 @@ details.organizer[open] summary::before {
 .poll-share {
   grid-column: 1 / -1;
 }
+div.poll-share {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 8px;
+}
 .poll-share .btn {
   width: 100%;
 }

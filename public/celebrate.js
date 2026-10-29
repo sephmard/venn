@@ -22,7 +22,7 @@ const CSS = `
 .party p{margin:0;font-size:19px;line-height:1.4;text-wrap:balance}
 .party .party-go{margin-top:10px;min-height:44px;padding:10px 20px;border:0;border-radius:999px;font:inherit;
   font-size:16px;font-weight:600;background:var(--accent);color:var(--accent-ink);cursor:pointer;max-width:100%;overflow-wrap:anywhere}
-.party .party-also{display:inline-flex;align-items:center;justify-content:center;min-height:44px;padding:8px 20px;
+.party .party-also,.party .party-sheet{display:inline-flex;align-items:center;justify-content:center;min-height:44px;padding:8px 20px;
   border:2px solid var(--accent);border-radius:999px;background:var(--bg);color:var(--accent);font-size:16px;font-weight:600;
   text-decoration:none;max-width:100%;overflow-wrap:anywhere}
 .party .party-skip{min-height:44px;padding:8px 16px;border:0;background:none;font:inherit;font-size:16px;font-weight:600;
@@ -38,8 +38,9 @@ const rand = (min, max) => min + Math.random() * (max - min);
 const SHOW_MS = 3600;
 
 /**
- * Celebrate a new poll (or, with `heading`, `message` and `button`, an answer). With `share`, the main
- * button shares the poll, and "View poll" just opens it. `shown` resolves when it's time to open the
+ * Celebrate a new poll (or, with `heading`, `message` and `button`, an answer). With `share` (copy the
+ * link), the main button is Copy link; with `sheet` (the phone's share sheet) too, Share is next to it;
+ * "View poll" just opens it. `shown` resolves when it's time to open the
  * poll: after a few seconds, or straight away if the person presses a button or Escape. Then call
  * `finish()` to fade the overlay out over the poll. With `also` ({ label, href }), a second button
  * that goes somewhere else, such as making your own poll; it stays up longer then, to be seen.
@@ -52,6 +53,7 @@ export function celebrate({
   message = 'Finn is so proud of you for bringing people together.',
   button = title ? `Open ${title} →` : 'Open my poll →',
   share = null,
+  sheet = null,
   also = null,
   picture = null,
 } = {}) {
@@ -74,6 +76,7 @@ export function celebrate({
       }</div>
       <div role="status"></div>
       <button type="button" class="party-go"></button>
+      ${sheet ? '<button type="button" class="party-sheet">Share</button>' : ''}
       ${also ? `<a class="party-also"${also.href.startsWith('/') ? ' data-link' : ''}></a>` : ''}
       <button type="button" class="party-skip" hidden>View poll</button>
     </div>`;
@@ -90,8 +93,8 @@ export function celebrate({
   p.textContent = message;
   status.append(h2, p);
   const go = el.querySelector('.party-go');
-  // Sharing is the next step for a new poll, so it's the main button when it's offered.
-  go.textContent = share ? 'Share poll' : button;
+  // Sharing is the next step for a new poll: the link, copied, is the main button; Share is next to it.
+  go.textContent = share ? 'Copy link' : button;
   const view = el.querySelector('.party-skip');
   view.hidden = !share;
   go.focus({ preventScroll: true });
@@ -246,6 +249,11 @@ export function celebrate({
     skip();
   });
   view.addEventListener('click', () => skip());
+  el.querySelector('.party-sheet')?.addEventListener('click', () => {
+    track('share', { from: 'created', how: 'sheet' });
+    sheet();
+    skip();
+  });
   const away = el.querySelector('.party-also');
   if (away) {
     away.textContent = also.label;

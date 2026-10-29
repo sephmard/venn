@@ -683,6 +683,10 @@ button.emoji-tile:focus-visible {
   margin-top: 4px;
 }
 /* Hours look like parts of the day */
+#when .tg-lifted {
+  box-shadow: 0 8px 20px -6px rgb(0 0 0 / 0.45);
+  z-index: 3;
+}
 #when .tg-head {
   background: var(--surface);
 }
