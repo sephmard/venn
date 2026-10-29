@@ -723,12 +723,17 @@ export async function renderEvent(id, navigate) {
       value: (s) => st.mine[s] || 0,
       onTap: dayTap,
       final: (s) => finalSet().has(+s),
+      span: Math.round(ev().durationMinutes / 1440),
     });
   }
-  /** A day on the calendar: available → if needed → blank. Once any day is marked, the blank ones are a no. */
-  function dayTap(s) {
+  /**
+   * A day on the calendar: available → if needed → blank. Once any day is marked, the blank ones are
+   * a no. For a trip, a first tap marks the whole stretch (`trip`, the days' keys) as available.
+   */
+  function dayTap(s, trip) {
     const v = st.mine[s] || 0;
-    if (v === YES) st.mine[s] = IF_NEEDED;
+    if (trip) for (const k of trip) st.mine[k] = YES;
+    else if (v === YES) st.mine[s] = IF_NEEDED;
     else if (v === IF_NEEDED) delete st.mine[s];
     else st.mine[s] = YES;
     st.touched.clear();
