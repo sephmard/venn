@@ -254,15 +254,7 @@ h2 em {
 .nav-links > a:not(.btn):hover {
   background: var(--paper-2);
 }
-.nav-links .gh-link {
-  border: 1px solid var(--line);
-  margin: 0 4px 0 8px;
-}
-.gh-mark {
-  flex: none;
-}
 .menu {
-  display: none;
   position: relative;
 }
 .menu summary {
@@ -865,46 +857,7 @@ h3 {
     animation: none;
   }
 }
-/* Ideas and questions: a button in the corner that opens them in a dialog. */
-.ask-open {
-  position: fixed;
-  right: 16px;
-  bottom: 16px;
-  z-index: 20;
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  min-height: 48px;
-  padding: 0 18px 0 14px;
-  border: 1px solid var(--line);
-  border-radius: 999px;
-  background: var(--card);
-  color: var(--ink);
-  font: 600 0.9375rem/1 var(--sans);
-  box-shadow: var(--card-shadow);
-  cursor: pointer;
-}
-.ask-open:hover {
-  border-color: var(--green);
-}
-.ask-open:focus-visible {
-  outline: 2px solid var(--green);
-  outline-offset: 2px;
-}
 @media (max-width: 480px) {
-  .ask-open {
-    width: 48px;
-    padding: 0;
-    justify-content: center;
-  }
-  .ask-label {
-    position: absolute;
-    width: 1px;
-    height: 1px;
-    overflow: hidden;
-    clip-path: inset(50%);
-    white-space: nowrap;
-  }
 }
 .ask {
   width: min(560px, calc(100% - 32px));
@@ -1274,12 +1227,6 @@ h3 {
   :root {
     --section: 64px;
   }
-  .hide-md {
-    display: none !important;
-  }
-  .menu {
-    display: block;
-  }
   .groups,
   .tpl-hero {
     grid-template-columns: minmax(0, 1fr);
@@ -1295,20 +1242,6 @@ h3 {
 @media (max-width: 640px) {
   :root {
     --gutter: 16px;
-  }
-  .gh-label {
-    position: absolute;
-    width: 1px;
-    height: 1px;
-    overflow: hidden;
-    clip-path: inset(50%);
-    white-space: nowrap;
-  }
-  .nav-links .gh-link {
-    width: 44px;
-    padding: 0;
-    justify-content: center;
-    margin: 0;
   }
   .nav {
     gap: 8px;
@@ -1412,8 +1345,4 @@ h3 {
     filter: blur(6px);
     translate: 0 32px;
   }
-}
-/* Room under the footer, so the Ideas & questions button never covers its links. */
-body:has(.ask-open) .footer {
-  padding-bottom: 88px;
 }

@@ -132,13 +132,9 @@ test.describe('on a 320px phone', () => {
       // And in a wider font, as some phones and CI's Linux use.
       await page.addStyleTag({ content: "* { font-family: 'DejaVu Sans', Verdana, sans-serif !important }" });
       await fits(page, `${path} (wide font)`);
-      // The site's nav bar: nothing on top of the logo.
+      // The site's nav bar: the logo, Create a Venn and the menu, nothing on top of the logo.
       const brand = page.locator('.topbar .brand');
-      const gh = page.locator('.topbar .gh-link');
-      if (await gh.count()) {
-        expect(await brand.evaluate((el) => el.scrollWidth <= el.clientWidth), path).toBe(true);
-        expect((await box(brand)).right, path).toBeLessThanOrEqual((await box(gh)).left);
-      }
+      if (await brand.count()) expect(await brand.evaluate((el) => el.scrollWidth <= el.clientWidth), path).toBe(true);
     }
     // Every length's calendar on "vote on a few dates".
     await page.goto('/new/pick');

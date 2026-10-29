@@ -49,7 +49,7 @@ for (const scheme of ['light', 'dark']) {
       // Once the Venn's circles have faded in (other sections animate as they scroll into view).
       await page.locator('.venn').evaluate((v) => Promise.all(v.getAnimations({ subtree: true }).map((a) => a.finished)));
       await audit(page, 'landing page');
-      await page.getByRole('button', { name: 'Ideas & questions' }).click();
+      await page.locator('footer').getByRole('link', { name: 'Contact' }).click();
       await expect(page.locator('.contact-form')).toBeVisible();
       // Once it has faded in.
       await page.locator('dialog.ask').evaluate((d) => Promise.all(d.getAnimations().map((a) => a.finished)));

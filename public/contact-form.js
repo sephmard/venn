@@ -1,5 +1,5 @@
-// The home page's "Ideas and questions": a dialog that the corner button, and any link to /#contact,
-// opens. Its form sends a feature request or a message, emailed to the people who run this Venn
+// The home page's "Ideas and questions": a dialog that any link to /#contact (Contact, in the menu
+// and the footer) opens. Its form sends a feature request or a message, emailed to the people who run this Venn
 // (POST /api/contact); the form shows only when the server has that set up.
 
 const form = document.querySelector('.contact-form');
