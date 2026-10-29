@@ -916,15 +916,17 @@ test('"Or add a time" adds an option on any day ahead, and the calendar goes the
   await expect(day).toBeFocused();
 });
 
-test('landing page: nav bar with GitHub, and one way in: Create a Venn', async ({ page, isMobile }) => {
+test('landing page: the logo, Create a Venn and the menu (GitHub is in it), and one way in', async ({ page }) => {
   await page.goto('/');
   const nav = page.getByRole('navigation', { name: 'Main' });
-  await expect(nav.getByRole('link', { name: 'GitHub' }).first()).toHaveAttribute('href', 'https://github.com/sephmard/venn');
-  if (isMobile) {
-    await page.locator('.menu summary').click();
-    await expect(page.locator('.menu-panel').getByRole('link', { name: 'Privacy' })).toBeVisible();
-    await page.locator('.menu summary').click();
-  }
+  await expect(nav.getByRole('link', { name: 'GitHub' })).toBeHidden(); // not in the bar itself
+  await page.locator('.menu summary').click();
+  await expect(page.locator('.menu-panel').getByRole('link', { name: 'Privacy' })).toBeVisible();
+  await expect(page.locator('.menu-panel').getByRole('link', { name: 'GitHub' })).toHaveAttribute(
+    'href',
+    'https://github.com/sephmard/venn',
+  );
+  await page.locator('.menu summary').click();
   await expect(page.locator('h1')).toHaveText(/Find the day that works/);
   // "Create a Venn" stays in the sticky bar however far down people scroll, without sideways scrolling.
   const create = page.locator('.topbar').getByRole('link', { name: 'Create a Venn' });
