@@ -412,9 +412,3 @@ export function windowList(windows, level, chip, dayRange) {
     })
     .join('')}</ul>`;
 }
-
-/** How to paint, said above the calendar where it's read before the first stroke. */
-export function paintHelp() {
-  const tap = isPhone() ? 'Tap' : 'Click';
-  return `Drag across several, or ${tap.toLowerCase()} a day name for the whole day.`;
-}

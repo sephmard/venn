@@ -34,7 +34,7 @@ const PAGES = {
   // +0.25 on the first for the Where field's address search hook (the search itself loads on focus).
   // +0.5 each for the calendar's « » a month at a time, and a phone's week that fits seven days.
   // +0.5 each for the calendars' Month / Week and Week / Day switches; +0.75 more on the Venn page for
-  // Dates only / Date and time, the optional length and the quick fills (Weekdays, your own times).
+  // Days / Parts of day / Hours, the optional length and the quick fills (Weekdays, your own times).
   // +0.5 each for the shared stylesheet's picked date (its row says Picked, and Change the date) and the
   // organizer's Pick: an open row and its button as one card.
   // +0.25 each for switching lengths keeping the days, and the week's fills that show when they're on.

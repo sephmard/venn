@@ -49,10 +49,10 @@ const NOTHING = '<p class="hint">Nothing yet.</p>';
 const UNDO = '<button type="button" class="link-btn" id="q-undo">Undo</button>';
 const HOUR_LENGTHS = [30, 60, 120];
 const fitLength = (v) => HOUR_LENGTHS.findLast((m) => m <= v) ?? HOUR_LENGTHS[0];
-// How detailed guests' answers are: dates only (whole days), or a date and time, as parts of the
-// day or as hours.
-const TIME_LEVELS = [
-  ['parts', 'Parts of the day'],
+// How detailed guests' answers are, one tap from whole days down to hours.
+const LEVELS = [
+  ['days', 'Days'],
+  ['parts', 'Parts of day'],
   ['hours', 'Hours'],
 ];
 // Parts of the day and hours: the painter, and what the page does with what's painted. Most
@@ -74,7 +74,6 @@ export function renderFree() {
   const st = { days: selected, parts: partsSel, hours: painted, maybe, defaultParts: new Set(DAY_PARTS.map((p) => p.key)) };
   let before = new Set(); // what the level had at the last update, to see what's new
   let level = 'days';
-  let timeLevel = 'parts'; // where "Date and time" opens: the last of parts of the day or hours
   let length = null; // minutes, for hours: optional, the shortest time worth finding
   let planLength = null; // a template's usual length, shown on hours until the organizer picks one
   let ownLength = false; // the organizer chose the length (or the poll being edited has one)
@@ -93,11 +92,7 @@ export function renderFree() {
         <h2 id="when-h">When could it be?</h2>
         <div class="zoom">
           <div class="seg" role="radiogroup" aria-label="Guests answer with">
-            <button type="button" role="radio" data-level="days">Dates only</button>
-            <button type="button" role="radio" data-mode="time">Date and time</button>
-          </div>
-          <div class="seg seg-sub" role="radiogroup" aria-label="Times as" id="time-levels" hidden>
-            ${TIME_LEVELS.map(([k, l]) => `<button type="button" role="radio" data-level="${k}">${l}</button>`).join('')}
+            ${LEVELS.map(([k, l]) => `<button type="button" role="radio" data-level="${k}">${l}</button>`).join('')}
           </div>
         </div>
         <div class="inline-field inline-row optional" data-for="days">
@@ -159,11 +154,8 @@ export function renderFree() {
     pt?.zoom(st, level, next);
     before = new Set(st[next]);
     level = next;
-    if (level !== 'days') timeLevel = level;
     if (level === 'hours' && !ownLength) setLength(planLength);
     for (const b of $$('[data-level]')) b.setAttribute('aria-checked', b.dataset.level === level);
-    $('[data-mode="time"]').setAttribute('aria-checked', level !== 'days');
-    $('#time-levels').hidden = level === 'days';
     for (const el of $$('[data-for]')) el.hidden = el.dataset.for !== level;
     mount();
     update();
@@ -224,7 +216,7 @@ export function renderFree() {
     const root = $('#when');
     const at = ++mounts;
     root.innerHTML = '';
-    $('#when-help').hidden = false;
+    $('#when-help').hidden = true;
     if (level === 'days') {
       const said = (d) => (selected.has(d) ? (maybe.days.has(d) ? 'If needed' : 'Available') : '');
       cal = monthView(root, {
@@ -240,7 +232,7 @@ export function renderFree() {
     const parts = level === 'parts';
     const set = st[level];
     // Parts of the day and hours need the painter, which most whole-day polls never load.
-    const { paintView, datesOf, paintHelp } = await loadPaint();
+    const { paintView, datesOf } = await loadPaint();
     if (at !== mounts || !root.isConnected) return;
     // Hours are times on the week calendar, moved and stretched with block-edit.js, loaded then too.
     if (!parts) {
@@ -257,7 +249,6 @@ export function renderFree() {
       marking: () => brush() === IF_NEEDED,
       views: ['week', 'day'],
     });
-    $('#when-help').textContent = paintHelp();
   }
 
   /**
@@ -345,7 +336,6 @@ export function renderFree() {
     });
     if (first) view.show(first);
     painter = { render: view.render, cleanup: view.cleanup };
-    $('#when-help').textContent = 'Drag on the calendar to add times.';
   }
 
   /** After the picks change from outside the calendars: show them there too. */
@@ -369,8 +359,6 @@ export function renderFree() {
       $('#span').value = Math.max(2, Math.min(MAX_SPAN_DAYS, span() + +s.dataset.step));
       update();
     }
-    const mode = e.target.closest('[data-mode]');
-    if (mode && level === 'days') setLevel(timeLevel);
     // Clear all, and Undo in its place until something new is picked.
     if (e.target.closest('#q-clear')) {
       const copy = (x) => Object.fromEntries(Object.entries(x).map(([k, v]) => [k, new Set(v)]));
@@ -500,7 +488,7 @@ export function renderFree() {
     const dates = [...selected].sort();
     const k = span();
     // Days in a row are whole days: dates and times wait until it's back to one.
-    for (const b of $$('[data-level], [data-mode]')) if (b.dataset.level !== 'days') b.disabled = k > 1;
+    for (const b of $$('[data-level]')) if (b.dataset.level !== 'days') b.disabled = k > 1;
     // The tap key above the calendar says the rest.
     $('#when-help').hidden = k < 2;
     $('#when-help').textContent = `Tap a day to pick ${k} in a row from it.`;
