@@ -321,15 +321,12 @@ button.emoji-tile:focus-visible {
   border: 0;
   border-bottom: 1px solid var(--border);
   font: inherit;
-  font-size: 0.8rem;
+  padding: 6px 0;
   color: var(--text);
   cursor: pointer;
   line-height: 1.2;
 }
-.pg-day b {
-  display: block;
-}
-.pg-day:hover {
+.pg-day:not(:disabled):hover {
   background: var(--surface-2);
 }
 .pg-time {
@@ -352,13 +349,10 @@ button.emoji-tile:focus-visible {
 }
 /* This week's days before today: shown, so the week starts on Monday, but not for painting. */
 .pg-cell.past {
-  background: var(--surface-2);
-  cursor: default;
   touch-action: pan-y;
 }
 .pg-day:disabled {
-  color: var(--muted);
-  cursor: default;
+  cursor: not-allowed;
 }
 .pg-cell.on {
   background: var(--accent);
@@ -663,9 +657,6 @@ button.emoji-tile:focus-visible {
 }
 #other-box select {
   margin-top: 4px;
-}
-.tg-past {
-  background-color: var(--surface-2);
 }
 /* Narrow week columns on phones: a short start time ("7p"), at the top, under the × */
 .tg-narrow .tg-block {

@@ -86,10 +86,13 @@ test('a phone’s week shows short options as their start time, and day names th
   await expect(block.locator('span')).toHaveText(/^7:30p$/);
   // No × in a column this narrow (the day view and the list have one), so the time isn't hidden.
   await expect(page.locator('#picker .tg-x-box')).toBeHidden();
-  // "Mon 2", one line each, not "Mon / Nov / 2".
-  const head = page.locator('#picker .tg-day').first();
-  await expect(head).toHaveText(/^\w+ \d+$/);
-  expect((await box(head)).height).toBeLessThan(50);
+  // "Mon" over "2": the same two lines on every day, neither broken, not "Mon / Nov / 2".
+  const heads = page.locator('#picker .tg-day');
+  await expect(heads.first().locator('.dh-dow')).toHaveText(/^\w+$/);
+  await expect(heads.first().locator('.dh-num')).toHaveText(/^\d+$/);
+  expect((await box(heads.first().locator('.dh-dow'))).height).toBeLessThan(20);
+  const heights = await heads.evaluateAll((els) => els.map((el) => Math.round(el.getBoundingClientRect().height)));
+  expect(new Set(heights).size).toBe(1);
 });
 
 test('times that run past midnight name their days, like the other ranges', async ({ page, request }) => {
