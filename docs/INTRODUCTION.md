@@ -49,6 +49,7 @@ public/            the whole front end, served as-is
   picker.js        the calendar views: week, day and month, for organizers and guests
   block-edit.js    dragging and removing options on the week, loaded only on the create pages
   paint.js         the organizer's painter for hours and parts of the day, loaded only on the create pages
+  levels.js        how picks carry between days, parts of the day and hours on the create page, with paint.js
   half-day.js      half-day options (mornings, afternoons, evenings) on "vote on a few dates", loaded when picked
   lengths.js       how long a poll's options are, for editing, duplicating and the AI draft
   edit-poll.js     editing or duplicating a poll on the create pages, loaded only for those links

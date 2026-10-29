@@ -3,7 +3,21 @@ import assert from 'node:assert/strict';
 
 // ui.js looks up the page's elements when it loads; a stand-in document is enough for these helpers.
 globalThis.document ??= { getElementById: () => null };
-const { chipLevel, ownHours, partsWindows, syncHours, timedDays, windowsAt, zoom } = await import('../public/paint.js');
+const {
+  chipLevel,
+  dropDays,
+  ownHours,
+  partsWindows,
+  syncHours,
+  tidy,
+  timedDays,
+  toWindows,
+  windowKeys,
+  windowList,
+  windowWhat,
+  windowsAt,
+  zoom,
+} = await import('../public/levels.js');
 
 // What's picked at each level on the create page, as create-free.js keeps it.
 const state = () => {
@@ -69,4 +83,64 @@ test('parts of the day carry into hours, by way of days too, if needed and all',
     [720, 1020, false],
     [1080, 1320, true],
   ]);
+});
+
+test('hours go up to parts of the day and back, keeping what was drawn and painting the rest', () => {
+  const s = state();
+  draw(s, 1140, 1200);
+  zoom(s, 'hours', 'parts');
+  assert.deepEqual([...s.parts], [`${D}|1080`]);
+  s.parts.add(`${D}|540`); // the morning, added on parts of the day
+  zoom(s, 'parts', 'hours');
+  assert.deepEqual(toWindows(s.hours), [
+    { date: D, start: 540, end: 720 },
+    { date: D, start: 1140, end: 1200 },
+  ]);
+  // Every part: the whole day, 7 AM to midnight.
+  const w = state();
+  for (const m of [540, 720, 1080]) w.parts.add(`${D}|${m}`);
+  zoom(w, 'parts', 'hours');
+  assert.deepEqual(toWindows(w.hours), [{ date: D, start: 420, end: 1440 }]);
+  // A new day on parts of the day gets the usual parts; days back from hours are the days drawn on.
+  const n = state();
+  n.days.add(D);
+  zoom(n, 'days', 'parts');
+  assert.equal(n.parts.size, 3);
+  zoom(n, 'parts', 'days');
+  assert.deepEqual([...n.days], [D]);
+});
+
+test('removing from the list: a day or part left without times goes; a day taken away takes its times', () => {
+  const s = state();
+  s.days.add(D);
+  draw(s, 1140, 1200);
+  s.parts.add(`${D}|1080`).add(`${D}|540`);
+  for (const k of windowKeys('hours', `${D}|1140|1200`)) s.hours.delete(k);
+  tidy(s, 'parts', 'hours', [D]);
+  assert.equal(s.parts.size, 0);
+  tidy(s, 'days', 'hours', [D]);
+  assert.equal(s.days.size, 0);
+  const t = state();
+  draw(t, 1140, 1200);
+  t.parts.add(`${D}|1080`);
+  dropDays(t, new Set([D]));
+  assert.equal(t.hours.size + t.parts.size, 0);
+});
+
+test('the list: a chip a time, days alike together, and what a × asks', () => {
+  const chip = (flip, rm, text, label, m) => `[${text}${m ? '?' : ''}]`;
+  const range = (ds) => ds.join('+');
+  const next = '2030-01-11';
+  const ws = [
+    { date: D, start: 1140, end: 1200 },
+    { date: next, start: 1140, end: 1200 },
+    ...[540, 720, 1080].map((m, i) => ({ date: '2030-01-13', start: m, end: [720, 1020, 1320][i], maybe: true })),
+  ];
+  const html = windowList(ws, chip, range);
+  assert.match(html, /2030-01-10\+2030-01-11<\/span><span class="chips">\[7\s–\s8\sPM\]/);
+  assert.match(html, /\[All day\?\]/);
+  assert.deepEqual(windowKeys('parts', `${D},${next}|1080|1320`), [`${D}|1080`, `${next}|1080`]);
+  assert.equal(windowWhat('parts', `${D},${next}|1080|1320`), 'these 2 evenings');
+  assert.equal(windowWhat('parts', `${D},${next}|420|1440`), 'these 2 days');
+  assert.match(windowWhat('hours', `${D},${next}|1140|1200`), /^7\s–\s8\sPM on these 2 days$/);
 });
