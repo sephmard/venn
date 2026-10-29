@@ -1631,7 +1631,7 @@ test('on a phone, a new poll leads with sharing: one share button, the group, an
   // The organizer's tools wait closed, one line; open, the buttons and what the private link is for.
   const tools = page.locator('details.organizer');
   await expect(tools).not.toHaveAttribute('open', '');
-  await expect(tools.locator('summary')).toHaveText(/^Your Venn is ready\. Share the link with your group\.$/);
+  await expect(tools.locator('summary')).toHaveText(/^Organizer tools$/);
   await tools.locator('summary').click();
   await expect(tools.locator('#notify-open')).not.toHaveClass(/btn-primary/);
   await expect(tools.getByRole('button', { name: 'Copy private organizer link' })).toHaveAccessibleDescription(
@@ -1665,7 +1665,7 @@ test('on a phone, a new poll leads with sharing: one share button, the group, an
   await page.reload();
   await expect(page.locator('#ev-title')).toHaveText('Book club');
   await expect(page.locator('details.organizer')).not.toHaveAttribute('open', '');
-  await expect(page.locator('details.organizer summary')).toContainText("You're the organizer.");
+  await expect(page.locator('details.organizer summary')).toHaveText(/^Organizer tools$/);
   await expect(page.locator('#tab-group')).toHaveAttribute('aria-selected', 'true');
 
   // A guest still starts on their own answer, with the whole form.
