@@ -1413,6 +1413,14 @@ h2 em {
   font-size: clamp(1.9rem, 7vw, 3.75rem);
   line-height: 1.08;
 }
+.prose h2 {
+  font-size: clamp(1.2rem, 5.4vw, 1.75rem);
+}
+/* Wide capitals: a long word ("Friendsgiving") breaks rather than push a small phone sideways. */
+h1,
+h2 {
+  overflow-wrap: anywhere;
+}
 .page h1,
 .page h2 {
   background: var(--chrome);

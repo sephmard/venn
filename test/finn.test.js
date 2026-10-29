@@ -212,7 +212,10 @@ test('Finn stickers turn over on their own: every one, each drawn to a picture, 
     STICKER_KEYS,
     STICKERS.map((s) => s.key),
   );
-  for (const k of STICKER_KEYS) assert.ok(existsSync(new URL(`../public/img/stickers/finn-${k}.webp`, import.meta.url)), k);
+  // Plain for the poll page, retro for the website: every sticker in both.
+  for (const dir of ['', 'retro/'])
+    for (const k of STICKER_KEYS)
+      assert.ok(existsSync(new URL(`../public/img/stickers/${dir}finn-${k}.webp`, import.meta.url)), dir + k);
   const html = stickerStack(96);
   assert.equal(html.match(/<img /g).length, STICKERS.length);
   assert.equal(html.match(/class="on"/g).length, 1);

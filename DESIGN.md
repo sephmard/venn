@@ -68,6 +68,7 @@ Headlines are chrome; the sunset gradient (with a soft glow) is the only emphasi
 
 ## Imagery and motion
 
+- **Finn's stickers on the website** (`img/stickers/retro/`, `npm run stickers`): pixel-art Finn on neon circles, an arcade caption on a magenta tag, and a glowing cyan edge. The poll page keeps the plain stickers.
 - **Website logo** (`logo-retro.svg`): the same three circles as neon rings in cyan, magenta and yellow, with a sunset where all three meet. It's the website's header mark and tab icon; the app keeps the green logo below.
 - **Logo:** three circles in a triangle, a three-way Venn. One shade where one circle covers, a deeper one where two overlap, and the deepest green where all three meet. Each shade is a green gradient. The header shows `favicon.svg` itself, so there is one source.
 - The hero's background is the same three circles, very large and soft (radial `--mint` glows), behind the start card.
