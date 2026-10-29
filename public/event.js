@@ -207,8 +207,9 @@ export async function renderEvent(id, navigate) {
         : '';
   const me = () => ev().participants.find((p) => p.id === saved(id).participantId);
   // The organizer starts on the group (where Pick and the results are), with their own answer as one
-  // line until they choose to change it. Guests start on their answer until they've given it.
-  st.tab = ev().isAdmin || me() ? 'group' : 'mine';
+  // line until they choose to change it. Everyone else opening the poll starts on their answer, even
+  // when they've given it before; the group is a tap away, and shows once they send it.
+  st.tab = ev().isAdmin ? 'group' : 'mine';
   st.orgCompact = ev().isAdmin && !!me();
 
   // The poll's own picture (poll-image.js), in place of its emoji.

@@ -1672,6 +1672,13 @@ test('on a phone, a new poll leads with sharing: one share button, the group, an
   await expect(g.locator('#save')).toBeVisible();
   await expect(g.locator('#org-answer')).toHaveCount(0);
   await expect(g.locator('details.organizer')).toHaveCount(0);
+  // And again when they come back after answering: their answer first, the group a tap away.
+  await g.locator('#mine .row').first().locator('[data-vote="2"]').click();
+  await g.fill('#name', 'Ana');
+  await submit(g);
+  await g.reload();
+  await expect(g.locator('#ev-title')).toHaveText('Book club');
+  await expect(g.locator('#tab-mine')).toHaveAttribute('aria-selected', 'true');
   await guest.close();
 });
 
