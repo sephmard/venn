@@ -43,7 +43,7 @@ for (const scheme of ['light', 'dark']) {
   test.describe(`${scheme} mode`, () => {
     test.use({ colorScheme: scheme });
 
-    test('landing and privacy pages', async ({ page }) => {
+    test('landing and privacy pages', { tag: '@site' }, async ({ page }) => {
       await mockContact(page);
       await page.goto('/');
       // Once the Venn's circles have faded in (other sections animate as they scroll into view).
