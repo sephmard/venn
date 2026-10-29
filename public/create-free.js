@@ -70,6 +70,7 @@ export function renderFree() {
   const maybe = { days: new Set(), parts: new Set(), hours: new Set() };
   const st = { days: selected, parts: partsSel, hours: painted, maybe, defaultParts: new Set(DAY_PARTS.map((p) => p.key)) };
   let before = new Set(); // what the level had at the last update, to see what's new
+  let wasMaybe = new Set(); // and parts of the day's if needed then
   let level = 'days';
   let timeLevel = null; // the last of parts of the day or hours visited: where a day's own times are
   let cleared = null; // what Clear all took, until something new is picked
@@ -138,6 +139,7 @@ export function renderFree() {
     if (!pt && (next !== 'days' || (level && level !== 'days'))) await loadPaint();
     pt?.zoom(st, level, next);
     before = new Set(st[next]);
+    wasMaybe = new Set(maybe.parts);
     level = next;
     if (level !== 'days') timeLevel = level;
     for (const b of $$('[data-level]')) b.setAttribute('aria-checked', b.dataset.level === level);
@@ -169,17 +171,7 @@ export function renderFree() {
   /** Picked days with times of their own (less than the whole day) at the last time level visited. */
   function timed(anyRow = false) {
     if (!pt || !timeLevel || (!anyRow && span() > 1)) return new Map();
-    const ws = pt.windowsAt(st, timeLevel).filter((w) => selected.has(w.date));
-    const whole = (d, own) =>
-      timeLevel === 'hours'
-        ? own.length === 1 && pt.hoursLabel(own[0].start, own[0].end) === 'All day'
-        : DAY_PARTS.every((p) => partsSel.has(`${d}|${p.start}`));
-    const out = new Map();
-    for (const d of new Set(ws.map((w) => w.date))) {
-      const own = ws.filter((w) => w.date === d);
-      if (!whole(d, own)) out.set(d, own);
-    }
-    return out;
+    return pt.timedDays(st, timeLevel);
   }
   /** The picked days as windows: their own times, or all day. */
   const dayWindows = (dates) => {
@@ -227,7 +219,7 @@ export function renderFree() {
     }
     const parts = level === 'parts';
     const set = st[level];
-    // Parts of the day and hours need the painter, which most whole-day polls never load.
+    // Parts and hours need the painter.
     // The calendar on show stays until the next is ready.
     const [{ paintView, datesOf }, { editBlocks }] = await Promise.all([loadPaint(), loadEdit()]);
     if (at !== mounts || !root.isConnected) return;
@@ -355,6 +347,7 @@ export function renderFree() {
         maybe[l].clear();
       }
       before = new Set();
+      wasMaybe = new Set();
       redraw();
       $('#q-undo')?.focus();
     }
@@ -364,25 +357,26 @@ export function renderFree() {
         for (const k of cleared.maybe[l]) maybe[l].add(k);
       }
       before = new Set(st[level]);
+      wasMaybe = new Set(maybe.parts);
       cleared = null;
       redraw();
       $('#q-clear')?.focus();
     }
     // One × can stand for a whole week of evenings, or a run of days: ask first.
     // On days, times are the last time level's; a whole day is the day.
-    const lv = level === 'days' ? timeLevel || 'hours' : level;
-    const whole = (v) => level === 'days' && v.endsWith(`|${pt.ALL_DAY.join('|')}`);
+    // What a chip stands for: a whole day ('days'), or times at a level.
+    const lvOf = (v) => pt.chipLevel(st, level, timeLevel, v);
     const rm = e.target.closest('[data-rm-window]')?.dataset.rmWindow;
     if (rm) {
-      if (rm.includes(',') && !confirm(`Remove ${whole(rm) ? `these ${rm.split(',').length} days` : pt.windowWhat(lv, rm)}?`))
-        return;
+      const lv = lvOf(rm);
       const ds = rm.split('|')[0].split(',');
-      if (whole(rm)) for (const d of ds) selected.delete(d);
+      if (ds.length > 1 && !confirm(`Remove ${lv === 'days' ? `these ${ds.length} days` : pt.windowWhat(lv, rm)}?`)) return;
+      if (lv === 'days') for (const d of ds) selected.delete(d);
       else {
         for (const k of pt.windowKeys(lv, rm)) st[lv].delete(k);
-        // A day whose last time goes is gone, not all day.
-        if (level === 'days') for (const d of ds) if (![...st[lv]].some((k) => k.startsWith(`${d}|`))) selected.delete(d);
+        pt.tidy(st, level, lv, ds); // a day or part left with no times is gone, not all day
       }
+      if (level === 'parts') before = new Set(partsSel);
       redraw();
     }
     const rd = e.target.closest('[data-rm-days]')?.dataset.rmDays.split(',');
@@ -391,13 +385,13 @@ export function renderFree() {
       for (const d of rd) selected.delete(d);
       redraw();
     }
-    // A day, or times, in the list switch between available and if needed for the organizer.
+    // A chip's tap: available or if needed for the organizer.
     const fl = e.target.closest('[data-flip-days], [data-flip-window]');
     if (fl) {
       const { flipDays: fd, flipWindow: fw } = fl.dataset;
-      const days = fd || whole(fw);
-      const keys = fd ? fd.split(',') : days ? fw.split('|')[0].split(',') : pt.windowKeys(lv, fw);
-      const may = maybe[days ? 'days' : lv];
+      const lv = fd ? 'days' : lvOf(fw);
+      const keys = fd ? fd.split(',') : lv === 'days' ? fw.split('|')[0].split(',') : pt.windowKeys(lv, fw);
+      const may = maybe[lv];
       const all = keys.every((k) => may.has(k));
       for (const k of keys) all ? may.delete(k) : may.add(k);
       redraw();
@@ -497,7 +491,10 @@ export function renderFree() {
     for (const k of st[level]) if (!before.has(k)) brush() === IF_NEEDED ? may.add(k) : may.delete(k);
     if (st[level].size) cleared = null;
     for (const l in maybe) for (const k of [...maybe[l]]) if (!st[l].has(k)) maybe[l].delete(k);
+    if (level === 'parts') pt.syncHours(st, before, wasMaybe); // a day's own times follow its parts
+    if (level === 'days') pt?.dropDays(st, before); // a day taken away takes its times
     before = new Set(st[level]);
+    wasMaybe = new Set(maybe.parts);
     const box = $('#free-list');
     if (level === 'hours') {
       const windows = pt.toWindows(painted);
@@ -512,7 +509,7 @@ export function renderFree() {
       );
     }
     if (level === 'parts') {
-      const windows = pt.windowsAt(st, level);
+      const windows = pt.partsWindows(st);
       box.innerHTML = windows.length ? pt.windowList(windows, chip, dayRange) + CLEAR : NOTHING + (cleared ? UNDO : '');
       return setReady(
         `${plural(windows.length, 'time')} to choose from`,
@@ -561,6 +558,11 @@ export function renderFree() {
     if (lv === 'days' && timed().size) {
       pt.zoom(st, 'days', timeLevel);
       lv = timeLevel;
+    }
+    // Any day's own times: the poll asks about hours, as drawn.
+    if (lv === 'parts' && pt.datesOf(partsSel).some((d) => pt.ownHours(st, d))) {
+      pt.zoom(st, 'parts', 'hours');
+      lv = 'hours';
     }
     // The organizer's own answer: what they picked, available or if needed.
     const answer = hostAnswer(st[lv], maybe[lv], tz);
