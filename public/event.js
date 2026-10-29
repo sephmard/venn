@@ -111,7 +111,7 @@ export async function renderEvent(id, navigate) {
     touched: new Set(), // rows this visitor explicitly answered (so "No" shows as chosen)
     tab: null,
     fresh: !!saved(id).justCreated, // the organizer just created this poll
-    orgOpen: null, // organizer tools open? Starts open for a fresh poll.
+    orgOpen: null, // organizer tools open? Closed until wanted.
   };
   // The edit token also gets your own answer back when the organizer hides everyone's answers.
   const authHeaders = ({ adminToken: a, editToken: e } = saved(id)) => ({
@@ -322,7 +322,7 @@ export async function renderEvent(id, navigate) {
           ${hideAll ? `<p class="sheet">🔒 ${privacy} You'll see the date at the top once they pick it.</p>` : ''}
           <div class="sheet"${hideAll ? ' hidden' : ''}>
             <div class="sheet-head">
-              <h2 class="panel-title" id="best-h">${optionsMode ? 'Best options' : daysMode ? 'Best dates' : 'Best times'}</h2>
+              <h2 class="panel-title" id="best-h">${optionsMode ? 'Best option' : daysMode ? 'Best date' : 'Best time'}</h2>
               <button type="button" class="pill" id="ai-summary-btn" hidden>Summarize with AI</button>
             </div>
             <div id="ai-summary"></div>
@@ -1465,7 +1465,7 @@ export async function renderEvent(id, navigate) {
     sheet.hidden = hideAll || ev().finalStart != null;
     if (sheet.hidden) return;
     const people = others();
-    const best = rankTimes(ev(), ev().slots, people, 5);
+    const best = rankTimes(ev(), ev().slots, people, 1);
     const n = people.length;
     // Until a guest answers, the only answer is the organizer's own.
     const guests = people.some((p) => p.id !== ev().hostId);
@@ -1481,7 +1481,8 @@ export async function renderEvent(id, navigate) {
       $('#best').innerHTML = '<p class="hint">Nothing works for anyone yet.</p>';
       return;
     }
-    const [first, ...rest] = best;
+    // The best one; every other is in everyone's answers just below, once.
+    const [first] = best;
     const who = (b) => {
       const can = b.yes.length + b.ifNeeded.length;
       if (can === n && !b.ifNeeded.length) return n === 1 ? 'Works for the one person so far' : `Everyone can make it`;
@@ -1514,23 +1515,7 @@ export async function renderEvent(id, navigate) {
         <div class="best-who">${avatarStack([...first.yes, ...first.ifNeeded], 7)}<span>${esc(who(first))}</span></div>
         ${whoList(first)}
         ${pick(first) ? `<div class="btn-row">${pick(first).replace('btn btn-sm', guests ? 'btn btn-primary' : 'btn')}</div>` : ''}
-      </div>
-      ${
-        rest.length
-          ? `<h3 class="sub">Also good</h3><ol class="best">${rest
-              .map(
-                (b) => `<li>
-                  <div class="grow">
-                    <div class="when">${esc(when(b.start, b.end))}</div>
-                    <div class="best-who small">${avatarStack([...b.yes, ...b.ifNeeded], 4)}<span>${esc(who(b))}</span></div>
-                    ${big ? '' : names(b)}
-                  </div>
-                  ${pick(b)}
-                </li>`,
-              )
-              .join('')}</ol>`
-          : ''
-      }`;
+      </div>`;
   }
 
   // ----- picking the final time -----
@@ -1584,13 +1569,15 @@ export async function renderEvent(id, navigate) {
   // ----- header, banners -----
   function renderHeader() {
     $('#ev-title').textContent = ev().title;
-    const n = ev().responses ?? ev().participants.length;
+    // The host is already "Hosted by": the count is everyone else who answered.
+    const guests = ev().participants.filter((p) => p.id !== ev().hostId);
+    const n = (ev().responses ?? ev().participants.length) - (ev().participants.length - guests.length);
     const by = ev().organizer
       ? `<span class="host">${avatar(ev().organizer, 'av-xs')}Hosted by ${esc(ev().organizer)}</span>`
       : '';
     const count = n
       ? `<span class="answered">${avatarStack(
-          ev().participants.map((p) => p.name),
+          guests.map((p) => p.name),
           4,
         )}${plural(n, 'person', 'people')} answered</span>`
       : '<span class="answered">No answers yet</span>';
@@ -1710,7 +1697,8 @@ export async function renderEvent(id, navigate) {
       ev: ev(),
       // Once the date is set, the banner leads and the tools wait, closed.
       fresh: st.fresh && ev().finalStart == null,
-      open: st.orgOpen ?? (st.fresh && ev().finalStart == null),
+      // Closed until wanted, so sharing (above) comes first; open only to say to check the inbox.
+      open: st.orgOpen ?? (st.fresh && ev().finalStart == null && !!saved(id).notifyPending),
       onToggle: (open) => (st.orgOpen = open), // stays open or closed across re-renders
       notifyPending: saved(id).notifyPending,
       ai: aiOn,

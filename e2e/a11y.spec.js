@@ -9,6 +9,7 @@ import {
   setLevel,
   showNextMonth,
   submit,
+  openTools,
 } from './helpers.js';
 import AxeBuilder from '@axe-core/playwright';
 import { PAGES } from '../pages/pages.js';
@@ -204,6 +205,7 @@ for (const scheme of ['light', 'dark']) {
       await audit(page, "everyone's answers, a row open");
       await page.locator('.best-hero [data-pick]').click();
       await expect(page.locator('.banner-final')).toBeVisible();
+      await openTools(page);
       await page.click('#notify-open');
       await expect(page.locator('#notify-form')).toBeVisible();
       await page.locator('.dev summary').click();
@@ -219,7 +221,7 @@ for (const scheme of ['light', 'dark']) {
       await addOptions(page, 2);
       await page.click('#submit');
       await page.getByRole('button', { name: /^(View poll|Open .+ →)$/ }).click();
-      await expect(page.locator('details.organizer')).toHaveAttribute('open', '');
+      await expect(page.locator('details.organizer')).not.toHaveAttribute('open', '');
       await expect(page.locator('#tab-group')).toHaveAttribute('aria-selected', 'true');
       await expect(page.locator('.finn [role=status]')).not.toBeEmpty();
       await audit(page, 'new poll on a phone (organizer, the group)');

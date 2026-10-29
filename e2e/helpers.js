@@ -194,3 +194,10 @@ export async function weekendsFrom(page, weeks) {
   const friday = addDays(first, (5 - new Date(`${first}T12:00:00Z`).getUTCDay() + 7) % 7);
   return Array.from({ length: weeks }, (_, w) => [0, 1, 2].map((i) => addDays(friday, 7 * w + i))).flat();
 }
+
+/** On the poll page, as the organizer: open the organizer tools (closed until wanted). */
+export async function openTools(page) {
+  const tools = page.locator('details.organizer');
+  await tools.waitFor();
+  if ((await tools.getAttribute('open')) === null) await tools.locator('summary').click();
+}

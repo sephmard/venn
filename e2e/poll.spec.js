@@ -15,6 +15,7 @@ import {
   todayIn,
   submit,
   weekendsFrom,
+  openTools,
 } from './helpers.js';
 
 test.beforeEach(async ({ page }) => {
@@ -67,12 +68,13 @@ test('vote on a few dates: collect votes, pick the final date', async ({ page, r
   await expect(page.getByRole('button', { name: 'Share poll' })).toBeFocused();
   await expect(page.locator('#mine .row')).toHaveCount(14);
   await expect(page.locator('.party')).toHaveCount(0);
-  await expect(page.locator('details.organizer')).toHaveAttribute('open', '');
+  await expect(page.locator('details.organizer')).not.toHaveAttribute('open', '');
 
   // The times the organizer offered are already their answer: yes to all of them.
   const row = (i) => page.locator('#mine .row').nth(i);
   await expect(page.locator('#mine .row[data-v="2"]')).toHaveCount(14);
-  await expect(page.locator('#ev-meta')).toContainText('1 person answered');
+  // The organizer is "Hosted by" in the header, not counted again as an answer.
+  await expect(page.locator('#ev-meta')).toHaveText(/^S\s*Hosted by Sam\s*No answers yet$/);
   await changeAnswer(page); // the organizer's answer came with the poll
   await page.click('#none');
 
@@ -470,6 +472,7 @@ test('organizer sets up a webhook from the Notifications panel', async ({ page }
   await expect(page.locator('#notify-field')).toBeHidden();
   await expect(page.locator('#notify-off')).toBeVisible();
   await page.click('#submit');
+  await openTools(page);
   await page.click('#notify-open');
   await expect(page.locator('#n-email')).toHaveCount(0);
   await expect(page.locator('#email-off')).toBeVisible();
@@ -1014,6 +1017,7 @@ test('organizers edit a poll until someone answers, then duplicate it', async ({
   const url = page.url();
 
   // Nobody else has answered, so the poll can still be changed.
+  await openTools(page);
   await page.getByRole('link', { name: 'Edit poll' }).click();
   await expect(page.locator('h1')).toHaveText('Edit your poll');
   await expect(page.locator('#title')).toHaveValue('Dinner');
@@ -1041,7 +1045,7 @@ test('organizers edit a poll until someone answers, then duplicate it', async ({
   await page.click('#submit');
   await openNewPoll(page);
   await expect(page).not.toHaveURL(url);
-  await expect(page.locator('#ev-meta')).toContainText('1 person answered'); // a new poll, with only the organizer
+  await expect(page.locator('#ev-meta')).toContainText('No answers yet'); // a new poll, with only the organizer's
 });
 
 test('hours: a whole day reads "All day", and days in a row stay whole days', async ({ page }) => {
@@ -1072,6 +1076,7 @@ test('"when are you free" polls come back to edit at their level: hours, or part
   await addHours(page, 2, [540, 600, 660]); // 9 to 12, two days
   await page.click('#submit');
   await openNewPoll(page);
+  await openTools(page);
   await page.getByRole('link', { name: 'Edit poll' }).click();
   await expect(page.locator('#title')).toHaveValue('Book club');
   await expect(page.locator('[data-level="hours"]')).toHaveAttribute('aria-checked', 'true');
@@ -1088,6 +1093,7 @@ test('"when are you free" polls come back to edit at their level: hours, or part
   await expect(page.locator('#summary')).toHaveText('39 times to choose from');
   await page.click('#submit');
   await openNewPoll(page);
+  await openTools(page);
   await page.getByRole('link', { name: 'Edit poll' }).click();
   await expect(page.locator('[data-level="parts"]')).toHaveAttribute('aria-checked', 'true');
   await expect(page.locator('#summary')).toHaveText('39 times to choose from');
@@ -1268,6 +1274,7 @@ test('AI: describe a poll in words, then summarize and write messages as the org
   await page.locator('.ai-card [data-pick]').click();
   await expect(page.locator('.banner-final')).toBeVisible();
 
+  await openTools(page);
   await page.click('#writer-open');
   await page.click('[data-kind="announcement"]');
   await expect(page.locator('#ai-msg')).toHaveValue(/Hi team! .*\/e\/\w+/);
@@ -1601,10 +1608,11 @@ test('on a phone, a new poll leads with sharing: one share button, the group, an
   await expect(share).toHaveClass(/btn-primary/);
   await expect(page.locator('.finn [data-share]')).toHaveCount(0);
 
-  // The organizer's tools are open, short: one line, the buttons, and what the private link is for.
+  // The organizer's tools wait closed, one line; open, the buttons and what the private link is for.
   const tools = page.locator('details.organizer');
-  await expect(tools).toHaveAttribute('open', '');
+  await expect(tools).not.toHaveAttribute('open', '');
   await expect(tools.locator('summary')).toHaveText(/^Your Venn is ready\. Share the link with your group\.$/);
+  await tools.locator('summary').click();
   await expect(tools.locator('#notify-open')).not.toHaveClass(/btn-primary/);
   await expect(tools.getByRole('button', { name: 'Copy private organizer link' })).toHaveAccessibleDescription(
     /another device\. Don't share it/,
@@ -1904,6 +1912,7 @@ test('optional details sit under More details, placeholders make way on focus, a
   await expect(page.locator('#ev-details')).toContainText('Rosa’s Trattoria');
   await expect(page.locator('#ev-details')).toContainText('Bring a bottle');
   // Editing the poll shows them again, open.
+  await openTools(page);
   await page.getByRole('link', { name: 'Edit poll' }).click();
   await expect(page.locator('#more-box')).toHaveAttribute('open', '');
   await expect(page.locator('#location')).toHaveValue('Rosa’s Trattoria');
@@ -2009,6 +2018,7 @@ test('half day: pick mornings, afternoons and evenings on days, and edit them ag
   const ev = await (await request.get(`/api/events/${id}`)).json();
   expect(ev.options.map((o) => (o.end - o.start) / 3_600_000)).toEqual([3, 5, 4]);
   // Back to edit: still half days.
+  await openTools(page);
   await page.getByRole('link', { name: 'Edit poll' }).click();
   await expect(page.locator('#other-box summary')).toHaveText('Custom · Half day, selected');
   await expect(opts).toHaveCount(3);
@@ -2981,7 +2991,9 @@ test('a big group: a few people then "+N more", names a tap away, and ticks on t
   await expect(hero.locator('.names')).toBeHidden();
   await hero.getByText('See who').click();
   await expect(hero.locator('.names')).toBeVisible();
-  await expect(page.locator('ol.best .names')).toHaveCount(0);
+  // The rest are in everyone's answers, not listed twice.
+  await expect(page.locator('ol.best')).toHaveCount(0);
+  await expect(page.locator('#best h3')).toHaveCount(0);
 
   // Only the 2 hours everyone can make are the Venn, not the lone half hour on the first evening.
   await expect(page.locator('.ov-slot.all')).toHaveCount(4);
