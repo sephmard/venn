@@ -48,7 +48,8 @@ const PAGES = {
   // +1 for Change the date as a list in the banner, and one question once the date is picked.
   // +0.25 for "Pick this date?" before a date goes out to everyone.
   // +0.5 for calendar days as a weekday over its number, today circled, and past days striped (shared styles).
-  'poll page': ['event.js', [], 47.75],
+  // +0.25 for who answered what, a line per answer, when a row in everyone's answers is open.
+  'poll page': ['event.js', [], 48],
 };
 
 for (const [name, [entry, css, PAGE_KB]] of Object.entries(PAGES)) {
