@@ -53,6 +53,6 @@ test('on parts of the day, a part made if needed or taken away does the same to 
 test('on days, a whole day chip is the day; times follow the last time level', () => {
   const s = state();
   s.days.add(D);
-  assert.equal(chipLevel(s, 'days', 'parts', `${D}|540|1320`), 'days');
+  assert.equal(chipLevel(s, 'days', 'parts', `${D}|420|1440`), 'days');
   assert.equal(chipLevel(s, 'days', 'parts', `${D}|1080|1320`), 'parts');
 });

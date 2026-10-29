@@ -1055,9 +1055,9 @@ test('hours: a whole day reads "All day", and days in a row stay whole days', as
   await page.clock.setFixedTime(new Date(2030, 0, 9, 12)); // a Wednesday
   await page.goto('/new/free');
   await page.fill('#organizer', 'Sam');
-  // Times from 9 AM to 10 PM or later read as the whole day: half-hour taps, back to back.
+  // Every hour the calendar shows, 7 AM to midnight, reads as the whole day: half-hour taps, back to back.
   await setLevel(page, 'hours');
-  for (let m = 540; m < 1320; m += 30) await tapAt(page, '2030-01-09', m, '#when');
+  for (let m = 420; m < 1440; m += 30) await tapAt(page, '2030-01-09', m, '#when');
   await expect(page.locator('#free-list .chip')).toHaveText(['All day×']);
   await expect(page.locator('#when .tg-block').first()).toContainText('All day');
 
@@ -3181,9 +3181,22 @@ test('days and times mix: a day keeps the hours drawn on it, and days added afte
   const ev = await (await page.request.get(`/api/events/${page.url().split('/e/')[1]}`)).json();
   expect(ev.windows).toEqual([
     { date: first, start: 1080, end: 1260 },
-    { date: addDays(first, 2), start: 540, end: 1320 },
-    { date: addDays(first, 3), start: 540, end: 1320 },
+    { date: addDays(first, 2), start: 420, end: 1440 },
+    { date: addDays(first, 3), start: 420, end: 1440 },
   ]);
+});
+
+test('a whole day fills the hours calendar, from its first hour to midnight', async ({ page }) => {
+  await page.goto('/new/free');
+  const first = await nextMonth(page);
+  await tapDays(page, [first]);
+  await setLevel(page, 'hours');
+  const block = page.locator('#when .tg-block').first();
+  await expect(block).toContainText('All day');
+  const scroll = page.locator('#when .tg-scroll');
+  await scroll.evaluate((el) => (el.scrollTop = 0));
+  const [b, col] = await Promise.all([block.boundingBox(), page.locator('#when .tg-body').boundingBox()]);
+  expect(Math.abs(b.y - col.y)).toBeLessThanOrEqual(2); // from 7 AM, the top
 });
 
 test('times drawn in hours stay on every level, and the poll asks about them wherever it is created', async ({ page }) => {

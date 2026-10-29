@@ -274,7 +274,8 @@ export function paintView(
 // "YYYY-MM-DD", "YYYY-MM-DD|<part start>" and "YYYY-MM-DD|minutes"), with `maybe` (the same, for
 // what's only if needed for the organizer) and `defaultParts` (the parts a new day gets).
 
-export const ALL_DAY = [DAY_PARTS[0].start, DAY_PARTS.at(-1).end];
+// A whole day in hours: every hour the calendar shows, 7 AM to midnight.
+export const ALL_DAY = [420, 1440];
 const LEVELS = ['days', 'parts', 'hours'];
 /** Hours that cover the whole day read as the day: "All day", not "9 AM – 10 PM". */
 export const hoursLabel = (a, b) => (a <= ALL_DAY[0] && b >= ALL_DAY[1] ? 'All day' : shortRange(a, b));
