@@ -1,9 +1,7 @@
-// Changing blocks on the time grid (picker.js): drag an edge to make a block longer or shorter
-// (mouse or touch), drag the block itself to another time or day (mouse, or touch after a press and
-// hold), or remove it with its ×.
-// Only organizers do this, so it lives here and the poll page doesn't download it.
+// Changing blocks on the time grid (picker.js): drag an edge to resize, drag the block (touch: after a
+// hold) to move it, or remove it with its ×. Organizers only, so the poll page doesn't download it.
 
-import { $, esc, shortRange } from './ui.js';
+import { $, buzz, esc, shortRange } from './ui.js';
 
 const STEP = 30;
 const HOLD = 300; // ms a finger rests on a block before dragging moves it instead of scrolling
@@ -34,7 +32,8 @@ export function editBlocks(root, { blocks, range, minuteAt, rowPx, onResize, onM
     const el = e.target.closest('.tg-block[data-key]');
     if (!el || e.button > 0) return;
     const b = blocks().find((x) => x.key === el.dataset.key);
-    const edge = e.target.closest('[data-edge]')?.dataset.edge;
+    // A half hour is mostly edges: on touch it's moved, not stretched, wherever it's held.
+    const edge = (e.pointerType === 'mouse' || b?.to - b?.from > STEP) && e.target.closest('[data-edge]')?.dataset.edge;
     const start = () => ({ el, b, edge, y: e.clientY, from: b.from, to: b.to, date: b.date, moved: false });
     if (b && !edge && onMove && e.pointerType !== 'mouse') {
       clearTimeout(hold?.timer);
@@ -43,7 +42,8 @@ export function editBlocks(root, { blocks, range, minuteAt, rowPx, onResize, onM
         edit = start();
         suppressClick = true; // a hold isn't a tap
         el.classList.add('tg-lifted');
-        navigator.vibrate?.(10);
+        root.classList.add('tg-dragging');
+        buzz();
       }, HOLD);
       hold = { x: e.clientX, y: e.clientY, timer };
       return;
@@ -96,6 +96,7 @@ export function editBlocks(root, { blocks, range, minuteAt, rowPx, onResize, onM
     hold = null;
     if (!edit) return;
     edit.el.classList.remove('tg-lifted');
+    root.classList.remove('tg-dragging');
     const { b, edge, moved, date, from, to } = edit;
     edit = null;
     if (!moved) return;

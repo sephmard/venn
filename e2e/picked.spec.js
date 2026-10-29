@@ -44,6 +44,21 @@ test.describe('far from the organizer', () => {
     await expect(page.locator('#final-h')).not.toHaveText(/AM|PM/);
   });
 
+  test('a parts-of-the-day poll reads in this device’s time zone', async ({ page, request }) => {
+    // The organizer's morning in New York (9 AM – 12 PM) is 2 – 5 PM in London.
+    const start = Date.parse('2030-01-10T09:00:00-05:00');
+    const options = [{ start, end: start + 3 * 3600e3 }];
+    const { id } = await (
+      await request.post('/api/events', {
+        data: { title: 'Coffee', timezone: 'America/New_York', mode: 'options', layout: 'parts', options },
+      })
+    ).json();
+    await page.goto(`/e/${id}`);
+    const vote = page.locator('.part-vote').first();
+    await expect(vote).toContainText(/2:00\s?(PM)?\s?–\s?5:00\s?PM/);
+    await expect(vote).not.toContainText('Morning');
+  });
+
   test('a new poll is in this device’s time zone, with nothing to choose', async ({ page }) => {
     await page.goto('/new');
     await expect(page.locator('#tz')).toHaveValue('Europe/London');

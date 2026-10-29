@@ -1359,9 +1359,12 @@ test('ask when people are free: parts of the day', async ({ page, request }) => 
   await expect(part(1)).toHaveAttribute('aria-pressed', 'mixed');
   await page.fill('#name', 'Sam');
   await submit(page);
-  // In this device's own time zone: its afternoon label only where it's the organizer's afternoon too.
-  const local = await page.evaluate((t) => new Date(t).toLocaleTimeString('en-US', { hour: 'numeric' }), day(8, 12));
-  await expect(page.locator('.best-hero')).toContainText(`Jan 8, ${local.split(/\s/)[0]}:00`);
+  // In this device's own time zone: "afternoon" where it's this device's afternoon, otherwise its own times.
+  const [local, offset] = await page.evaluate(
+    (t) => [new Date(t).toLocaleTimeString('en-US', { hour: 'numeric' }), new Date(t).getTimezoneOffset()],
+    day(8, 12),
+  );
+  await expect(page.locator('.best-hero')).toContainText(offset ? `Jan 8, ${local.split(/\s/)[0]}:00` : 'Jan 8, afternoon');
   // Everyone's answers are colour-coded: available, if needed and unavailable, with a key.
   const rows = page.locator('#overlap .ov-row');
   await expect(rows.nth(0).locator('.ov-bar')).toHaveCount(0); // everyone's free: ✓ Everyone says it

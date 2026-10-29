@@ -65,12 +65,19 @@ function listHtml({ ev, people, tz, inspect, focus, windows, days, parts, when }
   const n = people.length;
   const timed = parts || windows.every((w) => !allDaySpan(w.start, w.end, tz));
   const rows = windows.map((w) => {
-    const p = parts && partOf(w.start, w.end, ev.timezone);
+    const p = parts && partOf(w.start, w.end, tz);
+    const whole = allDaySpan(w.start, w.end, ev.timezone);
     const by = (v) => people.filter((x) => (v ? x.availability[w.start] === v : !x.availability[w.start])).map((x) => x.name);
     return {
       start: w.start,
-      day: timed ? utcToZoned(w.start, tz).date : null,
-      label: !timed ? when(w.start, w.end) : p ? `${p.label} · ${shortRange(p.start, p.end)}` : fmtTimeRange(w.start, w.end, tz),
+      day: timed ? utcToZoned(w.start, whole ? ev.timezone : tz).date : null,
+      label: !timed
+        ? when(w.start, w.end)
+        : p
+          ? `${p.label} · ${shortRange(p.start, p.end)}`
+          : whole
+            ? 'All day'
+            : fmtTimeRange(w.start, w.end, tz),
       yes: by(YES),
       maybe: by(IF_NEEDED),
       no: by(0),

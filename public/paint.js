@@ -3,7 +3,7 @@
 // organizer zooms in from whole days, so most whole-day polls never do.
 
 import { DAY_PARTS, addDays } from './core.js';
-import { addMonths, dayChip, isPhone } from './picker.js';
+import { addMonths, dayChip, isPhone, tinyTime } from './picker.js';
 import { $, $$, dateParts, dayHead, dayLabel, esc, fmtMonthDay, shortRange, shortTime, todayStr } from './ui.js';
 
 const STEP = 30;
@@ -104,10 +104,10 @@ export function paintView(
         const on = selected.has(key(d, m));
         // What a picked part is for the organizer, shown on it: " If needed" or " Available".
         const tag = parts && on ? (maybe.has(key(d, m)) ? ' If needed' : ' Available') : '';
-        h += `<span class="pg-cell${parts ? ' part' : m % 60 ? '' : ' hour'}${on ? ' on' : ''}${on && maybe.has(key(d, m)) ? ' maybe' : ''}${d < todayStr() ? ' past" aria-disabled="true' : ''}" role="button" tabindex="${r || c ? -1 : 0}" data-d="${d}" data-m="${m}" data-r="${r}" data-c="${c}" aria-pressed="${on}" aria-label="${esc(`${dayLabel(d)}, ${label(m)}${parts ? ` ${span(m)}${tag}` : on && maybe.has(key(d, m)) ? ', if needed' : ''}`)}">${parts ? `<small aria-hidden="true">${esc(span(m))}</small>${tag ? ` <small class="pg-tag" aria-hidden="true">${tag.trim()}</small>` : ''}` : ''}</span>`;
+        h += `<span class="pg-cell${parts ? ' part' : m % 60 ? '' : ' hour'}${on ? ' on' : ''}${on && maybe.has(key(d, m)) ? ' maybe' : ''}${d < todayStr() ? ' past" aria-disabled="true' : ''}" role="button" tabindex="${r || c ? -1 : 0}" data-d="${d}" data-m="${m}" data-r="${r}" data-c="${c}" aria-pressed="${on}" aria-label="${esc(`${dayLabel(d)}, ${label(m)}${parts ? ` ${span(m)}${tag}` : on && maybe.has(key(d, m)) ? ', if needed' : ''}`)}">${parts ? `<small aria-hidden="true">${narrow ? `${tinyTime(part(m).start)}<br>${tinyTime(part(m).end)}` : esc(span(m))}</small>${tag ? ` <small class="pg-tag" aria-hidden="true">${tag.trim()}</small>` : ''}` : ''}</span>`;
       });
     });
-    grid.style.gridTemplateColumns = `${parts ? (narrow ? 64 : 84) : narrow ? 40 : 52}px repeat(${ds.length}, minmax(0, 1fr))`;
+    grid.style.gridTemplateColumns = `${parts ? (narrow ? 30 : 52) : narrow ? 40 : 52}px repeat(${ds.length}, minmax(0, 1fr))`;
     grid.innerHTML = h;
     if (!scrolled) {
       scrolled = true;

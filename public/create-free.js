@@ -55,6 +55,7 @@ const LEVELS = [
 // whole-day polls never load it.
 let pt = null;
 const loadPaint = async () => (pt ??= await import('./paint.js'));
+const loadEdit = () => import('./block-edit.js');
 
 export function renderFree() {
   document.title = 'Create a Venn';
@@ -211,9 +212,10 @@ export function renderFree() {
     painter = cal = null;
     const root = $('#when');
     const at = ++mounts;
-    root.innerHTML = '';
+    if (at === 1) setTimeout(() => (loadPaint(), loadEdit()), 1000); // ready before the first switch
     $('#when-help').hidden = true;
     if (level === 'days') {
+      root.innerHTML = '';
       const said = (d) => (selected.has(d) ? (timed().has(d) ? 'Times' : maybe.days.has(d) ? 'If needed' : 'Available') : '');
       cal = monthView(root, {
         selected,
@@ -229,14 +231,11 @@ export function renderFree() {
     const parts = level === 'parts';
     const set = st[level];
     // Parts of the day and hours need the painter, which most whole-day polls never load.
-    const { paintView, datesOf } = await loadPaint();
+    // The calendar on show stays until the next is ready, so switching never flashes empty.
+    const [{ paintView, datesOf }, { editBlocks }] = await Promise.all([loadPaint(), loadEdit()]);
     if (at !== mounts || !root.isConnected) return;
-    // Hours: the week calendar, edited with block-edit.js (loaded then too).
-    if (!parts) {
-      const { editBlocks } = await import('./block-edit.js');
-      if (at !== mounts || !root.isConnected) return;
-      return mountHours(root, datesOf(set)[0], editBlocks);
-    }
+    root.innerHTML = '';
+    if (!parts) return mountHours(root, datesOf(set)[0], editBlocks);
     painter = paintView(root, {
       selected: set,
       onChange: update,
@@ -282,7 +281,7 @@ export function renderFree() {
       // A tap adds the half hour tapped; a drag (or press and hold, on touch) draws longer.
       tapLength: () => 30,
       tapSnap: () => 30,
-      startAt: () => null,
+      startAt: () => 660, // 11 AM
       blocks: () =>
         pt.windowsAt(st, 'hours').map((w) => ({
           key: keyOf(w),
