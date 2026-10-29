@@ -771,7 +771,7 @@ button.emoji-tile:focus-visible {
 .tg-narrow .tg-short span {
   text-overflow: clip;
 }
-/* Touch: a 44px hit area for the ×, and 24px edges (the grips stay where they were) */
+/* Touch: a 44px hit area for the × */
 @media (hover: none), (pointer: coarse) {
   .tg-x::before {
     content: '';
@@ -784,20 +784,20 @@ button.emoji-tile:focus-visible {
   .create .tg-block.opt > span {
     max-height: 100%;
   }
-  .create .tg-handle {
-    height: 24px;
-  }
+  /* Stretch by the grip in the bottom of a time, inside it, so taps beside it add times */
   .create .tg-top {
-    top: -12px;
+    display: none;
   }
   .create .tg-bottom {
-    bottom: -12px;
-  }
-  .create .tg-top::after {
-    top: 14px;
+    bottom: 0;
+    height: min(24px, 50%);
   }
   .create .tg-bottom::after {
-    top: 7px;
+    top: auto;
+    bottom: 3px;
+  }
+  .create .tg-block {
+    touch-action: pan-y;
   }
 }
 /* Organizers' day strip: the months ahead, scrolled sideways, a week in view */

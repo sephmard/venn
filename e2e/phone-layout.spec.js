@@ -41,7 +41,7 @@ test('a 30-minute option reads on one line, clear of its grips and ×, and its �
   // The grips sit beside the ×, not over the text.
   const grip = await block
     .locator('.tg-handle')
-    .first()
+    .last() // the bottom grip: on touch there's only that one
     .evaluate((el) => {
       const s = getComputedStyle(el, '::after');
       return el.getBoundingClientRect().right - parseFloat(s.right) - parseFloat(s.width);

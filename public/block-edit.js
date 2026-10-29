@@ -32,8 +32,7 @@ export function editBlocks(root, { blocks, range, minuteAt, rowPx, onResize, onM
     const el = e.target.closest('.tg-block[data-key]');
     if (!el || e.button > 0) return;
     const b = blocks().find((x) => x.key === el.dataset.key);
-    // A half hour is mostly edges: on touch it's moved, not stretched, wherever it's held.
-    const edge = (e.pointerType === 'mouse' || b?.to - b?.from > STEP) && e.target.closest('[data-edge]')?.dataset.edge;
+    const edge = e.target.closest('[data-edge]')?.dataset.edge;
     const start = () => ({ el, b, edge, y: e.clientY, from: b.from, to: b.to, date: b.date, moved: false });
     if (b && !edge && onMove && e.pointerType !== 'mouse') {
       clearTimeout(hold?.timer);
@@ -85,7 +84,14 @@ export function editBlocks(root, { blocks, range, minuteAt, rowPx, onResize, onM
         col.append(edit.el);
       }
     }
+    const was = edit.moved;
     edit.moved ||= edit.from !== edit.b.from || edit.to !== edit.b.to || edit.date !== edit.b.date;
+    // A stretch shows and buzzes like a move once it's under way
+    if (edit.moved && !was && !root.classList.contains('tg-dragging')) {
+      edit.el.classList.add('tg-lifted');
+      root.classList.add('tg-dragging');
+      if (e.pointerType !== 'mouse') buzz();
+    }
     edit.el.style.top = `calc(${(edit.from - from) / STEP} * var(--row))`;
     edit.el.style.height = `calc(${(edit.to - edit.from) / STEP} * var(--row))`;
     const text = $('span', edit.el);

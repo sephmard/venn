@@ -36,6 +36,7 @@ the same PR** (and CLAUDE.md if it's a rule that matters in review).
   two.
 - Parts of day and Hours show **the week only**, on phones too: no Week / Day switch.
 - Both use the same navigation: **« ‹ › »** (a month, a week), never before this week.
+- Calendars open on **today's month and week**, even at the very end of a month.
 - A tap goes round the same way at every level: **available, then if needed, then removed**.
 - Parts of day and Hours are **one calendar**: the same head, the same slim time column (the part's
   name runs up its row), the same height, so switching between them moves nothing, not even for a
@@ -45,7 +46,9 @@ the same PR** (and CLAUDE.md if it's a rule that matters in review).
 - **Only Hours is dragged**: press and hold, then drag, to draw a time, or hold a time and drag to
   move it (a quick swipe still scrolls; a mouse just drags). Days and parts of the day are tapped.
   Once a drag is on it's plain to see and feel: a light buzz (iPhones too), the calendar ringed, the
-  time lifted. A half hour moves wherever it's held.
+  time lifted. On touch: hold a time to move it; drag the grip in its bottom to stretch it (no hold).
+  A tap counts where the finger was: beside a time it adds a half hour (next to it, the time grows),
+  never changes the time it was near.
 - Hours has **no length to choose**: a tap adds the half hour tapped, a drag draws longer, and polls
   look for any overlap. No "Mark many as if needed": a second tap makes something if needed.
 - A whole day is one **"All day"** at every level, never split into parts or hours with gaps.

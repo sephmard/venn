@@ -54,10 +54,9 @@ export function monthView(
 ) {
   const today = todayStr();
   const toggle = !!selected;
-  // Open on this month, or on next month when fewer than 7 days of this one are left.
+  // Open on this month, always: › is a tap away.
   const now = new Date();
-  const left = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate() - now.getDate() + 1;
-  let cursor = new Date(now.getFullYear(), now.getMonth() + (left < 7 ? 1 : 0), 1);
+  let cursor = new Date(now.getFullYear(), now.getMonth(), 1);
   let view = views?.[0] || 'month';
   const weekOf = (d) => addDays(d, -((dateParts(d).getUTCDay() + 6) % 7));
   let weekStart = weekOf(today); // the Monday of the week shown, in week view
@@ -327,6 +326,8 @@ function timeGrid(
     root.classList.add('tg-dragging'); // the calendar shows it's drawing, not scrolling
     paintGhost();
   };
+  let down = null; // where the finger really was: a browser steers taps near a time onto it
+  root.addEventListener('pointerdown', (e) => (down = [e.clientX, e.clientY]), true);
   root.addEventListener('pointerdown', (e) => {
     pointer = e.pointerType;
     if (editor?.active()) return;
@@ -386,11 +387,13 @@ function timeGrid(
   window.addEventListener('pointerup', up);
   root.addEventListener('click', (e) => {
     if (editor?.takeClick() || tapped) return void (tapped = false);
-    const block = e.target.closest('.tg-block[data-key]');
+    const touch = e.detail && pointer !== 'mouse' && down;
+    const at = touch ? document.elementFromPoint(...down) : e.target;
+    const block = at?.closest('.tg-block[data-key]');
     if (block) return onBlock?.(block.dataset.key);
-    const col = e.target.closest('.tg-draw');
+    const col = at?.closest('.tg-draw');
     if (!onCreate || !col || pointer === 'mouse') return;
-    const a = snap(minuteAt(col, e.clientY));
+    const a = snap(minuteAt(col, touch ? down[1] : e.clientY));
     onCreate(col.dataset.date, a, Math.min(a + tapLength(), 1440));
   });
   return {

@@ -176,6 +176,51 @@ test('on a phone, press and hold on hours to draw a time, or to move one; a swip
   await expect(page.locator('#free-list')).toContainText('9:00 – 9:30 AM');
 });
 
+test('on a phone, a time stretches by the grip at its bottom, and taps beside it add, not change it', async ({
+  page,
+  context,
+  isMobile,
+}) => {
+  test.skip(!isMobile, 'touch only');
+  const cdp = await context.newCDPSession(page);
+  const touch = (type, x, y) =>
+    cdp.send('Input.dispatchTouchEvent', { type, touchPoints: type === 'touchEnd' ? [] : [{ x, y }] });
+  const tap = async (x, y) => (await touch('touchStart', x, y), await touch('touchEnd'));
+  await page.goto('/new');
+  await setLevel(page, 'hours');
+  const col = page.locator('#when .tg-col.tg-draw').nth(1);
+  await page.locator('#when .tg-scroll').scrollIntoViewIfNeeded();
+  const row = await col.evaluate((el) => {
+    el.closest('.tg-scroll').scrollTop = 0;
+    return parseFloat(getComputedStyle(el.closest('.tg')).getPropertyValue('--row'));
+  });
+  const box = await col.boundingBox();
+  const x = box.x + box.width / 2;
+  const y = (m, off = row / 2) => box.y + ((m - 420) / 30) * row + off;
+  const list = page.locator('#free-list');
+  await tap(x, y(480));
+  await expect(list).toContainText('8:00 – 8:30 AM');
+  // The grip: drag it down an hour, no hold needed.
+  const b = await page.locator('#when .tg-block').boundingBox();
+  await touch('touchStart', x, b.y + b.height - 4);
+  for (let i = 1; i <= 4; i++) await touch('touchMove', x, b.y + b.height - 4 + (row * 2 * i) / 4);
+  await touch('touchEnd');
+  await expect(list).toContainText('8:00 – 9:30 AM');
+  // Just under it, the finger's own half hour is added (the time grows), not the time made if needed.
+  await tap(x, y(570, 3));
+  await expect(list).toContainText('8 – 10 AM');
+  await expect(page.locator('#when .tg-block.opt-maybe')).toHaveCount(0);
+  // With a half hour between, a time of its own.
+  await tap(x, y(630, 3));
+  await expect(list).toContainText('10:30 – 11:00 AM');
+});
+
+test('the month calendar opens on this month, even at its end', async ({ page }) => {
+  await page.clock.setFixedTime(new Date(2026, 9, 29, 12));
+  await page.goto('/new');
+  await expect(page.locator('.cal-month')).toHaveText(/October 2026/);
+});
+
 test('hours open at 11 AM, and on a phone each part of the day shows its times', async ({ page, isMobile }) => {
   await page.goto('/new');
   await setLevel(page, 'parts');
