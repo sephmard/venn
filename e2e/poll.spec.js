@@ -918,8 +918,9 @@ test(
   { tag: '@site' },
   async ({ page }) => {
     await page.goto('/');
-    // The website's own logo, retrofuturist like the site; the app keeps its green one.
-    await expect(page.locator('.brand img')).toHaveAttribute('src', /logo-retro\.svg/);
+    // The usual logo; the neon one waits for retro mode.
+    await expect(page.locator('.brand img.logo-classic')).toBeVisible();
+    await expect(page.locator('.brand img.logo-retro')).toBeHidden();
     const nav = page.getByRole('navigation', { name: 'Main' });
     await expect(nav.getByRole('link', { name: 'GitHub' })).toBeHidden(); // not in the bar itself
     await page.locator('.menu summary').click();
