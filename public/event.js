@@ -360,7 +360,7 @@ export async function renderEvent(id, navigate) {
       ${
         // Guests came to answer: passing the link on waits at the bottom, under everything else.
         guest
-          ? `<p class="poll-share guest-share muted" style="text-align:center;margin:20px 0 0">Know someone who should answer too? <button type="button" class="link-btn" id="copy">Copy the link</button></p>`
+          ? `<p class="poll-share guest-share muted" style="text-align:center;margin:16px 0 0">Know someone who should answer too? <button type="button" class="link-btn" id="copy">Copy the link</button></p>`
           : ''
       }
     </article>`;

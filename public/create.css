@@ -10,9 +10,6 @@
 main:has(> .create) {
   padding-bottom: 0;
 }
-main:has(> .create) + .footer {
-  padding-top: 16px;
-}
 /* Cards end at their last line */
 .create .sheet > :last-child,
 .create .sheet > :last-child > :last-child {

@@ -46,7 +46,8 @@ the same PR** (and CLAUDE.md if it's a rule that matters in review).
 - **Clear all has Undo** in its place. No pop-up tips over the calendar.
 - With nothing picked, every level says the same: **"Pick at least one day to create the poll"**.
 - Days in a row: a run that fits shows just its length; only a short one says "too short".
-- No empty space at the end of the page; cards end at their last line.
+- No empty space at the end of any page (app and website): the footer follows the content straight
+  on; cards end at their last line.
 
 **Answering and results**
 
