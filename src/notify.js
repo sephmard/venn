@@ -165,6 +165,41 @@ function emailLayout(bodyHtml, footerHtml, pageUrl, { signed = true } = {}) {
 ${signed ? `<p style="max-width:520px;margin:8px auto 0;color:#6b6d70;font-size:12px;line-height:1.5">${signature(pageUrl, true)}</p>` : ''}</body></html>`;
 }
 
+/**
+ * A retro poll's emails (the organizer's "Retro look"): the same email, re-coloured as a synthwave
+ * night with neon links and buttons and arcade-style headings, to match its page.
+ */
+const RETRO = [
+  [
+    'background:#f7f7f5;font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;color:#1c1d1f',
+    'background:#0d0221;font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;color:#f5f0ff',
+  ],
+  [
+    'background:#fff;border:1px solid #e2e2dc;border-radius:10px',
+    'background:#150a35;border:2px solid #2de2e6;border-radius:6px;box-shadow:0 0 24px rgba(255,60,172,.45)',
+  ],
+  [
+    '<div style="font-weight:700;font-size:18px;margin-bottom:16px">Venn</div>',
+    '<div style="font-weight:700;font-size:18px;margin-bottom:16px;font-family:\'Courier New\',monospace;letter-spacing:.2em;color:#2de2e6">VENN</div>',
+  ],
+  [
+    'font-size:22px;font-weight:700;line-height:1.3"',
+    "font-size:22px;font-weight:700;line-height:1.3;font-family:'Courier New',monospace;text-transform:uppercase;letter-spacing:.04em;color:#ffd319\"",
+  ],
+  ['background:#0b7a5c;color:#fff;', 'background:#ff3cac;color:#0d0221;'],
+  ['border-radius:999px">', 'border-radius:4px;box-shadow:0 0 16px rgba(255,60,172,.7)">'],
+  ['border:1.5px solid #0b7a5c;border-radius:999px;color:#0b7a5c', 'border:1.5px solid #2de2e6;border-radius:4px;color:#2de2e6'],
+  [
+    'border:1px solid #e2e2dc;border-radius:8px;background:#f7f7f5',
+    'border:1px solid #2de2e6;border-radius:4px;background:#0d0221',
+  ],
+  ['color:#1c1d1f;text-decoration:none', 'color:#f5f0ff;text-decoration:none'],
+  ['color:#0b7a5c', 'color:#2de2e6'],
+  ['color:#6b6d70', 'color:#c9bfec'],
+];
+export const retroEmail = (html) => RETRO.reduce((h, [from, to]) => h.split(from).join(to), html);
+const styled = (html, retro) => (retro ? retroEmail(html) : html);
+
 /** "Planned with Venn", at the end of every email and calendar event: how the next organizer finds it. */
 export function signature(pageUrl, html = false) {
   const site = new URL(pageUrl).origin;
@@ -239,7 +274,7 @@ const stopFooter = (unsubscribeUrl) =>
   `You get these emails because you asked Venn to tell you about this poll. <a href="${escHtml(unsubscribeUrl)}" style="color:#6b6d70">Stop these emails</a>.`;
 
 /** To the organizer, the moment their poll exists: well done, and here's the link to share. */
-export function pollReadyEmail({ title, pollUrl, unsubscribeUrl }) {
+export function pollReadyEmail({ title, pollUrl, unsubscribeUrl, retro = false }) {
   const subject = `Your Venn “${title}” is ready 🎉`;
   const text = `Your Venn “${title}” is ready!\n\nFinn is so proud of you for bringing people together. Here's the link to share with everyone:\n\n${pollUrl}\n\nCopy it into your group chat, or send it by text or email.\n\nWe'll email you here whenever someone answers.\n\nStop these emails: ${unsubscribeUrl}\n`;
   const html = emailLayout(
@@ -250,14 +285,14 @@ export function pollReadyEmail({ title, pollUrl, unsubscribeUrl }) {
     pollUrl,
     { signed: false },
   );
-  return { subject, text, html };
+  return { subject, text, html: styled(html, retro) };
 }
 
 /**
  * To everyone who answered with their email, once the organizer picks the date: it's happening, and
  * one tap to put it in their calendar. `when` is the date in the poll's time zone (src/preview.js).
  */
-export function dateSetEmail({ title, when, location, pollUrl, calendars }) {
+export function dateSetEmail({ title, when, location, pollUrl, calendars, retro = false }) {
   const subject = `It's happening: ${title}, ${when} 🎉`;
   const where = location ? `\nWhere: ${location}` : '';
   let text = `It's happening! “${title}” is on ${when}.${where}\n\nAdd it to your calendar:\n${calendars.map(([l, u]) => `${l}: ${u}`).join('\n')}\n\nThe poll: ${pollUrl}\n\nYou get this one email because you answered “${title}” with this address. Venn won't email you again about it.\n`;
@@ -271,11 +306,11 @@ export function dateSetEmail({ title, when, location, pollUrl, calendars }) {
     `You get this one email because you answered “${escHtml(title)}” with this address. Venn won't email you again about it.`,
     pollUrl,
   );
-  return { subject, text, html };
+  return { subject, text, html: styled(html, retro) };
 }
 
 /** To the organizer, each time someone answers: who it was, the best time so far, and the poll. */
-export function responseEmail(s, unsubscribeUrl) {
+export function responseEmail(s, unsubscribeUrl, { retro = false } = {}) {
   const name = s.response?.name;
   const isNew = s.event === 'response.created';
   const subject = !name
@@ -302,7 +337,7 @@ export function responseEmail(s, unsubscribeUrl) {
     s.poll.url,
     { signed: false },
   );
-  return { subject, text, html };
+  return { subject, text, html: styled(html, retro) };
 }
 
 /** "Sat, Nov 7, 7:00 PM – 9:00 PM EST" or "Fri, Nov 6 – Sun, Nov 8", for one window of a poll. */
@@ -335,7 +370,7 @@ export function answerLines(ev, availability) {
  * A copy of someone's answer, for them: what they said, their own link to see and change it, and
  * the poll. `seeAnswers` is false when the organizer hides everyone's answers.
  */
-export function answerCopyEmail({ title, name, lines, pollUrl, editUrl, seeAnswers = true }) {
+export function answerCopyEmail({ title, name, lines, pollUrl, editUrl, seeAnswers = true, retro = false }) {
   const subject = `Your answer to “${title}”`;
   const list = lines.length ? lines : null;
   const pollLabel = seeAnswers ? "See everyone's answers" : 'Open the poll';
@@ -358,7 +393,7 @@ export function answerCopyEmail({ title, name, lines, pollUrl, editUrl, seeAnswe
     "You asked for this copy when you answered the poll. If that wasn't you, ignore this email and nothing more will be sent.",
     pollUrl,
   );
-  return { subject, text, html };
+  return { subject, text, html: styled(html, retro) };
 }
 
 // ---------- delivery ----------
@@ -438,7 +473,7 @@ export async function notifyResponse({ store, env, fetchImpl, now, origin, ev, k
     let emailsSent = settings.emailsSent || 0;
     if (settings.email && emailEnabled(env) && !recentlyEmailed && emailsSent < MAX_ORGANIZER_EMAILS) {
       const unsubscribeUrl = `${origin}/e/${ev.id}#unsubscribe=${settings.unsubscribeToken}`;
-      const msg = responseEmail(s, unsubscribeUrl);
+      const msg = responseEmail(s, unsubscribeUrl, { retro: ev.retro });
       jobs.push(
         sendEmail(
           env,

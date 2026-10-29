@@ -1,0 +1,110 @@
+/* A poll in its organizer's "Retro look" (event.js loads this only for those polls, and sets
+   html.retro): the website's retro mode for the poll page. A synthwave night, chrome headlines,
+   neon edges and an arcade toast. The answers keep their meaning: available is green, if needed
+   amber, unavailable pink. See DESIGN.md. */
+@font-face {
+  font-family: 'Orbitron';
+  src: url('/fonts/orbitron-latin-900-normal.woff2') format('woff2');
+  font-weight: 900;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'Press Start 2P';
+  src: url('/fonts/press-start-2p-latin-400-normal.woff2') format('woff2');
+  font-display: swap;
+}
+html.retro {
+  --bg: #0d0221;
+  --surface: #150a35;
+  --surface-2: #1f0f4a;
+  --border: #3a2170;
+  --text: #f5f0ff;
+  --muted: #c9bfec;
+  --accent: #2de2e6;
+  --accent-ink: #0d0221;
+  --accent-soft: #123a52;
+  --yes: #2bf5a0;
+  --yes-ink: #0d0221;
+  --yes-soft: #0f3d3a;
+  --maybe: #ffd319;
+  --maybe-ink: #0d0221;
+  --maybe-soft: #3d3412;
+  --no-bg: #ff3cac;
+  --no-ink: #0d0221;
+  --no: #ff6fbd;
+  --no-soft: #3d1240;
+  --no-cell: #7a1f5c;
+  --danger: #ff6fbd;
+  --cell-empty: #1f0f4a;
+  --cell-line: #6b5aa6;
+  --heat: 43, 245, 160;
+  --final: #f5f0ff;
+  --final-ink: #0d0221;
+  --lift: 0 0 0 1px rgb(45 226 230 / 0.3), 0 0 30px -10px rgb(255 60 172 / 0.55);
+  --serif: 'Orbitron', system-ui, sans-serif;
+  color-scheme: dark;
+}
+html.retro body {
+  background:
+    radial-gradient(1px 1px at 12% 18%, #fff8 50%, transparent 51%),
+    radial-gradient(1px 1px at 72% 9%, #fff9 50%, transparent 51%),
+    radial-gradient(1px 1px at 88% 36%, #fff7 50%, transparent 51%),
+    linear-gradient(180deg, #0d0221 0%, #160634 60%, #24083f 100%) fixed;
+  background-size:
+    320px 320px,
+    260px 260px,
+    300px 300px,
+    auto;
+}
+/* Scanlines, faint. */
+html.retro body::after {
+  content: '';
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  pointer-events: none;
+  background: repeating-linear-gradient(180deg, rgb(255 255 255 / 0.025) 0 1px, transparent 1px 3px);
+}
+/* Chrome headlines. */
+html.retro h1 {
+  font-weight: 900;
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+  font-size: clamp(1.5rem, 6vw, 2.5rem);
+  overflow-wrap: anywhere;
+  background: linear-gradient(180deg, #fff 0%, #e4e9ff 38%, #9d8fd6 50%, #fff 53%, #cdd5ff 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+/* Neon edges on the cards, and the bar's horizon. */
+html.retro .sheet,
+html.retro .card {
+  border-color: rgb(45 226 230 / 0.4);
+  box-shadow: var(--lift);
+}
+html.retro .topbar {
+  background: rgb(13 2 33 / 0.85);
+  box-shadow:
+    0 1px 0 0 rgb(255 60 172 / 0.6),
+    0 6px 24px -10px rgb(255 60 172 / 0.6);
+}
+html.retro .brand img {
+  content: url('/logo-retro.svg?v=1');
+}
+html.retro .btn-primary {
+  box-shadow: 0 0 18px -2px rgb(45 226 230 / 0.7);
+}
+/* Notifications: an arcade toast. */
+html.retro #toast:not(:empty) {
+  background: #150a35;
+  color: #f5f0ff;
+  border: 2px solid #2de2e6;
+  border-radius: 6px;
+  box-shadow:
+    4px 4px 0 0 #ff3cac,
+    0 0 24px -4px rgb(45 226 230 / 0.8);
+  font-family: 'Press Start 2P', ui-monospace, monospace;
+  font-size: 0.6875rem;
+  line-height: 1.7;
+}

@@ -193,6 +193,7 @@ const SETTINGS = [
   ['requireEmail', 'Ask guests for their email'],
   ['hideNames', 'Hide names from guests'],
   ['hideResults', 'Hide answers from guests'],
+  ['retro', 'Retro look'],
 ];
 
 /** ctx: { id, ev, headers, close, reload } */

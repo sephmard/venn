@@ -101,6 +101,9 @@ the same PR** (and CLAUDE.md if it's a rule that matters in review).
   on a moving grid, a neon logo (`logo-retro.svg`) and Finn stickers on neon circles
   (`img/stickers/retro/`; Finn stays smooth, never chunky pixels). Off, the usual look and logo.
   DESIGN.md has both.
+- A poll can have the **Retro look** too (the organizer's switch, off by default): its page in neon
+  for everyone, arcade toasts, retro Finn, and neon emails. Available stays green, if needed amber,
+  unavailable pink.
 - The hero Venn tells the story in motion, **from noise to a plan**: a group chat's messages bounce
   around, fly to the three friends, the circles drift together and the day that works pops out, then
   they keep floating. It plays while in view. Tap replays it; press and hold a circle (a mouse just

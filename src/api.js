@@ -80,8 +80,9 @@ async function readJson(request, max = MAX_BODY) {
   }
 }
 
-/** The organizer's privacy choices for a poll. Only the ones switched on are stored. */
-const PRIVACY = ['requireEmail', 'hideNames', 'hideResults'];
+/** The organizer's on/off choices for a poll: privacy, and the retro look (its page and emails).
+ * Only the ones switched on are stored. */
+const PRIVACY = ['requireEmail', 'hideNames', 'hideResults', 'retro'];
 
 function applyPrivacy(event, body) {
   for (const key of PRIVACY) {
@@ -236,6 +237,7 @@ export async function handleApi(
       pollUrl,
       editUrl: `${pollUrl}#edit=${participantId}.${editToken}`,
       seeAnswers: !ev.hideResults,
+      retro: ev.retro,
     });
     waitUntil(sendEmail(env, { to, ...msg, headers }, { fetchImpl }).catch((e) => console.error('answer copy failed', e)));
   }
@@ -276,6 +278,7 @@ export async function handleApi(
         ['Outlook', outlookCalendarUrl(info)],
         ['Apple (iCal)', `${pollUrl.replace('/e/', '/api/events/')}/event.ics`],
       ],
+      retro: ev.retro,
     });
     for (const [pid, to] of emails) {
       const headers = unsubscribeHeaders(unsubscribeLink(origin, ev.id, tokens.get(pid)));
@@ -408,6 +411,7 @@ export async function handleApi(
           title: event.title,
           pollUrl: `${origin}/e/${id}`,
           unsubscribeUrl: `${origin}/e/${id}#unsubscribe=${settings.unsubscribeToken}`,
+          retro: event.retro,
         });
         const headers = unsubscribeHeaders(unsubscribeLink(origin, id, settings.unsubscribeToken));
         waitUntil(
@@ -611,7 +615,7 @@ export async function handleApi(
       return error(404, 'Not found');
     }
 
-    // PUT /api/events/:id/settings  { requireEmail?, hideNames?, hideResults? }
+    // PUT /api/events/:id/settings  { requireEmail?, hideNames?, hideResults?, retro? }
     if (parts.length === 3 && parts[2] === 'settings' && method === 'PUT') {
       if (!isAdmin) return error(403, 'Only the organizer can change these settings');
       const { id: _id, adminHash, finalStart, createdAt, ...data } = ev;

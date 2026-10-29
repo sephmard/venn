@@ -176,6 +176,7 @@ test('organizer privacy: required emails, hidden names, hidden answers', async (
     requireEmail: true,
     hideNames: false,
     hideResults: true,
+    retro: false,
   });
 
   // Hidden answers: guests see only their own answer and how many people answered.
@@ -499,7 +500,7 @@ test('polls saved with a repeat, from before it was taken out, still open, and l
       body: { hideNames: true },
       headers: { 'x-admin-token': adminToken },
     });
-    assert.deepEqual(settings.data, { requireEmail: false, hideNames: true, hideResults: false });
+    assert.deepEqual(settings.data, { requireEmail: false, hideNames: true, hideResults: false, retro: false });
     assert.equal(JSON.parse(db.prepare('SELECT data FROM events WHERE id = ?').get(id).data).repeat, undefined);
     db.close();
   } finally {

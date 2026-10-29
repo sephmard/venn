@@ -11,6 +11,7 @@ import {
   notifyResponse,
   pollReadyEmail,
   responseEmail,
+  retroEmail,
   signature,
   smsHref,
   summaryText,
@@ -269,6 +270,39 @@ const poll = {
 };
 const emails = () => sent.filter((s) => s.url === 'https://api.resend.com/emails');
 
+test("a retro poll's emails are the same email in neon: dark, with neon buttons and links", () => {
+  const plain = pollReadyEmail({ title: 'Game night', pollUrl: 'https://venn.day/e/abc', unsubscribeUrl: 'https://venn.day/u' });
+  const retro = pollReadyEmail({
+    title: 'Game night',
+    pollUrl: 'https://venn.day/e/abc',
+    unsubscribeUrl: 'https://venn.day/u',
+    retro: true,
+  });
+  assert.equal(retro.subject, plain.subject);
+  assert.equal(retro.text, plain.text);
+  assert.equal(retro.html, retroEmail(plain.html));
+  assert.match(retro.html, /background:#0d0221/);
+  assert.match(retro.html, /background:#ff3cac;color:#0d0221/); // the button: dark ink on neon magenta
+  assert.doesNotMatch(retro.html, /#0b7a5c|#f7f7f5/); // nothing of the usual green or paper left
+  // Every kind of email takes the look.
+  for (const html of [
+    answerCopyEmail({
+      title: 'T',
+      name: 'Ana',
+      lines: [],
+      pollUrl: 'https://venn.day/e/a',
+      editUrl: 'https://venn.day/e/a#edit',
+      retro: true,
+    }).html,
+    responseEmail(
+      { event: 'response.created', response: { name: 'Ana' }, poll: { title: 'T', responses: 1, url: 'https://venn.day/e/a' } },
+      'https://venn.day/u',
+      { retro: true },
+    ).html,
+  ])
+    assert.doesNotMatch(html, /#0b7a5c|#f7f7f5/);
+});
+
 test('the organizer gets their poll link straight away, then an email per answer, and can stop them', async () => {
   assert.equal((await call('/api/config')).data.email, true);
 
@@ -354,6 +388,20 @@ const oneClick = async (headerValue) => {
   await server.settled();
   return res.status;
 };
+
+test('the retro look is a poll setting: its page knows, and its emails come in neon', async () => {
+  const { data } = await call('/api/events', { method: 'POST', body: { ...poll, retro: true, notifyEmail: 'sam@example.com' } });
+  assert.match(emails()[0].body.html, /background:#0d0221/);
+  assert.equal((await call(`/api/events/${data.id}`)).data.retro, true);
+  // The organizer turns it off: back to the usual look.
+  const off = await call(`/api/events/${data.id}/settings`, {
+    method: 'PUT',
+    body: { retro: false },
+    headers: { 'x-admin-token': data.adminToken },
+  });
+  assert.equal(off.data.retro, false);
+  assert.equal((await call(`/api/events/${data.id}`)).data.retro, undefined);
+});
 
 test("one tap on a mail app's unsubscribe button stops the organizer's emails", async () => {
   const { data } = await call('/api/events', { method: 'POST', body: { ...poll, notifyEmail: 'sam@example.com' } });
