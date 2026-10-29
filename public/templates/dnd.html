@@ -25,6 +25,7 @@
     <link rel="icon" href="/favicon.svg?v=5" type="image/svg+xml" />
     <link rel="preload" href="/fonts/instrument-serif-latin-400-normal.woff2" as="font" type="font/woff2" crossorigin />
     <link rel="stylesheet" href="/site.css" />
+    <script src="/retro-mode.js"></script>
     <script type="application/ld+json">
       {
         "@context": "https://schema.org",
@@ -77,7 +78,16 @@
     <a class="skip" href="#main">Skip to content</a>
     <header class="topbar">
       <div class="wrap nav">
-        <a href="/" class="brand"><img src="/favicon.svg?v=5" width="28" height="28" alt="" /> Venn</a>
+        <a href="/" class="brand"
+          ><img src="/favicon.svg?v=5" width="28" height="28" alt="" class="logo-classic" /><img
+            src="/logo-retro.svg?v=1"
+            width="28"
+            height="28"
+            alt=""
+            class="logo-retro"
+          />
+          Venn</a
+        >
         <nav class="nav-links" aria-label="Main">
           <a href="/new" class="btn btn-sm">Create a Venn</a>
           <details class="menu">
@@ -91,6 +101,7 @@
               <a href="/privacy">Privacy</a>
               <a href="https://docs.venn.day">Docs</a>
               <a href="https://github.com/sephmard/venn">GitHub</a>
+              <button type="button" class="retro-switch" role="switch" aria-checked="false">Retro mode</button>
             </div>
           </details>
         </nav>
@@ -119,7 +130,16 @@
             aria-label="A Venn poll for D&amp;D: session 12: Fri, Nov 13, 4 of 5, Sun, Nov 15, 5 of 5, Wed, Nov 18, 3 of 5. Sun, Nov 15 is the best date."
           >
             <div aria-hidden="true">
-              <p class="result-head"><img src="/favicon.svg?v=5" width="20" height="20" alt="" /> D&amp;D: session 12</p>
+              <p class="result-head">
+                <img src="/favicon.svg?v=5" width="20" height="20" alt="" class="logo-classic" /><img
+                  src="/logo-retro.svg?v=1"
+                  width="20"
+                  height="20"
+                  alt=""
+                  class="logo-retro"
+                />
+                D&amp;D: session 12
+              </p>
               <ul class="votes">
                 <li><span>Fri, Nov 13</span><i style="--n: 80%"></i><b>4 of 5</b></li>
                 <li class="best"><span>Sun, Nov 15</span><i style="--n: 100%"></i><b>5 of 5</b></li>

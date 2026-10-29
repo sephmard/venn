@@ -9,13 +9,20 @@
     <link rel="icon" href="/favicon.ico?v=5" sizes="32x32" />
     <link rel="icon" href="/favicon.svg?v=5" type="image/svg+xml" />
     <link rel="stylesheet" href="/site.css" />
+    <script src="/retro-mode.js"></script>
   </head>
   <body>
     <a class="skip" href="#main">Skip to content</a>
     <header class="topbar">
       <div class="wrap nav">
         <a href="/" class="brand">
-          <img src="/favicon.svg?v=5" width="28" height="28" alt="" />
+          <img src="/favicon.svg?v=5" width="28" height="28" alt="" class="logo-classic" /><img
+            src="/logo-retro.svg?v=1"
+            width="28"
+            height="28"
+            alt=""
+            class="logo-retro"
+          />
           Venn
         </a>
         <nav class="nav-links" aria-label="Main">
@@ -31,6 +38,7 @@
               <a href="/privacy">Privacy</a>
               <a href="https://docs.venn.day">Docs</a>
               <a href="https://github.com/sephmard/venn">GitHub</a>
+              <button type="button" class="retro-switch" role="switch" aria-checked="false">Retro mode</button>
             </div>
           </details>
         </nav>

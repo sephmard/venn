@@ -918,6 +918,9 @@ test(
   { tag: '@site' },
   async ({ page }) => {
     await page.goto('/');
+    // The usual logo; the neon one waits for retro mode.
+    await expect(page.locator('.brand img.logo-classic')).toBeVisible();
+    await expect(page.locator('.brand img.logo-retro')).toBeHidden();
     const nav = page.getByRole('navigation', { name: 'Main' });
     await expect(nav.getByRole('link', { name: 'GitHub' })).toBeHidden(); // not in the bar itself
     await page.locator('.menu summary').click();
@@ -1245,8 +1248,8 @@ test('installable: manifest and icons are served', async ({ request }) => {
   const manifest = await (await request.get('/manifest.webmanifest')).json();
   expect(manifest.name).toBe('Venn');
   for (const icon of manifest.icons) expect((await request.get(icon.src)).status()).toBe(200);
-  // Browser tabs: SVG and .ico favicons for the site and app, and for poll pages.
-  for (const path of ['/favicon.svg', '/favicon.ico', '/favicon-poll.svg', '/favicon-poll.ico']) {
+  // Browser tabs: SVG and .ico favicons for the app and for poll pages, and the website's retro logo.
+  for (const path of ['/favicon.svg', '/favicon.ico', '/favicon-poll.svg', '/favicon-poll.ico', '/logo-retro.svg']) {
     const res = await request.get(path);
     expect(res.status()).toBe(200);
     expect(res.headers()['content-type']).toMatch(/image/);

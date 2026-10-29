@@ -5,9 +5,31 @@
 const SIZE = 512;
 const EDGE = 11; // the white sticker edge
 const SERIF = '"Instrument Serif", "Iowan Old Style", "Palatino Linotype", Georgia, serif';
-const GREEN = '#0b7a5c';
-const AMBER = '#e0a12e';
-const DOTS = ['#0b7a5c', '#2fc497', '#8fd9bf', '#e0a12e', '#e0526f'];
+// How a sticker looks: the app's (green, a serif caption, a white edge), or the website's retro one
+// (neon circles, an arcade caption, a glowing cyan edge).
+const LOOKS = {
+  plain: {
+    green: '#0b7a5c',
+    amber: '#e0a12e',
+    dots: ['#0b7a5c', '#2fc497', '#8fd9bf', '#e0a12e', '#e0526f'],
+    venn: ['rgba(47, 196, 151, 0.4)'],
+    font: SERIF,
+    caption: ['#0b7a5c', '#fff'],
+    edge: '#fff',
+  },
+  retro: {
+    green: '#ff3cac',
+    amber: '#ffd319',
+    dots: ['#2de2e6', '#ff3cac', '#ffd319', '#f222ff', '#ff901f'],
+    venn: ['rgba(45, 226, 230, 0.75)', 'rgba(255, 60, 172, 0.75)', 'rgba(255, 211, 25, 0.7)'],
+    blend: 'lighter', // neon adds up where the circles cross
+    font: '"Press Start 2P", monospace',
+    caption: ['#ff3cac', '#0d0221'],
+    edge: '#2de2e6',
+    arcade: true, // the caption's pixel font is wide: smaller, on a square tag
+  },
+};
+let look = LOOKS.plain;
 
 let dogPromise = null;
 const loadDog = () =>
@@ -18,12 +40,16 @@ const loadDog = () =>
     img.src = '/img/dog.webp';
   }));
 
+let pixelFont = null; // the website's arcade font, added once
 async function loadFont() {
-  if (!document.fonts?.load || document.fonts.check(`400 60px "Instrument Serif"`)) return;
-  await Promise.race([
-    document.fonts.load(`400 60px "Instrument Serif"`).catch(() => {}),
-    new Promise((r) => setTimeout(r, 1500)),
-  ]);
+  const family = look === LOOKS.retro ? 'Press Start 2P' : 'Instrument Serif';
+  if (look === LOOKS.retro && !pixelFont) {
+    pixelFont = new FontFace(family, 'url(/fonts/press-start-2p-latin-400-normal.woff2)');
+    document.fonts.add(pixelFont);
+    await pixelFont.load().catch(() => {});
+  }
+  if (!document.fonts?.load || document.fonts.check(`400 60px "${family}"`)) return;
+  await Promise.race([document.fonts.load(`400 60px "${family}"`).catch(() => {}), new Promise((r) => setTimeout(r, 1500))]);
 }
 
 const canvas = () => Object.assign(document.createElement('canvas'), { width: SIZE, height: SIZE });
@@ -60,10 +86,10 @@ const EXTRAS = {
     ctx.lineTo(30, 4);
     ctx.lineTo(-30, 4);
     ctx.closePath();
-    ctx.fillStyle = GREEN;
+    ctx.fillStyle = look.green;
     ctx.fill();
     ctx.clip();
-    ctx.strokeStyle = AMBER;
+    ctx.strokeStyle = look.amber;
     ctx.lineWidth = 7;
     for (const d of [-34, -14, 6]) {
       ctx.beginPath();
@@ -77,7 +103,7 @@ const EXTRAS = {
     ctx.rotate(-0.24);
     ctx.beginPath();
     ctx.arc(0, -66, 10, 0, Math.PI * 2);
-    ctx.fillStyle = AMBER;
+    ctx.fillStyle = look.amber;
     ctx.fill();
     ctx.restore();
   },
@@ -89,7 +115,7 @@ const EXTRAS = {
     const [cx, cy] = [x + w + 26, y + h * 0.24];
     ctx.beginPath();
     ctx.arc(cx, cy, 34, 0, Math.PI * 2);
-    ctx.fillStyle = GREEN;
+    ctx.fillStyle = look.green;
     ctx.fill();
     ctx.strokeStyle = '#fff';
     ctx.lineWidth = 9;
@@ -119,7 +145,7 @@ const EXTRAS = {
   scarf(ctx, x, y, w, h) {
     ctx.save();
     const top = y + h * 0.33;
-    ctx.fillStyle = GREEN;
+    ctx.fillStyle = look.green;
     ctx.beginPath();
     ctx.moveTo(x + w * 0.04, top + 6);
     ctx.quadraticCurveTo(x + w * 0.45, top + 30, x + w * 0.96, top);
@@ -131,14 +157,14 @@ const EXTRAS = {
     ctx.beginPath();
     ctx.roundRect(x + w * 0.62, top + 26, 26, 74, 6);
     ctx.fill();
-    ctx.fillStyle = AMBER;
+    ctx.fillStyle = look.amber;
     for (const dy of [44, 62, 80]) ctx.fillRect(x + w * 0.62, top + dy, 26, 6);
     ctx.restore();
   },
   sparkle(ctx, x, y, w, h) {
-    star(ctx, x - 26, y + 40, 26, AMBER);
-    star(ctx, x + w + 30, y + 10, 34, GREEN);
-    star(ctx, x + w + 14, y + h * 0.5, 16, AMBER);
+    star(ctx, x - 26, y + 40, 26, look.amber);
+    star(ctx, x + w + 30, y + 10, 34, look.green);
+    star(ctx, x + w + 14, y + h * 0.5, 16, look.amber);
   },
   confetti(ctx, x, y, w, h) {
     const bits = [
@@ -155,7 +181,7 @@ const EXTRAS = {
       ctx.save();
       ctx.translate(x + dx, y + dy + h * 0.04);
       ctx.rotate(r);
-      ctx.fillStyle = DOTS[i % DOTS.length];
+      ctx.fillStyle = look.dots[i % look.dots.length];
       if (i % 3 === 0) {
         ctx.beginPath();
         ctx.arc(0, 0, 7, 0, Math.PI * 2);
@@ -169,16 +195,18 @@ const EXTRAS = {
 /** Draw one sticker's picture (no edge yet) on `ctx`. */
 function drawFace(ctx, sticker, dog) {
   // The Venn: three see-through circles, darker where they overlap.
-  ctx.fillStyle = 'rgba(47, 196, 151, 0.4)';
-  for (const [cx, cy] of [
+  for (const [i, [cx, cy]] of [
     [256, 168],
     [200, 262],
     [312, 262],
-  ]) {
+  ].entries()) {
+    ctx.fillStyle = look.venn[i % look.venn.length];
+    ctx.globalCompositeOperation = look.blend || 'source-over';
     ctx.beginPath();
     ctx.arc(cx, cy, 90, 0, Math.PI * 2);
     ctx.fill();
   }
+  ctx.globalCompositeOperation = 'source-over';
   const h = 300;
   const w = (h * dog.naturalWidth) / dog.naturalHeight;
   const [x, y] = [256 - w / 2, 92];
@@ -189,28 +217,37 @@ function drawFace(ctx, sticker, dog) {
   for (const [i, draw] of extras.entries()) if (sticker.extra[i] !== 'confetti') draw(ctx, x, y, w, h);
 
   // The caption, on a tilted green pill over Finn's paws.
-  let px = 66;
-  const font = (n) => `400 ${n}px ${SERIF}`;
+  let px = look.arcade ? 34 : 66;
+  const font = (n) => `400 ${n}px ${look.font}`;
   ctx.font = font(px);
-  while (ctx.measureText(sticker.caption).width > 360 && px > 40) ctx.font = font((px -= 2));
+  while (ctx.measureText(sticker.caption).width > 360 && px > (look.arcade ? 16 : 40)) ctx.font = font((px -= 2));
   const tw = ctx.measureText(sticker.caption).width;
   ctx.save();
   ctx.translate(256, 418);
   ctx.rotate((sticker.tilt * Math.PI) / 180);
   ctx.beginPath();
-  ctx.roundRect(-tw / 2 - 30, -px * 0.72, tw + 60, px * 1.38, 999);
-  ctx.fillStyle = GREEN;
+  ctx.roundRect(
+    -tw / 2 - 30,
+    -px * 0.72 - (look.arcade ? 8 : 0),
+    tw + 60,
+    px * 1.38 + (look.arcade ? 16 : 0),
+    look.arcade ? 8 : 999,
+  );
+  ctx.fillStyle = look.caption[0];
   ctx.fill();
-  ctx.fillStyle = '#fff';
+  ctx.fillStyle = look.caption[1];
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
   ctx.fillText(sticker.caption, 0, px * 0.04);
   ctx.restore();
 }
 
-/** A sticker as a PNG blob: the picture, a white edge all round it, and a soft shadow. */
-export async function makeSticker(sticker) {
+/** A sticker as a PNG blob: the picture, a white edge all round it, and a soft shadow. With
+ * `{ retro: true }`, the website's look: neon, an arcade caption, and a glowing cyan edge. */
+export async function makeSticker(sticker, { retro = false } = {}) {
+  look = retro ? LOOKS.retro : LOOKS.plain;
   const [dog] = await Promise.all([loadDog(), loadFont()]);
+  look = retro ? LOOKS.retro : LOOKS.plain; // another sticker may have been drawn while waiting
   const face = canvas();
   drawFace(face.getContext('2d'), sticker, dog);
   // The edge: the picture's shape, spread out in every direction and filled with white.
@@ -221,11 +258,14 @@ export async function makeSticker(sticker) {
     ectx.drawImage(face, Math.cos(a) * EDGE, Math.sin(a) * EDGE);
   }
   ectx.globalCompositeOperation = 'source-in';
-  ectx.fillStyle = '#fff';
+  ectx.fillStyle = look.edge;
   ectx.fillRect(0, 0, SIZE, SIZE);
   const out = canvas();
   const ctx = out.getContext('2d');
-  Object.assign(ctx, { shadowColor: 'rgba(22, 24, 26, 0.28)', shadowBlur: 10, shadowOffsetY: 3 });
+  const shadow = retro
+    ? { shadowColor: 'rgba(255, 60, 172, 0.9)', shadowBlur: 18, shadowOffsetY: 0 }
+    : { shadowColor: 'rgba(22, 24, 26, 0.28)', shadowBlur: 10, shadowOffsetY: 3 };
+  Object.assign(ctx, shadow);
   ctx.drawImage(edge, 0, 0);
   ctx.shadowColor = 'transparent';
   ctx.drawImage(face, 0, 0);
