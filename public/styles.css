@@ -2498,7 +2498,14 @@ pre.code {
   background: var(--final);
   opacity: 0.88;
 }
-/* Hours: a card a day, the day as a timeline of half hours. */
+/* Hours: a card a day, the day as a timeline of half hours, and its best stretches as slim rows. */
+.ov-card .ov-list {
+  gap: 6px;
+}
+.ov-card .ov-row {
+  min-height: 48px;
+  padding: 8px 14px;
+}
 .ov-days {
   list-style: none;
   margin: 0;
@@ -2513,42 +2520,34 @@ pre.code {
 .ov-tl {
   margin-bottom: 10px;
 }
+/* One smooth track a day: a colour a half hour (see overlap.js), the bare track where nobody can or
+   the time wasn't asked about that day. */
 .ov-cols {
   display: flex;
   align-items: stretch;
-  gap: 2px;
-  height: 56px;
+  height: 28px;
+  border-radius: 8px;
+  overflow: hidden;
+  background: var(--surface-2);
 }
 .ov-slot {
   flex: 1 1 0;
   min-width: 0;
-  display: flex;
-  flex-direction: column;
-  justify-content: flex-end;
-  border-radius: 4px;
-  background: var(--no-cell);
-  overflow: hidden;
 }
-.ov-slot .y {
+.ov-slot.everyone {
   background: var(--yes);
 }
-.ov-slot .m {
+.ov-slot.ifn {
   background: var(--maybe);
 }
-.ov-slot.hot {
-  outline: 2px solid var(--yes);
-  outline-offset: 1px;
+.ov-slot.some {
+  background: color-mix(in srgb, var(--yes) var(--a), transparent);
 }
-.ov-slot.all {
-  outline: 2px solid var(--yes);
-  outline-offset: 1px;
-  box-shadow: 0 6px 14px -8px var(--yes);
-}
+/* The picked time: a ring along the top and bottom of its stretch. */
 .ov-slot.final {
-  outline: 2.5px solid var(--final);
-}
-.ov-gap {
-  flex: 0 0 8px;
+  box-shadow:
+    inset 0 3px var(--final),
+    inset 0 -3px var(--final);
 }
 .ov-axis {
   display: grid;
