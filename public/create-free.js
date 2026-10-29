@@ -16,11 +16,10 @@ import {
   zonedToUtc,
 } from './core.js';
 import { monthView, timeView, tinyTime } from './picker.js';
-import { $, $$, app, dateParts, dayLabel, esc, fmtDay, lengthLabel, plural, shortTime, track } from './ui.js';
+import { $, $$, app, dateParts, dayLabel, esc, fmtDay, plural, shortTime, track } from './ui.js';
 
 import {
   brush,
-  brushBox,
   createBar,
   explainNotReady,
   fillCommon,
@@ -42,13 +41,10 @@ import {
 
 // ---------- "Ask when people are available" ----------
 
-// Hours are for short plans; longer ones suit parts of the day.
 // Under what guests choose from, as on "vote on a few dates".
 const CLEAR = '<button type="button" class="link-btn" id="q-clear">Clear all</button>';
 const NOTHING = '<p class="hint">Nothing yet.</p>';
 const UNDO = '<button type="button" class="link-btn" id="q-undo">Undo</button>';
-const HOUR_LENGTHS = [30, 60, 120];
-const fitLength = (v) => HOUR_LENGTHS.findLast((m) => m <= v) ?? HOUR_LENGTHS[0];
 // How detailed guests' answers are, one tap from whole days down to hours.
 const LEVELS = [
   ['days', 'Days'],
@@ -75,9 +71,6 @@ export function renderFree() {
   let before = new Set(); // what the level had at the last update, to see what's new
   let level = 'days';
   let timeLevel = null; // the last of parts of the day or hours visited: where a day's own times are
-  let length = null; // minutes, for hours: optional, the shortest time worth finding
-  let planLength = null; // a template's length, until the organizer picks one
-  let ownLength = false; // the organizer chose the length
   let cleared = null; // what Clear all took, until something new is picked
   let painter = null;
   let cal = null;
@@ -107,15 +100,7 @@ export function renderFree() {
         <p class="hint" id="when-help" hidden></p>
         ${TAP_KEY}
         <div id="when"></div>
-        <div class="inline-field optional len-after" data-for="hours">
-          <h3 class="sub-h" id="len-h">How long is it? <small class="opt-note">optional</small></h3>
-          <div class="pills" role="group" aria-labelledby="len-h" aria-describedby="len-hint">
-            ${HOUR_LENGTHS.map((m) => `<button type="button" class="pill" data-flength="${m}" aria-pressed="false">${lengthLabel(m)}</button>`).join('')}
-          </div>
-          <p class="hint" id="len-hint">Venn looks for times at least this long. Leave it off to see any overlap.</p>
-        </div>
         ${tzLine()}
-        ${brushBox()}
       </section>
       <section class="sheet poll-preview" aria-labelledby="preview-h">
         <h2 id="preview-h">Guests choose from</h2>
@@ -130,8 +115,6 @@ export function renderFree() {
   const occasion = wirePlan((o) => {
     // Days picked from now on get the plan's usual part of the day.
     st.defaultParts = new Set(o?.part ? [o.part] : DAY_PARTS.map((p) => p.key));
-    planLength = typeof o?.length === 'number' ? fitLength(o.length) : null;
-    if (level === 'hours' && !ownLength) setLength(planLength);
     if (!empty()) return update();
     setRow(o?.days || 1);
     if (o?.days) return setLevel('days');
@@ -156,22 +139,10 @@ export function renderFree() {
     before = new Set(st[next]);
     level = next;
     if (level !== 'days') timeLevel = level;
-    if (level === 'hours' && !ownLength) setLength(planLength);
     for (const b of $$('[data-level]')) b.setAttribute('aria-checked', b.dataset.level === level);
     for (const el of $$('[data-for]')) el.hidden = el.dataset.for !== level;
     mount();
     update();
-  }
-  /** How long it is, for hours, or null: any overlap is worth finding. */
-  function setLength(v) {
-    length = v || null;
-    // An edited poll keeps its own length.
-    if (length && !$(`[data-flength="${v}"]`))
-      $('[data-flength]').parentElement.insertAdjacentHTML(
-        'beforeend',
-        `<button type="button" class="pill" data-flength="${v}" aria-pressed="false">${lengthLabel(v)}</button>`,
-      );
-    for (const b of $$('[data-flength]')) b.setAttribute('aria-pressed', +b.dataset.flength === v);
   }
 
   /** A tap (or click, Enter, Space, or a mouse drag) on the month calendar. With days in a row to
@@ -249,6 +220,7 @@ export function renderFree() {
         onChange: tapped,
         dayClass: band,
         marks: said,
+        drag: false, // only hours are dragged; days are tapped
       });
       const first = [...selected].sort()[0];
       if (first) cal.show(first);
@@ -272,7 +244,8 @@ export function renderFree() {
       parts: parts && DAY_PARTS,
       maybe: maybe[level],
       marking: () => brush() === IF_NEEDED,
-      views: ['week'], // a week at a time, phones too: no Week / Day to choose
+      views: ['week'],
+      drag: false, // only hours are dragged; parts of the day are tapped // a week at a time, phones too: no Week / Day to choose
     });
   }
 
@@ -306,9 +279,9 @@ export function renderFree() {
       label: 'Calendar',
       views: ['week'], // a week at a time, phones too: no Week / Day to choose
       range: () => [420, 1440],
-      tapLength: () => length || 60,
-      // A tap gives the hour tapped (half hours for a 30-min length).
-      tapSnap: () => (length && length < 60 ? 30 : 60),
+      // A tap adds the half hour tapped; a drag (or press and hold, on touch) draws longer.
+      tapLength: () => 30,
+      tapSnap: () => 30,
       startAt: () => null,
       blocks: () =>
         pt.windowsAt(st, 'hours').map((w) => ({
@@ -376,13 +349,6 @@ export function renderFree() {
   $('#create').addEventListener('click', (e) => {
     const lv = e.target.closest('[data-level]');
     if (lv) setLevel(lv.dataset.level);
-    // How long is it: tap again to leave it off.
-    const l = e.target.closest('[data-flength]');
-    if (l) {
-      setLength(+l.dataset.flength === length ? null : +l.dataset.flength);
-      ownLength = true;
-      update();
-    }
     const s = e.target.closest('[data-step]');
     if (s) {
       $('#span').value = Math.max(2, Math.min(MAX_SPAN_DAYS, span() + +s.dataset.step));
@@ -495,13 +461,6 @@ export function renderFree() {
       return setReady(
         `${plural(dates.length, 'day')} to choose from`,
         [!windows.length, 'Pick at least one day to create the poll', gridFocus, null, 'days'],
-        [
-          length && windows.length && !windows.some((w) => w.end - w.start >= length),
-          `Your times are shorter than ${lengthLabel(length)}. Make one longer`,
-          gridFocus,
-          null,
-          'longer times',
-        ],
         ...nameAndEmail(),
       );
     }
@@ -559,7 +518,8 @@ export function renderFree() {
     const answer = hostAnswer(st[lv], maybe[lv], tz);
     if (lv === 'hours')
       return submit(
-        { windows: pt.toWindows(painted), slotMinutes: 30, durationMinutes: length || 30, ...(!length && { anyLength: true }) },
+        // Any overlap counts: the times drawn say how long it could be.
+        { windows: pt.toWindows(painted), slotMinutes: 30, durationMinutes: 30, anyLength: true },
         occasion,
         answer,
       );
@@ -593,8 +553,6 @@ export function renderFree() {
       for (const d of ev.dates) selected.add(d);
     } else {
       next = 'hours';
-      setLength(ev.anyLength || ev.durationMinutes <= 30 ? null : ev.durationMinutes);
-      ownLength = true;
       const ranges = ev.windows || ev.dates.map((date) => ({ date, start: ev.startMinute, end: ev.endMinute }));
       for (const w of ranges) for (let m = w.start - (w.start % 30); m < w.end; m += 30) painted.add(`${w.date}|${m}`);
     }
@@ -605,7 +563,6 @@ export function renderFree() {
     setLevel(next);
   }
 
-  setLength(null);
   setLevel('days');
   // Fetch the painter as soon as the organizer heads for the levels, so zooming in doesn't wait.
   const warm = () => loadPaint().catch(() => {});

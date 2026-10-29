@@ -37,12 +37,13 @@ the same PR** (and CLAUDE.md if it's a rule that matters in review).
 - Both use the same navigation: **« ‹ › »** (a month, a week), never before this week.
 - A tap goes round the same way at every level: **available, then if needed, then removed**.
 - Parts of day and Hours look alike: a plain head, times filling their day's column edge to edge.
-- Drag works on both: drag across parts of the day to paint them; on Hours, **press and hold, then
-  drag** to draw a time, or hold a time and drag to move it (a quick swipe still scrolls).
-- A tap on Hours gives **the hour tapped**, as the labels read (half hours only with a 30-min length).
+- **Only Hours is dragged**: press and hold, then drag, to draw a time, or hold a time and drag to
+  move it (a quick swipe still scrolls; a mouse just drags). Days and parts of the day are tapped.
+- Hours has **no length to choose**: a tap adds the half hour tapped, a drag draws longer, and polls
+  look for any overlap. No "Mark many as if needed": a second tap makes something if needed.
 - A whole day is one **"All day"** at every level, never split into parts or hours with gaps.
 - Templates shape the calendar only while nothing is picked; they never move or remove picks. A second
-  tap turns one off. A template's length shows where lengths are chosen, never set out of sight.
+  tap turns one off.
 - **Clear all has Undo** in its place. No pop-up tips over the calendar.
 - With nothing picked, every level says the same: **"Pick at least one day to create the poll"**.
 - Days in a row: a run that fits shows just its length; only a short one says "too short".
