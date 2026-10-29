@@ -1363,30 +1363,14 @@ ol.best .when {
 .final-cal .cal-add {
   margin-top: 10px;
 }
-.final-extras {
-  margin-top: 6px;
+.final-more {
+  margin: 6px 0 0;
 }
-.final-extras summary {
-  display: inline-flex;
-  align-items: center;
-  min-height: 44px;
-  font-weight: 600;
-  text-decoration: underline;
-  text-underline-offset: 3px;
-  cursor: pointer;
-}
-.final-extras summary::after {
-  content: ' ▾';
-  white-space: pre;
-}
-.final-extras[open] summary::after {
-  content: ' ▴';
-}
-.final-extras-body {
+.change-ends {
   display: flex;
   flex-wrap: wrap;
-  align-items: center;
   gap: 0 20px;
+  margin: 0;
 }
 .poll-share[hidden] {
   display: none;

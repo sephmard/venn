@@ -235,15 +235,12 @@ for (const scheme of ['light', 'dark']) {
       await audit(page, 'new poll on a phone (organizer, changing their answer)');
     });
 
-    test('Finn: a note on the poll, and the sticker sheet', async ({ page }) => {
+    test('Finn: a note on the poll, with stickers', async ({ page }) => {
       await page.emulateMedia({ reducedMotion: 'reduce' });
       await openPoll(page, { names: ['Ana', 'Jo'], picked: true });
       await expect(page.locator('.finn [role=status]')).not.toBeEmpty();
+      await expect(page.locator('.finn [data-stickers]')).toBeVisible();
       await audit(page, 'Finn note');
-      await page.locator('.final-extras summary').click();
-      await page.locator('.final-extras [data-finn-stickers]').click();
-      await expect(page.locator('.finn-sheet [aria-busy]')).toHaveCount(0);
-      await audit(page, 'Finn stickers');
     });
 
     test('days and hours polls', async ({ page }) => {
@@ -364,11 +361,11 @@ for (const width of [375, 412]) {
     await openPoll(page, { picked: true });
     const banner = page.locator('.banner-final');
     await expect(banner).toBeVisible();
-    // Send everyone the date and Add to calendar; Change under the date; the rest under "More".
-    await banner.locator('.final-cal summary').click();
-    await banner.locator('.final-extras summary').click();
-    await expect(banner.getByRole('button', { name: 'Change the date' })).toBeVisible();
+    // Send everyone the date and Add to calendar; Change under the date, with Clear the date in it.
+    await expect(banner.locator('.final-extras')).toHaveCount(0);
+    await banner.getByRole('button', { name: 'Change the date' }).click();
     await expect(banner.getByRole('button', { name: 'Clear the date' })).toBeVisible();
+    await banner.locator('.final-cal summary').click(); // after Change, which draws the banner again
     // Whatever is under the middle of each button is the button itself, not the decorative circles.
     for (const el of await banner.locator('a, button, select').all()) {
       await el.scrollIntoViewIfNeeded();
@@ -395,7 +392,6 @@ for (const scheme of ['light', 'dark']) {
     await page.setViewportSize({ width: 375, height: 900 });
     await openPoll(page, { picked: true });
     await page.locator('.final-cal summary').click();
-    await page.locator('.final-extras summary').click();
     await expect(page.getByRole('group', { name: 'Add to your calendar' })).toBeVisible();
     await expect(page.getByRole('button', { name: 'Change the date' })).toBeVisible();
     await audit(page, `picked date (${scheme})`);

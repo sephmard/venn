@@ -3,8 +3,9 @@
 // banners, shown once per poll and moment (finn-moments.js decides which), that can be closed.
 // Loaded after the poll is on screen, so it never slows the page down.
 
-import { reducedMotion, toast } from './ui.js';
+import { reducedMotion } from './ui.js';
 import { MOMENTS, markSeen, momentFor, nextMoment, pickLine } from './finn-moments.js';
+import { rotate, stickerStack } from './stickers.js';
 
 const DOG = '/img/dog.webp';
 
@@ -35,7 +36,11 @@ const CSS = `
   border:inherit;border-width:0 0 1.5px 1.5px;border-radius:0 0 0 4px;transform:rotate(45deg) skew(8deg,8deg)}
 .finn-say{flex:1;min-width:0;padding-top:1px}
 .finn-say p{margin:0;font-size:16px;line-height:1.4;text-wrap:pretty}
-.finn-say .link-btn{min-height:44px;padding:0;margin-bottom:-12px}
+.finn-fig.sticker{width:96px;height:96px;margin-top:0}
+.stickers{display:grid;width:var(--s);height:var(--s)}
+.stickers img{grid-area:1/1;width:100%;height:100%;opacity:0;transform:scale(.9) rotate(-6deg);
+  transition:opacity .35s,transform .45s cubic-bezier(.3,1.5,.5,1)}
+.stickers img.on{opacity:1;transform:none}
 .finn-close{flex:none;width:44px;height:44px;margin:-10px 0 -10px;border:0;border-radius:50%;background:none;color:var(--muted);
   font-size:22px;line-height:1;cursor:pointer}
 .finn-close:hover{color:var(--text)}
@@ -57,6 +62,9 @@ function styles() {
   document.head.append(s);
 }
 
+// Celebrating: Finn's stickers, turning over on their own.
+const STICKER_MOMENTS = ['picked', 'match'];
+
 /** Finn and whatever's above Finn's head. Decorative: the words say what's going on. */
 const figure = (extras) =>
   `<div class="finn-fig" aria-hidden="true"><img src="${DOG}" alt="" width="46" height="100" />${extras.map((x) => EXTRAS[x]).join('')}</div>`;
@@ -64,8 +72,8 @@ const figure = (extras) =>
 /** The poses, as animations of the picture: a hop, a wag, a curious head tilt, a look around. */
 function pose(el, name) {
   if (reducedMotion()) return;
-  const img = el.querySelector('.finn-fig img');
-  const extras = el.querySelectorAll('.finn-fig svg, .finn-fig span');
+  const img = el.querySelector('.finn-fig > img');
+  const extras = el.querySelectorAll('.finn-fig > svg, .finn-fig > span:not(.stickers)');
   // It slides in rather than fading, so the words are fully readable from the start.
   el.animate([{ transform: 'translateY(10px)' }, { transform: 'none' }], { duration: 260, easing: 'ease-out' });
   const frames = {
@@ -96,7 +104,7 @@ function pose(el, name) {
       { duration: 1600, delay: 300, easing: 'steps(1, end)' },
     ],
   }[name];
-  if (frames) img.animate(...frames);
+  if (frames && img) img.animate(...frames);
   extras.forEach((x, i) =>
     x.animate(
       [
@@ -108,33 +116,27 @@ function pose(el, name) {
   );
 }
 
-function stickers(button) {
-  import('./finn-stickers.js').then((m) => m.openStickers(button)).catch(() => toast("Couldn't open the stickers. Try again."));
-}
-
 /** Finn's note for `moment`, put on the page after `anchor`. */
 function note(moment, anchor) {
   const { pose: name, extra } = MOMENTS[moment];
   const el = document.createElement('div');
   el.className = `finn ${name}`;
   el.dataset.finn = moment;
-  el.innerHTML = `${figure(extra)}
+  const sticker = STICKER_MOMENTS.includes(moment);
+  el.innerHTML = `${sticker ? `<div class="finn-fig sticker" aria-hidden="true">${stickerStack(96)}</div>` : figure(extra)}
     <div class="finn-bubble">
-      <div class="finn-say"><p role="status"></p>${
-        // The stickers are for celebrating. (Waiting on answers, the poll's own share button is the one to press.)
-        moment === 'match' ? '<button type="button" class="link-btn" data-finn-stickers>Finn stickers</button>' : ''
-      }</div>
+      <div class="finn-say"><p role="status"></p></div>
       <button type="button" class="finn-close" aria-label="Close Finn's note">×</button>
     </div>`;
   anchor.after(el);
   // Filled in once it's on the page, so screen readers read it out.
   el.querySelector('[role=status]').textContent = pickLine(moment);
-  el.querySelector('[data-finn-stickers]')?.addEventListener('click', (e) => stickers(e.currentTarget));
   el.querySelector('.finn-close').addEventListener('click', () => {
     cur.closed = true;
     el.remove();
   });
   pose(el, name);
+  rotate(el.querySelector('[data-stickers]'));
   return el;
 }
 
@@ -142,27 +144,16 @@ let cur = null; // { id, moment, el, closed }: the note on the page now
 
 /**
  * The poll page calls this each time its banners are drawn. Shows Finn's note when the poll reaches a
- * new moment, keeps it there while the page redraws, and adds "Finn stickers" under the "It's set" banner's "More".
+ * new moment, and keeps it there while the page redraws.
  */
 export function react({ id, ev, meId = null, anchor }) {
   if (!anchor?.isConnected) return;
   styles();
-  // Organizers find them under the banner's "More"; guests, in Finn's note when their date won.
-  const more = anchor.querySelector('.final-extras-body');
-  if (more && !more.querySelector('[data-finn-stickers]')) {
-    const b = document.createElement('button');
-    b.type = 'button';
-    b.className = 'link-btn';
-    b.dataset.finnStickers = '';
-    b.textContent = 'Finn stickers';
-    b.onclick = () => stickers(b);
-    // Next to "Share as a picture", the other thing to post.
-    (more.querySelector('#share-card') || more.lastElementChild)?.after(b);
-  }
   const now = momentFor(ev, { meId });
   if (cur?.id === id) {
     if (cur.moment === now) {
       if (!cur.closed && !cur.el.isConnected) anchor.after(cur.el);
+      rotate(cur.el.querySelector('[data-stickers]')); // back on the page: turning again
       return;
     }
     cur.el.remove();

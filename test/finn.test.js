@@ -1,4 +1,5 @@
 import { test } from 'node:test';
+import { existsSync } from 'node:fs';
 import assert from 'node:assert/strict';
 import { IF_NEEDED, YES } from '../public/core.js';
 import {
@@ -203,4 +204,17 @@ test('Finn stickers: short captions, known extras and tidy file names', () => {
     STICKERS.map((s) => s.caption),
     ['It’s set!', 'See you there', 'I’m in', 'Finn approves', 'Plans > excuses', 'Can’t wait'],
   );
+});
+
+test('Finn stickers turn over on their own: every one, each drawn to a picture, one showing at a time', async () => {
+  const { STICKER_KEYS, stickerStack } = await import('../public/stickers.js');
+  assert.deepEqual(
+    STICKER_KEYS,
+    STICKERS.map((s) => s.key),
+  );
+  for (const k of STICKER_KEYS) assert.ok(existsSync(new URL(`../public/img/stickers/finn-${k}.webp`, import.meta.url)), k);
+  const html = stickerStack(96);
+  assert.equal(html.match(/<img /g).length, STICKERS.length);
+  assert.equal(html.match(/class="on"/g).length, 1);
+  assert.match(html, /--s:96px/);
 });
