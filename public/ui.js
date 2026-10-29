@@ -144,6 +144,10 @@ export const isPhone = () => matchMedia('(max-width: 640px)').matches;
 /** A day chip's content: "Sat 7" on screen, "Sat 7 Nov, 2" for screen readers. */
 export const dayChip = (d, mark = '') =>
   `<small>${esc(fmtDow.format(dateParts(d)))}</small> <b>${dateParts(d).getUTCDate()}</b><span class="sr-only"> ${esc(fmtMonth.format(dateParts(d)))}${mark ? `, ${esc(mark)}` : ''}</span>${mark ? `<i aria-hidden="true">${esc(mark)}</i>` : ''}`;
+/** A calendar column's head: the weekday small over the date's number, the same height for every
+ * day; the month is in the label above the calendar, and screen readers hear it. */
+export const dayHead = (d) =>
+  `<span class="dh-dow">${esc(fmtDow.format(dateParts(d)))}</span> <span class="dh-num">${dateParts(d).getUTCDate()}</span><span class="sr-only"> ${esc(fmtMonth.format(dateParts(d)))}</span>`;
 const fmtMinutes = fmt({ hour: 'numeric', minute: '2-digit' });
 export const minutesLabel = (m) => fmtMinutes.format(new Date(Date.UTC(2000, 0, 1, 0, m)));
 const at = (m) => new Date(Date.UTC(2000, 0, 1, 0, m));
