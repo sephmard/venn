@@ -725,6 +725,10 @@ test('the week calendar opens at the plan’s time and pages a week at a time', 
   await tapAt(page, addDays(first, 15), 1140);
   await page.click('[data-view="week"]');
   await expect(page.locator('.tg-block span')).toHaveText(/^(7p|19)$/);
+  // No × in a narrow week column, too small to tap well: it's on the day view.
+  await expect(page.locator('.tg-x')).toBeHidden();
+  await page.click('[data-view="day"]');
+  await showDate(page, addDays(first, 15));
   // The × has a 44px hit area: a near miss removes the option instead of switching it to if needed.
   const x = await page.locator('.tg-x').boundingBox();
   await page.touchscreen.tap(x.x - 7, x.y + x.height + 7);
