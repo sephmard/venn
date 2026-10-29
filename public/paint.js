@@ -4,7 +4,7 @@
 
 import { DAY_PARTS, addDays } from './core.js';
 import { dayChip, isPhone } from './picker.js';
-import { $, $$, dateParts, dayLabel, esc, fmtDow, fmtMonthDay, shortRange, shortTime, todayStr } from './ui.js';
+import { $, $$, dateParts, dayHead, dayLabel, esc, fmtMonthDay, shortRange, shortTime, todayStr } from './ui.js';
 
 const STEP = 30;
 
@@ -92,7 +92,7 @@ export function paintView(
         .join('');
     let h = '<span class="pg-corner"></span>';
     for (const d of ds)
-      h += `<button type="button" class="pg-day" data-fill-day="${d}"${d < todayStr() ? ' disabled' : ''}><b>${esc(fmtDow.format(dateParts(d)))}</b> ${esc(fmtMonthDay.format(dateParts(d)))}<span class="sr-only">: paint or clear the whole day</span></button>`;
+      h += `<button type="button" class="pg-day day-head${d === todayStr() ? ' today' : ''}" data-fill-day="${d}"${d < todayStr() ? ' disabled' : ''}>${dayHead(d)}<span class="sr-only">${d < todayStr() ? ': past' : ': paint or clear the whole day'}</span></button>`;
     rows.forEach((m, r) => {
       h += `<span class="pg-time${parts ? ' part' : ''}" aria-hidden="true">${parts || !(m % 60) ? esc(label(m)) : ''}</span>`;
       ds.forEach((d, c) => {

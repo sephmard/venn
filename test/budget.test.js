@@ -39,7 +39,7 @@ const PAGES = {
   // organizer's Pick: an open row and its button as one card.
   // +0.25 each for switching lengths keeping the days, and the week's fills that show when they're on.
   // +0.25 for the shared stylesheet's change-the-date list and one-question answer.
-  'vote on a few dates page': ['create-pick.js', ['create.css'], 51.25], // +0.25 for the landing pages' link-only templates, +0.25 for a guest's one-tap own poll
+  'vote on a few dates page': ['create-pick.js', ['create.css'], 51.5], // +0.25 for the landing pages' link-only templates, +0.25 for a guest's one-tap own poll, +0.25 for calendar day heads
   // +0.25 for usage stats, +0.25 for the landing pages' templates, +0.25 for a guest's one-tap own poll
   // (template by emoji) and the day labels that fit.
   'ask when people are available page': ['create-free.js', ['create.css'], 50.25], // +0.5: the above, and days in a row as a switch
@@ -47,7 +47,8 @@ const PAGES = {
   // +0.5 for the organizer's tools only on their own link, with "Organizer view" on the guest link.
   // +1 for Change the date as a list in the banner, and one question once the date is picked.
   // +0.25 for "Pick this date?" before a date goes out to everyone.
-  'poll page': ['event.js', [], 47.25],
+  // +0.5 for calendar days as a weekday over its number, today circled, and past days striped (shared styles).
+  'poll page': ['event.js', [], 47.75],
 };
 
 for (const [name, [entry, css, PAGE_KB]] of Object.entries(PAGES)) {

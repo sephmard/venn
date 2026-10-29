@@ -9,6 +9,7 @@ import {
   $$,
   dateParts,
   dayChip,
+  dayHead,
   dayLabel,
   esc,
   fmtDow,
@@ -222,7 +223,7 @@ function timeGrid(
     const head = ds
       .map(
         (d) =>
-          `<button type="button" class="tg-day" data-open-day="${d}" aria-label="Show ${esc(dayLabel(d))} on its own"><b>${esc(fmtDow.format(dateParts(d)))}</b> ${narrow ? dateParts(d).getUTCDate() : esc(fmtMonthDay.format(dateParts(d)))}</button>`,
+          `<button type="button" class="tg-day day-head${d === todayStr() ? ' today' : d < todayStr() ? ' past' : ''}" data-open-day="${d}">${dayHead(d)}<span class="sr-only">${d < todayStr() ? ', past' : ''}: show it on its own</span></button>`,
       )
       .join('');
     let times = '';
