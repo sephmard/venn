@@ -1,5 +1,15 @@
 import { test, expect } from '@playwright/test';
-import { addOptions, changeAnswer, mockContact, mockPlaces, setLevel, showNextMonth, submit } from './helpers.js';
+import {
+  addHours,
+  addOptions,
+  changeAnswer,
+  mockContact,
+  mockPlaces,
+  pickDays,
+  setLevel,
+  showNextMonth,
+  submit,
+} from './helpers.js';
 import AxeBuilder from '@axe-core/playwright';
 import { PAGES } from '../pages/pages.js';
 
@@ -83,11 +93,15 @@ for (const scheme of ['light', 'dark']) {
       await page.click('[data-length="days"]');
       await showNextMonth(page);
       await page.locator('.cal-day').first().click();
-      await page.locator('.cal-grid').evaluate((el) => el.scrollIntoView({ block: 'center' })); // clear of the sticky bar
+      // The trip and its ×, clear of the sticky bar (a month can take six rows of the calendar above).
+      await page
+        .locator('[data-remove]')
+        .first()
+        .evaluate((el) => el.scrollIntoView({ block: 'center' }));
       await audit(page, 'vote on a few dates (trips)');
       await page.goto('/new/free');
       await page.fill('#organizer', 'Sam');
-      await page.click('#q-2w');
+      await pickDays(page, 14);
       await page.locator('#free-list').evaluate((el) => el.scrollIntoView({ block: 'center' })); // clear of the sticky bar
       await audit(page, 'ask when people are free (whole days)');
       await setLevel(page, 'parts');
@@ -125,7 +139,7 @@ for (const scheme of ['light', 'dark']) {
       await page.goto('/new/free');
       await page.fill('#organizer', 'Sam');
       await page.fill('#title', 'Privacy check'); // whole days is where it starts
-      await page.click('#q-2w');
+      await pickDays(page, 14);
       await page.locator('#privacy-opts summary').click();
       for (const name of ['Ask guests for their email', 'Hide answers from guests'])
         await page.getByRole('switch', { name }).check();
@@ -150,7 +164,7 @@ for (const scheme of ['light', 'dark']) {
       await page.goto('/new/free');
       await page.fill('#organizer', 'Sam');
       await page.fill('#title', 'Celebration check');
-      await page.click('#q-2w');
+      await pickDays(page, 14);
       await page.click('#submit');
       await expect(page.locator('.party [role=status]')).toContainText('Your Venn is ready!');
       // A modal dialog, named by its heading, with everything behind it out of reach.
@@ -234,7 +248,7 @@ for (const scheme of ['light', 'dark']) {
       await page.goto('/new/free');
       await page.fill('#organizer', 'Sam');
       await page.fill('#title', 'Days check');
-      await page.click('#q-2w');
+      await pickDays(page, 14);
       await page.click('#submit');
       await changeAnswer(page);
       await expect(page.locator('#mine .row').first()).toBeVisible();
@@ -243,7 +257,7 @@ for (const scheme of ['light', 'dark']) {
       await page.fill('#organizer', 'Sam');
       await page.fill('#title', 'Grid check');
       await setLevel(page, 'hours');
-      await page.click('[data-fill="3"]');
+      await addHours(page, 3);
       await page.click('#submit');
       await changeAnswer(page);
       await expect(page.locator('[data-hview="quick"]')).toBeVisible({ timeout: 10_000 }); // after the celebration

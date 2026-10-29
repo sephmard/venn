@@ -65,7 +65,7 @@ const CSS = `
 @media (hover:hover){.dcal-day:not(.dcal-off):hover{border-color:var(--accent)}}`;
 
 /**
- * The poll's days as months of weeks, Sunday first: [{ month: 'YYYY-MM', weeks: [[date or null] × 7] }].
+ * The poll's days as months of weeks, Monday first: [{ month: 'YYYY-MM', weeks: [[date or null] × 7] }].
  * Only the weeks with a poll day in them are kept, so two weeks of days take two or three rows.
  * Days of other months are null, so a week that crosses into the next month carries on there.
  */
@@ -76,7 +76,7 @@ export function monthWeeks(dates) {
     const month = d.slice(0, 7);
     let m = out.at(-1);
     if (m?.month !== month) out.push((m = { month, weeks: [], starts: new Set() }));
-    const start = addDays(d, -new Date(`${d}T12:00:00Z`).getUTCDay());
+    const start = addDays(d, -((new Date(`${d}T12:00:00Z`).getUTCDay() + 6) % 7));
     if (m.starts.has(start)) continue;
     m.starts.add(start);
     m.weeks.push(Array.from({ length: 7 }, (_, i) => addDays(start, i)).map((x) => (x.slice(0, 7) === month ? x : null)));
@@ -120,7 +120,7 @@ export function dayAnswer(root, { days, value, onTap, final = () => false, span 
   const dows = Array.from(
     { length: 7 },
     (_, i) =>
-      `<span class="dcal-dow" aria-hidden="true">${esc(new Date(Date.UTC(2023, 0, 1 + i)).toLocaleDateString(undefined, { weekday: 'narrow', timeZone: 'UTC' }))}</span>`,
+      `<span class="dcal-dow" aria-hidden="true">${esc(new Date(Date.UTC(2023, 0, 2 + i)).toLocaleDateString(undefined, { weekday: 'narrow', timeZone: 'UTC' }))}</span>`,
   ).join('');
   const day = (d) => {
     const n = +d.slice(8);
@@ -154,8 +154,8 @@ export function dayAnswer(root, { days, value, onTap, final = () => false, span 
       // Days in a row, joined into one band on the calendar's line.
       const d = b.dataset.date;
       const wd = dateParts(d).getUTCDay();
-      b.classList.toggle('run-r', span > 1 && marked(d) && wd < 6 && marked(addDays(d, 1)));
-      b.classList.toggle('run-l', span > 1 && marked(d) && wd > 0 && marked(addDays(d, -1)));
+      b.classList.toggle('run-r', span > 1 && marked(d) && wd !== 0 && marked(addDays(d, 1))); // Sunday ends a line
+      b.classList.toggle('run-l', span > 1 && marked(d) && wd !== 1 && marked(addDays(d, -1))); // Monday starts one
     }
     if (span > 1) {
       const trips = tripRuns(order.filter(marked), span);

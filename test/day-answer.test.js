@@ -12,16 +12,16 @@ const run = (from, n) =>
     return d.toISOString().slice(0, 10);
   });
 
-test('monthWeeks: two weeks of days take only the weeks they fall in, Sunday first', () => {
+test('monthWeeks: two weeks of days take only the weeks they fall in, Monday first', () => {
   const m = monthWeeks(run('2026-11-03', 14)); // Tue Nov 3 to Mon Nov 16
   assert.equal(m.length, 1);
   assert.equal(m[0].month, '2026-11');
   assert.deepEqual(
     m[0].weeks.map((w) => [w[0], w[6]]),
     [
-      ['2026-11-01', '2026-11-07'],
-      ['2026-11-08', '2026-11-14'],
-      ['2026-11-15', '2026-11-21'],
+      ['2026-11-02', '2026-11-08'],
+      ['2026-11-09', '2026-11-15'],
+      ['2026-11-16', '2026-11-22'],
     ],
   );
 });
@@ -32,10 +32,10 @@ test('monthWeeks: a poll across a month break carries on in the next month, with
     m.map((x) => x.month),
     ['2026-11', '2026-12', '2027-01'],
   );
-  assert.deepEqual(m[0].weeks, [['2026-11-29', '2026-11-30', null, null, null, null, null]]);
-  assert.deepEqual(m[1].weeks[0], [null, null, '2026-12-01', '2026-12-02', '2026-12-03', '2026-12-04', '2026-12-05']);
+  assert.deepEqual(m[0].weeks, [['2026-11-30', null, null, null, null, null, null]]);
+  assert.deepEqual(m[1].weeks[0], [null, '2026-12-01', '2026-12-02', '2026-12-03', '2026-12-04', '2026-12-05', '2026-12-06']);
   assert.equal(m[1].weeks.length, 2); // the week of the 2nd, and the week of the 31st; nothing between
-  assert.deepEqual(m[2].weeks, [[null, null, null, null, null, '2027-01-01', '2027-01-02']]);
+  assert.deepEqual(m[2].weeks, [[null, null, null, null, '2027-01-01', '2027-01-02', '2027-01-03']]);
   assert.deepEqual(monthWeeks([]), []);
 });
 
