@@ -1681,16 +1681,49 @@ details.organizer > .danger {
     text-decoration: underline;
   }
 }
-.tg-day b {
-  display: block;
-  font-size: 0.85rem;
-}
 .tg-narrow .tg-day {
   padding-inline: 0;
-  overflow-wrap: normal;
 }
-.tg-narrow .tg-day b {
-  font-size: 0.75rem;
+/* A calendar column's head: the weekday over the date, the same two lines on every day. Today's
+ * date is circled; days before it are quieter. */
+.dh-dow {
+  display: block;
+  font-size: 0.72rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  color: var(--muted);
+}
+.dh-num {
+  display: inline-grid;
+  place-items: center;
+  min-width: 28px;
+  height: 28px;
+  margin-top: 2px;
+  border-radius: 999px;
+  font-size: 1rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+.day-head.today .dh-dow {
+  color: var(--accent);
+}
+.day-head.today .dh-num {
+  background: var(--accent);
+  color: var(--accent-ink);
+}
+.day-head.past,
+.day-head:disabled {
+  color: var(--muted);
+}
+.day-head.past .dh-num,
+.day-head:disabled .dh-num {
+  font-weight: 400;
+}
+/* Days before today: striped, so it's plain they can't be picked. */
+.pg-cell.past {
+  background: repeating-linear-gradient(135deg, var(--surface-2) 0 5px, transparent 5px 10px);
+  cursor: not-allowed;
 }
 /* A phone's week: a slim time column ("9a"), so the seven days get the width. */
 .tg-narrow .tg-head,
@@ -1731,6 +1764,18 @@ details.organizer > .danger {
   background-size:
     100% calc(var(--row) * 2),
     100% var(--row);
+}
+/* A day before today, under its hour lines: striped, and not for drawing on. */
+.tg-col.tg-past {
+  background-image:
+    linear-gradient(to bottom, var(--border) 1px, transparent 1px),
+    linear-gradient(to bottom, color-mix(in srgb, var(--border) 45%, transparent) 1px, transparent 1px),
+    repeating-linear-gradient(135deg, var(--surface-2) 0 5px, transparent 5px 10px);
+  background-size:
+    100% calc(var(--row) * 2),
+    100% var(--row),
+    auto;
+  cursor: not-allowed;
 }
 .tg-draw {
   cursor: crosshair;
