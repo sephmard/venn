@@ -630,7 +630,7 @@ h3 {
 .closing {
   text-align: center;
   padding-top: var(--section);
-  padding-bottom: var(--section);
+  padding-bottom: calc(var(--section) / 2); /* the footer's rule follows: no empty stretch */
 }
 .closing h2 {
   margin: 0 auto 32px;
@@ -649,7 +649,7 @@ h3 {
   justify-content: space-between;
   gap: 8px 28px;
   padding-top: 28px;
-  padding-bottom: 40px;
+  padding-bottom: calc(20px + env(safe-area-inset-bottom));
   border-top: 1px solid var(--line);
   font-size: 0.875rem;
   color: var(--ink-2);
@@ -693,7 +693,7 @@ h3 {
 /* ---------- text pages (privacy, 404) ---------- */
 .page {
   padding-top: 56px;
-  padding-bottom: var(--section);
+  padding-bottom: calc(var(--section) / 2);
 }
 .page h1 {
   font-size: clamp(3rem, 7vw, 5rem);

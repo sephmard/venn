@@ -113,7 +113,7 @@ main {
   width: 100%;
   max-width: 1080px;
   margin: 0 auto;
-  padding: 8px 16px 64px;
+  padding: 8px 16px 16px; /* the footer follows straight on: no empty stretch at the end of a page */
 }
 h1,
 h2,
@@ -227,7 +227,7 @@ button.final:focus-visible {
   text-align: center;
   color: var(--muted);
   font-size: 0.875rem;
-  padding: 24px 16px 32px;
+  padding: 12px 16px calc(16px + env(safe-area-inset-bottom));
 }
 
 /* ---------- buttons ---------- */
@@ -673,6 +673,11 @@ details.organizer[open] summary::before {
 }
 .poll-share {
   grid-column: 1 / -1;
+}
+div.poll-share {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 8px;
 }
 .poll-share .btn {
   width: 100%;

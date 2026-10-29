@@ -24,6 +24,7 @@ import {
 export { dayChip, isPhone };
 
 const STEP = 30;
+const HOLD = 300; // ms a finger rests before it draws or moves instead of scrolling
 /** Phones, and touch screens up to a tablet's width: the calendars open on one day. */
 const touchFirst = () => matchMedia('(max-width: 640px), (pointer: coarse) and (max-width: 1024px)').matches;
 
@@ -302,21 +303,46 @@ function timeGrid(
 
   const editor = editBlocks?.(root, { blocks, range, minuteAt, rowPx, onResize, onMove });
 
-  // Mouse: drag to draw a block. Touch: a tap drops a block of the chosen length (dragging scrolls).
+  // Mouse: drag to draw a block. Touch: a tap drops a block of the chosen length; press and hold, then
+  // drag, to draw one (a quick swipe still scrolls).
   let drag = null;
   let pointer = null;
-  root.addEventListener('pointerdown', (e) => {
-    pointer = e.pointerType;
-    if (editor?.active()) return;
-    const col = e.target.closest('.tg-draw');
-    if (!onCreate || !col || e.target.closest('.tg-block') || e.pointerType !== 'mouse' || e.button > 0) return;
-    e.preventDefault();
-    const a = minuteAt(col, e.clientY);
+  let hold = null; // a touch waiting to become a drag
+  let tapped = false; // a touch drag just ended: the click after it isn't a tap
+  const begin = (col, y) => {
+    const a = minuteAt(col, y);
     const ghost = document.createElement('span');
     ghost.className = 'tg-block tg-ghost';
     col.append(ghost);
     drag = { col, a, b: a, ghost, moved: false };
     paintGhost();
+  };
+  root.addEventListener('pointerdown', (e) => {
+    pointer = e.pointerType;
+    if (editor?.active()) return;
+    const col = e.target.closest('.tg-draw');
+    if (!onCreate || !col || e.target.closest('.tg-block') || e.button > 0) return;
+    if (e.pointerType === 'mouse') {
+      e.preventDefault();
+      return begin(col, e.clientY);
+    }
+    const { clientX: x, clientY: y } = e;
+    clearTimeout(hold?.timer);
+    hold = { x, y, timer: setTimeout(() => ((hold = null), begin(col, y), navigator.vibrate?.(10)), HOLD) };
+  });
+  // While a touch draws, the page mustn't scroll; before the hold, a move is a scroll.
+  const touchMove = (e) => {
+    if (drag) return e.cancelable && e.preventDefault();
+    const t = e.touches[0];
+    if (hold && Math.hypot(t.clientX - hold.x, t.clientY - hold.y) > 8) {
+      clearTimeout(hold.timer);
+      hold = null;
+    }
+  };
+  root.addEventListener('touchmove', touchMove, { passive: false });
+  root.addEventListener('pointercancel', () => {
+    clearTimeout(hold?.timer);
+    hold = null;
   });
   const paintGhost = () => {
     const [from] = range();
@@ -335,15 +361,20 @@ function timeGrid(
     }
   });
   const up = () => {
+    clearTimeout(hold?.timer);
+    hold = null;
     if (!drag) return;
     const { col, a, b, moved } = drag;
     drag = null;
+    // The click straight after a touch drag isn't a tap (and there may be no click at all).
+    tapped = pointer !== 'mouse';
+    setTimeout(() => (tapped = false), 400);
     const lo = moved ? Math.min(a, b) : snap(a);
     onCreate(col.dataset.date, lo, moved ? Math.max(a, b) + STEP : Math.min(lo + tapLength(), 1440));
   };
   window.addEventListener('pointerup', up);
   root.addEventListener('click', (e) => {
-    if (editor?.takeClick()) return;
+    if (editor?.takeClick() || tapped) return void (tapped = false);
     const block = e.target.closest('.tg-block[data-key]');
     if (block) return onBlock?.(block.dataset.key);
     const col = e.target.closest('.tg-draw');

@@ -10,9 +10,6 @@
 main:has(> .create) {
   padding-bottom: 0;
 }
-main:has(> .create) + .footer {
-  padding-top: 16px;
-}
 /* Cards end at their last line */
 .create .sheet > :last-child,
 .create .sheet > :last-child > :last-child {
@@ -494,12 +491,21 @@ button.emoji-tile:focus-visible {
   color: var(--muted);
   filter: none;
 }
-/* Phones: the calendars take at most half the screen, and hand the scroll back to the page. */
+/* Phones: both calendars one height, on one screen */
 @media (pointer: coarse), (max-width: 640px) {
+  .create {
+    --cal-h: clamp(220px, 38svh, 320px);
+  }
   .create .tg-scroll,
   .create .pg-scroll {
-    max-height: 50vh;
+    max-height: var(--cal-h);
     overscroll-behavior: auto;
+  }
+  .create .pg-scroll:has(.pg-cell.part) {
+    max-height: none;
+  }
+  .create .pg-narrow .pg-cell.part {
+    height: calc(var(--cal-h) / 3);
   }
 }
 /* The organizer's options: green when they're available, amber (and saying so) if needed. */
@@ -673,14 +679,26 @@ button.emoji-tile:focus-visible {
 #other-box select {
   margin-top: 4px;
 }
-/* Phones' narrow week: a short start time ("7p"); no ×, too small to tap (remove from the list) */
+/* Hours look like parts of the day */
+#when .tg-lifted {
+  box-shadow: 0 8px 20px -6px rgb(0 0 0 / 0.45);
+  z-index: 3;
+}
+#when .tg-head {
+  background: var(--surface);
+}
+#when .tg-block.opt {
+  left: 1px !important;
+  width: calc(100% - 2px) !important;
+  border-radius: 3px;
+}
+/* Phones' narrow week: a short start time ("7p"); no × (a third tap removes) */
 .tg-narrow .tg-block {
   padding: 4px 2px 2px;
   align-items: center;
   justify-content: flex-start;
 }
-.tg-narrow .tg-block small,
-.tg-narrow .tg-short + .tg-x-box {
+.tg-narrow .tg-block small {
   display: none;
 }
 .tg-narrow .tg-block span {
