@@ -10,7 +10,7 @@ export const nextMonth = (page) =>
     return `${first.getFullYear()}-${String(first.getMonth() + 1).padStart(2, '0')}-01`;
   });
 
-/** On a month calendar, show next month (it may open there already, late in a month). */
+/** On a month calendar, show next month. */
 export async function showNextMonth(page) {
   const first = await nextMonth(page);
   if (!(await page.locator(`.cal-day[data-date="${first}"]`).count())) await page.click('[data-nav="1"]');

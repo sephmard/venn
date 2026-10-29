@@ -240,6 +240,8 @@ export function renderPick() {
           renderList();
         },
       });
+      const first = [...starts].sort()[0]; // open where the picks are
+      if (first) month.show(first);
     }
   }
 

@@ -329,19 +329,15 @@ test('ask when people are available: what the organizer picks is available or if
   expect(new Set(hours)).toEqual(new Set([1]));
 });
 
-test('month calendars open on next month near the end of this one', async ({ page }) => {
+test('month calendars open on this month, even near its end', async ({ page }) => {
   const shown = () => page.locator('.cal-day').first().getAttribute('data-date');
-  // January 28: four days left, so February is where the choosing is.
+  // January 28: four days left, and still January, with February a tap away.
   await page.clock.setFixedTime(new Date(2030, 0, 28, 12));
   await page.goto('/new/free');
   await page.fill('#organizer', 'Sam');
-  expect(await shown()).toBe('2030-02-01');
-  await expect(page.locator('[data-nav="-1"]')).toBeEnabled(); // January is still there
-  // January 20: most of the month is left.
-  await page.clock.setFixedTime(new Date(2030, 0, 20, 12));
-  await page.goto('/new/free');
-  await page.fill('#organizer', 'Sam');
   expect(await shown()).toBe('2030-01-01');
+  await page.click('[data-nav="1"]');
+  expect(await shown()).toBe('2030-02-01');
 });
 
 test('ask when people are free: paint hours and see the best time', async ({ page, isMobile }) => {
