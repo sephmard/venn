@@ -462,7 +462,7 @@ export function renderFree() {
         const ok = run.length >= k;
         const len =
           run.length > 1 || k > 1
-            ? `<span class="od-len${ok ? '' : ' short'}">${plural(run.length, 'day')}${k > 1 ? (ok ? ' · long enough' : ` · too short`) : ''}</span>`
+            ? `<span class="od-len${ok ? '' : ' short'}">${plural(run.length, 'day')}${k > 1 && !ok ? ' · too short' : ''}</span>`
             : '';
         return `<li class="od-row"><span class="chips">${parts
           .map((p) => {

@@ -159,7 +159,8 @@ test('ask when people are free: days, looking for a run of days', async ({ page 
   await expect(page.locator('#span')).toBeHidden();
   await page.getByRole('switch', { name: 'Days in a row' }).check();
   await expect(page.locator('#span')).toHaveValue('2');
-  await expect(page.locator('#free-list')).toContainText('14 days · long enough');
+  await expect(page.locator('#free-list')).toContainText('14 days');
+  await expect(page.locator('#free-list')).not.toContainText('long enough');
   await page.click('#submit');
 
   await expect(page.locator('#mine .row')).toHaveCount(14);
@@ -218,7 +219,7 @@ test('ask when people are available: a tap picks days in a row, shown as one ban
   const radius = (n, side) => day(n).evaluate((el, side) => getComputedStyle(el)[`border${side}Radius`], side);
   expect(['0px', '4px']).toContain(await radius(1, 'TopLeft'));
   expect(await radius(0, 'TopLeft')).toBe('14px');
-  // The preview lists the run as a range, long enough for 3 in a row.
+  // The preview lists the run as a range with its length (only a run that's too short says so).
   const range = await page.evaluate(
     ([a, b]) =>
       new Intl.DateTimeFormat(undefined, { timeZone: 'UTC', weekday: 'short', month: 'short', day: 'numeric' }).formatRange(
@@ -230,7 +231,7 @@ test('ask when people are available: a tap picks days in a row, shown as one ban
   const rows = page.locator('#free-list .od-row');
   await expect(rows).toHaveCount(1);
   await expect(rows.first().locator('.chip-flip')).toHaveText(range);
-  await expect(rows.first()).toContainText('3 days · long enough');
+  await expect(rows.first().locator('.od-len')).toHaveText('3 days');
   await expect(page.locator('#submit')).toHaveAttribute('aria-disabled', 'false');
 
   // Tapping a picked day makes it if needed for the organizer; again takes just that day away, and the run splits.
