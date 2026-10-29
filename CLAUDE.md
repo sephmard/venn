@@ -2,6 +2,10 @@
 
 Venn is a free polling app for finding a date for dinners, book clubs, trips and other get-togethers: plain HTML/CSS/JS in `public/` (no build step), a JSON API in `src/api.js` shared by a Cloudflare Worker (`src/worker.js`) and a Node server (`server.js`), and SQLite storage. Read `CONTRIBUTING.md` for the layout.
 
+## Design preferences
+
+Before designing, building or reviewing anything users see, read [`.claude/skills/venn-design/SKILL.md`](.claude/skills/venn-design/SKILL.md): the owner's standing preferences (phones first, the UI explains itself instead of words, one consistent way everywhere) and the specific decisions behind today's screens. When the owner states a new preference or reverses one, update that file in the same PR.
+
 ## Rules that matter in review
 
 - **Escape user text.** Anything a person typed goes through `esc()` before it is put into HTML. No `innerHTML` with raw values.
