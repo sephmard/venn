@@ -37,7 +37,6 @@ import {
   wirePlan,
   youFields,
   TAP_KEY,
-  ifNeededTip,
   fromUrl,
 } from './create.js';
 
@@ -47,6 +46,7 @@ import {
 // Under what guests choose from, as on "vote on a few dates".
 const CLEAR = '<button type="button" class="link-btn" id="q-clear">Clear all</button>';
 const NOTHING = '<p class="hint">Nothing yet.</p>';
+const UNDO = '<button type="button" class="link-btn" id="q-undo">Undo</button>';
 const HOUR_LENGTHS = [30, 60, 120];
 const fitLength = (v) => HOUR_LENGTHS.findLast((m) => m <= v) ?? HOUR_LENGTHS[0];
 // How detailed guests' answers are: dates only (whole days), or a date and time, as parts of the
@@ -76,6 +76,9 @@ export function renderFree() {
   let level = 'days';
   let timeLevel = 'parts'; // where "Date and time" opens: the last of parts of the day or hours
   let length = null; // minutes, for hours: optional, the shortest time worth finding
+  let planLength = null; // a template's usual length, shown on hours until the organizer picks one
+  let ownLength = false; // the organizer chose the length (or the poll being edited has one)
+  let cleared = null; // what Clear all took, until something new is picked
   let painter = null;
   let cal = null;
   let mounts = 0; // the painter loads on demand: only the latest level shows when it arrives
@@ -126,15 +129,16 @@ export function renderFree() {
       ${createBar('Create Venn')}
     </form>`;
 
+  // A template shapes the calendar only while nothing is picked: it never moves or takes away picks.
+  const empty = () => !selected.size && !partsSel.size && !painted.size;
   const occasion = wirePlan((o) => {
-    if (!o) return;
-    if (o.days) {
-      setRow(o.days);
-      return setLevel('days');
-    }
-    if (typeof o.length === 'number') setLength(fitLength(o.length));
     // Days picked from now on get the plan's usual part of the day.
-    if (o.part) st.defaultParts = new Set([o.part]);
+    st.defaultParts = new Set(o?.part ? [o.part] : DAY_PARTS.map((p) => p.key));
+    planLength = typeof o?.length === 'number' ? fitLength(o.length) : null;
+    if (level === 'hours' && !ownLength) setLength(planLength);
+    if (!empty()) return update();
+    setRow(o?.days || 1);
+    if (o?.days) return setLevel('days');
     update();
   });
 
@@ -156,6 +160,7 @@ export function renderFree() {
     before = new Set(st[next]);
     level = next;
     if (level !== 'days') timeLevel = level;
+    if (level === 'hours' && !ownLength) setLength(planLength);
     for (const b of $$('[data-level]')) b.setAttribute('aria-checked', b.dataset.level === level);
     $('[data-mode="time"]').setAttribute('aria-checked', level !== 'days');
     $('#time-levels').hidden = level === 'days';
@@ -356,6 +361,7 @@ export function renderFree() {
     const l = e.target.closest('[data-flength]');
     if (l) {
       setLength(+l.dataset.flength === length ? null : +l.dataset.flength);
+      ownLength = true;
       update();
     }
     const s = e.target.closest('[data-step]');
@@ -365,11 +371,27 @@ export function renderFree() {
     }
     const mode = e.target.closest('[data-mode]');
     if (mode && level === 'days') setLevel(timeLevel);
+    // Clear all, and Undo in its place until something new is picked.
     if (e.target.closest('#q-clear')) {
-      painted.clear();
-      partsSel.clear();
-      selected.clear();
+      const copy = (x) => Object.fromEntries(Object.entries(x).map(([k, v]) => [k, new Set(v)]));
+      cleared = { picked: copy({ days: selected, parts: partsSel, hours: painted }), maybe: copy(maybe) };
+      for (const l in maybe) {
+        st[l].clear();
+        maybe[l].clear();
+      }
+      before = new Set();
       redraw();
+      $('#q-undo')?.focus();
+    }
+    if (e.target.closest('#q-undo') && cleared) {
+      for (const l in maybe) {
+        for (const k of cleared.picked[l]) st[l].add(k);
+        for (const k of cleared.maybe[l]) maybe[l].add(k);
+      }
+      before = new Set(st[level]);
+      cleared = null;
+      redraw();
+      $('#q-clear')?.focus();
     }
     // One × can stand for a whole week of evenings, or a run of days: ask first.
     const rm = e.target.closest('[data-rm-window]')?.dataset.rmWindow;
@@ -443,14 +465,16 @@ export function renderFree() {
     // What's new takes the brush: available or if needed for the organizer.
     const may = maybe[level];
     for (const k of st[level]) if (!before.has(k)) brush() === IF_NEEDED ? may.add(k) : may.delete(k);
-    if ([...st[level]].some((k) => !before.has(k))) ifNeededTip();
+    if (st[level].size) cleared = null;
     for (const l in maybe) for (const k of [...maybe[l]]) if (!st[l].has(k)) maybe[l].delete(k);
     before = new Set(st[level]);
     const box = $('#free-list');
     if (level === 'hours') {
       const windows = pt.toWindows(painted);
       const dates = pt.datesOf(painted);
-      box.innerHTML = windows.length ? pt.windowList(pt.windowsAt(st, level), level, chip, dayRange) + CLEAR : NOTHING;
+      box.innerHTML = windows.length
+        ? pt.windowList(pt.windowsAt(st, level), level, chip, dayRange) + CLEAR
+        : NOTHING + (cleared ? UNDO : '');
       return setReady(
         `${plural(dates.length, 'day')} to choose from`,
         [!windows.length, 'Add at least one time to create the poll', gridFocus, null, 'times'],
@@ -466,7 +490,7 @@ export function renderFree() {
     }
     if (level === 'parts') {
       const windows = pt.windowsAt(st, level);
-      box.innerHTML = windows.length ? pt.windowList(windows, level, chip, dayRange) + CLEAR : NOTHING;
+      box.innerHTML = windows.length ? pt.windowList(windows, level, chip, dayRange) + CLEAR : NOTHING + (cleared ? UNDO : '');
       return setReady(
         `${plural(windows.length, 'time')} to choose from`,
         [!windows.length, 'Pick at least one morning, afternoon or evening', gridFocus, null, 'times'],
@@ -480,7 +504,7 @@ export function renderFree() {
     // The tap key above the calendar says the rest.
     $('#when-help').hidden = k < 2;
     $('#when-help').textContent = `Tap a day to pick ${k} in a row from it.`;
-    box.innerHTML = dates.length ? runList(dates, k) + CLEAR : NOTHING;
+    box.innerHTML = dates.length ? runList(dates, k) + CLEAR : NOTHING + (cleared ? UNDO : '');
     setReady(
       `${plural(dates.length, 'day')} to choose from`,
       // Only the first that applies: no days, too few, or none in a row.
@@ -540,6 +564,7 @@ export function renderFree() {
     } else {
       next = 'hours';
       setLength(ev.anyLength || ev.durationMinutes <= 30 ? null : ev.durationMinutes);
+      ownLength = true;
       const ranges = ev.windows || ev.dates.map((date) => ({ date, start: ev.startMinute, end: ev.endMinute }));
       for (const w of ranges) for (let m = w.start - (w.start % 30); m < w.end; m += 30) painted.add(`${w.date}|${m}`);
     }

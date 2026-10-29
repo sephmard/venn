@@ -268,6 +268,7 @@ export const datesOf = (keys) => [...new Set([...keys].map((k) => k.split('|')[0
 // The part of the day a painted half hour belongs to (the gaps between parts go to the nearest).
 const partOfSlot = (m) => DAY_PARTS[m < 720 ? 0 : m < 1050 ? 1 : 2];
 const partAt = (m) => DAY_PARTS.find((p) => p.start === +m);
+const partsIn = (from, to) => DAY_PARTS.filter((p) => p.start >= from && p.end <= to).map((p) => p.start);
 const reset = (set, keys) => {
   set.clear();
   for (const k of keys) set.add(k);
@@ -320,9 +321,18 @@ export function zoom(st, from, to) {
       const [d, m] = k.split('|');
       if (!keep(d, +m)) hours.delete(k);
     }
+    // A day with every part picked is the whole day, with no gaps between the parts.
+    const whole = (d) => DAY_PARTS.every((p) => parts.has(`${d}|${p.start}`));
     const want =
       from === 'parts'
-        ? [...parts].map((k) => [k.split('|')[0], partAt(k.split('|')[1]).start, partAt(k.split('|')[1]).end])
+        ? [
+            ...datesOf(parts)
+              .filter(whole)
+              .map((d) => [d, ...ALL_DAY]),
+            ...[...parts]
+              .filter((k) => !whole(k.split('|')[0]))
+              .map((k) => [k.split('|')[0], partAt(k.split('|')[1]).start, partAt(k.split('|')[1]).end]),
+          ]
         : [...days].map((d) => [d, ...ALL_DAY]);
     for (const [d, a, b] of want) {
       const ks = slots(a, b).map((m) => `${d}|${m}`);
@@ -365,22 +375,27 @@ export function windowsAt(st, level) {
 /** The keys a window in the list ("dates|from|to") stands for. */
 export function windowKeys(level, value) {
   const [ds, from, to] = value.split('|');
-  const mins = level === 'parts' ? [+from] : slots(+from, +to);
+  const mins = level === 'parts' ? partsIn(+from, +to) : slots(+from, +to);
   return ds.split(',').flatMap((d) => mins.map((m) => `${d}|${m}`));
 }
 /** What a window's × asks before removing it from several days. */
 export function windowWhat(level, value) {
   const [ds, from, to] = value.split('|');
   const n = ds.split(',').length;
-  return level === 'parts' ? `these ${n} ${partAt(from).label.toLowerCase()}s` : `${hoursLabel(+from, +to)} on these ${n} days`;
+  if (level !== 'parts') return `${hoursLabel(+from, +to)} on these ${n} days`;
+  return partAt(from)?.end === +to ? `these ${n} ${partAt(from).label.toLowerCase()}s` : `these ${n} days`;
 }
 
 /** The windows as a list: days in a row with the same times together, each time a chip. */
 export function windowList(windows, level, chip, dayRange) {
-  const label = level === 'parts' ? (a, b) => `${partAt(a).label} ${shortRange(a, b)}` : hoursLabel;
+  const label =
+    level === 'parts' ? (a, b) => (partAt(a)?.end === b ? `${partAt(a).label} ${shortRange(a, b)}` : 'All day') : hoursLabel;
   const groups = [];
   for (const d of datesOf(windows.map((w) => w.date))) {
-    const ranges = windows.filter((w) => w.date === d).map((w) => [w.start, w.end, !!w.maybe]);
+    let ranges = windows.filter((w) => w.date === d).map((w) => [w.start, w.end, !!w.maybe]);
+    // Every part of the day, all the same, is the whole day: one chip.
+    if (level === 'parts' && ranges.length === DAY_PARTS.length && ranges.every((r) => r[2] === ranges[0][2]))
+      ranges = [[ALL_DAY[0], ALL_DAY[1], ranges[0][2]]];
     const last = groups.at(-1);
     if (last && addDays(last.dates.at(-1), 1) === d && JSON.stringify(last.ranges) === JSON.stringify(ranges)) last.dates.push(d);
     else groups.push({ dates: [d], ranges });

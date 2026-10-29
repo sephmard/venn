@@ -289,10 +289,11 @@ test('ask when people are available: what the organizer picks is available or if
   await setLevel(page, 'parts');
   await expect(page.locator('.pg-cell.part.on.maybe')).toHaveCount(3);
   await expect(page.locator('.pg-cell.part.on:not(.maybe)')).toHaveCount(isMobile ? 0 : 3); // phones show a day at a time
-  await expect(page.locator('#free-list .chip.maybe')).toHaveCount(3);
+  // In the list, each whole day is one chip.
+  await expect(page.locator('#free-list .chip.maybe')).toHaveText(['All day If needed×']);
   await setLevel(page, 'hours');
-  await expect(page.locator('#free-list .od-row').first().locator('.chip.maybe')).toHaveCount(2);
-  await expect(page.locator('#free-list .chip:not(.maybe)')).toHaveCount(2);
+  await expect(page.locator('#free-list .od-row').first().locator('.chip.maybe')).toHaveCount(1);
+  await expect(page.locator('#free-list .chip:not(.maybe)')).toHaveCount(1);
   await setLevel(page, 'days');
   await expect(page.locator('.cal-day.day-maybe')).toHaveCount(1);
   await expect(day(0)).toHaveClass(/day-maybe/);
@@ -601,7 +602,7 @@ test('switching lengths keeps the days picked, and organizers are asked before o
   await page.click('[data-length="60"]');
   await expect(page.locator('#options-list .chip')).toHaveText([/^7\D+8 PM/, /^7\D+8 PM/]);
 
-  // On "ask when people are free", one × can stand for a week of evenings.
+  // On "ask when people are free", one × can stand for two weeks of whole days.
   await page.goto('/new/free');
   await page.fill('#organizer', 'Sam');
   await pickDays(page, 14);
@@ -612,7 +613,7 @@ test('switching lengths keeps the days picked, and organizers are asked before o
   const rm = rows.first().locator('[data-rm-window]').last();
   asked = answer(false);
   await rm.click();
-  expect(await asked).toMatch(/^Remove these \d+ evenings\?$/);
+  expect(await asked).toMatch(/^Remove these \d+ days\?$/);
   await expect(page.locator('#free-list .chip')).toHaveCount(before);
   asked = answer(true);
   await rm.click();
@@ -1567,12 +1568,12 @@ test('ask when people are free: zoom from whole days to parts of the day to hour
   const days = page.locator('#free-list .od-row');
   await expect(days).toHaveCount(2);
   await expect(days.first().locator('.chip')).toHaveCount(2);
-  await expect(days.nth(1).locator('.chip')).toHaveCount(3);
+  await expect(days.nth(1).locator('.chip')).toHaveText(['All day×']);
 
   // Hours starts from those parts, and zooming out keeps the days.
   await setLevel(page, 'hours');
   await expect(days).toHaveCount(2);
-  await expect(days.nth(1)).toContainText('9 AM – 5 PM');
+  await expect(days.nth(1)).toContainText('All day');
   await setLevel(page, 'days');
   await expect(page.locator('#summary')).toHaveText('2 days to choose from');
 
@@ -1956,8 +1957,8 @@ test('a second tap makes an option "if needed" on every create calendar, and the
   await showNextMonth(page);
   const day = page.locator(`.cal-day[data-date="${addDays(await nextMonth(page), 2)}"]`);
   await day.click();
-  // The first pick brings a tip, once, where people are looking.
-  await expect(page.locator('#toast')).toHaveText('Tip: tap it again to make it “if needed”.');
+  // The key above the calendar says it: no tip pops up over the calendar.
+  await expect(page.locator('#toast')).not.toContainText('Tip');
   const chip = page.locator('#options-list .chip');
   await expect(chip).toHaveCount(1);
   await expect(chip.locator('.chip-tag')).toHaveCount(0);
