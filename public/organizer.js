@@ -7,19 +7,18 @@ import { $, ago, api, copy, esc, lastEmail, toast } from './ui.js';
 // ----- the organizer's tools, at the top of the poll -----
 
 /**
- * ctx: { id, ev, fresh, open, onToggle, notifyPending, ai, panels, panel, what, kind, shareUrl,
+ * ctx: { id, ev, open, onToggle, notifyPending, ai, panels, panel, kind, shareUrl,
  * adminToken, headers, deleted }
  */
 export function tools(box, ctx) {
-  const { id, ev, fresh, panels } = ctx;
+  const { id, ev, panels } = ctx;
   // Edit until someone else answers; after that, start a new poll from this one.
   const copyOnly = ev.participants.some((p) => p.id !== ev.hostId);
-  // Fresh from creating: one line and the buttons, so sharing (the big button above) comes first.
+  // One closed line, the same before and after a date is picked, so sharing (above) comes first.
   box.innerHTML = `<details class="organizer"${ctx.open ? ' open' : ''}>
-    <summary><b>${fresh ? 'Your Venn is ready.' : "You're the organizer."}</b> ${fresh ? (ctx.notifyPending ? "Check your inbox for its link: we'll email you when people answer." : 'Share the link with your group.') : 'Organizer tools'}</summary>
-    ${fresh ? '' : `<p class="hint">When you're ready, press <b>Pick</b> on the best ${ctx.what} in the group view.</p>`}
+    <summary><b>Organizer tools</b>${ctx.notifyPending ? ' <span class="org-note">Check your inbox for its link: we\'ll email you when people answer.</span>' : ''}</summary>
     <div class="btn-row">
-      <button class="btn btn-sm" id="notify-open" aria-expanded="${!!panels.notify}" aria-controls="notify-box">${fresh ? 'Get notified when people answer' : 'Notifications'}</button>
+      <button class="btn btn-sm" id="notify-open" aria-expanded="${!!panels.notify}" aria-controls="notify-box">Notifications</button>
       ${ctx.ai ? '<button class="btn btn-sm" id="writer-open" aria-controls="writer-box">Write a message</button>' : ''}
       <button class="btn btn-sm" id="privacy-open" aria-expanded="${!!panels.privacy}" aria-controls="privacy-box">Privacy</button>
       <a class="btn btn-sm" href="/new/${ctx.kind}?${copyOnly ? 'copy' : 'edit'}=${id}${copyOnly && ev.finalStart != null ? '&amp;next' : ''}" data-link>${copyOnly ? 'Duplicate' : 'Edit'} poll</a>

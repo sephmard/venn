@@ -110,7 +110,6 @@ export async function renderEvent(id, navigate) {
     inspect: null, // slot being inspected in the group heatmap
     touched: new Set(), // rows this visitor explicitly answered (so "No" shows as chosen)
     tab: null,
-    fresh: !!saved(id).justCreated, // the organizer just created this poll
     orgOpen: null, // organizer tools open? Closed until wanted.
   };
   // The edit token also gets your own answer back when the organizer hides everyone's answers.
@@ -1737,8 +1736,6 @@ export async function renderEvent(id, navigate) {
     org?.tools($('#org-tools'), {
       id,
       ev: ev(),
-      // Once the date is set, the banner leads and the tools wait, closed.
-      fresh: st.fresh && ev().finalStart == null,
       // Closed until wanted, so sharing (above) comes first.
       open: st.orgOpen ?? false,
       onToggle: (open) => (st.orgOpen = open), // stays open or closed across re-renders
@@ -1746,7 +1743,6 @@ export async function renderEvent(id, navigate) {
       ai: aiOn,
       panels,
       panel,
-      what: listMode && !daysMode ? 'option' : 'date',
       kind: optionsMode && !partsMode ? 'pick' : 'free',
       shareUrl,
       adminToken: saved(id).adminToken,
