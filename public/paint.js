@@ -22,6 +22,7 @@ const STEP = 30;
  *              what's painted joins it while `marking()` is true, and leaves it otherwise
  *   views      ['week', 'day'] adds a Week / Day switch; ['week'], the week everywhere; without it, phones
  *              show a day and others a week
+ *   drag       false: times are tapped one at a time, and a swipe scrolls the page
  * Returns { render, week() (the 7 days around what's shown), cleanup }.
  */
 export function paintView(
@@ -37,6 +38,7 @@ export function paintView(
     maybe = new Set(),
     marking = () => false,
     views = null,
+    drag: canDrag = true,
   },
 ) {
   let day = views?.length === 1 ? views[0] === 'day' : isPhone();
@@ -160,9 +162,17 @@ export function paintView(
     else if (!maybe.has(k)) maybe.add(k);
     else drop(k);
   };
+  grid.classList.toggle('pg-tap', !canDrag);
+  grid.addEventListener('click', (e) => {
+    const el = !canDrag && e.target.closest('.pg-cell');
+    if (!el || el.classList.contains('past')) return;
+    cycle(key(el.dataset.d, +el.dataset.m));
+    render();
+    onChange();
+  });
   grid.addEventListener('pointerdown', (e) => {
     const el = e.target.closest('.pg-cell');
-    if (!el || e.button > 0 || el.classList.contains('past')) return;
+    if (!canDrag || !el || e.button > 0 || el.classList.contains('past')) return;
     e.preventDefault();
     const erase = el.classList.contains('on');
     drag = { at: pos(el), el, before: new Set(selected), maybe: new Set(maybe), erase, moved: false };

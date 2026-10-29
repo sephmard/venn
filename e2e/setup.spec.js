@@ -25,11 +25,6 @@ test('a template shapes an empty calendar, but never what is already picked', as
   await card(page, 'Trip').click();
   await expect(page.locator('#in-row')).not.toBeChecked();
   await expect(page.locator('#summary')).toHaveText('3 days to choose from');
-  // Its length shows only where lengths are chosen, and is never chosen out of sight.
-  await card(page, 'Dinner').click();
-  await setLevel(page, 'hours');
-  await expect(page.locator('[data-flength="120"]')).toHaveAttribute('aria-pressed', 'true');
-  await expect(page.locator('[data-flength="120"]')).toBeVisible();
 });
 
 test('Clear all can be undone, until something new is picked', async ({ page }) => {
@@ -87,16 +82,13 @@ test('parts of the day and hours both go a week with ‹ › and a month with «
   }
 });
 
-test('a tap on the hours calendar gives the hour tapped, as the labels read', async ({ page }) => {
+test('a tap on the hours calendar adds the half hour tapped; a drag draws longer', async ({ page }) => {
   await page.goto('/new');
   await setLevel(page, 'hours');
+  await expect(page.locator('[data-flength], #len-h')).toHaveCount(0); // no length to choose
   const day = addDays(await nextMonth(page), 3);
-  await tapAt(page, day, 1170, '#when'); // the lower half of the 7 PM hour
-  await expect(page.locator('#free-list')).toContainText('7 – 8 PM');
-  // A half-hour length can start on the half hour.
-  await page.click('[data-flength="30"]');
-  await tapAt(page, day, 1290, '#when');
-  await expect(page.locator('#free-list')).toContainText('9:30 – 10:00 PM');
+  await tapAt(page, day, 1170, '#when'); // 7:30 PM
+  await expect(page.locator('#free-list')).toContainText('7:30 – 8:00 PM');
 });
 
 test('on the hours calendar a tap goes round, as on days: available, if needed, removed', async ({ page }) => {
