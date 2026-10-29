@@ -39,8 +39,11 @@ export function paintView(
   },
 ) {
   let day = isPhone();
-  let start = startAt && startAt > todayStr() ? startAt : todayStr(); // first day of the week strip
-  let anchor = start; // first day shown; on phones, the day shown
+  // Weeks run Monday to Sunday; days before today show, but can't be painted.
+  const monday = (d) => addDays(d, -((dateParts(d).getUTCDay() + 6) % 7));
+  const thisWeek = monday(todayStr());
+  let start = monday(startAt && startAt > todayStr() ? startAt : todayStr()); // the Monday of the week shown
+  let anchor = startAt && startAt > todayStr() ? startAt : todayStr(); // on phones, the day shown
   root.innerHTML = `
     <div class="tv-bar">
       ${
@@ -79,24 +82,24 @@ export function paintView(
     grid.classList.toggle('pg-narrow', narrow);
     $('.tv-label', root).textContent =
       ds.length > 1 ? `${fmtMonthDay.format(dateParts(ds[0]))} – ${fmtMonthDay.format(dateParts(ds.at(-1)))}` : dayLabel(ds[0]);
-    $('[data-pstep="-1"]', root).disabled = start <= todayStr();
+    $('[data-pstep="-1"]', root).disabled = start <= thisWeek;
     if (day)
       strip.innerHTML = week()
         .map((d) => {
           const n = rows.filter((m) => selected.has(key(d, m))).length;
-          return `<button type="button" class="tv-chip" data-pday="${d}" aria-pressed="${d === anchor}">${dayChip(d, n ? '✓' : '')}</button>`;
+          return `<button type="button" class="tv-chip" data-pday="${d}" aria-pressed="${d === anchor}"${d < todayStr() ? ' disabled' : ''}>${dayChip(d, n ? '✓' : '')}</button>`;
         })
         .join('');
     let h = '<span class="pg-corner"></span>';
     for (const d of ds)
-      h += `<button type="button" class="pg-day" data-fill-day="${d}"><b>${esc(fmtDow.format(dateParts(d)))}</b> ${esc(fmtMonthDay.format(dateParts(d)))}<span class="sr-only">: paint or clear the whole day</span></button>`;
+      h += `<button type="button" class="pg-day" data-fill-day="${d}"${d < todayStr() ? ' disabled' : ''}><b>${esc(fmtDow.format(dateParts(d)))}</b> ${esc(fmtMonthDay.format(dateParts(d)))}<span class="sr-only">: paint or clear the whole day</span></button>`;
     rows.forEach((m, r) => {
       h += `<span class="pg-time${parts ? ' part' : ''}" aria-hidden="true">${parts || !(m % 60) ? esc(label(m)) : ''}</span>`;
       ds.forEach((d, c) => {
         const on = selected.has(key(d, m));
         // What a picked part is for the organizer, shown on it: " If needed" or " Available".
         const tag = parts && on ? (maybe.has(key(d, m)) ? ' If needed' : ' Available') : '';
-        h += `<span class="pg-cell${parts ? ' part' : m % 60 ? '' : ' hour'}${on ? ' on' : ''}${on && maybe.has(key(d, m)) ? ' maybe' : ''}" role="button" tabindex="${r || c ? -1 : 0}" data-d="${d}" data-m="${m}" data-r="${r}" data-c="${c}" aria-pressed="${on}" aria-label="${esc(`${dayLabel(d)}, ${label(m)}${parts ? ` ${span(m)}${tag}` : on && maybe.has(key(d, m)) ? ', if needed' : ''}`)}">${parts ? `<small aria-hidden="true">${esc(span(m))}</small>${tag ? ` <small class="pg-tag" aria-hidden="true">${tag.trim()}</small>` : ''}` : ''}</span>`;
+        h += `<span class="pg-cell${parts ? ' part' : m % 60 ? '' : ' hour'}${on ? ' on' : ''}${on && maybe.has(key(d, m)) ? ' maybe' : ''}${d < todayStr() ? ' past" aria-disabled="true' : ''}" role="button" tabindex="${r || c ? -1 : 0}" data-d="${d}" data-m="${m}" data-r="${r}" data-c="${c}" aria-pressed="${on}" aria-label="${esc(`${dayLabel(d)}, ${label(m)}${parts ? ` ${span(m)}${tag}` : on && maybe.has(key(d, m)) ? ', if needed' : ''}`)}">${parts ? `<small aria-hidden="true">${esc(span(m))}</small>${tag ? ` <small class="pg-tag" aria-hidden="true">${tag.trim()}</small>` : ''}` : ''}</span>`;
       });
     });
     grid.style.gridTemplateColumns = `${parts ? (narrow ? 64 : 84) : narrow ? 40 : 52}px repeat(${ds.length}, minmax(0, 1fr))`;
@@ -156,7 +159,7 @@ export function paintView(
   };
   grid.addEventListener('pointerdown', (e) => {
     const el = e.target.closest('.pg-cell');
-    if (!el || e.button > 0) return;
+    if (!el || e.button > 0 || el.classList.contains('past')) return;
     e.preventDefault();
     const erase = el.classList.contains('on');
     drag = { at: pos(el), el, before: new Set(selected), maybe: new Set(maybe), erase, moved: false };
@@ -197,7 +200,7 @@ export function paintView(
         next.tabIndex = 0;
         next.focus();
       }
-    } else if (e.key === ' ' || e.key === 'Enter') {
+    } else if ((e.key === ' ' || e.key === 'Enter') && !el.classList.contains('past')) {
       e.preventDefault();
       cycle(key(el.dataset.d, +el.dataset.m));
       const { r, c } = pos(el);
@@ -224,14 +227,14 @@ export function paintView(
     const pv = e.target.closest('[data-pview]');
     if (pv) {
       day = pv.dataset.pview === 'day';
-      if (day && !week().includes(anchor)) anchor = start;
+      if (day && !week().includes(anchor)) anchor = start < todayStr() ? todayStr() : start;
       return render();
     }
     const st = e.target.closest('[data-pstep]');
     if (st) {
       start = addDays(start, 7 * +st.dataset.pstep);
-      if (start < todayStr()) start = todayStr();
-      anchor = start;
+      if (start < thisWeek) start = thisWeek;
+      anchor = start < todayStr() ? todayStr() : start;
       return render();
     }
     const chip = e.target.closest('[data-pday]');
@@ -257,9 +260,6 @@ export function paintView(
 // what's only if needed for the organizer) and `defaultParts` (the parts a new day gets).
 
 const ALL_DAY = [DAY_PARTS[0].start, DAY_PARTS.at(-1).end];
-// Quick fills for the painter: parts of the day, painted on every day of the week shown. They're
-// the same mornings, afternoons and evenings as "Parts of the day", so the levels agree.
-const FILLS = [...DAY_PARTS.map((p) => [`${p.label}s`, p.start, p.end]), ['All day', ...ALL_DAY]];
 const LEVELS = ['days', 'parts', 'hours'];
 /** Hours that cover the whole day read as the day: "All day", not "9 AM – 10 PM". */
 export const hoursLabel = (a, b) => (a <= ALL_DAY[0] && b >= ALL_DAY[1] ? 'All day' : shortRange(a, b));
@@ -402,21 +402,4 @@ export function windowList(windows, level, chip, dayRange) {
 export function paintHelp() {
   const tap = isPhone() ? 'Tap' : 'Click';
   return `Drag across several, or ${tap.toLowerCase()} a day name for the whole day.`;
-}
-/** The quick fills, for the week shown: on when every day has it, so a second tap clearly takes it away. */
-export const fillPills = () =>
-  `<h3 class="sub-h fill-h" id="fill-h">Every day this week</h3><div class="pills" role="group" aria-labelledby="fill-h">${FILLS.map(
-    ([l], i) => `<button type="button" class="pill" data-fill="${i}" aria-pressed="false">${l}</button>`,
-  ).join('')}</div>`;
-const fillKeys = (parts, i, week) => {
-  const [, from, to] = FILLS[i];
-  const mins = parts ? DAY_PARTS.filter((p) => p.start >= from && p.start < to).map((p) => p.start) : slots(from, to);
-  return week.flatMap((d) => mins.map((m) => `${d}|${m}`));
-};
-/** Whether every day of `week` has that fill. */
-export const filled = (set, parts, i, week) => week.length > 0 && fillKeys(parts, i, week).every((k) => set.has(k));
-/** A quick fill: that part of the day on every day of `week`, or cleared if it's all there. */
-export function fillWeek(set, parts, i, week) {
-  const all = filled(set, parts, i, week);
-  for (const k of fillKeys(parts, i, week)) all ? set.delete(k) : set.add(k);
 }
