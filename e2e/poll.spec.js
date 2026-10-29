@@ -1634,7 +1634,7 @@ test('on a phone, a new poll leads with sharing: one share button, the group, an
   // The organizer's tools wait closed, one line; open, the buttons and what the private link is for.
   const tools = page.locator('details.organizer');
   await expect(tools).not.toHaveAttribute('open', '');
-  await expect(tools.locator('summary')).toHaveText(/^Your Venn is ready\. Share the link with your group\.$/);
+  await expect(tools.locator('summary')).toHaveText(/^Organizer tools$/);
   await tools.locator('summary').click();
   await expect(tools.locator('#notify-open')).not.toHaveClass(/btn-primary/);
   await expect(tools.getByRole('button', { name: 'Copy private organizer link' })).toHaveAccessibleDescription(
@@ -1668,7 +1668,7 @@ test('on a phone, a new poll leads with sharing: one share button, the group, an
   await page.reload();
   await expect(page.locator('#ev-title')).toHaveText('Book club');
   await expect(page.locator('details.organizer')).not.toHaveAttribute('open', '');
-  await expect(page.locator('details.organizer summary')).toContainText("You're the organizer.");
+  await expect(page.locator('details.organizer summary')).toHaveText(/^Organizer tools$/);
   await expect(page.locator('#tab-group')).toHaveAttribute('aria-selected', 'true');
 
   // A guest still starts on their own answer, with the whole form.
@@ -3180,6 +3180,34 @@ test('days and times mix: a day keeps the hours drawn on it, and days added afte
     { date: addDays(first, 2), start: 540, end: 1320 },
     { date: addDays(first, 3), start: 540, end: 1320 },
   ]);
+});
+
+test('days in a row asks first when days have their own times, and keeping them leaves it off', async ({ page }) => {
+  await page.goto('/new/free');
+  const first = await nextMonth(page);
+  await setLevel(page, 'hours');
+  await addHours(page, 1, [1080, 1140, 1200]);
+  await setLevel(page, 'days');
+  const dialog = page.getByRole('dialog', { name: 'Make it days in a row?' });
+  await page.locator('#in-row').click();
+  await expect(dialog).toBeVisible();
+  await expect(dialog).toContainText('6 – 9 PM');
+  await dialog.getByRole('button', { name: 'Keep my times' }).click();
+  await expect(dialog).toBeHidden();
+  await expect(page.locator('#in-row')).not.toBeChecked();
+  await expect(page.locator('#free-list .mix-note')).toContainText('6 – 9 PM');
+  // Going ahead makes the day whole.
+  await page.locator('#in-row').click();
+  await dialog.getByRole('button', { name: 'Yes, all day' }).click();
+  await expect(page.locator('#in-row')).toBeChecked();
+  await expect(page.locator('#span-box')).toBeVisible();
+  await expect(page.locator('#free-list .mix-note')).toHaveCount(0);
+  await expect(page.locator(`#when .cal-day[data-date="${first}"]`)).toBeVisible();
+  // With no times of their own, it just switches.
+  await page.locator('#in-row').click();
+  await page.locator('#in-row').click();
+  await expect(dialog).toBeHidden();
+  await expect(page.locator('#in-row')).toBeChecked();
 });
 
 test('days and parts of the day mix: an evening stays an evening, and a day added after is the whole day', async ({ page }) => {

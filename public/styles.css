@@ -1425,17 +1425,26 @@ details.organizer {
   margin-bottom: 16px;
   background: var(--accent-soft);
 }
+details.organizer:not([open]) {
+  padding-bottom: 8px;
+}
 details.organizer summary {
   color: var(--text);
   font-weight: 500;
   display: block;
-  padding: 10px 0 2px;
+  padding: 10px 0;
 }
 details.organizer summary::before {
   margin-right: 6px;
 }
 details.organizer summary b {
   font-weight: 750;
+}
+details.organizer .org-note {
+  display: block;
+  margin: 2px 0 0 1.1em;
+  color: var(--muted);
+  font-size: 0.9rem;
 }
 /* The private organizer link, with what it's for beside it. */
 .org-private {
@@ -2250,6 +2259,11 @@ pre.code {
   font-size: 1.5rem;
   font-weight: 700;
   line-height: 1.25;
+}
+.rc-list {
+  margin: 0;
+  padding-left: 20px;
+  line-height: 1.6;
 }
 .sc-actions {
   display: grid;
