@@ -1668,7 +1668,8 @@ export async function renderEvent(id, navigate) {
     return `<div class="change-list" id="change-list">
       <p class="kicker">Change the date to</p>
       ${rows ? `<ol>${rows}</ol>` : '<p>No other date works for anyone yet.</p>'}
-      <button type="button" class="link-btn" id="change-cancel">Keep this date</button>
+      <p class="change-ends"><button type="button" class="link-btn" id="change-cancel">Keep this date</button>
+        <button type="button" class="link-btn" id="unpick">Clear the date</button></p>
     </div>`;
   }
 
@@ -1701,7 +1702,6 @@ export async function renderEvent(id, navigate) {
         `mailto:?bcc=${guests.map((g) => encodeURIComponent(g.email)).join(',')}&subject=${encodeURIComponent(
           `It's set: ${ev().title}`,
         )}&body=${encodeURIComponent(`It's set: ${ev().title}, ${when(start, end)}.\n\nAdd it to your calendar: ${shareUrl}\n`)}`;
-      const pictureBtn = `<button type="button" class="link-btn" id="share-card">${canShare ? 'Share as a picture' : 'Save as a picture'}</button>`;
       const cal = calJs.addToCalendar({ id, info, day, url: shareUrl, guests });
       // One or two big next steps, the rest under More.
       h += `<section class="banner-final${st.celebrate && !reducedMotion() ? ' celebrate' : ''}" aria-labelledby="final-h">
@@ -1717,33 +1717,20 @@ export async function renderEvent(id, navigate) {
             : cal
         }
         ${ev().isAdmin && st.changing ? changeList(start) : ''}
-        <details class="final-extras">
-          <summary>More</summary>
-          <div class="final-extras-body">
-            ${
-              // Picked the wrong one, or plans changed: Change is under the date; clearing it is here.
-              ev().isAdmin
-                ? `<button type="button" class="link-btn" id="unpick">Clear the date</button>
-            ${mailAll ? `<a class="link-btn" id="email-all" href="${esc(mailAll)}">Email everyone the date</a>` : ''}
-            ${pictureBtn}`
-                : `${pictureBtn}
-            <a class="link-btn" data-link href="/new?from=set${ev().emoji ? `&template=${encodeURIComponent(ev().emoji)}` : ''}">Make your own Venn</a>`
-            }
-          </div>
-        </details>
+        ${
+          // One quiet link at most: the organizer's email to everyone, or a guest's own Venn.
+          ev().isAdmin
+            ? mailAll
+              ? `<p class="final-more"><a class="link-btn" id="email-all" href="${esc(mailAll)}">Email everyone the date</a></p>`
+              : ''
+            : `<p class="final-more"><a class="link-btn" data-link href="/new?from=set${ev().emoji ? `&template=${encodeURIComponent(ev().emoji)}` : ''}">Make your own Venn</a></p>`
+        }
       </section>`;
     } else if (ev().isAdmin && ev().seriesOf) h += '<div id="series-box"></div>'; // bring last time's group back
     if (org) h += '<div id="org-tools"></div>';
     $('#banners').innerHTML = h;
     // Once the date is set, the banner says how to pass it on, so the invite button steps aside.
     $('.poll-share').hidden = ev().finalStart != null;
-    // The "It's set" picture is drawn by a module that loads when it's asked for.
-    const card = $('#share-card');
-    if (card)
-      card.onclick = () =>
-        import('./share-card.js')
-          .then((m) => m.shareCard({ ev: ev(), when: when(ev().finalStart, meetingEnd(ev(), ev().finalStart)), button: card }))
-          .catch(() => toast("Couldn't make the picture. Try again."));
     st.celebrate = false;
     // The next one of a plan: bring last time's group back (plan-next.js, for organizers).
     if ($('#series-box')) import('./plan-next.js').then((m) => m.planNext({ id, ev: ev() })).catch(() => {});
