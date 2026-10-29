@@ -172,8 +172,8 @@ export function renderFree() {
    * than the whole day there. With any, the poll goes out at that level, and the other days whole,
    * so days and times mix in one poll.
    */
-  function timed() {
-    if (!pt || !timeLevel || span() > 1) return new Map();
+  function timed(anyRow = false) {
+    if (!pt || !timeLevel || (!anyRow && span() > 1)) return new Map();
     const ws = pt.windowsAt(st, timeLevel).filter((w) => selected.has(w.date));
     const whole = (d, own) =>
       timeLevel === 'hours'
@@ -401,7 +401,52 @@ export function renderFree() {
       ($(`#free-list [${fd ? `data-flip-days="${fd}"` : `data-flip-window="${fw}"`}]`) || $('#free-list .chip-flip'))?.focus();
     }
   });
-  $('#in-row').onchange = () => {
+  /** Days in a row asks only whole days: say first which times that turns into all day. */
+  function askRow() {
+    const own = [...timed(true)].sort(([a], [b]) => (a < b ? -1 : 1));
+    if (!own.length) return Promise.resolve(true);
+    let d = $('#row-check');
+    if (!d) {
+      d = document.createElement('dialog');
+      d.className = 'submit-check';
+      d.id = 'row-check';
+      d.setAttribute('aria-labelledby', 'rc-h');
+      document.body.append(d);
+    }
+    d.innerHTML = `<h2 id="rc-h">Make it days in a row?</h2>
+      <p>Guests answer for whole days, so these become all day:</p>
+      <ul class="rc-list">${own.map(([day, ws]) => `<li><b>${esc(dayLabel(day))}:</b> ${esc(ws.map(timeOf).join(', '))}</li>`).join('')}</ul>
+      <div class="sc-actions">
+        <button type="button" class="btn" id="rc-no">Keep my times</button>
+        <button type="button" class="btn btn-primary" id="rc-yes">Yes, all day</button>
+      </div>`;
+    return new Promise((done) => {
+      const close = (yes) => {
+        d.close();
+        done(yes);
+      };
+      $('#rc-no', d).onclick = () => close(false);
+      $('#rc-yes', d).onclick = () => {
+        // Those days become whole: their own times go.
+        for (const [day] of own)
+          for (const set of [partsSel, painted, maybe.parts, maybe.hours])
+            for (const k of [...set]) if (k.startsWith(`${day}|`)) set.delete(k);
+        close(true);
+      };
+      d.oncancel = (e) => {
+        e.preventDefault();
+        close(false);
+      };
+      d.onclick = (e) => e.target === d && close(false); // a tap outside the box
+      d.showModal();
+      $('#rc-yes', d).focus();
+    });
+  }
+  $('#in-row').onchange = async () => {
+    if ($('#in-row').checked && !(await askRow())) {
+      $('#in-row').checked = false;
+      return $('#in-row').focus();
+    }
     setRow($('#in-row').checked ? Math.max(2, +$('#span').value || 2) : 1);
     update();
   };

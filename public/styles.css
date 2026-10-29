@@ -2260,6 +2260,11 @@ pre.code {
   font-weight: 700;
   line-height: 1.25;
 }
+.rc-list {
+  margin: 0;
+  padding-left: 20px;
+  line-height: 1.6;
+}
 .sc-actions {
   display: grid;
   grid-template-columns: 1fr 1fr;
