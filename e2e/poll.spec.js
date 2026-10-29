@@ -317,10 +317,10 @@ test('ask when people are available: what the organizer picks is available or if
   await page.goto('/new/free');
   await page.fill('#title', 'Coffee');
   await setLevel(page, 'hours');
-  // Many at once, if needed: the switch folded away under the calendar.
-  await page.click('#brush-box summary');
-  await page.check('#brush');
+  // A second tap on a time makes it if needed.
   await addHours(page, 2, [600]);
+  const times = page.locator('#when .tg-block');
+  for (let i = 0; i < (await times.count()); i++) await times.nth(i).click();
   await expect(page.locator('#free-list .chip.maybe').first()).toBeVisible();
   await expect(page.locator('#free-list .chip:not(.maybe)')).toHaveCount(0);
   await page.click('#submit');
@@ -349,7 +349,7 @@ test('ask when people are free: paint hours and see the best time', async ({ pag
   await page.fill('#organizer', 'Sam');
   await page.fill('#title', 'Book club');
   await setLevel(page, 'hours');
-  await page.click('[data-flength="60"]');
+  await expect(page.locator('[data-flength]')).toHaveCount(0); // no length to choose: any overlap counts
   await expect(page.locator('#submit')).toHaveAttribute('aria-disabled', 'true');
   // Drawn on the calendar: three hours, 9 to 12, on two days.
   await addHours(page, 2, [540, 600, 660]);
@@ -1059,10 +1059,9 @@ test('hours: a whole day reads "All day", and days in a row stay whole days', as
   await page.clock.setFixedTime(new Date(2030, 0, 9, 12)); // a Wednesday
   await page.goto('/new/free');
   await page.fill('#organizer', 'Sam');
-  // Times from 9 AM to 10 PM or later read as the whole day: seven 2-hour taps, back to back.
+  // Times from 9 AM to 10 PM or later read as the whole day: half-hour taps, back to back.
   await setLevel(page, 'hours');
-  await page.click('[data-flength="120"]');
-  for (let m = 540; m < 1320; m += 120) await tapAt(page, '2030-01-09', m, '#when');
+  for (let m = 540; m < 1320; m += 30) await tapAt(page, '2030-01-09', m, '#when');
   await expect(page.locator('#free-list .chip')).toHaveText(['All day×']);
   await expect(page.locator('#when .tg-block').first()).toContainText('All day');
 
@@ -1514,7 +1513,6 @@ test('organizers add hours on different days, drag them longer, switch one to if
   await page.fill('#organizer', 'Sam');
   await page.fill('#title', 'Drinks');
   await setLevel(page, 'hours');
-  await page.click('[data-flength="60"]');
   await page.click('#when .tv-nav [data-step="1"]'); // next week, so every day is in the future
   const col = (i) => page.locator('#when .tg-col').nth(i);
   // Where a time is in a day's column, scrolled into view.
@@ -1531,10 +1529,6 @@ test('organizers add hours on different days, drag them longer, switch one to if
       },
       [minutes, scroll],
     );
-  const tap = async (i, m) => {
-    const p = await at(i, m);
-    await page.mouse.click(p.x, p.y);
-  };
   const dragBy = async (target, dy) => {
     const box = await target.boundingBox();
     await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
@@ -1542,12 +1536,18 @@ test('organizers add hours on different days, drag them longer, switch one to if
     await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2 + dy, { steps: 4 });
     await page.mouse.up();
   };
-  // A tap adds a time of the length chosen: 7 – 9 PM on the first two days, 10 – 11 AM on the third.
-  await page.click('[data-flength="120"]');
-  await tap(0, 1140);
-  await tap(1, 1140);
-  await page.click('[data-flength="60"]');
-  await tap(2, 600);
+  // A drag draws a time: 7 – 9 PM on the first two days, 10 – 11 AM on the third.
+  const draw = async (i, from, to) => {
+    const a = await at(i, from);
+    const b = await at(i, to - 30, false);
+    await page.mouse.move(a.x, a.y);
+    await page.mouse.down();
+    await page.mouse.move(b.x, b.y, { steps: 4 });
+    await page.mouse.up();
+  };
+  await draw(0, 1140, 1260);
+  await draw(1, 1140, 1260);
+  await draw(2, 600, 660);
   const blocks = page.locator('#when .tg-block');
   await expect(blocks).toHaveCount(3);
   const list = page.locator('#free-list .od-row');
@@ -1566,7 +1566,7 @@ test('organizers add hours on different days, drag them longer, switch one to if
 
   // Guests get a grid with just those hours: 4 + 4 + 4 half hours.
   await expect(page.locator('#mine .cell[data-slot]')).toHaveCount(12);
-  await expect(page.locator('#ev-details')).toContainText('Looking for 1 hour');
+  await expect(page.locator('#ev-details')).not.toContainText('Looking for'); // any overlap counts
 });
 
 test('ask when people are free: zoom from whole days to parts of the day to hours', async ({ page }) => {
@@ -2163,28 +2163,20 @@ test('a template names the poll, and the name is never what’s missing', async 
   await expect(page.locator('#ev-title')).toHaveText('Book club');
 });
 
-test('ask when people are available: a template’s length is one of the pills, and it names the poll', async ({ page }) => {
+test('ask when people are available: a template names the poll, with no length to choose on hours', async ({ page }) => {
   await page.goto('/new/free');
   await page.fill('#organizer', 'Sam');
-  await page.click('[data-occasion="0"]'); // Dinner: two hours
+  await page.click('[data-occasion="0"]'); // Dinner
+  await expect(page.locator('#title')).toHaveValue('Dinner');
   await pickDays(page, 14);
   await expect(page.locator('#summary')).toHaveText('14 days to choose from');
   await setLevel(page, 'hours');
-  // Hours are for short plans: 30 minutes, an hour or two. Longer ones suit parts of the day.
-  await expect(page.locator('[data-flength]')).toHaveText(['30 min', '1 hour', '2 hours']);
-  await expect(page.locator('[data-flength="120"]')).toHaveAttribute('aria-pressed', 'true');
-  await expect(page.locator('[data-flength][aria-pressed="true"]')).toHaveCount(1);
-  await page.click('[data-occasion="0"]'); // off again
-  await page.click('[data-occasion="2"]'); // Coffee: an hour
-  await expect(page.locator('[data-flength="60"]')).toHaveAttribute('aria-pressed', 'true');
-  await page.click('[data-occasion="5"]'); // Game night: three hours, so the longest there is
-  await expect(page.locator('[data-flength="120"]')).toHaveAttribute('aria-pressed', 'true');
-  await expect(page.locator('[data-flength][aria-pressed="true"]')).toHaveCount(1);
+  // Hours are drawn as long as they are: any overlap counts, so there's no length.
+  await expect(page.locator('[data-flength], #len-h')).toHaveCount(0);
 });
 
-test('marking many as if needed is folded away under the calendar, and works on both create pages', async ({
+test('marking many as if needed is folded away under the calendar on vote on a few dates, and gone from Create a Venn', async ({
   page,
-  isMobile,
 }) => {
   await page.goto('/new/pick');
   await page.fill('#title', 'Dinner');
@@ -2215,24 +2207,9 @@ test('marking many as if needed is folded away under the calendar, and works on 
   await expect(page.locator('#options-list .chip.maybe')).toHaveCount(2);
   await expect(page.locator('#options-list .chip.yes')).toHaveCount(2);
 
-  // "Ask when people are available": days picked with it on are if needed.
+  // "Create a Venn" has no such switch: a second tap makes something if needed.
   await page.goto('/new/free');
-  await expect(page.locator('.pick-brush, [data-pbrush], [data-fbrush]')).toHaveCount(0);
-  await page.click('#brush-box summary');
-  await page.check('#brush');
-  await tapDays(page, await weekendsFrom(page, 2));
-  await expect(page.locator('#free-list .chip:not(.maybe)')).toHaveCount(0);
-  await expect(page.locator('.cal-day.day-maybe').first()).toBeVisible();
-  await page.uncheck('#brush');
-  await setLevel(page, 'parts');
-  // Zoomed in, what was if needed stays so; new picks are available again.
-  await expect(page.locator('#free-list .chip.maybe').first()).toBeVisible();
-  await expect(page.locator('#free-list .chip:not(.maybe)')).toHaveCount(0);
-  if (!isMobile) {
-    await page.click('#q-clear');
-    await page.locator('#when .pg-cell.part').first().click();
-    await expect(page.locator('#free-list .chip:not(.maybe)')).toHaveCount(1);
-  }
+  await expect(page.locator('#brush-box, #brush')).toHaveCount(0);
 });
 
 test('week view: a day at the top of the week opens it on its own', async ({ page }) => {
@@ -2981,10 +2958,7 @@ test('a big group: a few people then "+N more", names a tap away, and ticks on t
   }
 });
 
-test('a copied "when are you free" poll keeps its own length, even one there is no button for any more', async ({
-  page,
-  request,
-}) => {
+test('a copied "when are you free" poll keeps its times, and becomes any overlap', async ({ page, request }) => {
   const { id } = await (
     await request.post('/api/events', {
       data: {
@@ -2998,9 +2972,8 @@ test('a copied "when are you free" poll keeps its own length, even one there is 
   ).json();
   await page.goto(`/new/free?copy=${id}`);
   await expect(page.locator('[data-level="hours"]')).toHaveAttribute('aria-checked', 'true');
-  await expect(page.locator('[data-flength="180"]')).toHaveText('3 hours');
-  await expect(page.locator('[data-flength="180"]')).toHaveAttribute('aria-pressed', 'true');
-  await expect(page.locator('[data-flength]')).toHaveCount(4);
+  await expect(page.locator('#free-list')).toContainText('6 – 11 PM');
+  await expect(page.locator('[data-flength]')).toHaveCount(0);
 });
 
 test('the week view goes a week with ‹ › and a month with « », never before this week', async ({ page }) => {
@@ -3076,16 +3049,9 @@ test('creating a Venn: dates only on a month, date and time as parts or hours, a
   await expect(page.locator('#when .pg-day')).toHaveCount(7);
   await expect(page.locator('#when [data-pview], #when .tv-views:visible')).toHaveCount(0);
 
-  // Hours: how long is optional, under the calendar, off until chosen, and a second tap leaves it off again.
+  // Hours: no length to choose, and no "Mark many as if needed": times are drawn as long as they are.
   await page.click('[data-level="hours"]');
-  expect(await page.locator('#when').evaluate((w) => !!(w.compareDocumentPosition(document.getElementById('len-h')) & 4))).toBe(
-    true,
-  );
-  await expect(page.locator('[data-flength][aria-pressed="true"]')).toHaveCount(0);
-  await page.click('[data-flength="60"]');
-  await expect(page.locator('[data-flength="60"]')).toHaveAttribute('aria-pressed', 'true');
-  await page.click('[data-flength="60"]');
-  await expect(page.locator('[data-flength][aria-pressed="true"]')).toHaveCount(0);
+  await expect(page.locator('[data-flength], #len-h, #brush-box')).toHaveCount(0);
   // Times are drawn on the calendar: no "from – to" or "every day this week" (after clearing the weekdays carried over).
   await expect(page.locator('#fr-add, #fr-from, [data-fill]')).toHaveCount(0);
   await page.click('#q-clear');

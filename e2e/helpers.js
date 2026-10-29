@@ -173,10 +173,12 @@ export async function pickDays(page, n, keep = () => true) {
   return picked;
 }
 
-/** "Create a Venn" by hours: tap times on the first `days` days of next month (an hour each, unless a length is set). */
+/** "Create a Venn" by hours: an hour from each of `times` on the first `days` days of next month (a tap
+ * adds a half hour, so two taps each). */
 export async function addHours(page, days, times = [1140]) {
   const first = await nextMonth(page);
-  for (let i = 0; i < days; i++) for (const t of times) await tapAt(page, addDays(first, i), t, '#when');
+  for (let i = 0; i < days; i++)
+    for (const t of times) for (const m of [t, t + 30]) await tapAt(page, addDays(first, i), m, '#when');
 }
 
 /** Tap these days on the create page's month calendar, moving on a month when the next isn't shown. */
