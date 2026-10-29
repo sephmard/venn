@@ -2211,6 +2211,12 @@ pre.code {
 .sc-picks .chips {
   margin-bottom: 4px;
 }
+/* Pick this date?: the date as big as the banner it becomes. */
+.pick-check .pc-when {
+  font-size: 1.5rem;
+  font-weight: 700;
+  line-height: 1.25;
+}
 .sc-actions {
   display: grid;
   grid-template-columns: 1fr 1fr;
@@ -2363,25 +2369,13 @@ pre.code {
 .ov-bar .n {
   background: var(--no-cell);
 }
-/* Where everyone overlaps: the Venn itself. */
+/* Where everyone overlaps: the Venn itself, tinted green rather than shouting. */
 .ov-row.all {
   border-color: var(--yes);
-  background: var(--yes);
-  color: var(--yes-ink);
-  box-shadow: 0 10px 24px -14px var(--yes);
-}
-.ov-row.all .ov-bar {
-  background: rgb(255 255 255 / 0.35);
-}
-.ov-row.all .ov-bar .y {
-  background: var(--yes-ink);
-}
-.ov-row.all .ov-mine {
-  color: inherit;
+  background: var(--yes-soft);
 }
 .ov-row.best {
   border-color: var(--yes);
-  background: var(--yes-soft);
 }
 .ov-row.final {
   outline: 2.5px solid var(--final);

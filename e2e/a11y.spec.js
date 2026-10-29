@@ -204,6 +204,8 @@ for (const scheme of ['light', 'dark']) {
       await page.locator('.ov-row').first().click(); // who's free, and Pick
       await audit(page, "everyone's answers, a row open");
       await page.locator('.best-hero [data-pick]').click();
+      await audit(page, 'pick this date?');
+      await page.click('#pc-yes');
       await expect(page.locator('.banner-final')).toBeVisible();
       await openTools(page);
       await page.click('#notify-open');
@@ -362,7 +364,7 @@ for (const width of [375, 412]) {
     await openPoll(page, { picked: true });
     const banner = page.locator('.banner-final');
     await expect(banner).toBeVisible();
-    // Send everyone the date and Add to calendar; Change the date and the rest under "More".
+    // Send everyone the date and Add to calendar; Change under the date; the rest under "More".
     await banner.locator('.final-cal summary').click();
     await banner.locator('.final-extras summary').click();
     await expect(banner.getByRole('button', { name: 'Change the date' })).toBeVisible();

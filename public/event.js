@@ -1531,6 +1531,8 @@ export async function renderEvent(id, navigate) {
     if (!btn) return;
     const start = btn.id === 'unpick' ? null : +btn.dataset.pick;
     const was = ev().finalStart;
+    // Picking tells everyone: the date, big, and who can make it, before it goes out.
+    if (start != null && !(await confirmPick(start))) return btn.isConnected && btn.focus();
     st.changing = false;
     try {
       await api(`events/${id}/finalize`, { method: 'POST', body: { start }, headers: authHeaders() });
@@ -1549,6 +1551,48 @@ export async function renderEvent(id, navigate) {
       toast(ex.message);
     }
   });
+
+  /** "Pick this date?": the date in big type and who can make it, then Pick it or Back. */
+  function confirmPick(start) {
+    let d = $('#pick-check');
+    if (!d) {
+      d = document.createElement('dialog');
+      d.className = 'submit-check pick-check';
+      d.id = 'pick-check';
+      d.setAttribute('aria-labelledby', 'pc-h');
+      document.body.append(d);
+    }
+    const people = others();
+    const r = rankTimes(ev(), ev().slots, people, Infinity).find((x) => x.start === start);
+    const end = r ? r.end : meetingEnd(ev(), start);
+    const can = r ? r.yes.length + r.ifNeeded.length : 0;
+    const changing = ev().finalStart != null;
+    d.innerHTML = `<h2 id="pc-h">${changing ? 'Change the date to this?' : `Pick this ${daysMode ? 'date' : 'time'}?`}</h2>
+      <p class="pc-when">${bigWhen(start, end)}</p>
+      <p>${can} of ${people.length} can make it${r?.ifNeeded.length ? `, ${r.ifNeeded.length} if needed` : ''}.${
+        r?.no.length ? ` <span class="muted">Can't: ${r.no.map(esc).join(', ')}</span>` : ''
+      }</p>
+      ${changing ? '<p class="hint">Anyone who added the old date to their calendar will need to update it.</p>' : ''}
+      <div class="sc-actions">
+        <button type="button" class="btn" id="pc-no">Back</button>
+        <button type="button" class="btn btn-primary" id="pc-yes">${changing ? 'Change it' : 'Pick it'}</button>
+      </div>`;
+    return new Promise((done) => {
+      const close = (yes) => {
+        d.close();
+        done(yes);
+      };
+      $('#pc-no', d).onclick = () => close(false);
+      $('#pc-yes', d).onclick = () => close(true);
+      d.oncancel = (e) => {
+        e.preventDefault();
+        close(false);
+      };
+      d.onclick = (e) => e.target === d && close(false); // a tap outside the box
+      d.showModal();
+      $('#pc-yes', d).focus();
+    });
+  }
 
   // ----- organizer: notifications and privacy, from a module only organizers load -----
   const panels = {}; // which organizer panels are open: notify, privacy, writer
@@ -1612,7 +1656,6 @@ export async function renderEvent(id, navigate) {
     return `<div class="change-list" id="change-list">
       <p class="kicker">Change the date to</p>
       ${rows ? `<ol>${rows}</ol>` : '<p>No other date works for anyone yet.</p>'}
-      <p class="change-note">Anyone who added the old date to their calendar will need to update it.</p>
       <button type="button" class="link-btn" id="change-cancel">Keep this date</button>
     </div>`;
   }
@@ -1652,6 +1695,7 @@ export async function renderEvent(id, navigate) {
       h += `<section class="banner-final${st.celebrate && !reducedMotion() ? ' celebrate' : ''}" aria-labelledby="final-h">
         <p class="kicker">It's happening</p>
         <h2 id="final-h">${bigWhen(start, end)}</h2>
+        ${ev().isAdmin && !st.changing ? '<button type="button" class="link-btn final-change" id="change-date" aria-label="Change the date">Change</button>' : ''}
         ${
           ev().isAdmin
             ? `<div class="final-tell">
@@ -1665,10 +1709,9 @@ export async function renderEvent(id, navigate) {
           <summary>More</summary>
           <div class="final-extras-body">
             ${
-              // Picked the wrong one, or plans changed: another date is a tap away in everyone's answers.
+              // Picked the wrong one, or plans changed: Change is under the date; clearing it is here.
               ev().isAdmin
-                ? `<button type="button" class="link-btn" id="change-date">Change the date</button>
-            <button type="button" class="link-btn" id="unpick">Clear the date</button>
+                ? `<button type="button" class="link-btn" id="unpick">Clear the date</button>
             ${mailAll ? `<a class="link-btn" id="email-all" href="${esc(mailAll)}">Email everyone the date</a>` : ''}
             ${pictureBtn}`
                 : `${pictureBtn}
