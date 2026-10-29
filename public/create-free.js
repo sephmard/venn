@@ -69,7 +69,7 @@ export function renderFree() {
   const selected = new Set(); // days, for whole days
   const partsSel = new Set(); // "YYYY-MM-DD|<part start>", for parts of the day
   const painted = new Set(); // "YYYY-MM-DD|minutes", for hours
-  // What's only "if needed" for the organizer, at each level; the rest of what's picked works for them.
+  // What's only "if needed" for the organizer, at each level.
   const maybe = { days: new Set(), parts: new Set(), hours: new Set() };
   const st = { days: selected, parts: partsSel, hours: painted, maybe, defaultParts: new Set(DAY_PARTS.map((p) => p.key)) };
   let before = new Set(); // what the level had at the last update, to see what's new
@@ -259,7 +259,7 @@ export function renderFree() {
     // Parts of the day and hours need the painter, which most whole-day polls never load.
     const { paintView, datesOf } = await loadPaint();
     if (at !== mounts || !root.isConnected) return;
-    // Hours are times on the week calendar, moved and stretched with block-edit.js, loaded then too.
+    // Hours: the week calendar, edited with block-edit.js (loaded then too).
     if (!parts) {
       const { editBlocks } = await import('./block-edit.js');
       if (at !== mounts || !root.isConnected) return;

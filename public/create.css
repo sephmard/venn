@@ -494,12 +494,21 @@ button.emoji-tile:focus-visible {
   color: var(--muted);
   filter: none;
 }
-/* Phones: the calendars take at most half the screen, and hand the scroll back to the page. */
+/* Phones: both calendars one height, on one screen */
 @media (pointer: coarse), (max-width: 640px) {
+  .create {
+    --cal-h: clamp(220px, 38svh, 320px);
+  }
   .create .tg-scroll,
   .create .pg-scroll {
-    max-height: 50vh;
+    max-height: var(--cal-h);
     overscroll-behavior: auto;
+  }
+  .create .pg-scroll:has(.pg-cell.part) {
+    max-height: none;
+  }
+  .create .pg-narrow .pg-cell.part {
+    height: calc(var(--cal-h) / 3);
   }
 }
 /* The organizer's options: green when they're available, amber (and saying so) if needed. */
@@ -688,8 +697,7 @@ button.emoji-tile:focus-visible {
   align-items: center;
   justify-content: flex-start;
 }
-.tg-narrow .tg-block small,
-.tg-narrow .tg-short + .tg-x-box {
+.tg-narrow .tg-block small {
   display: none;
 }
 .tg-narrow .tg-block span {
