@@ -104,28 +104,12 @@
           <span class="blob blob-green"></span><span class="blob blob-amber"></span><span class="blob blob-blue"></span>
         </div>
         <div class="wrap hero-inner">
-          <p class="kicker">Free · No sign-up · No ads</p>
           <h1>Find the day that works for <em>everyone.</em></h1>
-          <p class="lede">Everyone taps when they're free. Venn finds the overlap.</p>
-          <form class="start" action="/new" method="get">
-            <label for="start-title" class="sr-only">What are you planning?</label>
-            <input
-              id="start-title"
-              name="title"
-              type="text"
-              maxlength="120"
-              placeholder="What are you planning?"
-              autocomplete="off"
-              enterkeyhint="go"
-            />
-            <button class="btn btn-lg" type="submit">Venn it <span aria-hidden="true">→</span></button>
-          </form>
-          <ul class="start-plans" aria-label="Or start from a plan">
-            <li><a href="/new?template=dinner">🍝 Dinner</a></li>
-            <li><a href="/new?template=book-club">📚 Book club</a></li>
-            <li><a href="/new?template=game-night">🎲 Game night</a></li>
-            <li><a href="/new?template=trip">✈️ Trip</a></li>
-          </ul>
+          <p class="lede">Pick some dates, share one link, and see where everyone overlaps.</p>
+          <p class="start">
+            <a href="/new" class="btn btn-lg btn-start">Create a Venn <span aria-hidden="true">→</span></a>
+          </p>
+          <p class="start-note">Free. No sign-up. No ads.</p>
           <figure
             class="venn"
             role="img"
@@ -145,8 +129,8 @@
             <p class="eyebrow">Why Venn</p>
             <h2>Less group chat. <em>More plans.</em></h2>
             <p class="section-lede">
-              No more "which week?" threads. Everyone marks their free days once, and the day that works for the whole group is
-              right there, with everyone who can make it.
+              Forty messages and still no date? Share one link instead. Everyone taps the days they're free, and the day that
+              works for the whole group is right there.
             </p>
           </div>
           <figure
@@ -182,17 +166,36 @@
       <section class="section" aria-labelledby="hl-h">
         <div class="wrap hl">
           <figure class="hl-finn" aria-hidden="true">
-            <span class="hl-bubble">Free, always. Woof!</span>
-            <img src="/img/dog.webp" width="110" height="240" alt="" />
+            <span class="hl-bubble">Let's find a day!</span>
+            <span class="finn-body">
+              <svg class="finn-hat" viewBox="0 0 60 80" width="46" height="61">
+                <defs>
+                  <clipPath id="hat-cone"><path d="M30 8 54 70Q30 78 6 70Z" /></clipPath>
+                </defs>
+                <path d="M30 8 54 70Q30 78 6 70Z" fill="#fff" stroke="#fff" stroke-width="9" stroke-linejoin="round" />
+                <g clip-path="url(#hat-cone)">
+                  <rect width="60" height="80" fill="#ff5d8f" />
+                  <path d="M0 34 60 22v9L0 43zM0 56l60-12v9L0 65z" fill="#ffd23f" />
+                  <circle cx="22" cy="50" r="2.4" fill="#fff" />
+                  <circle cx="36" cy="30" r="2" fill="#fff" />
+                  <circle cx="40" cy="62" r="2.4" fill="#fff" />
+                </g>
+                <circle cx="30" cy="8" r="7.5" fill="#ffd23f" stroke="#fff" stroke-width="4" />
+              </svg>
+              <img src="/img/dog.webp" width="110" height="240" alt="" />
+            </span>
           </figure>
           <div>
             <h2 id="hl-h">The good stuff, <em>for everyone.</em></h2>
             <ul class="hl-list">
-              <li><b>Free, always.</b> Every feature, for everyone. No paid plan.</li>
-              <li><b>No sign-up.</b> Not for you, not for your friends.</li>
-              <li><b>No ads, no tracking.</b> Just your plans.</li>
-              <li><b>Open source.</b> MIT licensed, <a href="https://github.com/sephmard/venn">on GitHub</a>.</li>
-              <li><b>Made for phones.</b> Opens from the group chat, in any browser.</li>
+              <li><b>Free, always.</b> No trials, no paid plan, no catch.</li>
+              <li><b>No sign-up.</b> Not for you, and not for your friends.</li>
+              <li><b>No ads, no tracking.</b> Your plans are nobody's business.</li>
+              <li>
+                <b>Open source.</b> MIT licensed. <a href="https://github.com/sephmard/venn">Read the code</a>, run your own, or
+                help make it better.
+              </li>
+              <li><b>Made for phones.</b> Built for thumbs, right from the group chat.</li>
               <li><b>Any time zone.</b> Everyone sees the times in their own.</li>
             </ul>
             <p class="hl-meet">
@@ -202,48 +205,54 @@
         </div>
       </section>
 
-      <section id="contact" class="section" aria-labelledby="contact-h">
-        <div class="wrap">
-          <div class="contact center-col">
-            <h2 id="contact-h">Ideas and questions</h2>
-            <p class="section-lede">Something you wish Venn did, or something to ask? We read every message.</p>
-            <form class="contact-form" hidden>
-              <fieldset class="contact-kind">
-                <legend>What's it about?</legend>
-                <label><input type="radio" name="kind" value="feature" checked /> Request a feature</label>
-                <label><input type="radio" name="kind" value="contact" /> Contact us</label>
-              </fieldset>
-              <label for="contact-message" data-for="feature">Your idea</label>
-              <label for="contact-message" data-for="contact" hidden>Your message</label>
-              <textarea id="contact-message" name="message" rows="5" maxlength="2000" required></textarea>
-              <label for="contact-email"
-                >Your email <span data-for="feature">(optional, if you'd like to hear back)</span
-                ><span data-for="contact" hidden>(so we can reply)</span></label
-              >
-              <input id="contact-email" name="email" type="email" autocomplete="email" inputmode="email" />
-              <p class="contact-hp" aria-hidden="true">
-                <label>Leave this empty <input name="website" tabindex="-1" autocomplete="off" /></label>
-              </p>
-              <button class="btn" type="submit">Send</button>
-              <p class="contact-status" role="status"></p>
-            </form>
-            <p class="contact-alt">
-              You can also <a href="https://github.com/sephmard/venn/issues/new/choose">open an issue on GitHub</a>.
-            </p>
-          </div>
-        </div>
-      </section>
-
       <section class="wrap closing">
         <h2>Stop the back-and-forth. <em>Just Venn it.</em></h2>
-        <a href="/new" class="btn btn-lg">Create a Venn</a>
+        <a href="/new" class="btn btn-lg btn-start">Create a Venn <span aria-hidden="true">→</span></a>
+        <p class="start-note">Free. No sign-up. No ads.</p>
       </section>
     </main>
 
+    <button type="button" class="ask-open" data-contact aria-haspopup="dialog">
+      <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true">
+        <path d="M4 5h16v11H9l-5 4z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round" />
+      </svg>
+      <span class="ask-label">Ideas &amp; questions</span>
+    </button>
+    <dialog id="contact" class="ask" aria-labelledby="contact-h">
+      <div class="ask-body">
+        <form method="dialog" class="ask-x">
+          <button type="submit" aria-label="Close">×</button>
+        </form>
+        <h2 id="contact-h">Ideas and questions</h2>
+        <p class="section-lede">Something you wish Venn did, or something to ask? We read every message.</p>
+        <form class="contact-form" hidden>
+          <fieldset class="contact-kind">
+            <legend>What's it about?</legend>
+            <label><input type="radio" name="kind" value="feature" checked /> Request a feature</label>
+            <label><input type="radio" name="kind" value="contact" /> Contact us</label>
+          </fieldset>
+          <label for="contact-message" data-for="feature">Your idea</label>
+          <label for="contact-message" data-for="contact" hidden>Your message</label>
+          <textarea id="contact-message" name="message" rows="5" maxlength="2000" required></textarea>
+          <label for="contact-email"
+            >Your email <span data-for="feature">(optional, if you'd like to hear back)</span
+            ><span data-for="contact" hidden>(so we can reply)</span></label
+          >
+          <input id="contact-email" name="email" type="email" autocomplete="email" inputmode="email" />
+          <p class="contact-hp" aria-hidden="true">
+            <label>Leave this empty <input name="website" tabindex="-1" autocomplete="off" /></label>
+          </p>
+          <button class="btn" type="submit">Send</button>
+          <p class="contact-status" role="status"></p>
+        </form>
+        <p class="contact-alt">
+          You can also <a href="https://github.com/sephmard/venn/issues/new/choose">open an issue on GitHub</a>.
+        </p>
+      </div>
+    </dialog>
     <footer class="wrap footer">
       <span>© Venn · Free and open source</span>
       <nav aria-label="Footer">
-        <a href="/templates">Templates</a>
         <a href="/privacy">Privacy</a>
         <a href="https://docs.venn.day">Docs</a>
         <a href="https://github.com/sephmard/venn">GitHub</a>

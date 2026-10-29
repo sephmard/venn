@@ -33,6 +33,6 @@ test('picking a link on the same page closes the menu', async ({ page }) => {
   await page.goto('/');
   await page.getByLabel('Menu').click();
   await page.locator('.menu-panel').getByRole('link', { name: 'Contact' }).click();
-  await expect(page).toHaveURL(/#contact$/);
+  await expect(page.getByRole('dialog', { name: 'Ideas and questions' })).toBeVisible();
   await expect(page.locator('.menu-panel')).toBeHidden();
 });

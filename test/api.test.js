@@ -358,7 +358,7 @@ test('validation errors come back as 400', async () => {
 test('serves the landing page, the app on its routes, and a 404 for anything else', async () => {
   const home = await fetch(`${baseUrl}/`);
   assert.equal(home.status, 200);
-  assert.match(await home.text(), /href="\/new" class="btn btn-lg">Create a Venn/);
+  assert.match(await home.text(), /href="\/new" class="btn btn-lg btn-start">Create a Venn/);
   for (const path of ['/new', '/e/whatever']) {
     const res = await fetch(baseUrl + path);
     assert.equal(res.status, 200, path);

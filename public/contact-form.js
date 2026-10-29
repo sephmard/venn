@@ -1,5 +1,6 @@
-// The home page's "Ideas and questions" form: a feature request or a message, emailed to the people
-// who run this Venn (POST /api/contact). It shows only when the server has that set up.
+// The home page's "Ideas and questions": a dialog that the corner button, and any link to /#contact,
+// opens. Its form sends a feature request or a message, emailed to the people who run this Venn
+// (POST /api/contact); the form shows only when the server has that set up.
 
 const form = document.querySelector('.contact-form');
 
@@ -53,4 +54,23 @@ if (form) {
       showKind();
     })
     .catch(() => {});
+}
+
+const dialog = document.querySelector('dialog.ask');
+
+if (dialog) {
+  const open = () => dialog.open || dialog.showModal();
+  document.addEventListener('click', (e) => {
+    if (!e.target.closest('[data-contact], a[href="/#contact"], a[href="#contact"]')) return;
+    e.preventDefault();
+    open();
+  });
+  // A tap on the backdrop closes it, like Escape and ×.
+  dialog.addEventListener('click', (e) => e.target === dialog && dialog.close());
+  // Closed, it shouldn't open again on a reload.
+  dialog.addEventListener(
+    'close',
+    () => location.hash === '#contact' && history.replaceState(null, '', location.pathname + location.search),
+  );
+  if (location.hash === '#contact') open();
 }
