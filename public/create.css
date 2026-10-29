@@ -356,6 +356,10 @@ button.emoji-tile:focus-visible {
   touch-action: none;
   cursor: crosshair;
 }
+.pg-tap .pg-cell {
+  touch-action: manipulation;
+  cursor: pointer;
+}
 .pg-cell.hour {
   border-top: 1px solid var(--border);
 }

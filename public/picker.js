@@ -40,7 +40,17 @@ const ymd = (y, m, d) => `${y}-${String(m + 1).padStart(2, '0')}-${String(d).pad
  */
 export function monthView(
   root,
-  { selected, onChange, onDay, active = () => null, marks = () => '', dayClass = () => '', views = null, onView = () => {} },
+  {
+    selected,
+    onChange,
+    onDay,
+    active = () => null,
+    marks = () => '',
+    dayClass = () => '',
+    views = null,
+    onView = () => {},
+    drag: canDrag = true,
+  },
 ) {
   const today = todayStr();
   const toggle = !!selected;
@@ -113,7 +123,7 @@ export function monthView(
   grid.addEventListener('pointerdown', (e) => {
     pointer = e.pointerType;
     const btn = e.target.closest('.cal-day');
-    if (!toggle || !btn || btn.disabled || e.pointerType !== 'mouse') return;
+    if (!toggle || !canDrag || !btn || btn.disabled || e.pointerType !== 'mouse') return;
     e.preventDefault();
     drag = selected.has(btn.dataset.date) ? 'remove' : 'add';
     apply(btn);
@@ -131,7 +141,7 @@ export function monthView(
     const btn = e.target.closest('.cal-day');
     if (!btn || btn.disabled) return;
     if (!toggle) return onDay(btn.dataset.date);
-    if (pointer === 'mouse' && e.detail) return; // a mouse click was the drag; Enter or Space (detail 0) still toggles
+    if (canDrag && pointer === 'mouse' && e.detail) return; // a mouse click was the drag; Enter or Space (detail 0) still toggles
     pointer = null;
     drag = selected.has(btn.dataset.date) ? 'remove' : 'add';
     apply(btn);
