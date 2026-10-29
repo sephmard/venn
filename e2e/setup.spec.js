@@ -62,3 +62,12 @@ test('a whole day is one "All day" at every level, with no gap between the parts
   await page.locator('#free-list [data-rm-window]').click();
   await expect(page.locator('#free-list .chip')).toHaveCount(0);
 });
+
+test('with nothing picked, every level says the same thing: pick at least one day', async ({ page }) => {
+  await page.goto('/new');
+  await page.fill('#organizer', 'Sam');
+  for (const level of ['days', 'parts', 'hours']) {
+    await setLevel(page, level);
+    await expect(page.locator('#summary')).toHaveText('Pick at least one day to create the poll');
+  }
+});

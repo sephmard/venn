@@ -670,8 +670,10 @@ button.emoji-tile:focus-visible {
   display: none;
 }
 .tg-narrow .tg-block span {
-  white-space: nowrap;
   font-size: 0.7rem;
+  line-height: 1.15;
+  text-align: center;
+  overflow-wrap: normal;
 }
 .tg-narrow .tg-x-box,
 .tg-narrow .tg-x {

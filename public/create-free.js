@@ -490,7 +490,7 @@ export function renderFree() {
         : NOTHING + (cleared ? UNDO : '');
       return setReady(
         `${plural(dates.length, 'day')} to choose from`,
-        [!windows.length, 'Add at least one time to create the poll', gridFocus, null, 'times'],
+        [!windows.length, 'Pick at least one day to create the poll', gridFocus, null, 'days'],
         [
           length && windows.length && !windows.some((w) => w.end - w.start >= length),
           `Your times are shorter than ${lengthLabel(length)}. Make one longer`,
@@ -506,7 +506,7 @@ export function renderFree() {
       box.innerHTML = windows.length ? pt.windowList(windows, level, chip, dayRange) + CLEAR : NOTHING + (cleared ? UNDO : '');
       return setReady(
         `${plural(windows.length, 'time')} to choose from`,
-        [!windows.length, 'Pick at least one morning, afternoon or evening', gridFocus, null, 'times'],
+        [!windows.length, 'Pick at least one day to create the poll', gridFocus, null, 'days'],
         ...nameAndEmail(),
       );
     }
