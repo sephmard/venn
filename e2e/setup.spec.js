@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test';
-import { addDays, nextMonth, setLevel, showNextMonth, tapDays } from './helpers.js';
+import { addDays, nextMonth, setLevel, showNextMonth, tapAt, tapDays } from './helpers.js';
 
 // Setting up a poll holds no surprises: templates never move what's picked, Clear all can be undone,
 // and a whole day is a whole day at every level.
@@ -85,4 +85,16 @@ test('parts of the day and hours both go a week with ‹ › and a month with «
     await page.locator('#when').getByRole('button', { name: 'Back a month' }).click();
     await expect(label).toHaveText(now); // back to this week, not before
   }
+});
+
+test('a tap on the hours calendar gives the hour tapped, as the labels read', async ({ page }) => {
+  await page.goto('/new');
+  await setLevel(page, 'hours');
+  const day = addDays(await nextMonth(page), 3);
+  await tapAt(page, day, 1170, '#when'); // the lower half of the 7 PM hour
+  await expect(page.locator('#free-list')).toContainText('7 – 8 PM');
+  // A half-hour length can start on the half hour.
+  await page.click('[data-flength="30"]');
+  await tapAt(page, day, 1290, '#when');
+  await expect(page.locator('#free-list')).toContainText('9:30 – 10:00 PM');
 });

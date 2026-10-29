@@ -307,6 +307,8 @@ export function renderFree() {
       views: ['week'], // a week at a time, phones too: no Week / Day to choose
       range: () => [420, 1440],
       tapLength: () => length || 60,
+      // A tap gives the hour tapped, as the labels read; a half-hour length can start on the half hour.
+      tapSnap: () => (length && length < 60 ? 30 : 60),
       startAt: () => null,
       blocks: () =>
         pt.windowsAt(st, 'hours').map((w) => ({

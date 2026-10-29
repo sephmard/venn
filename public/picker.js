@@ -187,6 +187,8 @@ export function monthView(
  *   onBlock(key)              tap a block
  *   editBlocks, onResize(key, from, to), onMove(key, date, from, to)  dragging blocks (block-edit.js)
  *   tapLength()               minutes for a tap
+ *   tapSnap()                 a tap starts on this many minutes (60: the hour tapped, as the labels
+ *                             read); drags and edges still move in half hours
  *   startAt()                 minutes to open at when the days shown have no blocks (null: 5 PM)
  * Returns { render, home() (scroll back to the start), cleanup }.
  */
@@ -203,6 +205,7 @@ function timeGrid(
     onMove,
     editBlocks,
     tapLength = () => 60,
+    tapSnap = () => STEP,
     startAt = () => null,
   },
 ) {
@@ -294,6 +297,9 @@ function timeGrid(
     return Math.min(to - STEP, Math.max(from, from + r * STEP));
   };
 
+  // A tap's start, on the hour (or half hour) it lands in, never before the first time shown.
+  const snap = (m) => Math.max(range()[0], m - (m % tapSnap()));
+
   const editor = editBlocks?.(root, { blocks, range, minuteAt, rowPx, onResize, onMove });
 
   // Mouse: drag to draw a block. Touch: a tap drops a block of the chosen length (dragging scrolls).
@@ -332,7 +338,7 @@ function timeGrid(
     if (!drag) return;
     const { col, a, b, moved } = drag;
     drag = null;
-    const lo = Math.min(a, b);
+    const lo = moved ? Math.min(a, b) : snap(a);
     onCreate(col.dataset.date, lo, moved ? Math.max(a, b) + STEP : Math.min(lo + tapLength(), 1440));
   };
   window.addEventListener('pointerup', up);
@@ -342,7 +348,7 @@ function timeGrid(
     if (block) return onBlock?.(block.dataset.key);
     const col = e.target.closest('.tg-draw');
     if (!onCreate || !col || pointer === 'mouse') return;
-    const a = minuteAt(col, e.clientY);
+    const a = snap(minuteAt(col, e.clientY));
     onCreate(col.dataset.date, a, Math.min(a + tapLength(), 1440));
   });
   return {
