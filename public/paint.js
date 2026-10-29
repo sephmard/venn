@@ -274,7 +274,7 @@ export function paintView(
 // "YYYY-MM-DD", "YYYY-MM-DD|<part start>" and "YYYY-MM-DD|minutes"), with `maybe` (the same, for
 // what's only if needed for the organizer) and `defaultParts` (the parts a new day gets).
 
-const ALL_DAY = [DAY_PARTS[0].start, DAY_PARTS.at(-1).end];
+export const ALL_DAY = [DAY_PARTS[0].start, DAY_PARTS.at(-1).end];
 const LEVELS = ['days', 'parts', 'hours'];
 /** Hours that cover the whole day read as the day: "All day", not "9 AM – 10 PM". */
 export const hoursLabel = (a, b) => (a <= ALL_DAY[0] && b >= ALL_DAY[1] ? 'All day' : shortRange(a, b));
@@ -402,14 +402,17 @@ export function windowWhat(level, value) {
 }
 
 /** The windows as a list: days in a row with the same times together, each time a chip. */
-export function windowList(windows, level, chip, dayRange) {
-  const label =
-    level === 'parts' ? (a, b) => (partAt(a)?.end === b ? `${partAt(a).label} ${shortRange(a, b)}` : 'All day') : hoursLabel;
+export function windowList(windows, chip, dayRange) {
+  // The same at every level: "All day", "Morning 9 AM – 12 PM", or the times.
+  const label = (a, b) => (partAt(a)?.end === b ? `${partAt(a).label} ${shortRange(a, b)}` : hoursLabel(a, b));
   const groups = [];
   for (const d of datesOf(windows.map((w) => w.date))) {
     let ranges = windows.filter((w) => w.date === d).map((w) => [w.start, w.end, !!w.maybe]);
     // Every part of the day, all the same, is the whole day: one chip.
-    if (level === 'parts' && ranges.length === DAY_PARTS.length && ranges.every((r) => r[2] === ranges[0][2]))
+    if (
+      ranges.length === DAY_PARTS.length &&
+      ranges.every((r, i) => r[0] === DAY_PARTS[i].start && r[1] === DAY_PARTS[i].end && r[2] === ranges[0][2])
+    )
       ranges = [[ALL_DAY[0], ALL_DAY[1], ranges[0][2]]];
     const last = groups.at(-1);
     if (last && addDays(last.dates.at(-1), 1) === d && JSON.stringify(last.ranges) === JSON.stringify(ranges)) last.dates.push(d);

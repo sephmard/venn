@@ -3164,9 +3164,17 @@ test('days and times mix: a day keeps the hours drawn on it, and days added afte
   await tapDays(page, [addDays(first, 2), addDays(first, 3)]);
   await expect(page.locator(`#when .cal-day[data-date="${first}"] small`)).toHaveText('Times');
   await expect(page.locator(`#when .cal-day[data-date="${addDays(first, 2)}"] small`)).toHaveText('Available');
-  await expect(page.locator('#free-list .mix-note')).toContainText('6 – 9 PM');
-  await expect(page.locator('#free-list .mix-note')).toContainText('The other days are all day.');
+  const list = page.locator('#free-list');
+  await expect(list).toContainText('6 – 9 PM');
+  await expect(list).toContainText('All day');
   await expect(page.locator('#summary')).toHaveText('3 days to choose from');
+  // The list reads the same on every level.
+  const read = async () => (await list.textContent()).replace(/\s+/g, ' ');
+  const onDays = await read();
+  await setLevel(page, 'hours');
+  await expect.poll(read).toBe(onDays);
+  await setLevel(page, 'days');
+  await expect.poll(read).toBe(onDays);
   // Created: one poll with the times, and the two days whole.
   await page.click('#submit');
   await expect(page).toHaveURL(/\/e\//);
@@ -3191,13 +3199,13 @@ test('days in a row asks first when days have their own times, and keeping them 
   await dialog.getByRole('button', { name: 'Keep my times' }).click();
   await expect(dialog).toBeHidden();
   await expect(page.locator('#in-row')).not.toBeChecked();
-  await expect(page.locator('#free-list .mix-note')).toContainText('6 – 9 PM');
+  await expect(page.locator('#free-list')).toContainText('6 – 9 PM');
   // Going ahead makes the day whole.
   await page.locator('#in-row').click();
   await dialog.getByRole('button', { name: 'Yes, all day' }).click();
   await expect(page.locator('#in-row')).toBeChecked();
   await expect(page.locator('#span-box')).toBeVisible();
-  await expect(page.locator('#free-list .mix-note')).toHaveCount(0);
+  await expect(page.locator('#free-list')).not.toContainText('6 – 9 PM');
   await expect(page.locator(`#when .cal-day[data-date="${first}"]`)).toBeVisible();
   // With no times of their own, it just switches.
   await page.locator('#in-row').click();
@@ -3222,7 +3230,8 @@ test('days and parts of the day mix: an evening stays an evening, and a day adde
   // Back on the days, the Wednesday: the Monday keeps its evening.
   await setLevel(page, 'days');
   await tapDays(page, [addDays(monday, 2)]);
-  await expect(page.locator('#free-list .mix-note')).toContainText('Evening');
+  await expect(page.locator('#free-list')).toContainText('Evening 6 – 10 PM');
+  await expect(page.locator('#free-list')).toContainText('All day');
   await page.click('#submit');
   await expect(page).toHaveURL(/\/e\//);
   const ev = await (await page.request.get(`/api/events/${page.url().split('/e/')[1]}`)).json();
