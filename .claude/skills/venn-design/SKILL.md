@@ -95,6 +95,9 @@ the same PR** (and CLAUDE.md if it's a rule that matters in review).
 **Website (venn.day)**
 
 - Simple and sexy. Four values, framed as benefits (what people get), not features.
+- **Retrofuturist** (website only, never the app or poll): a synthwave night of stars and scanlines,
+  chrome Orbitron headlines with a sunset gradient on the key words, neon cyan and magenta, arcade
+  pixel labels, a striped sun on a moving grid. One look day or night. DESIGN.md has the tokens.
 - The hero Venn tells the story in motion, **from noise to a plan**: a group chat's messages bounce
   around, fly to the three friends, the circles drift together and the day that works pops out, then
   they keep floating. It plays while in view. Tap replays it; press and hold a circle (a mouse just

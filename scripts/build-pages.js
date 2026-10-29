@@ -33,8 +33,8 @@ function head({ title, description, path, ogTitle, ogDescription, image, jsonLd 
 <meta charset="utf-8" />
 <meta name="referrer" content="no-referrer" />
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-<meta name="theme-color" content="#faf8f4" media="(prefers-color-scheme: light)" />
-<meta name="theme-color" content="#0f1112" media="(prefers-color-scheme: dark)" />
+<meta name="theme-color" content="#0d0221" media="(prefers-color-scheme: light)" />
+<meta name="theme-color" content="#0d0221" media="(prefers-color-scheme: dark)" />
 <title>${esc(title)}</title>
 <meta name="description" content="${attr(description)}" />
 <link rel="canonical" href="${ORIGIN}${path}" />
@@ -49,7 +49,7 @@ function head({ title, description, path, ogTitle, ogDescription, image, jsonLd 
 <meta name="twitter:card" content="summary_large_image" />
 <link rel="icon" href="/favicon.ico?v=5" sizes="32x32" />
 <link rel="icon" href="/favicon.svg?v=5" type="image/svg+xml" />
-<link rel="preload" href="/fonts/instrument-serif-latin-400-normal.woff2" as="font" type="font/woff2" crossorigin />
+<link rel="preload" href="/fonts/orbitron-latin-900-normal.woff2" as="font" type="font/woff2" crossorigin />
 <link rel="stylesheet" href="/site.css" />
 ${jsonLd.map((d) => `<script type="application/ld+json">${JSON.stringify(d).replace(/</g, '\\u003c')}</script>`).join('\n')}
 </head>

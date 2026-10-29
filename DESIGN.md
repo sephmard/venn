@@ -1,49 +1,45 @@
 # Venn design system
 
-The marketing pages (`public/index.html`, `privacy.html`, `404.html`, styled by `public/site.css`) follow this file. The app itself (`public/styles.css`) shares the same green and neutrals.
+The marketing pages (`public/index.html`, `privacy.html`, `404.html`, `templates*.html`, styled by `public/site.css`) follow this file. The app and poll pages (`public/styles.css`) keep their own calm green look; this direction is the website's alone.
 
-**Direction: warm editorial.** Warm paper, an elegant serif for big headlines, a plain sans for everything else, and one idea carried through: overlapping circles, like the logo. Calm and confident; never busy.
+**Direction: retrofuturist.** A synthwave night: deep-space purple with stars and faint scanlines, chrome headlines with a sunset gradient on the words that matter, neon cyan and magenta, and arcade pixel type for small labels. The hero sets a striped sun on a moving neon grid, and the Venn's circles are glowing rings that light up where they cross. Bold and playful, but the words stay easy to read. One look, day or night (`color-scheme: dark`).
 
 ## Color
 
-Every color is a CSS variable in `site.css`. Pages use the names, never raw values.
+Every color is a CSS variable in `site.css`. Pages use the names, never raw values. (The old names are kept so the rules didn't all change: `--green` is now neon cyan.)
 
-| Token                     | Light                 | Dark                  | Role                                                                                       |
-| ------------------------- | --------------------- | --------------------- | ------------------------------------------------------------------------------------------ |
-| `--paper`                 | `#faf8f4`             | `#0f1112`             | Page background                                                                            |
-| `--paper-2`               | `#f2eee6`             | `#171a1c`             | Quiet panels, product-shot frame                                                           |
-| `--line`                  | `#e4dfd4`             | `#2a2e31`             | Borders and dividers                                                                       |
-| `--ink`                   | `#16181a`             | `#f1eee8`             | Text and headings                                                                          |
-| `--ink-2`                 | `#55585c`             | `#a6a9ad`             | Secondary text (≥ 6:1 on paper)                                                            |
-| `--green`                 | `#0b7a5c`             | `#2fc497`             | Primary: buttons, links, the overlap                                                       |
-| `--green-ink`             | `#ffffff`             | `#06140f`             | Text on green                                                                              |
-| `--green-soft`            | `#dcefe6`             | `#163a2f`             | Tints, step numbers                                                                        |
-| `--mint`                  | `#c3f2de`             | `#1d4d3d`             | The logo's lightest shade; soft glows behind the hero                                      |
-| `--green-deep`            | `#064c39`             | `#8ff0c8`             | The logo's deepest shade; end of the call-to-action gradient                               |
-| `--cta-from` / `--cta-to` | `#0b7a5c` → `#064c39` | `#3fd8a6` → `#1f9d72` | The main call-to-action gradient; text is `--cta-ink` (white in light, near-black in dark) |
-| `--card`                  | `#ffffff`             | `#171a1c`             | The hero's start card                                                                      |
-| `--band`                  | `#16181a`             | `#171a1c`             | The one dark band ("No accounts…")                                                         |
-| `--band-ink`              | `#faf8f4`             | `#f1eee8`             | Text on the band (`--band-ink-2` for secondary)                                            |
-| `--band-accent`           | `#2fc497`             | `#2fc497`             | Green on the band (the band is dark in both modes)                                         |
+| Token                     | Value                 | Role                                                                    |
+| ------------------------- | --------------------- | ----------------------------------------------------------------------- |
+| `--paper`                 | `#0d0221`             | Page background (a night-sky gradient with stars sits over it)          |
+| `--paper-2`               | `#1a0b3d`             | Quiet panels                                                            |
+| `--line`                  | `#3a2170`             | Borders and dividers                                                    |
+| `--ink`                   | `#f5f0ff`             | Text                                                                    |
+| `--ink-2`                 | `#c9bfec`             | Secondary text                                                          |
+| `--green`                 | `#2de2e6`             | Neon cyan: links, the main button (with `--green-ink`, `#0d0221`, text) |
+| `--green-mid`             | `#ff3cac`             | Neon magenta: glows, the grid, the ✓                                    |
+| `--cta-from` / `--cta-to` | `#c2166f` → `#5b21b6` | The big call-to-action gradient, white text                             |
+| `--card`                  | `#150a35`             | Cards: dark glass with a cyan edge and a magenta glow                   |
+| `--sunset`                | yellow → magenta      | Emphasis in headlines, the hero's sun                                   |
+| `--chrome`                | silver bands          | Headline text                                                           |
 
-Contrast: body text ≥ 7:1, secondary ≥ 4.5:1, white on green 5.3:1.
+Contrast: body text ≥ 12:1, secondary ≥ 9:1, dark ink on cyan ≥ 12:1, white on the call-to-action gradient ≥ 4.5:1.
 
 ## Typography
 
-- **Display:** Instrument Serif 400 (and italic), self-hosted in `public/fonts/` (SIL OFL). Headlines only.
-- **Text:** the system sans stack (`system-ui, -apple-system, "Segoe UI", Roboto, sans-serif`). Fast and native.
+- **Display:** Orbitron 700 and 900, uppercase, self-hosted in `public/fonts/` (SIL OFL). Headlines, the brand, buttons, the Venn's names.
+- **Pixel:** Press Start 2P (SIL OFL) for small labels: eyebrows, "Free. No sign-up. No ads.", the chat header, the ✓, the hero's flying messages.
+- **Text:** the system sans stack. Fast and native.
 
-| Name    | Size                           | Line height | Use                         |
-| ------- | ------------------------------ | ----------- | --------------------------- |
-| hero    | `clamp(3.25rem, 8vw, 6.5rem)`  | 0.95        | Hero headline (serif)       |
-| h2      | `clamp(2.4rem, 5vw, 4rem)`     | 1           | Section headlines (serif)   |
-| h3      | `1.125rem`, 600                | 1.3         | Step and fact titles (sans) |
-| lede    | `clamp(1.125rem, 2vw, 1.3rem)` | 1.5         | Intro paragraphs            |
-| body    | `1.0625rem`                    | 1.6         | Text                        |
-| small   | `0.875rem`                     | 1.5         | Footer, captions            |
-| eyebrow | `0.8125rem`, 600, +0.12em caps | 1           | Section labels              |
+| Name    | Size                             | Line height | Use                          |
+| ------- | -------------------------------- | ----------- | ---------------------------- |
+| hero    | `clamp(2.05rem, 7.4vw, 4.75rem)` | 1.04        | Hero headline (Orbitron 900) |
+| h2      | `clamp(1.75rem, 4.6vw, 3.25rem)` | 1.08        | Section headlines            |
+| page h1 | `clamp(1.9rem, 7vw, 3.75rem)`    | 1.08        | Privacy, 404, templates      |
+| lede    | `clamp(1.125rem, 2vw, 1.3rem)`   | 1.5         | Intro paragraphs             |
+| body    | `1.0625rem`                      | 1.6         | Text                         |
+| label   | `0.625rem` pixel                 | 1.8         | Eyebrows and small labels    |
 
-Lines stay under 65 characters. Italic serif is the only emphasis inside headlines, in `--green`.
+Headlines are chrome; the sunset gradient (with a soft glow) is the only emphasis inside them.
 
 ## Spacing and layout
 
