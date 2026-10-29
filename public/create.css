@@ -444,20 +444,6 @@ button.emoji-tile:focus-visible {
     font-size: 0.875rem;
   }
 }
-/* Date and time: parts of the day or hours, a smaller switch under the first. */
-.zoom .seg-sub {
-  justify-self: start;
-  background: none;
-  padding: 0;
-  gap: 6px;
-}
-.zoom .seg-sub button {
-  min-height: 44px;
-  border: 1.5px solid var(--border);
-}
-.zoom .seg-sub button[aria-checked='true'] {
-  border-color: var(--accent);
-}
 .opt-note {
   margin-left: 4px;
   font-size: 0.8rem;

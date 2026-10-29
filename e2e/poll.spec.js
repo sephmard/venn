@@ -289,10 +289,11 @@ test('ask when people are available: what the organizer picks is available or if
   await setLevel(page, 'parts');
   await expect(page.locator('.pg-cell.part.on.maybe')).toHaveCount(3);
   await expect(page.locator('.pg-cell.part.on:not(.maybe)')).toHaveCount(isMobile ? 0 : 3); // phones show a day at a time
-  await expect(page.locator('#free-list .chip.maybe')).toHaveCount(3);
+  // In the list, each whole day is one chip.
+  await expect(page.locator('#free-list .chip.maybe')).toHaveText(['All day If needed×']);
   await setLevel(page, 'hours');
-  await expect(page.locator('#free-list .od-row').first().locator('.chip.maybe')).toHaveCount(2);
-  await expect(page.locator('#free-list .chip:not(.maybe)')).toHaveCount(2);
+  await expect(page.locator('#free-list .od-row').first().locator('.chip.maybe')).toHaveCount(1);
+  await expect(page.locator('#free-list .chip:not(.maybe)')).toHaveCount(1);
   await setLevel(page, 'days');
   await expect(page.locator('.cal-day.day-maybe')).toHaveCount(1);
   await expect(day(0)).toHaveClass(/day-maybe/);
@@ -601,7 +602,7 @@ test('switching lengths keeps the days picked, and organizers are asked before o
   await page.click('[data-length="60"]');
   await expect(page.locator('#options-list .chip')).toHaveText([/^7\D+8 PM/, /^7\D+8 PM/]);
 
-  // On "ask when people are free", one × can stand for a week of evenings.
+  // On "ask when people are free", one × can stand for two weeks of whole days.
   await page.goto('/new/free');
   await page.fill('#organizer', 'Sam');
   await pickDays(page, 14);
@@ -612,7 +613,7 @@ test('switching lengths keeps the days picked, and organizers are asked before o
   const rm = rows.first().locator('[data-rm-window]').last();
   asked = answer(false);
   await rm.click();
-  expect(await asked).toMatch(/^Remove these \d+ evenings\?$/);
+  expect(await asked).toMatch(/^Remove these \d+ days\?$/);
   await expect(page.locator('#free-list .chip')).toHaveCount(before);
   asked = answer(true);
   await rm.click();
@@ -725,7 +726,7 @@ test('the week calendar opens at the plan’s time and pages a week at a time', 
   await expect(page.locator('.tg-block')).toHaveCount(0);
 });
 
-test('phone: the calendars leave room to scroll the page, and say how to use them first', async ({ page, isMobile }) => {
+test('phone: the calendars leave room to scroll the page, with no sentence over them', async ({ page, isMobile }) => {
   test.skip(!isMobile, 'phone-only behaviour');
   const half = page.viewportSize().height / 2;
   await page.goto('/new/pick');
@@ -737,10 +738,8 @@ test('phone: the calendars leave room to scroll the page, and say how to use the
   await setLevel(page, 'hours');
   const hours = page.locator('#when .tg-scroll');
   expect((await hours.boundingBox()).height).toBeLessThanOrEqual(half);
-  // The hint comes before the calendar, not after it.
-  const help = page.locator('#when-help');
-  await expect(help).toHaveText('Drag on the calendar to add times.');
-  expect((await help.boundingBox()).y).toBeLessThan((await hours.boundingBox()).y);
+  // No sentence over the calendar: the tap key says how.
+  await expect(page.locator('#when-help')).toBeHidden();
 });
 
 test('keyboard: add a time to "vote on a few dates" without the pointer', async ({ page }) => {
@@ -1059,9 +1058,10 @@ test('hours: a whole day reads "All day", and days in a row stay whole days', as
   // Days in a row are whole days: dates and times wait until it's off again.
   await setLevel(page, 'days');
   await page.check('#in-row');
-  await expect(page.locator('[data-mode="time"]')).toBeDisabled();
+  await expect(page.locator('[data-level="parts"]')).toBeDisabled();
+  await expect(page.locator('[data-level="hours"]')).toBeDisabled();
   await page.uncheck('#in-row');
-  await expect(page.locator('[data-mode="time"]')).toBeEnabled();
+  await expect(page.locator('[data-level="hours"]')).toBeEnabled();
 });
 
 test('"when are you free" polls come back to edit at their level: hours, or parts of the day', async ({ page }) => {
@@ -1567,12 +1567,12 @@ test('ask when people are free: zoom from whole days to parts of the day to hour
   const days = page.locator('#free-list .od-row');
   await expect(days).toHaveCount(2);
   await expect(days.first().locator('.chip')).toHaveCount(2);
-  await expect(days.nth(1).locator('.chip')).toHaveCount(3);
+  await expect(days.nth(1).locator('.chip')).toHaveText(['All day×']);
 
   // Hours starts from those parts, and zooming out keeps the days.
   await setLevel(page, 'hours');
   await expect(days).toHaveCount(2);
-  await expect(days.nth(1)).toContainText('9 AM – 5 PM');
+  await expect(days.nth(1)).toContainText('All day');
   await setLevel(page, 'days');
   await expect(page.locator('#summary')).toHaveText('2 days to choose from');
 
@@ -1956,8 +1956,8 @@ test('a second tap makes an option "if needed" on every create calendar, and the
   await showNextMonth(page);
   const day = page.locator(`.cal-day[data-date="${addDays(await nextMonth(page), 2)}"]`);
   await day.click();
-  // The first pick brings a tip, once, where people are looking.
-  await expect(page.locator('#toast')).toHaveText('Tip: tap it again to make it “if needed”.');
+  // The key above the calendar says it: no tip pops up over the calendar.
+  await expect(page.locator('#toast')).not.toContainText('Tip');
   const chip = page.locator('#options-list .chip');
   await expect(chip).toHaveCount(1);
   await expect(chip.locator('.chip-tag')).toHaveCount(0);
@@ -3083,7 +3083,7 @@ test('creating a Venn: dates only on a month, date and time as parts or hours, a
   await page.fill('#title', 'Dinner');
   // Dates only: a month, Monday first, with no other views or quick picks to choose from.
   await expect(page.locator('[data-level="days"]')).toHaveAttribute('aria-checked', 'true');
-  await expect(page.locator('#time-levels')).toBeHidden();
+  await expect(page.locator('[data-level]')).toHaveText(['Days', 'Parts of day', 'Hours']);
   await expect(page.locator('#when [data-cal-view]')).toHaveCount(0);
   await expect(page.locator('#when .cal-dow').first()).toHaveText('Mon');
   await expect(page.locator('#q-2w, #q-weekdays, #q-weekends')).toHaveCount(0);
@@ -3091,10 +3091,9 @@ test('creating a Venn: dates only on a month, date and time as parts or hours, a
   await pickDays(page, 10, (wd) => wd > 0 && wd < 6);
   await expect(page.locator('#summary')).toHaveText('10 days to choose from');
 
-  // Date and time: parts of the day first, on a week or one day at a time.
-  await page.click('[data-mode="time"]');
+  // Parts of the day, on a week or one day at a time.
+  await page.click('[data-level="parts"]');
   await expect(page.locator('[data-level="parts"]')).toHaveAttribute('aria-checked', 'true');
-  await expect(page.locator('[data-mode="time"]')).toHaveAttribute('aria-checked', 'true');
   await page.click('#when [data-pview="day"]');
   await expect(page.locator('#when .pg-day')).toHaveCount(1);
   await page.click('#when [data-pview="week"]');
@@ -3116,11 +3115,10 @@ test('creating a Venn: dates only on a month, date and time as parts or hours, a
   await addHours(page, 1, [1080, 1140, 1200]);
   await expect(page.locator('#free-list')).toContainText('6 – 9 PM');
   await expect(page.locator('#summary')).toHaveText('1 day to choose from');
-  // Dates only again keeps the days.
+  // Days again keeps the days, and Hours brings the times back.
   await page.click('[data-level="days"]');
-  await expect(page.locator('#time-levels')).toBeHidden();
-  await page.click('[data-mode="time"]');
-  await expect(page.locator('[data-level="hours"]')).toHaveAttribute('aria-checked', 'true'); // where it left off
+  await page.click('[data-level="hours"]');
+  await expect(page.locator('#free-list')).toContainText('6 – 9 PM');
   await page.click('#submit');
   await expect(page).toHaveURL(/\/e\//);
   const id = page.url().split('/e/')[1];

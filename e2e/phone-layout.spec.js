@@ -189,7 +189,7 @@ test.describe('on a 320px phone', () => {
   test('ask when people are available: the answer choices and days in a row fit, in a wide font too', async ({ page }) => {
     await page.goto('/new/free');
     await page.addStyleTag({ content: "* { font-family: 'DejaVu Sans', Verdana, sans-serif !important }" });
-    // Dates only and Date and time each on one line, side by side; then Parts of the day and Hours.
+    // Days, Parts of day and Hours: one row, each on one line.
     const lines = async (sel) => {
       const tops = [];
       for (const b of await page.locator(sel).all()) {
@@ -199,11 +199,11 @@ test.describe('on a 320px phone', () => {
       }
       expect(new Set(tops).size).toBe(1);
     };
-    await expect(page.locator('[data-mode="time"]')).toBeVisible(); // once the page is drawn
-    await lines('[data-level="days"], [data-mode="time"]');
-    await page.click('[data-mode="time"]');
-    await expect(page.locator('#time-levels')).toBeVisible(); // once the painter has loaded
-    await lines('#time-levels [data-level]');
+    await expect(page.locator('[data-level="hours"]')).toBeVisible(); // once the page is drawn
+    await lines('[data-level]');
+    await page.click('[data-level="parts"]');
+    await expect(page.locator('#when .pg-cell').first()).toBeVisible(); // once the painter has loaded
+    await expect(page.locator('#when-help')).toBeHidden();
     await page.click('[data-level="days"]');
     // No sentences explaining it: the tap key says how to tap.
     await expect(page.locator('#when-help')).toBeHidden();

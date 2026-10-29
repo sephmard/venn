@@ -25,7 +25,6 @@ import {
   wirePlan,
   youFields,
   TAP_KEY,
-  ifNeededTip,
   fromUrl,
 } from './create.js';
 
@@ -131,7 +130,6 @@ export function renderPick() {
   function add(it) {
     lastFrom = it.from;
     items.set(`${it.date}|${it.from}`, { ...it, v: brush() }); // one option per start time
-    ifNeededTip();
     changed();
   }
   /** Tapping an option switches it between available and if needed (for the organizer). */
@@ -237,7 +235,6 @@ export function renderPick() {
             gone[0][1].v = IF_NEEDED;
             starts.add(gone[0][1].date);
           } else for (const [k] of gone) items.delete(k);
-          if (added.length) ifNeededTip();
           for (const d of added) items.set(`${d}|day`, { date: d, days: length === 'days' ? spanDays : 1, v: brush() });
           month.render();
           renderList();

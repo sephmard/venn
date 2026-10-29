@@ -37,7 +37,6 @@ import {
   wirePlan,
   youFields,
   TAP_KEY,
-  ifNeededTip,
   fromUrl,
 } from './create.js';
 
@@ -47,12 +46,13 @@ import {
 // Under what guests choose from, as on "vote on a few dates".
 const CLEAR = '<button type="button" class="link-btn" id="q-clear">Clear all</button>';
 const NOTHING = '<p class="hint">Nothing yet.</p>';
+const UNDO = '<button type="button" class="link-btn" id="q-undo">Undo</button>';
 const HOUR_LENGTHS = [30, 60, 120];
 const fitLength = (v) => HOUR_LENGTHS.findLast((m) => m <= v) ?? HOUR_LENGTHS[0];
-// How detailed guests' answers are: dates only (whole days), or a date and time, as parts of the
-// day or as hours.
-const TIME_LEVELS = [
-  ['parts', 'Parts of the day'],
+// How detailed guests' answers are, one tap from whole days down to hours.
+const LEVELS = [
+  ['days', 'Days'],
+  ['parts', 'Parts of day'],
   ['hours', 'Hours'],
 ];
 // Parts of the day and hours: the painter, and what the page does with what's painted. Most
@@ -74,8 +74,10 @@ export function renderFree() {
   const st = { days: selected, parts: partsSel, hours: painted, maybe, defaultParts: new Set(DAY_PARTS.map((p) => p.key)) };
   let before = new Set(); // what the level had at the last update, to see what's new
   let level = 'days';
-  let timeLevel = 'parts'; // where "Date and time" opens: the last of parts of the day or hours
   let length = null; // minutes, for hours: optional, the shortest time worth finding
+  let planLength = null; // a template's usual length, shown on hours until the organizer picks one
+  let ownLength = false; // the organizer chose the length (or the poll being edited has one)
+  let cleared = null; // what Clear all took, until something new is picked
   let painter = null;
   let cal = null;
   let mounts = 0; // the painter loads on demand: only the latest level shows when it arrives
@@ -90,11 +92,7 @@ export function renderFree() {
         <h2 id="when-h">When could it be?</h2>
         <div class="zoom">
           <div class="seg" role="radiogroup" aria-label="Guests answer with">
-            <button type="button" role="radio" data-level="days">Dates only</button>
-            <button type="button" role="radio" data-mode="time">Date and time</button>
-          </div>
-          <div class="seg seg-sub" role="radiogroup" aria-label="Times as" id="time-levels" hidden>
-            ${TIME_LEVELS.map(([k, l]) => `<button type="button" role="radio" data-level="${k}">${l}</button>`).join('')}
+            ${LEVELS.map(([k, l]) => `<button type="button" role="radio" data-level="${k}">${l}</button>`).join('')}
           </div>
         </div>
         <div class="inline-field inline-row optional" data-for="days">
@@ -126,15 +124,16 @@ export function renderFree() {
       ${createBar('Create Venn')}
     </form>`;
 
+  // A template shapes the calendar only while nothing is picked: it never moves or takes away picks.
+  const empty = () => !selected.size && !partsSel.size && !painted.size;
   const occasion = wirePlan((o) => {
-    if (!o) return;
-    if (o.days) {
-      setRow(o.days);
-      return setLevel('days');
-    }
-    if (typeof o.length === 'number') setLength(fitLength(o.length));
     // Days picked from now on get the plan's usual part of the day.
-    if (o.part) st.defaultParts = new Set([o.part]);
+    st.defaultParts = new Set(o?.part ? [o.part] : DAY_PARTS.map((p) => p.key));
+    planLength = typeof o?.length === 'number' ? fitLength(o.length) : null;
+    if (level === 'hours' && !ownLength) setLength(planLength);
+    if (!empty()) return update();
+    setRow(o?.days || 1);
+    if (o?.days) return setLevel('days');
     update();
   });
 
@@ -155,10 +154,8 @@ export function renderFree() {
     pt?.zoom(st, level, next);
     before = new Set(st[next]);
     level = next;
-    if (level !== 'days') timeLevel = level;
+    if (level === 'hours' && !ownLength) setLength(planLength);
     for (const b of $$('[data-level]')) b.setAttribute('aria-checked', b.dataset.level === level);
-    $('[data-mode="time"]').setAttribute('aria-checked', level !== 'days');
-    $('#time-levels').hidden = level === 'days';
     for (const el of $$('[data-for]')) el.hidden = el.dataset.for !== level;
     mount();
     update();
@@ -219,7 +216,7 @@ export function renderFree() {
     const root = $('#when');
     const at = ++mounts;
     root.innerHTML = '';
-    $('#when-help').hidden = false;
+    $('#when-help').hidden = true;
     if (level === 'days') {
       const said = (d) => (selected.has(d) ? (maybe.days.has(d) ? 'If needed' : 'Available') : '');
       cal = monthView(root, {
@@ -235,7 +232,7 @@ export function renderFree() {
     const parts = level === 'parts';
     const set = st[level];
     // Parts of the day and hours need the painter, which most whole-day polls never load.
-    const { paintView, datesOf, paintHelp } = await loadPaint();
+    const { paintView, datesOf } = await loadPaint();
     if (at !== mounts || !root.isConnected) return;
     // Hours are times on the week calendar, moved and stretched with block-edit.js, loaded then too.
     if (!parts) {
@@ -252,7 +249,6 @@ export function renderFree() {
       marking: () => brush() === IF_NEEDED,
       views: ['week', 'day'],
     });
-    $('#when-help').textContent = paintHelp();
   }
 
   /**
@@ -340,7 +336,6 @@ export function renderFree() {
     });
     if (first) view.show(first);
     painter = { render: view.render, cleanup: view.cleanup };
-    $('#when-help').textContent = 'Drag on the calendar to add times.';
   }
 
   /** After the picks change from outside the calendars: show them there too. */
@@ -356,6 +351,7 @@ export function renderFree() {
     const l = e.target.closest('[data-flength]');
     if (l) {
       setLength(+l.dataset.flength === length ? null : +l.dataset.flength);
+      ownLength = true;
       update();
     }
     const s = e.target.closest('[data-step]');
@@ -363,13 +359,27 @@ export function renderFree() {
       $('#span').value = Math.max(2, Math.min(MAX_SPAN_DAYS, span() + +s.dataset.step));
       update();
     }
-    const mode = e.target.closest('[data-mode]');
-    if (mode && level === 'days') setLevel(timeLevel);
+    // Clear all, and Undo in its place until something new is picked.
     if (e.target.closest('#q-clear')) {
-      painted.clear();
-      partsSel.clear();
-      selected.clear();
+      const copy = (x) => Object.fromEntries(Object.entries(x).map(([k, v]) => [k, new Set(v)]));
+      cleared = { picked: copy({ days: selected, parts: partsSel, hours: painted }), maybe: copy(maybe) };
+      for (const l in maybe) {
+        st[l].clear();
+        maybe[l].clear();
+      }
+      before = new Set();
       redraw();
+      $('#q-undo')?.focus();
+    }
+    if (e.target.closest('#q-undo') && cleared) {
+      for (const l in maybe) {
+        for (const k of cleared.picked[l]) st[l].add(k);
+        for (const k of cleared.maybe[l]) maybe[l].add(k);
+      }
+      before = new Set(st[level]);
+      cleared = null;
+      redraw();
+      $('#q-clear')?.focus();
     }
     // One × can stand for a whole week of evenings, or a run of days: ask first.
     const rm = e.target.closest('[data-rm-window]')?.dataset.rmWindow;
@@ -443,14 +453,16 @@ export function renderFree() {
     // What's new takes the brush: available or if needed for the organizer.
     const may = maybe[level];
     for (const k of st[level]) if (!before.has(k)) brush() === IF_NEEDED ? may.add(k) : may.delete(k);
-    if ([...st[level]].some((k) => !before.has(k))) ifNeededTip();
+    if (st[level].size) cleared = null;
     for (const l in maybe) for (const k of [...maybe[l]]) if (!st[l].has(k)) maybe[l].delete(k);
     before = new Set(st[level]);
     const box = $('#free-list');
     if (level === 'hours') {
       const windows = pt.toWindows(painted);
       const dates = pt.datesOf(painted);
-      box.innerHTML = windows.length ? pt.windowList(pt.windowsAt(st, level), level, chip, dayRange) + CLEAR : NOTHING;
+      box.innerHTML = windows.length
+        ? pt.windowList(pt.windowsAt(st, level), level, chip, dayRange) + CLEAR
+        : NOTHING + (cleared ? UNDO : '');
       return setReady(
         `${plural(dates.length, 'day')} to choose from`,
         [!windows.length, 'Add at least one time to create the poll', gridFocus, null, 'times'],
@@ -466,7 +478,7 @@ export function renderFree() {
     }
     if (level === 'parts') {
       const windows = pt.windowsAt(st, level);
-      box.innerHTML = windows.length ? pt.windowList(windows, level, chip, dayRange) + CLEAR : NOTHING;
+      box.innerHTML = windows.length ? pt.windowList(windows, level, chip, dayRange) + CLEAR : NOTHING + (cleared ? UNDO : '');
       return setReady(
         `${plural(windows.length, 'time')} to choose from`,
         [!windows.length, 'Pick at least one morning, afternoon or evening', gridFocus, null, 'times'],
@@ -476,11 +488,11 @@ export function renderFree() {
     const dates = [...selected].sort();
     const k = span();
     // Days in a row are whole days: dates and times wait until it's back to one.
-    for (const b of $$('[data-level], [data-mode]')) if (b.dataset.level !== 'days') b.disabled = k > 1;
+    for (const b of $$('[data-level]')) if (b.dataset.level !== 'days') b.disabled = k > 1;
     // The tap key above the calendar says the rest.
     $('#when-help').hidden = k < 2;
     $('#when-help').textContent = `Tap a day to pick ${k} in a row from it.`;
-    box.innerHTML = dates.length ? runList(dates, k) + CLEAR : NOTHING;
+    box.innerHTML = dates.length ? runList(dates, k) + CLEAR : NOTHING + (cleared ? UNDO : '');
     setReady(
       `${plural(dates.length, 'day')} to choose from`,
       // Only the first that applies: no days, too few, or none in a row.
@@ -540,6 +552,7 @@ export function renderFree() {
     } else {
       next = 'hours';
       setLength(ev.anyLength || ev.durationMinutes <= 30 ? null : ev.durationMinutes);
+      ownLength = true;
       const ranges = ev.windows || ev.dates.map((date) => ({ date, start: ev.startMinute, end: ev.endMinute }));
       for (const w of ranges) for (let m = w.start - (w.start % 30); m < w.end; m += 30) painted.add(`${w.date}|${m}`);
     }
