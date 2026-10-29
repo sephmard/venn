@@ -68,6 +68,7 @@ Headlines are chrome; the sunset gradient (with a soft glow) is the only emphasi
 
 ## Imagery and motion
 
+- **Website logo** (`logo-retro.svg`): the same three circles as neon rings in cyan, magenta and yellow, with a sunset where all three meet. It's the website's header mark and tab icon; the app keeps the green logo below.
 - **Logo:** three circles in a triangle, a three-way Venn. One shade where one circle covers, a deeper one where two overlap, and the deepest green where all three meet. Each shade is a green gradient. The header shows `favicon.svg` itself, so there is one source.
 - The hero's background is the same three circles, very large and soft (radial `--mint` glows), behind the start card.
 - **Tab icons** (all from `npm run icons`, which renders each SVG to an `.ico` of 16, 32 and 48 px). Each place has its own, so tabs are easy to tell apart:

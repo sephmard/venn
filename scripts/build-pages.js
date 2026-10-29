@@ -48,7 +48,7 @@ function head({ title, description, path, ogTitle, ogDescription, image, jsonLd 
 <meta property="og:image:height" content="630" />
 <meta name="twitter:card" content="summary_large_image" />
 <link rel="icon" href="/favicon.ico?v=5" sizes="32x32" />
-<link rel="icon" href="/favicon.svg?v=5" type="image/svg+xml" />
+<link rel="icon" href="/logo-retro.svg?v=1" type="image/svg+xml" />
 <link rel="preload" href="/fonts/orbitron-latin-900-normal.woff2" as="font" type="font/woff2" crossorigin />
 <link rel="stylesheet" href="/site.css" />
 ${jsonLd.map((d) => `<script type="application/ld+json">${JSON.stringify(d).replace(/</g, '\\u003c')}</script>`).join('\n')}
@@ -57,7 +57,7 @@ ${jsonLd.map((d) => `<script type="application/ld+json">${JSON.stringify(d).repl
 <a class="skip" href="#main">Skip to content</a>
 <header class="topbar">
 <div class="wrap nav">
-<a href="/" class="brand"><img src="/favicon.svg?v=5" width="28" height="28" alt="" /> Venn</a>
+<a href="/" class="brand"><img src="/logo-retro.svg?v=1" width="28" height="28" alt="" /> Venn</a>
 <nav class="nav-links" aria-label="Main">
 <a href="/new" class="btn btn-sm">Create a Venn</a>
 <details class="menu">
@@ -118,7 +118,7 @@ function pollHtml({ name, of, rows }) {
   const label = `A Venn poll for ${name}: ${rows.map(([d, n]) => `${d}, ${n} of ${of}`).join(', ')}. ${best} is the best date.`;
   return `<figure class="result" role="img" aria-label="${attr(label)}">
 <div aria-hidden="true">
-<p class="result-head"><img src="/favicon.svg?v=5" width="20" height="20" alt="" /> ${esc(name)}</p>
+<p class="result-head"><img src="/logo-retro.svg?v=1" width="20" height="20" alt="" /> ${esc(name)}</p>
 <ul class="votes">
 ${rows.map(([d, n]) => `<li${d === best ? ' class="best"' : ''}><span>${esc(d)}</span><i style="--n: ${Math.round((100 * n) / of)}%"></i><b>${n} of ${of}</b></li>`).join('\n')}
 </ul>
