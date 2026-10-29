@@ -2,7 +2,7 @@ import { test, expect } from '@playwright/test';
 
 // The home page's Venn: from a noisy chat to the day that works, and friends you can pull apart.
 
-test('the messages find their friends, the circles meet, and Saturday pops out', async ({ page }) => {
+test('the messages find their friends, the circles meet, and Saturday pops out', { tag: '@site' }, async ({ page }) => {
   await page.goto('/');
   const venn = page.locator('.venn');
   await expect(venn.locator('.venn-chip')).toHaveCount(8);
@@ -10,7 +10,7 @@ test('the messages find their friends, the circles meet, and Saturday pops out',
   await expect(venn.locator('.venn-hit')).not.toHaveClass(/\boff\b/);
 });
 
-test('pull a friend away and the day goes; let go and it comes back', async ({ page, context, isMobile }) => {
+test('pull a friend away and the day goes; let go and it comes back', { tag: '@site' }, async ({ page, context, isMobile }) => {
   await page.goto('/');
   const venn = page.locator('.venn');
   await venn.scrollIntoViewIfNeeded();
@@ -38,7 +38,7 @@ test('pull a friend away and the day goes; let go and it comes back', async ({ p
   await expect(hit).not.toHaveClass(/\boff\b/);
 });
 
-test('with reduced motion, the Venn is still: the circles met, Saturday shown', async ({ page }) => {
+test('with reduced motion, the Venn is still: the circles met, Saturday shown', { tag: '@site' }, async ({ page }) => {
   await page.emulateMedia({ reducedMotion: 'reduce' });
   await page.goto('/');
   const venn = page.locator('.venn');
