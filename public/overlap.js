@@ -44,7 +44,7 @@ function row(r, n, { kind, open, final, pick, mine }) {
 const pickBtn = (ev, start, label, what = 'time') =>
   ev.finalStart === start
     ? `<p class="hint">Picked. To change it, open another ${what} and pick that.</p>`
-    : `<button type="button" class="btn btn-primary ov-pick-btn" data-pick="${start}">✓ ${esc(ev.finalStart != null ? `${label} instead` : label)}</button>`;
+    : `<button type="button" class="btn ov-pick-btn" data-pick="${start}">✓ ${esc(ev.finalStart != null ? `${label} instead` : label)}</button>`;
 
 /**
  * ctx: { ev, people (with availability), tz, inspect (the open row's start), focus (a person, or null),

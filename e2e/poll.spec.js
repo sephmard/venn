@@ -1709,6 +1709,8 @@ async function organizerPoll(page, request, { picked = false, answered = false }
 
 test('once the date is picked: add it to Google Calendar, Outlook or iCal', async ({ page, request }) => {
   const id = await organizerPoll(page, request, { picked: true });
+  // For the organizer, the calendars are behind "Add to calendar", next to "Send everyone the date".
+  await page.locator('.final-cal summary').click();
   const group = page.getByRole('group', { name: 'Add to your calendar' });
   // One quiet row of three, with short names; screen readers hear the full ones.
   const links = group.getByRole('link');
@@ -1737,10 +1739,12 @@ test('once the date is picked: add it to Google Calendar, Outlook or iCal', asyn
   expect(ics).toContain('SUMMARY:Dinner');
   expect(ics).toContain('DTSTART:20300108T180000Z');
 
-  // Telling everyone; and changing or clearing the date, right under it.
+  // Telling everyone first; changing or clearing the date under More.
   const banner = page.locator('.banner-final');
   await expect(banner.locator('.final-tell [data-share]')).toBeVisible();
   await expect(page.locator('.poll-share')).toBeHidden(); // the banner says how to share now
+  await expect(banner.getByRole('button', { name: 'Change the date' })).toBeHidden();
+  await banner.locator('.final-extras summary').click();
   await expect(banner.getByRole('button', { name: 'Change the date' })).toBeVisible();
   await banner.getByRole('button', { name: 'Clear the date' }).click();
   await expect(banner).toHaveCount(0);
@@ -1750,6 +1754,7 @@ test('once the date is picked: add it to Google Calendar, Outlook or iCal', asyn
 test('a date picked while the poll is open shows "Add to your calendar" straight away', async ({ page, request }) => {
   await organizerPoll(page, request, { answered: true });
   await page.locator('.best-hero [data-pick]').click();
+  await page.locator('.final-cal summary').click();
   await expect(page.getByRole('group', { name: 'Add to your calendar' }).getByRole('link')).toHaveCount(3);
 });
 
@@ -2322,6 +2327,7 @@ test('when everyone gave their email, the organizer invites them all with the ca
   await request.post(`/api/events/${id}/finalize`, { data: { start: t0 }, headers: { 'x-admin-token': adminToken } });
 
   await page.goto(`/e/${id}#admin=${adminToken}`);
+  await page.locator('.final-cal summary').click();
   await expect(page.locator('#cal-add-h')).toHaveText('Add it to your calendar, with everyone invited');
   await expect(page.locator('#cal-add-hint')).toContainText('invite the 2 people who answered');
   const google = new URL(await page.getByRole('link', { name: 'Google Calendar' }).getAttribute('href'));
@@ -2382,7 +2388,8 @@ test('a picked date can be saved as a picture, with who can make it unless the p
 
   const { id } = await picked();
   await page.goto(`/e/${id}`);
-  const button = page.locator('.final-more').getByRole('button', { name: /as a picture$/ });
+  await page.locator('.final-extras summary').click(); // under "More"
+  const button = page.locator('.final-extras').getByRole('button', { name: /as a picture$/ });
   await expect(button).toBeVisible();
   expect((await button.boundingBox()).height).toBeGreaterThanOrEqual(44);
   expect(await save(button)).toEqual({ name: 'dinner-at-finns-its-set.png', size: [1080, 1920] });
@@ -2396,12 +2403,13 @@ test('a picked date can be saved as a picture, with who can make it unless the p
   // Answers hidden from guests: the picture has no faces.
   const hidden = await picked({ hideResults: true });
   await page.goto(`/e/${hidden.id}`);
+  await page.locator('.final-extras summary').click();
   expect((await save(button)).size).toEqual([1080, 1920]);
   await expect(button).toHaveAttribute('data-card-faces', '0');
   // Names hidden: not even the organizer's picture shows them.
   const anonymous = await picked({ hideNames: true });
   await page.goto(`/e/${anonymous.id}#admin=${anonymous.adminToken}`);
-  await page.locator('.final-extras summary').click(); // for the organizer, it's under "More"
+  await page.locator('.final-extras summary').click();
   await save(button);
   await expect(button).toHaveAttribute('data-card-faces', '0');
 });
@@ -2493,7 +2501,8 @@ test('picked times and days say Available or If needed on the calendar, and if-n
   // A trip that's only if needed is amber on every day, and each day says so.
   await page.click('[data-length="days"]');
   await showNextMonth(page);
-  const first = await nextMonth(page);
+  // A week into next month, clear of the times above (which can fall on the 1st).
+  const first = addDays(await nextMonth(page), 7);
   await page.locator(`#picker .cal-day[data-date="${first}"]`).click();
   for (const i of [0, 1, 2]) {
     const d = page.locator(`#picker .cal-day[data-date="${addDays(first, i)}"]`);
@@ -2549,16 +2558,17 @@ test('guests are one tap from making their own poll: from the celebration, and o
   await expect(page.getByRole('button', { name: 'Dinner' })).toHaveAttribute('aria-pressed', 'true');
   await expect(page.locator('#organizer')).toHaveValue('Ana');
 
-  // Once the date is picked: guests can make their own, the organizer can plan the next one.
+  // Once the date is picked, guests can make their own, under More.
   await request.post(`/api/events/${id}/finalize`, { data: { start: t0 }, headers: { 'x-admin-token': adminToken } });
   await page.goto(`/e/${id}`);
-  await expect(page.locator(`.final-more a[href="/new?from=set&template=${encodeURIComponent('🍝')}"]`)).toHaveText(
+  await page.locator('.final-extras summary').click();
+  await expect(page.locator(`.final-extras a[href="/new?from=set&template=${encodeURIComponent('🍝')}"]`)).toHaveText(
     'Make your own Venn',
   );
+  // The organizer's banner keeps to telling everyone: no "Plan the next one", and no "Repeats" choice.
   await page.goto(`/e/${id}#admin=${adminToken}`);
-  await expect(page.locator(`.final-more a[href="/new/pick?copy=${id}&next"]`)).toHaveText('Plan the next one');
-  // There's no "Repeats" choice: planning the next one is a copy, with nothing to set up first.
   await page.locator('.final-extras summary').click();
+  await expect(page.locator('.banner-final').getByText('Plan the next one')).toHaveCount(0);
   await expect(page.locator('#repeat-sel')).toHaveCount(0);
   await expect(page.getByText('Repeats', { exact: true })).toHaveCount(0);
 });
@@ -2591,8 +2601,11 @@ test('the organizer plans the next one in one tap, then brings last time’s gro
   });
   await request.post(`/api/events/${id}/finalize`, { data: { start: t0 }, headers: { 'x-admin-token': adminToken } });
 
+  // Once the date is set, the organizer tools wait closed; their Duplicate poll plans the next one.
   await page.goto(`/e/${id}#admin=${adminToken}`);
-  await page.getByRole('link', { name: 'Plan the next one' }).click();
+  await expect(page.locator('details.organizer')).not.toHaveAttribute('open', '');
+  await page.locator('details.organizer summary').click();
+  await page.getByRole('link', { name: 'Duplicate poll' }).click();
 
   // The create page has everything, with the dates moved on by whole weeks: still a Tuesday and Wednesday.
   await expect(page).toHaveURL(new RegExp(`/new/pick\\?copy=${id}&next$`));
@@ -3220,6 +3233,7 @@ test('the picked date says so on its row, and the organizer changes it in two ta
 
   // The organizer: Change the date opens everyone's answers with the picked one open.
   await page.goto(`/e/${id}#admin=${adminToken}`);
+  await page.locator('.final-extras summary').click();
   await page.getByRole('button', { name: 'Change the date' }).click();
   await expect(page.locator('.ov-row.final')).toHaveAttribute('aria-expanded', 'true');
   await expect(page.locator('.ov-pick')).toContainText('To change it, open another time and pick that');
