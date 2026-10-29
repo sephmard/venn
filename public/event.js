@@ -1739,8 +1739,8 @@ export async function renderEvent(id, navigate) {
       ev: ev(),
       // Once the date is set, the banner leads and the tools wait, closed.
       fresh: st.fresh && ev().finalStart == null,
-      // Closed until wanted, so sharing (above) comes first; open only to say to check the inbox.
-      open: st.orgOpen ?? (st.fresh && ev().finalStart == null && !!saved(id).notifyPending),
+      // Closed until wanted, so sharing (above) comes first.
+      open: st.orgOpen ?? false,
       onToggle: (open) => (st.orgOpen = open), // stays open or closed across re-renders
       notifyPending: saved(id).notifyPending,
       ai: aiOn,
