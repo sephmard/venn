@@ -42,7 +42,7 @@ const PAGES = {
   'vote on a few dates page': ['create-pick.js', ['create.css'], 51.5], // +0.25 for the landing pages' link-only templates, +0.25 for a guest's one-tap own poll, +0.25 for calendar day heads
   // +0.25 for usage stats, +0.25 for the landing pages' templates, +0.25 for a guest's one-tap own poll
   // (template by emoji) and the day labels that fit.
-  'ask when people are available page': ['create-free.js', ['create.css'], 50.25], // +0.5: the above, and days in a row as a switch
+  'ask when people are available page': ['create-free.js', ['create.css'], 50.5], // +0.5: the above, and days in a row as a switch; +0.25 for days and times mixed in one poll
   // +0.5 for big groups: "+N more" people, names behind "See who", ticks on whole best times.
   // +0.5 for the organizer's tools only on their own link, with "Organizer view" on the guest link.
   // +1 for Change the date as a list in the banner, and one question once the date is picked.
