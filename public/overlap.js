@@ -7,7 +7,7 @@ import { IF_NEEDED, YES, allDaySpan, meetingEnd, partOf, rankTimes, utcToZoned }
 import { avatar, dateParts, esc, fmtDay, plural, shortRange, shortTime } from './ui.js';
 import { fmtTimeRange } from './when.js';
 
-const KEY = `<p class="hint legend ov-legend"><span class="sw sw-y"></span>Available <span class="sw sw-m"></span>If needed <span class="sw sw-nc"></span>Unavailable <span class="sw-best" aria-hidden="true">✓</span>Everyone</p>`;
+const KEY = `<p class="hint legend ov-legend"><span class="sw sw-y"></span>Available <span class="sw sw-m"></span>If needed <span class="sw sw-nc"></span>Unavailable</p>`;
 const dayName = (d) => fmtDay.format(dateParts(d));
 const chips = (names, cls) =>
   names.map((name) => `<span class="chip ${cls}">${avatar(name, 'av-xs')}${esc(name)}</span>`).join('');

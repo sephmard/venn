@@ -4,10 +4,10 @@ import { mockContact } from './helpers.js';
 test('the home page takes feature requests and messages, with an email to reply to', async ({ page }) => {
   const sent = await mockContact(page);
   await page.goto('/');
-  // Ideas & questions: a button in the corner opens them in a dialog.
+  // Ideas & questions: Contact, in the menu and the footer, opens them in a dialog (no button in the corner).
   const dialog = page.getByRole('dialog', { name: 'Ideas and questions' });
   await expect(dialog).toBeHidden();
-  await page.getByRole('button', { name: 'Ideas & questions' }).click();
+  await page.locator('footer').getByRole('link', { name: 'Contact' }).click();
   await expect(dialog).toBeVisible();
   const form = page.locator('.contact-form');
   await expect(form).toBeVisible();
@@ -60,7 +60,7 @@ test('when sending fails, the form says why and keeps the message', async ({ pag
 
 test('without email set up there is no form, only the GitHub link', async ({ page }) => {
   await page.goto('/');
-  await page.getByRole('button', { name: 'Ideas & questions' }).click();
+  await page.locator('footer').getByRole('link', { name: 'Contact' }).click();
   await expect(page.getByRole('heading', { name: 'Ideas and questions' })).toBeVisible();
   await expect(page.locator('.contact-form')).toBeHidden();
   await expect(page.getByRole('link', { name: 'open an issue on GitHub' })).toBeVisible();
