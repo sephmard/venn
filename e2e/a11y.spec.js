@@ -35,6 +35,8 @@ for (const scheme of ['light', 'dark']) {
     test('landing and privacy pages', async ({ page }) => {
       await mockContact(page);
       await page.goto('/');
+      // Once the Venn's circles have faded in (other sections animate as they scroll into view).
+      await page.locator('.venn').evaluate((v) => Promise.all(v.getAnimations({ subtree: true }).map((a) => a.finished)));
       await audit(page, 'landing page');
       await page.getByRole('button', { name: 'Ideas & questions' }).click();
       await expect(page.locator('.contact-form')).toBeVisible();
