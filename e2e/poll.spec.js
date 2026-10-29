@@ -1377,6 +1377,15 @@ test('ask when people are free: parts of the day', async ({ page, request }) => 
   await rows.first().click();
   await expect(rows.first()).toHaveAttribute('aria-expanded', 'true');
   await expect(page.locator('.ov-who')).toContainText('Sam');
+  // Who answered what, a line per answer, marked as in the key: here, Sam is available.
+  const said = page.locator('.ov-item.open .ov-group');
+  await expect(said).toHaveCount(1);
+  await expect(said.locator('.ov-group-h')).toHaveText('Available');
+  await expect(said.locator('.chip.yes')).toContainText('Sam');
+  // And on a time Sam can't make: under Unavailable.
+  await rows.nth(2).click();
+  await expect(said.locator('.ov-group-h')).toHaveText('Unavailable');
+  await expect(said.locator('.chip.no')).toContainText('Sam');
 });
 
 test('guests can see the options on a calendar and answer there', async ({ page, request }) => {

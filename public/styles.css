@@ -2439,10 +2439,47 @@ pre.code {
   color: var(--muted);
 }
 .ov-who {
+  display: grid;
+  gap: 10px;
+  padding: 12px 14px 14px;
+}
+/* Who's available, if needed and unavailable: each answer a line, with its colour from the key. */
+.ov-group {
+  display: grid;
+  grid-template-columns: 7.5em minmax(0, 1fr);
+  align-items: center;
+  gap: 6px;
+}
+.ov-group-h {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: var(--muted);
+}
+.ov-group-h .sw {
+  width: 10px;
+  height: 10px;
+  border-radius: 3px;
+}
+.ov-group-h .sw-yes {
+  background: var(--yes);
+}
+.ov-group-h .sw-maybe {
+  background: var(--maybe);
+}
+.ov-group-h .sw-no {
+  background: var(--no-cell);
+}
+.ov-group .chips {
   display: flex;
   flex-wrap: wrap;
   gap: 6px;
-  padding: 12px 14px 14px;
+}
+.ov-group .chip.no {
+  opacity: 1;
+  background: color-mix(in srgb, var(--no-cell) 40%, transparent);
 }
 .ov-pick {
   flex-basis: 100%;
