@@ -658,9 +658,10 @@ button.emoji-tile:focus-visible {
 #other-box select {
   margin-top: 4px;
 }
-/* Narrow week columns on phones: a short start time ("7p"), at the top, under the × */
+/* Narrow week columns on phones: a short start time ("7p") at the top. No × there, too small to tap
+   well: times are removed from the list below the calendar. */
 .tg-narrow .tg-block {
-  padding: 20px 2px 2px;
+  padding: 4px 2px 2px;
   align-items: center;
   justify-content: flex-start;
 }
@@ -672,14 +673,9 @@ button.emoji-tile:focus-visible {
   white-space: nowrap;
   font-size: 0.7rem;
 }
-/* A smaller × in a narrow column, so it doesn't cover the block */
+.tg-narrow .tg-x-box,
 .tg-narrow .tg-x {
-  top: 1px;
-  right: 1px;
-  width: 18px;
-  height: 18px;
-  border-width: 1px;
-  font-size: 0.75rem;
+  display: none;
 }
 /* Under an hour: the grips by the × */
 .create .tg-short {

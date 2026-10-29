@@ -233,6 +233,11 @@ function timeGrid(
       `top:calc(${at(Math.max(a, from))} * var(--row));height:calc(${(Math.min(b, to) - Math.max(a, from)) / STEP} * var(--row))`;
     const all = blocks();
     const text = (b, n) => (narrow && b.tiny != null ? b.tiny : n > 1 && b.short ? b.short : b.label);
+    // Its name starts with what it shows ("7p"), so it can be said to be tapped by what's on it.
+    const named = (b, n) => {
+      const full = b.title || b.label;
+      return full.startsWith(text(b, n)) ? full : `${text(b, n)}: ${full}`;
+    };
     const today = todayStr();
     const cols = ds
       .map((d) => {
@@ -258,7 +263,7 @@ function timeGrid(
               _,
               style = `${pos(b.from, b.to)};left:calc(3px + (100% - 6px) * ${lane[i]} / ${n});width:calc((100% - 6px) / ${n} - 2px)`,
             ) =>
-              `<button type="button" class="tg-block ${b.cls || ''}${b.to - b.from < 60 ? ' tg-short' : ''}" data-key="${esc(b.key)}" style="${style}" aria-label="${esc(b.title || b.label)}">${editor?.top || ''}<span>${esc(text(b, n))}</span>${b.tag ? ` <small>${esc(b.tag)}</small>` : ''}${editor?.bottom || ''}</button>${editor ? editor.after(b, style) : ''}`,
+              `<button type="button" class="tg-block ${b.cls || ''}${b.to - b.from < 60 ? ' tg-short' : ''}" data-key="${esc(b.key)}" style="${style}" aria-label="${esc(named(b, n))}">${editor?.top || ''}<span>${esc(text(b, n))}</span>${b.tag ? ` <small>${esc(b.tag)}</small>` : ''}${editor?.bottom || ''}</button>${editor ? editor.after(b, style) : ''}`,
           )
           .join('');
         // Organizers can't add options on days that have gone by.

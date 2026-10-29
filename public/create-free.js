@@ -317,7 +317,7 @@ export function renderFree() {
           cls: w.maybe ? 'opt opt-maybe' : 'opt',
           label: pt.hoursLabel(w.start, w.end),
           short: shortTime(w.start),
-          tiny: tinyTime(w.start),
+          tiny: pt.hoursLabel(w.start, w.end) === 'All day' ? 'All day' : tinyTime(w.start),
           tag: w.maybe ? 'If needed' : 'Available',
           title: `${pt.hoursLabel(w.start, w.end)} ${w.maybe ? 'If needed' : 'Available'}, ${dayLabel(w.date)}. Tap to make it ${w.maybe ? 'available' : 'if needed'}`,
           remove: `Remove ${pt.hoursLabel(w.start, w.end)}, ${dayLabel(w.date)}`,
