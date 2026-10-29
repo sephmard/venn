@@ -1,12 +1,12 @@
 // Calendar views shared by organizers and guests.
 //   monthView  a month of days: pick several (tap or drag), or open one day at a time
-//   timeView   a week (desktop) or one day (phones and tablets) of 30-minute rows, with a Week / Day switch.
-//              Organizers draw options on it; guests see the options next to their busy times.
+//   timeView   a week or a day of 30-minute rows: organizers draw on it; guests see options by busy times
 
 import { addDays } from './core.js';
 import {
   $,
   $$,
+  buzz,
   dateParts,
   dayChip,
   dayHead,
@@ -313,8 +313,7 @@ function timeGrid(
 
   const editor = editBlocks?.(root, { blocks, range, minuteAt, rowPx, onResize, onMove });
 
-  // Mouse: drag to draw a block. Touch: a tap drops a block of the chosen length; press and hold, then
-  // drag, to draw one (a quick swipe still scrolls).
+  // Mouse: drag to draw. Touch: a tap drops a block; hold, then drag, to draw (a swipe scrolls).
   let drag = null;
   let pointer = null;
   let hold = null; // a touch waiting to become a drag
@@ -325,6 +324,7 @@ function timeGrid(
     ghost.className = 'tg-block tg-ghost';
     col.append(ghost);
     drag = { col, a, b: a, ghost, moved: false };
+    root.classList.add('tg-dragging'); // the calendar shows it's drawing, not scrolling
     paintGhost();
   };
   root.addEventListener('pointerdown', (e) => {
@@ -338,7 +338,7 @@ function timeGrid(
     }
     const { clientX: x, clientY: y } = e;
     clearTimeout(hold?.timer);
-    hold = { x, y, timer: setTimeout(() => ((hold = null), begin(col, y), navigator.vibrate?.(10)), HOLD) };
+    hold = { x, y, timer: setTimeout(() => ((hold = null), begin(col, y), buzz()), HOLD) };
   });
   // While a touch draws, the page mustn't scroll; before the hold, a move is a scroll.
   const touchMove = (e) => {
@@ -376,6 +376,7 @@ function timeGrid(
     if (!drag) return;
     const { col, a, b, moved } = drag;
     drag = null;
+    root.classList.remove('tg-dragging');
     // The click straight after a touch drag isn't a tap (and there may be no click at all).
     tapped = pointer !== 'mouse';
     setTimeout(() => (tapped = false), 400);

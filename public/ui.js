@@ -65,6 +65,17 @@ export function rememberEmail(e) {
 
 // A status region that stays on the page, emptied then filled, so every message is announced.
 let toastTimer;
+/** A light tick in the hand: a vibration where there is one; on iPhones, which have none, the tick of a switch. */
+export function buzz() {
+  if (navigator.vibrate) return void navigator.vibrate(10);
+  const l = document.createElement('label');
+  l.style.display = 'none';
+  l.innerHTML = '<input type="checkbox" switch>';
+  document.head.append(l);
+  l.click();
+  l.remove();
+}
+
 export function toast(msg) {
   const t = document.getElementById('toast');
   t.hidden = false;

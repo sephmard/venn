@@ -82,6 +82,22 @@ test('parts of the day and hours both go a week with ‹ › and a month with «
   }
 });
 
+test('parts of the day and hours are one size: switching between them moves nothing', async ({ page }) => {
+  await page.goto('/new');
+  const box = async (level) => {
+    await setLevel(page, level);
+    return page.locator('#when').evaluate((el) => {
+      const r = el.getBoundingClientRect();
+      const first = el.querySelector('.day-head').getBoundingClientRect();
+      return { height: Math.round(r.height), dayX: Math.round(first.x) };
+    });
+  };
+  const parts = await box('parts');
+  const hours = await box('hours');
+  expect(Math.abs(parts.height - hours.height)).toBeLessThanOrEqual(2);
+  expect(Math.abs(parts.dayX - hours.dayX)).toBeLessThanOrEqual(2);
+});
+
 test('a tap on the hours calendar adds the half hour tapped; a drag draws longer', async ({ page }) => {
   await page.goto('/new');
   await setLevel(page, 'hours');
@@ -115,6 +131,10 @@ test('on a phone, press and hold on hours to draw a time, or to move one; a swip
   const touch = (type, x, y) =>
     cdp.send('Input.dispatchTouchEvent', { type, touchPoints: type === 'touchEnd' ? [] : [{ x, y }] });
   await page.goto('/new');
+  await page.evaluate(() => {
+    window.buzzes = 0;
+    navigator.vibrate = () => ++window.buzzes > 0;
+  });
   await setLevel(page, 'hours');
   const col = page.locator('#when .tg-col.tg-draw').nth(1);
   await page.locator('#when .tg-scroll').scrollIntoViewIfNeeded();
@@ -128,8 +148,11 @@ test('on a phone, press and hold on hours to draw a time, or to move one; a swip
   // Hold at 9, drag down to the 11:30 half hour: 9 AM – 12 PM.
   await touch('touchStart', x, y(540));
   await page.waitForTimeout(450);
+  await expect(page.locator('#when .tg-dragging')).toHaveCount(1); // the drag shows it's on, and buzzes
+  expect(await page.evaluate(() => window.buzzes)).toBe(1);
   for (let m = 570; m <= 690; m += 30) await touch('touchMove', x, y(m));
   await touch('touchEnd');
+  await expect(page.locator('#when .tg-dragging')).toHaveCount(0);
   await expect(page.locator('#free-list')).toContainText('9 AM – 12 PM');
   // Hold the time, drag it down an hour: 10 AM – 1 PM.
   const b = await page.locator('#when .tg-block').boundingBox();
@@ -139,4 +162,31 @@ test('on a phone, press and hold on hours to draw a time, or to move one; a swip
   await touch('touchEnd');
   await expect(page.locator('#free-list')).toContainText('10 AM – 1 PM');
   await expect(page.locator('#when .tg-block.opt-maybe')).toHaveCount(0); // a hold isn't a tap
+  // A half hour moves too, even held by its edge: 8 – 8:30 AM down an hour.
+  await page.locator('#when .tg-scroll').evaluate((el) => (el.scrollTop = 0));
+  const col2 = await page.locator('#when .tg-col.tg-draw').nth(2).boundingBox();
+  await touch('touchStart', col2.x + col2.width / 2, y(480));
+  await touch('touchEnd');
+  await expect(page.locator('#free-list')).toContainText('8:00 – 8:30 AM');
+  const h = await page.locator('#when .tg-block', { hasText: '8' }).last().boundingBox();
+  await touch('touchStart', h.x + h.width / 2, h.y + 3);
+  await page.waitForTimeout(450);
+  for (let i = 1; i <= 4; i++) await touch('touchMove', h.x + h.width / 2, h.y + 3 + (row * 2 * i) / 4);
+  await touch('touchEnd');
+  await expect(page.locator('#free-list')).toContainText('9:00 – 9:30 AM');
+});
+
+test('hours open at 11 AM, and on a phone each part of the day shows its times', async ({ page, isMobile }) => {
+  await page.goto('/new');
+  await setLevel(page, 'parts');
+  if (isMobile) {
+    const times = page.locator('#when .pg-cell.part small').first(); // "9a" over "12p"
+    await expect(times).toHaveAttribute('data-a', /^9/);
+    await expect(times).toHaveAttribute('data-b', /^12/);
+  }
+  await setLevel(page, 'hours');
+  const [top, row] = await page
+    .locator('#when .tg-scroll')
+    .evaluate((el) => [el.scrollTop, parseFloat(getComputedStyle(el.closest('.tg')).getPropertyValue('--row'))]);
+  expect(Math.round(top / row)).toBe((660 - 420) / 30);
 });

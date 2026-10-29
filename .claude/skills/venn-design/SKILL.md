@@ -26,8 +26,9 @@ the same PR** (and CLAUDE.md if it's a rule that matters in review).
 
 **Time**
 
-- Times are always in the viewer's own device time zone. No time-zone picker or notes. Don't get
-  clever. Dates-only polls read as plain dates.
+- Times are always in the viewer's own device time zone, everywhere: hours, parts of the day (a
+  morning in New York reads as its own times in London) and picked dates. No time-zone picker or
+  notes. Don't get clever. Whole days are dates and read as plain dates.
 
 **Creating a poll (/new)**
 
@@ -36,14 +37,21 @@ the same PR** (and CLAUDE.md if it's a rule that matters in review).
 - Parts of day and Hours show **the week only**, on phones too: no Week / Day switch.
 - Both use the same navigation: **« ‹ › »** (a month, a week), never before this week.
 - A tap goes round the same way at every level: **available, then if needed, then removed**.
-- Parts of day and Hours look alike: a plain head, times filling their day's column edge to edge.
+- Parts of day and Hours are **one calendar**: the same head, the same slim time column (the part's
+  name runs up its row), the same height, so switching between them moves nothing, not even for a
+  frame (the calendar on show stays until the next is ready).
+- Every part of the day shows its times in its cell ("9a / 12p" on phones), so what's picked is plain
+  on the calendar itself. Hours open at 11 AM.
 - **Only Hours is dragged**: press and hold, then drag, to draw a time, or hold a time and drag to
   move it (a quick swipe still scrolls; a mouse just drags). Days and parts of the day are tapped.
+  Once a drag is on it's plain to see and feel: a light buzz (iPhones too), the calendar ringed, the
+  time lifted. A half hour moves wherever it's held.
 - Hours has **no length to choose**: a tap adds the half hour tapped, a drag draws longer, and polls
   look for any overlap. No "Mark many as if needed": a second tap makes something if needed.
 - A whole day is one **"All day"** at every level, never split into parts or hours with gaps.
 - Templates shape the calendar only while nothing is picked; they never move or remove picks. A second
   tap turns one off.
+- **Create Venn sits at the end of the form**, never stuck to the bottom of the screen.
 - **Clear all has Undo** in its place. No pop-up tips over the calendar.
 - With nothing picked, every level says the same: **"Pick at least one day to create the poll"**.
 - Days in a row: a run that fits shows just its length; only a short one says "too short".

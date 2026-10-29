@@ -177,20 +177,22 @@ export async function renderEvent(id, navigate) {
   // calendar of the poll's days (day-answer.js), with the list a tap away.
   const guest = !ev().isAdmin;
   const viewSwitch = (calendarOk && (!guest || windows.length > 6)) || daysMode;
-  /** How an option reads: "Sat, Nov 7, evening (6 – 10 PM)" in parts polls, otherwise its date and time. */
+  /** Whole days are dates, read in the poll's zone; any other time is read in this device's zone. */
+  const zoneOf = (s, e) => (allDaySpan(s, e, ev().timezone) ? ev().timezone : st.tz);
+  /** How an option reads: "Sat, Nov 7, evening (6 – 10 PM)" when it's a part of the viewer's day, otherwise its date and time. */
   const when = (s, e) => {
-    // "Evening (6 – 10 PM)" is the organizer's evening: anyone elsewhere sees their own times.
-    const p = partsMode && st.tz === ev().timezone && partOf(s, e, ev().timezone);
+    const p = partsMode && partOf(s, e, st.tz);
     return p
-      ? `${fmtDay.format(dateParts(utcToZoned(s, ev().timezone).date))}, ${p.label.toLowerCase()} (${shortRange(p.start, p.end)})`
-      : fmtWhen(s, e, st.tz);
+      ? `${fmtDay.format(dateParts(utcToZoned(s, st.tz).date))}, ${p.label.toLowerCase()} (${shortRange(p.start, p.end)})`
+      : fmtWhen(s, e, zoneOf(s, e));
   };
   /** `when` as HTML for big type: the times of a day kept together ("Fri, Nov 6," then "7:00 – 9:00 PM"). */
   const bigWhen = (s, e) => {
-    const d = utcToZoned(s, st.tz).date;
-    return partsMode || allDaySpan(s, e, st.tz) || d !== utcToZoned(e - 1, st.tz).date
+    const tz = zoneOf(s, e);
+    const d = utcToZoned(s, tz).date;
+    return partsMode || allDaySpan(s, e, tz) || d !== utcToZoned(e - 1, tz).date
       ? esc(when(s, e)).replace(/\s–/g, '\u00a0–') // a line never starts with the dash
-      : [`${fmtDay.format(dateParts(d))},`, fmtTimeRange(s, e, st.tz)]
+      : [`${fmtDay.format(dateParts(d))},`, fmtTimeRange(s, e, tz)]
           .map((t) => `<span style="white-space:nowrap">${esc(t)}</span>`)
           .join(' ');
   };
@@ -569,7 +571,7 @@ export async function renderEvent(id, navigate) {
   const byDay = () => {
     const days = new Map();
     for (const w of windows) {
-      const d = utcToZoned(w.start, ev().timezone).date;
+      const d = utcToZoned(w.start, zoneOf(w.start, w.end)).date;
       if (!days.has(d)) days.set(d, []);
       days.get(d).push(w);
     }
@@ -583,8 +585,13 @@ export async function renderEvent(id, navigate) {
             ${ws.length > 1 ? allDayBtn(`data-all-day="${d}"`, d) : ''}</div>
           <div class="part-votes">${ws
             .map((w) => {
-              const p = partOf(w.start, w.end, ev().timezone);
-              return `<button type="button" class="part-vote${w.start === ev().finalStart ? ' final' : ''}" data-opt="${w.start}"><b>${esc(p.label)}</b><small>${esc(shortRange(p.start, p.end))}</small><span class="pv-state"></span></button>`;
+              const p = partOf(w.start, w.end, st.tz);
+              const [name, time] = p
+                ? [p.label, shortRange(p.start, p.end)]
+                : allDaySpan(w.start, w.end, ev().timezone)
+                  ? ['All day', '']
+                  : [fmtTimeRange(w.start, w.end, st.tz), ''];
+              return `<button type="button" class="part-vote${w.start === ev().finalStart ? ' final' : ''}" data-opt="${w.start}"><b>${esc(name)}</b>${time ? `<small>${esc(time)}</small>` : ''}<span class="pv-state"></span></button>`;
             })
             .join('')}</div>
         </div>`,
@@ -1688,7 +1695,7 @@ export async function renderEvent(id, navigate) {
         image: picture && { url: location.origin + picture, type: ev().image.type },
       };
       if (!calJs) return void loadCal().then(renderBanners); // the date was just picked
-      const day = utcToZoned(start, info.allDay || partsMode ? ev().timezone : st.tz).date.slice(8);
+      const day = utcToZoned(start, info.allDay ? ev().timezone : st.tz).date.slice(8);
       // Everyone who gave their email (the organizer sees them when the poll asked for them): invited
       // with the calendar, and one tap from an email to them all, in BCC so they don't see each other's.
       const guests = ev().isAdmin

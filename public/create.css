@@ -109,18 +109,11 @@ button.emoji-tile:focus-visible {
   align-items: flex-start;
 }
 .create-bar {
-  position: sticky;
-  bottom: 0;
-  z-index: 5;
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 12px;
-  padding: 12px 16px calc(12px + env(safe-area-inset-bottom));
-  margin: 8px -16px 0;
-  background: color-mix(in srgb, var(--bg) 92%, transparent);
-  backdrop-filter: blur(8px);
-  border-top: 1.5px solid var(--border);
+  padding: 16px 0;
 }
 .create-sum {
   display: grid;
@@ -407,22 +400,36 @@ button.emoji-tile:focus-visible {
 .pg-cell.part .pg-tag {
   font-weight: 700;
 }
+/* The part's name runs up its row: the time column of hours */
 .pg-time.part {
-  transform: none;
+  writing-mode: vertical-rl;
+  transform: rotate(180deg);
+  justify-self: center;
   align-self: center;
-  font-size: 0.8rem;
+  padding: 0;
+  font-size: 0.72rem;
   font-weight: 600;
 }
 /* A whole week of parts of the day on a phone: the colour says it, the times sit at the side. */
-.pg-narrow .pg-cell.part small {
+.pg-narrow .pg-cell.part .pg-tag {
   display: none;
+}
+.pg-narrow .pg-cell.part small {
+  font-size: 0.68rem;
+  line-height: 1.25;
+  text-align: center;
+}
+/* Phones: "9a" over "12p", drawn by CSS so the cell's name stays its full times */
+.pg-narrow .pg-cell.part small::before,
+.pg-narrow .pg-cell.part small::after {
+  content: attr(data-a);
+  display: block;
+}
+.pg-narrow .pg-cell.part small::after {
+  content: attr(data-b);
 }
 .pg-narrow .pg-cell.part {
   height: 56px;
-}
-.pg-narrow .pg-time.part {
-  font-size: 0.72rem;
-  padding-right: 4px;
 }
 .pg-narrow .pg-day {
   font-size: 0.7rem;
@@ -495,21 +502,27 @@ button.emoji-tile:focus-visible {
   color: var(--muted);
   filter: none;
 }
-/* Phones: both calendars one height, on one screen */
+/* Parts and hours: one height, on one screen */
+.create {
+  --cal-h: clamp(240px, 50svh, 440px);
+}
+.create .tg-scroll,
+.create .pg-scroll {
+  max-height: var(--cal-h);
+}
+.create .pg-scroll:has(.pg-cell.part) {
+  max-height: none;
+}
+.create .pg-cell.part {
+  height: calc(var(--cal-h) / 3);
+}
 @media (pointer: coarse), (max-width: 640px) {
   .create {
     --cal-h: clamp(220px, 38svh, 320px);
   }
   .create .tg-scroll,
   .create .pg-scroll {
-    max-height: var(--cal-h);
     overscroll-behavior: auto;
-  }
-  .create .pg-scroll:has(.pg-cell.part) {
-    max-height: none;
-  }
-  .create .pg-narrow .pg-cell.part {
-    height: calc(var(--cal-h) / 3);
   }
 }
 /* The organizer's options: green when they're available, amber (and saying so) if needed. */
@@ -684,12 +697,39 @@ button.emoji-tile:focus-visible {
   margin-top: 4px;
 }
 /* Hours look like parts of the day */
+/* A drag that's on: the calendar ringed, the time lifted */
+#when .tg-dragging .tg {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 2px var(--accent);
+}
+#when .tg-ghost {
+  border: 2px solid var(--accent);
+  font-weight: 700;
+  animation: lift 0.15s ease-out;
+}
+#when .tg-ghost,
 #when .tg-lifted {
   box-shadow: 0 8px 20px -6px rgb(0 0 0 / 0.45);
   z-index: 3;
 }
+#when .tg-lifted {
+  transform: scale(1.06);
+}
+@keyframes lift {
+  from {
+    transform: scale(0.9);
+    opacity: 0.4;
+  }
+}
 #when .tg-head {
   background: var(--surface);
+}
+/* Parts and hours: one head */
+#when .tg-day,
+#when .pg-day {
+  height: 52px;
+  padding: 4px 0;
+  font-size: 0.8rem;
 }
 #when .tg-block.opt {
   left: 1px !important;
