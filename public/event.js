@@ -1420,13 +1420,18 @@ export async function renderEvent(id, navigate) {
       shown.length < all.length
         ? `<button type="button" class="link-btn" id="people-more">+${all.length - shown.length} more</button>`
         : '';
+    const focused = all.find((p) => p.id === st.focus);
     $('#people').innerHTML =
       shown
         .map((p) => {
-          const canDelete = p.id === myId || ev().isAdmin;
-          return `<span class="chip person${p.id === myId ? ' me' : ''}"><button type="button" class="person-btn" data-person="${esc(p.id)}" aria-pressed="${p.id === st.focus}">${avatar(p.name, 'av-xs')}${esc(p.name)}${p.id === myId ? ' (you)' : ''}</button>${canDelete && p.id !== myId ? `<button type="button" data-remove="${esc(p.id)}" aria-label="Remove ${esc(p.name)}'s answer" title="Remove">×</button>` : ''}</span>`;
+          return `<span class="chip person${p.id === myId ? ' me' : ''}"><button type="button" class="person-btn" data-person="${esc(p.id)}" aria-pressed="${p.id === st.focus}">${avatar(p.name, 'av-xs')}${esc(p.name)}${p.id === myId ? ' (you)' : ''}</button></span>`;
         })
-        .join('') + more;
+        .join('') +
+      more +
+      // The organizer removes someone's answer from them, once tapped: no × on every name.
+      (ev().isAdmin && focused && focused.id !== myId
+        ? `<button type="button" class="link-btn danger people-rm" data-remove="${esc(focused.id)}">Remove ${esc(focused.name)}'s answer</button>`
+        : '');
   }
   $('#people').addEventListener('click', async (e) => {
     if (e.target.closest('#people-more')) {
@@ -1455,6 +1460,7 @@ export async function renderEvent(id, navigate) {
       st.focus = st.focus === chip.dataset.person ? null : chip.dataset.person;
       renderPeople();
       renderGroup();
+      $(`#people [data-person="${CSS.escape(chip.dataset.person)}"]`)?.focus();
     }
   });
 

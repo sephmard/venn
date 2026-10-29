@@ -20,7 +20,8 @@ const STEP = 30;
  *              selected then holds "YYYY-MM-DD|<the part's start>"
  *   maybe      the selected keys that are only "if needed" for the organizer (a Set, changed in place):
  *              what's painted joins it while `marking()` is true, and leaves it otherwise
- *   views      ['week', 'day'] adds a Week / Day switch; without it, phones show a day and others a week
+ *   views      ['week', 'day'] adds a Week / Day switch; ['week'], the week everywhere; without it, phones
+ *              show a day and others a week
  * Returns { render, week() (the 7 days around what's shown), cleanup }.
  */
 export function paintView(
@@ -38,7 +39,7 @@ export function paintView(
     views = null,
   },
 ) {
-  let day = isPhone();
+  let day = views?.length === 1 ? views[0] === 'day' : isPhone();
   // Weeks run Monday to Sunday; days before today show, but can't be painted.
   const monday = (d) => addDays(d, -((dateParts(d).getUTCDay() + 6) % 7));
   const thisWeek = monday(todayStr());
@@ -47,7 +48,7 @@ export function paintView(
   root.innerHTML = `
     <div class="tv-bar">
       ${
-        views
+        views?.length > 1
           ? `<div class="seg tv-views" role="radiogroup" aria-label="Calendar view">${views
               .map((v) => `<button type="button" role="radio" data-pview="${v}">${v[0].toUpperCase() + v.slice(1)}</button>`)
               .join('')}</div>`

@@ -2520,6 +2520,17 @@ pre.code {
 .ov-tl {
   margin-bottom: 10px;
 }
+/* On phones, each day is just its best stretches: the rows say it, without a timeline over them. */
+@media (max-width: 640px) {
+  .ov-tl {
+    display: none;
+  }
+}
+/* Remove someone's answer: under the names, once that person is tapped. */
+.people-rm {
+  flex-basis: 100%;
+  justify-content: flex-start;
+}
 /* One smooth track a day: a colour a half hour (see overlap.js), the bare track where nobody can or
    the time wasn't asked about that day. */
 .ov-cols {

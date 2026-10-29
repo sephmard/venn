@@ -272,7 +272,7 @@ export function renderFree() {
       parts: parts && DAY_PARTS,
       maybe: maybe[level],
       marking: () => brush() === IF_NEEDED,
-      views: ['week', 'day'],
+      views: ['week'], // a week at a time, phones too: no Week / Day to choose
     });
   }
 
@@ -304,7 +304,7 @@ export function renderFree() {
     };
     const view = timeView(root, {
       label: 'Calendar',
-      views: ['week', 'day'],
+      views: ['week'], // a week at a time, phones too: no Week / Day to choose
       range: () => [420, 1440],
       tapLength: () => length || 60,
       startAt: () => null,

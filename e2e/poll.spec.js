@@ -3123,13 +3123,11 @@ test('creating a Venn: dates only on a month, date and time as parts or hours, a
   await pickDays(page, 10, (wd) => wd > 0 && wd < 6);
   await expect(page.locator('#summary')).toHaveText('10 days to choose from');
 
-  // Parts of the day, on a week or one day at a time.
+  // Parts of the day, a week at a time on phones too: no Week / Day to choose.
   await page.click('[data-level="parts"]');
   await expect(page.locator('[data-level="parts"]')).toHaveAttribute('aria-checked', 'true');
-  await page.click('#when [data-pview="day"]');
-  await expect(page.locator('#when .pg-day')).toHaveCount(1);
-  await page.click('#when [data-pview="week"]');
   await expect(page.locator('#when .pg-day')).toHaveCount(7);
+  await expect(page.locator('#when [data-pview], #when .tv-views:visible')).toHaveCount(0);
 
   // Hours: how long is optional, under the calendar, off until chosen, and a second tap leaves it off again.
   await page.click('[data-level="hours"]');
