@@ -354,10 +354,17 @@ export function zoom(st, from, to) {
               .filter((k) => !whole(k.split('|')[0]))
               .map((k) => [k.split('|')[0], partAt(k.split('|')[1]).start, partAt(k.split('|')[1]).end]),
           ]
-        : [...days].map((d) => [d, ...ALL_DAY]);
-    for (const [d, a, b] of want) {
-      const ks = slots(a, b).map((m) => `${d}|${m}`);
-      if (!ks.some((k) => hours.has(k))) for (const k of ks) hours.add(k);
+        : [...days]
+            .filter((d) => ![...hours].some((k) => k.startsWith(`${d}|`)))
+            .flatMap((d) => {
+              // From days, a day with parts picked keeps them (if needed too); another is the whole day.
+              const own = [...parts].filter((k) => k.startsWith(`${d}|`));
+              if (!own.length || whole(d)) return [[d, ...ALL_DAY]];
+              return own.map((k) => [d, partAt(k.split('|')[1]).start, partAt(k.split('|')[1]).end, st.maybe.parts.has(k)]);
+            });
+    for (const [d, a, b, m] of want) {
+      const ks = slots(a, b).map((x) => `${d}|${x}`);
+      if (!ks.some((k) => hours.has(k))) for (const k of ks) (hours.add(k), m && st.maybe.hours.add(k));
     }
   }
   // If needed, from the coarser level to the finer one or back.

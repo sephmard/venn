@@ -59,6 +59,7 @@ the same PR** (and CLAUDE.md if it's a rule that matters in review).
 - **Times drawn in hours stay as drawn on every level.** The list shows them on Days and Parts of day
   too; on Parts of day their part is lit, and tapping it acts on those times. The poll asks about
   them wherever Create is pressed.
+- Likewise, **parts of the day show on Hours** as those parts' times, whichever way you get there.
 - Templates shape the calendar only while nothing is picked; they never move or remove picks. A second
   tap turns one off.
 - **Create Venn sits at the end of the form**, never stuck to the bottom of the screen.

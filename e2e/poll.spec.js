@@ -3199,6 +3199,28 @@ test('a whole day fills the hours calendar, from its first hour to midnight', as
   expect(Math.abs(b.y - col.y)).toBeLessThanOrEqual(2); // from 7 AM, the top
 });
 
+test('parts of the day picked show on hours too, straight there or by way of days', async ({ page }) => {
+  await page.goto('/new/free');
+  const first = await nextMonth(page);
+  await tapDays(page, [first]);
+  await setLevel(page, 'parts');
+  // Only the afternoon and evening: the morning tapped round to off.
+  const morning = page.locator(`#when .pg-cell[data-d="${first}"][data-m="540"]`);
+  await morning.click();
+  await morning.click();
+  const list = page.locator('#free-list');
+  await expect(list).toContainText('Afternoon 12 – 5 PM');
+  await expect(list).not.toContainText('Morning');
+  for (const via of [['days'], []]) {
+    for (const l of via) await setLevel(page, l);
+    await setLevel(page, 'hours');
+    await expect(list).toContainText('Afternoon 12 – 5 PM');
+    await expect(list).toContainText('Evening 6 – 10 PM');
+    await expect(list).not.toContainText('All day');
+    await setLevel(page, 'parts');
+  }
+});
+
 test('times drawn in hours stay on every level, and the poll asks about them wherever it is created', async ({ page }) => {
   await page.goto('/new/free');
   await page.fill('#organizer', 'Sam');

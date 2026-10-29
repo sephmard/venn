@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 
 // ui.js looks up the page's elements when it loads; a stand-in document is enough for these helpers.
 globalThis.document ??= { getElementById: () => null };
-const { chipLevel, ownHours, partsWindows, syncHours, timedDays, zoom } = await import('../public/paint.js');
+const { chipLevel, ownHours, partsWindows, syncHours, timedDays, windowsAt, zoom } = await import('../public/paint.js');
 
 // What's picked at each level on the create page, as create-free.js keeps it.
 const state = () => {
@@ -55,4 +55,18 @@ test('on days, a whole day chip is the day; times follow the last time level', (
   s.days.add(D);
   assert.equal(chipLevel(s, 'days', 'parts', `${D}|420|1440`), 'days');
   assert.equal(chipLevel(s, 'days', 'parts', `${D}|1080|1320`), 'parts');
+});
+
+test('parts of the day carry into hours, by way of days too, if needed and all', () => {
+  const s = state();
+  s.days.add(D);
+  s.parts.add(`${D}|720`).add(`${D}|1080`);
+  s.maybe.parts.add(`${D}|1080`);
+  zoom(s, 'parts', 'days');
+  zoom(s, 'days', 'hours');
+  const ws = windowsAt(s, 'hours').map((w) => [w.start, w.end, !!w.maybe]);
+  assert.deepEqual(ws, [
+    [720, 1020, false],
+    [1080, 1320, true],
+  ]);
 });
