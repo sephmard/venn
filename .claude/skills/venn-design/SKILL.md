@@ -95,10 +95,12 @@ the same PR** (and CLAUDE.md if it's a rule that matters in review).
 **Website (venn.day)**
 
 - Simple and sexy. Four values, framed as benefits (what people get), not features.
-- **Retrofuturist** (website only, never the app or poll): a synthwave night of stars and scanlines,
-  chrome Orbitron headlines with a sunset gradient on the key words, neon cyan and magenta, arcade
-  pixel labels, a striped sun on a moving grid, a neon logo (`logo-retro.svg`) and Finn stickers on neon circles (`img/stickers/retro/`; Finn stays smooth, never chunky pixels). One look day or
-  night. DESIGN.md has the tokens.
+- **Retro mode** (website only, never the app or poll): a switch in the site's menu, off by default,
+  remembered in the browser. On, a synthwave night of stars and scanlines, chrome Orbitron headlines
+  with a sunset gradient on the key words, neon cyan and magenta, arcade pixel labels, a striped sun
+  on a moving grid, a neon logo (`logo-retro.svg`) and Finn stickers on neon circles
+  (`img/stickers/retro/`; Finn stays smooth, never chunky pixels). Off, the usual look and logo.
+  DESIGN.md has both.
 - The hero Venn tells the story in motion, **from noise to a plan**: a group chat's messages bounce
   around, fly to the three friends, the circles drift together and the day that works pops out, then
   they keep floating. It plays while in view. Tap replays it; press and hold a circle (a mouse just

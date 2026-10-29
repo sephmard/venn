@@ -1,53 +1,70 @@
 /* Landing, privacy and 404 pages. Tokens and rules: see DESIGN.md. Self-contained: these pages
    don't load the app's styles.css. */
 
-/* Retrofuturist: a synthwave night, chrome and neon, arcade pixels. One look, day or night. */
 @font-face {
-  font-family: 'Orbitron';
-  src: url('/fonts/orbitron-latin-700-normal.woff2') format('woff2');
-  font-weight: 700;
+  font-family: 'Instrument Serif';
+  src: url('/fonts/instrument-serif-latin-400-normal.woff2') format('woff2');
+  font-weight: 400;
+  font-style: normal;
   font-display: swap;
 }
 @font-face {
-  font-family: 'Orbitron';
-  src: url('/fonts/orbitron-latin-900-normal.woff2') format('woff2');
-  font-weight: 900;
+  font-family: 'Instrument Serif';
+  src: url('/fonts/instrument-serif-latin-400-italic.woff2') format('woff2');
+  font-weight: 400;
+  font-style: italic;
   font-display: swap;
 }
-@font-face {
-  font-family: 'Press Start 2P';
-  src: url('/fonts/press-start-2p-latin-400-normal.woff2') format('woff2');
-  font-display: swap;
-}
-:root {
-  --paper: #0d0221;
-  --paper-2: #1a0b3d;
-  --line: #3a2170;
-  --ink: #f5f0ff;
-  --ink-2: #c9bfec;
-  --green: #2de2e6; /* neon cyan: links, the main button */
-  --green-ink: #0d0221;
-  --green-soft: #2a1060;
-  --mint: #261256;
-  --green-mid: #ff3cac; /* neon magenta */
-  --green-deep: #ff3cac;
-  --card: #150a35;
-  --card-shadow: 0 0 0 1px rgb(45 226 230 / 0.35), 0 0 40px -8px rgb(255 60 172 / 0.45);
-  --cta-from: #c2166f;
-  --cta-to: #5b21b6;
-  --cta-ink: #ffffff;
-  --shot-shadow: 0 0 0 1px rgb(45 226 230 / 0.35), 0 0 60px -10px rgb(255 60 172 / 0.5);
-  --blob-opacity: 0;
-  --sunset: linear-gradient(180deg, #ffd319 0%, #ff901f 35%, #ff2975 70%, #f222ff 100%);
-  --chrome: linear-gradient(180deg, #ffffff 0%, #e4e9ff 38%, #9d8fd6 50%, #ffffff 53%, #cdd5ff 100%);
 
-  --serif: 'Orbitron', 'Eurostile', 'Bank Gothic', system-ui, sans-serif;
-  --pixel: 'Press Start 2P', ui-monospace, monospace;
+:root {
+  --paper: #faf8f4;
+  --paper-2: #f2eee6;
+  --line: #e4dfd4;
+  --ink: #16181a;
+  --ink-2: #55585c;
+  --green: #0b7a5c;
+  --green-ink: #ffffff;
+  --green-soft: #dcefe6;
+  --mint: #c3f2de;
+  --green-mid: #1f9d72;
+  --green-deep: #064c39;
+  --card: #ffffff;
+  --card-shadow: 0 1px 2px rgb(22 24 26 / 0.06), 0 30px 70px -24px rgb(6 76 57 / 0.35);
+  --cta-from: #0b7a5c;
+  --cta-to: #064c39;
+  --cta-ink: #ffffff;
+  --shot-shadow: 0 30px 80px -20px rgb(22 24 26 / 0.25);
+  --blob-opacity: 0.55;
+
+  --serif: 'Instrument Serif', 'Iowan Old Style', 'Palatino Linotype', Georgia, serif;
   --sans: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
   --width: 1120px;
   --gutter: 24px;
   --section: 96px;
-  color-scheme: dark;
+  color-scheme: light;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --paper: #0f1112;
+    --paper-2: #171a1c;
+    --line: #2a2e31;
+    --ink: #f1eee8;
+    --ink-2: #a6a9ad;
+    --green: #2fc497;
+    --green-ink: #06140f;
+    --green-soft: #163a2f;
+    --mint: #1d4d3d;
+    --green-mid: #2fc497;
+    --green-deep: #8ff0c8;
+    --card: #171a1c;
+    --card-shadow: 0 0 0 1px #2a2e31, 0 30px 70px -24px rgb(0 0 0 / 0.7);
+    --cta-from: #3fd8a6;
+    --cta-to: #1f9d72;
+    --cta-ink: #04140e;
+    --shot-shadow: none;
+    --blob-opacity: 0.35;
+    color-scheme: dark;
+  }
 }
 
 *,
@@ -1344,8 +1361,97 @@ h3 {
   }
 }
 
+/* ---------- retro mode (the menu's switch; retro-mode.js sets html.retro) ---------- */
+/* The logo: the usual one, or the neon one in retro mode. */
+.logo-retro {
+  display: none;
+}
+html.retro .logo-classic {
+  display: none;
+}
+html.retro .logo-retro {
+  display: block;
+}
+/* The switch, last in the menu: a little track that lights up. */
+.retro-switch {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  width: 100%;
+  min-height: 44px;
+  padding: 0 12px;
+  border: 0;
+  border-radius: 10px;
+  background: none;
+  color: var(--ink);
+  font: 500 1rem var(--sans);
+  cursor: pointer;
+}
+.retro-switch:hover {
+  background: var(--paper-2);
+}
+.retro-switch::after {
+  content: '';
+  flex: none;
+  width: 36px;
+  height: 20px;
+  border-radius: 999px;
+  background: radial-gradient(circle at 10px 50%, #fff 6px, transparent 6.5px) var(--ink-2);
+  transition: background-position 0.15s;
+}
+.retro-switch[aria-checked='true']::after {
+  background: radial-gradient(circle at 26px 50%, #0d0221 6px, transparent 6.5px), linear-gradient(90deg, #2de2e6, #ff3cac);
+}
+@font-face {
+  font-family: 'Orbitron';
+  src: url('/fonts/orbitron-latin-700-normal.woff2') format('woff2');
+  font-weight: 700;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'Orbitron';
+  src: url('/fonts/orbitron-latin-900-normal.woff2') format('woff2');
+  font-weight: 900;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'Press Start 2P';
+  src: url('/fonts/press-start-2p-latin-400-normal.woff2') format('woff2');
+  font-display: swap;
+}
+html.retro {
+  --paper: #0d0221;
+  --paper-2: #1a0b3d;
+  --line: #3a2170;
+  --ink: #f5f0ff;
+  --ink-2: #c9bfec;
+  --green: #2de2e6; /* neon cyan: links, the main button */
+  --green-ink: #0d0221;
+  --green-soft: #2a1060;
+  --mint: #261256;
+  --green-mid: #ff3cac; /* neon magenta */
+  --green-deep: #ff3cac;
+  --card: #150a35;
+  --card-shadow: 0 0 0 1px rgb(45 226 230 / 0.35), 0 0 40px -8px rgb(255 60 172 / 0.45);
+  --cta-from: #c2166f;
+  --cta-to: #5b21b6;
+  --cta-ink: #ffffff;
+  --shot-shadow: 0 0 0 1px rgb(45 226 230 / 0.35), 0 0 60px -10px rgb(255 60 172 / 0.5);
+  --blob-opacity: 0;
+  --sunset: linear-gradient(180deg, #ffd319 0%, #ff901f 35%, #ff2975 70%, #f222ff 100%);
+  --chrome: linear-gradient(180deg, #ffffff 0%, #e4e9ff 38%, #9d8fd6 50%, #ffffff 53%, #cdd5ff 100%);
+
+  --serif: 'Orbitron', 'Eurostile', 'Bank Gothic', system-ui, sans-serif;
+  --pixel: 'Press Start 2P', ui-monospace, monospace;
+  --sans: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  --width: 1120px;
+  --gutter: 24px;
+  --section: 96px;
+  color-scheme: dark;
+}
 /* ---------- retrofuture: the night sky, neon and chrome over every page above ---------- */
-body {
+html.retro body {
   background:
     radial-gradient(1px 1px at 12% 18%, #fff8 50%, transparent 51%),
     radial-gradient(1px 1px at 72% 9%, #fff9 50%, transparent 51%),
@@ -1362,7 +1468,7 @@ body {
     auto;
 }
 /* Scanlines, faint, as on an old screen. */
-body::after {
+html.retro body::after {
   content: '';
   position: fixed;
   inset: 0;
@@ -1370,27 +1476,24 @@ body::after {
   pointer-events: none;
   background: repeating-linear-gradient(180deg, rgb(255 255 255 / 0.025) 0 1px, transparent 1px 3px);
 }
-a {
-  color: var(--green);
-}
-.display,
-h1,
-h2 {
+html.retro .display,
+html.retro h1,
+html.retro h2 {
   font-weight: 900;
   text-transform: uppercase;
   letter-spacing: 0.02em;
 }
 /* Chrome headlines, and a sunset for what matters. */
-h1,
-.section h2,
-.closing h2 {
+html.retro h1,
+html.retro .section h2,
+html.retro .closing h2 {
   background: var(--chrome);
   -webkit-background-clip: text;
   background-clip: text;
   color: transparent;
 }
-h1 em,
-h2 em {
+html.retro h1 em,
+html.retro h2 em {
   display: inline-block;
   font-style: normal;
   background: var(--sunset);
@@ -1399,40 +1502,40 @@ h2 em {
   color: transparent;
   filter: drop-shadow(0 0 14px rgb(255 41 117 / 0.55));
 }
-.hero h1 {
+html.retro .hero h1 {
   font-size: clamp(2.05rem, 7.4vw, 4.75rem);
   line-height: 1.04;
   max-width: 13em;
 }
-.section h2,
-.closing h2 {
+html.retro .section h2,
+html.retro .closing h2 {
   font-size: clamp(1.75rem, 4.6vw, 3.25rem);
   line-height: 1.08;
 }
-.page h1 {
+html.retro .page h1 {
   font-size: clamp(1.9rem, 7vw, 3.75rem);
   line-height: 1.08;
 }
-.prose h2 {
+html.retro .prose h2 {
   font-size: clamp(1.2rem, 5.4vw, 1.75rem);
 }
 /* Wide capitals: a long word ("Friendsgiving") breaks rather than push a small phone sideways. */
-h1,
-h2 {
+html.retro h1,
+html.retro h2 {
   overflow-wrap: anywhere;
 }
-.page h1,
-.page h2 {
+html.retro .page h1,
+html.retro .page h2 {
   background: var(--chrome);
   -webkit-background-clip: text;
   background-clip: text;
   color: transparent;
 }
 /* Arcade pixels for the small labels. */
-.eyebrow,
-.start-note,
-.chat-head,
-.result-label {
+html.retro .eyebrow,
+html.retro .start-note,
+html.retro .chat-head,
+html.retro .result-label {
   font-family: var(--pixel);
   font-size: 0.625rem;
   font-weight: 400;
@@ -1440,14 +1543,14 @@ h2 {
   letter-spacing: 0.04em;
   text-transform: uppercase;
 }
-.eyebrow,
-.start-note {
+html.retro .eyebrow,
+html.retro .start-note {
   color: var(--green);
   text-shadow: 0 0 8px rgb(45 226 230 / 0.6);
 }
 
 /* Buttons: neon, with a chrome edge. */
-.btn {
+html.retro .btn {
   border-radius: 10px;
   box-shadow:
     0 0 0 1px rgb(255 255 255 / 0.25) inset,
@@ -1458,15 +1561,15 @@ h2 {
   text-transform: uppercase;
   font-size: 0.875rem;
 }
-.btn-lg,
-.btn-start {
+html.retro .btn-lg,
+html.retro .btn-start {
   font-size: 1rem;
   box-shadow:
     0 0 0 1px rgb(255 255 255 / 0.3) inset,
     0 0 30px -4px rgb(255 60 172 / 0.75),
     0 0 70px -20px rgb(91 33 182 / 0.9);
 }
-.btn-start:hover {
+html.retro .btn-start:hover {
   box-shadow:
     0 0 0 1px rgb(255 255 255 / 0.4) inset,
     0 0 40px 0 rgb(255 60 172 / 0.85),
@@ -1474,30 +1577,30 @@ h2 {
 }
 
 /* The bar: dark glass over the sky, a neon horizon under it. */
-.topbar {
+html.retro .topbar {
   background: rgb(13 2 33 / 0.82);
   border-bottom: 0;
   box-shadow:
     0 1px 0 0 rgb(255 60 172 / 0.6),
     0 6px 24px -10px rgb(255 60 172 / 0.6);
 }
-.brand {
+html.retro .brand {
   font-family: var(--serif);
   font-weight: 900;
   letter-spacing: 0.08em;
   text-transform: uppercase;
 }
-.menu-panel {
+html.retro .menu-panel {
   background: var(--card);
   border-color: var(--line);
   box-shadow: var(--card-shadow);
 }
 
 /* The hero: a striped sun setting on a moving grid. */
-.blob {
+html.retro .blob {
   display: none;
 }
-.hero-art::before {
+html.retro .hero-art::before {
   content: '';
   position: absolute;
   left: 50%;
@@ -1536,7 +1639,7 @@ h2 {
     transparent 92%
   );
 }
-.hero-art::after {
+html.retro .hero-art::after {
   content: '';
   position: absolute;
   left: -50%;
@@ -1561,38 +1664,38 @@ h2 {
 }
 
 /* The Venn in neon: glowing rings that light up where they cross. */
-.venn-c,
-.venn-c.c1,
-.venn-c.c2,
-.venn-c.c3 {
+html.retro .venn-c,
+html.retro .venn-c.c1,
+html.retro .venn-c.c2,
+html.retro .venn-c.c3 {
   mix-blend-mode: screen;
   color: #fff;
 }
-.venn-c.c1 {
+html.retro .venn-c.c1 {
   background: rgb(45 226 230 / 0.26);
   box-shadow:
     inset 0 0 0 2px #2de2e6,
     0 0 26px -4px #2de2e6;
 }
-.venn-c.c2 {
+html.retro .venn-c.c2 {
   background: rgb(255 60 172 / 0.26);
   box-shadow:
     inset 0 0 0 2px #ff3cac,
     0 0 26px -4px #ff3cac;
 }
-.venn-c.c3 {
+html.retro .venn-c.c3 {
   background: rgb(255 211 25 / 0.2);
   box-shadow:
     inset 0 0 0 2px #ffd319,
     0 0 26px -4px #ffd319;
 }
-.venn-c b {
+html.retro .venn-c b {
   font-family: var(--serif);
   font-weight: 700;
   letter-spacing: 0.06em;
   text-transform: uppercase;
 }
-.venn-hit {
+html.retro .venn-hit {
   font-family: var(--pixel);
   font-weight: 400;
   font-size: 0.6875rem;
@@ -1604,15 +1707,15 @@ h2 {
     0 0 0 2px #fff,
     0 0 24px 2px #ff3cac;
 }
-.venn-chip,
-.msg {
+html.retro .venn-chip,
+html.retro .msg {
   border-radius: 0;
   border: 2px solid #2de2e6;
   background: #150a35;
   color: var(--ink);
   box-shadow: 4px 4px 0 0 rgb(255 60 172 / 0.8);
 }
-.venn-chip {
+html.retro .venn-chip {
   font-family: var(--pixel);
   font-weight: 400;
   font-size: 0.5625rem;
@@ -1620,40 +1723,51 @@ h2 {
 }
 
 /* Cards: dark glass with a neon edge. */
-.chat,
-.result,
-.ask-body {
+html.retro .chat,
+html.retro .result,
+html.retro .ask-body {
   background: rgb(21 10 53 / 0.85);
   border: 1px solid rgb(45 226 230 / 0.35);
   box-shadow: 0 0 40px -10px rgb(255 60 172 / 0.45);
 }
-.msg-me {
+html.retro .msg-me {
   background: #2de2e6;
   border-color: #2de2e6;
   color: #0d0221;
 }
-.result-label {
+html.retro .result-label {
   background: rgb(45 226 230 / 0.12);
   color: var(--green);
 }
-.result-date {
+html.retro .result-date {
   font-family: var(--serif);
   font-weight: 900;
   font-size: clamp(1.15rem, 2vw, 1.5rem);
 }
-.section {
+html.retro .section {
   border-top: 0;
   background: linear-gradient(90deg, transparent, rgb(255 60 172 / 0.5), transparent) top / 100% 1px no-repeat;
 }
-.footer {
+html.retro .footer {
   border-top-color: var(--line);
 }
-:focus-visible {
+html.retro :focus-visible {
   outline-color: #ffd319;
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .hero-art::after {
+  html.retro .hero-art::after {
     animation: none;
+  }
+}
+/* The smallest phones: the wide capitals in the bar a touch tighter, so it fits. */
+@media (max-width: 380px) {
+  html.retro .brand {
+    letter-spacing: 0.03em;
+  }
+  html.retro .nav-links .btn {
+    padding: 0 12px;
+    font-size: 0.75rem;
+    letter-spacing: 0.02em;
   }
 }

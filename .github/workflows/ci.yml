@@ -50,7 +50,7 @@ jobs:
           code=$(echo "$changed" | grep -vE '\.md$|^docs/|^LICENSE$|^\.github/ISSUE_TEMPLATE/|^\.github/pull_request_template\.md$|^\.github/CODEOWNERS$' || true)
           if [ -n "$code" ]; then echo "code=true" >> "$GITHUB_OUTPUT"; else echo "code=false" >> "$GITHUB_OUTPUT"; fi
           # Only the website's own files (and its tests)? Then only the website's browser tests run.
-          other=$(echo "$code" | grep -vE '^public/(index|privacy)\.html$|^public/(site\.css|hero-venn\.js|menu\.js|contact-form\.js)$|^e2e/(hero|menu|contact)\.spec\.js$' || true)
+          other=$(echo "$code" | grep -vE '^public/(index|privacy)\.html$|^public/(site\.css|hero-venn\.js|menu\.js|contact-form\.js|retro-mode\.js|logo-retro\.svg)$|^e2e/(hero|menu|contact|retro)\.spec\.js$' || true)
           if [ -n "$code" ] && [ -z "$other" ]; then echo "site=true" >> "$GITHUB_OUTPUT"; else echo "site=false" >> "$GITHUB_OUTPUT"; fi
           { echo "### Changed files"; echo '```'; echo "$changed"; echo '```'; } >> "$GITHUB_STEP_SUMMARY"
 

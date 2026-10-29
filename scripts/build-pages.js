@@ -33,8 +33,8 @@ function head({ title, description, path, ogTitle, ogDescription, image, jsonLd 
 <meta charset="utf-8" />
 <meta name="referrer" content="no-referrer" />
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-<meta name="theme-color" content="#0d0221" media="(prefers-color-scheme: light)" />
-<meta name="theme-color" content="#0d0221" media="(prefers-color-scheme: dark)" />
+<meta name="theme-color" content="#faf8f4" media="(prefers-color-scheme: light)" />
+<meta name="theme-color" content="#0f1112" media="(prefers-color-scheme: dark)" />
 <title>${esc(title)}</title>
 <meta name="description" content="${attr(description)}" />
 <link rel="canonical" href="${ORIGIN}${path}" />
@@ -48,16 +48,17 @@ function head({ title, description, path, ogTitle, ogDescription, image, jsonLd 
 <meta property="og:image:height" content="630" />
 <meta name="twitter:card" content="summary_large_image" />
 <link rel="icon" href="/favicon.ico?v=5" sizes="32x32" />
-<link rel="icon" href="/logo-retro.svg?v=1" type="image/svg+xml" />
-<link rel="preload" href="/fonts/orbitron-latin-900-normal.woff2" as="font" type="font/woff2" crossorigin />
+<link rel="icon" href="/favicon.svg?v=5" type="image/svg+xml" />
+<link rel="preload" href="/fonts/instrument-serif-latin-400-normal.woff2" as="font" type="font/woff2" crossorigin />
 <link rel="stylesheet" href="/site.css" />
+    <script src="/retro-mode.js"></script>
 ${jsonLd.map((d) => `<script type="application/ld+json">${JSON.stringify(d).replace(/</g, '\\u003c')}</script>`).join('\n')}
 </head>
 <body>
 <a class="skip" href="#main">Skip to content</a>
 <header class="topbar">
 <div class="wrap nav">
-<a href="/" class="brand"><img src="/logo-retro.svg?v=1" width="28" height="28" alt="" /> Venn</a>
+<a href="/" class="brand"><img src="/favicon.svg?v=5" width="28" height="28" alt="" class="logo-classic" /><img src="/logo-retro.svg?v=1" width="28" height="28" alt="" class="logo-retro" /> Venn</a>
 <nav class="nav-links" aria-label="Main">
 <a href="/new" class="btn btn-sm">Create a Venn</a>
 <details class="menu">
@@ -67,6 +68,7 @@ ${jsonLd.map((d) => `<script type="application/ld+json">${JSON.stringify(d).repl
 <a href="/privacy">Privacy</a>
 <a href="https://docs.venn.day">Docs</a>
 <a href="https://github.com/sephmard/venn">GitHub</a>
+<button type="button" class="retro-switch" role="switch" aria-checked="false">Retro mode</button>
 </div>
 </details>
 </nav>
@@ -118,7 +120,7 @@ function pollHtml({ name, of, rows }) {
   const label = `A Venn poll for ${name}: ${rows.map(([d, n]) => `${d}, ${n} of ${of}`).join(', ')}. ${best} is the best date.`;
   return `<figure class="result" role="img" aria-label="${attr(label)}">
 <div aria-hidden="true">
-<p class="result-head"><img src="/logo-retro.svg?v=1" width="20" height="20" alt="" /> ${esc(name)}</p>
+<p class="result-head"><img src="/favicon.svg?v=5" width="20" height="20" alt="" class="logo-classic" /><img src="/logo-retro.svg?v=1" width="20" height="20" alt="" class="logo-retro" /> ${esc(name)}</p>
 <ul class="votes">
 ${rows.map(([d, n]) => `<li${d === best ? ' class="best"' : ''}><span>${esc(d)}</span><i style="--n: ${Math.round((100 * n) / of)}%"></i><b>${n} of ${of}</b></li>`).join('\n')}
 </ul>
