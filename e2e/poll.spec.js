@@ -317,10 +317,10 @@ test('ask when people are available: what the organizer picks is available or if
   await page.goto('/new/free');
   await page.fill('#title', 'Coffee');
   await setLevel(page, 'hours');
-  // A second tap on a time makes it if needed.
+  // Times made if needed: from the list (the two days may be in different weeks of the calendar).
   await addHours(page, 2, [600]);
-  const times = page.locator('#when .tg-block');
-  for (let i = 0; i < (await times.count()); i++) await times.nth(i).click();
+  const yes = page.locator('#free-list .chip:not(.maybe) .chip-flip');
+  while (await yes.count()) await yes.first().click();
   await expect(page.locator('#free-list .chip.maybe').first()).toBeVisible();
   await expect(page.locator('#free-list .chip:not(.maybe)')).toHaveCount(0);
   await page.click('#submit');
