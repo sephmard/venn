@@ -65,7 +65,7 @@ test('vote on a few dates: collect votes, pick the final date', async ({ page, r
   // A celebration, then the new poll.
   await expect(page.locator('.party [role=status]')).toHaveText(/Your Venn is ready!.*bringing people together/);
   // Sharing is the next step, so it's the main button.
-  await expect(page.getByRole('button', { name: 'Share poll' })).toBeFocused();
+  await expect(page.getByRole('button', { name: 'Copy link' })).toBeFocused();
   await expect(page.locator('#mine .row')).toHaveCount(14);
   await expect(page.locator('.party')).toHaveCount(0);
   await expect(page.locator('details.organizer')).not.toHaveAttribute('open', '');
@@ -945,7 +945,7 @@ test('landing page: the logo, Create a Venn and the menu (GitHub is in it), and 
   await expect(page.getByRole('button', { name: 'Create Venn' })).toBeVisible();
 });
 
-test('the poll created celebration shows the dog; Share poll copies the link and opens the poll', async ({ page, context }) => {
+test('the poll created celebration shows the dog; Copy link copies the link and opens the poll', async ({ page, context }) => {
   await page.emulateMedia({ reducedMotion: 'reduce' });
   await page.goto('/new/pick');
   await page.fill('#organizer', 'Sam');
@@ -955,8 +955,7 @@ test('the poll created celebration shows the dog; Share poll copies the link and
   await expect(page.locator('.party [role=status]')).toContainText('Your Venn is ready!');
   await expect.poll(() => page.locator('.party-hero img').evaluate((img) => img.naturalWidth)).toBeGreaterThan(0);
   await context.grantPermissions(['clipboard-read', 'clipboard-write']);
-  await page.evaluate(() => (navigator.share = undefined)); // no share sheet here: the link is copied
-  await page.getByRole('button', { name: 'Share poll' }).click();
+  await page.getByRole('button', { name: 'Copy link' }).click();
   await expect(page).toHaveURL(/\/e\/\w+$/);
   await expect(page.locator('#toast')).toContainText('Invite link copied');
   await expect(page.locator('.party')).toHaveCount(0);
@@ -1621,8 +1620,9 @@ test('on a phone, a new poll leads with sharing: one share button, the group, an
   await expect(page.locator('#ev-title')).toHaveText('Book club');
   await expect(page.locator('.finn[data-finn="waiting"]')).toBeVisible();
 
-  // One way to share on the page: the big button at the top. Finn's note doesn't add another.
-  const share = page.locator('button:visible', { hasText: /^(Share the poll|Copy invite link)$/ });
+  // Sharing at the top of the page: Copy link first (Share, the phone's sheet, beside it where there is
+  // one). Finn's note doesn't add another.
+  const share = page.locator('button:visible', { hasText: /^Copy link$/ });
   await expect(share).toHaveCount(1);
   await expect(share).toHaveId('copy');
   await expect(share).toHaveClass(/btn-primary/);
@@ -2853,7 +2853,7 @@ test('guests see the first option sooner: share at the bottom, no view switch fo
   // The invite link is under everything else, not in the header.
   await expect(page.locator('.poll-head #copy')).toHaveCount(0);
   const share = page.locator('.guest-share #copy');
-  await expect(share).toHaveText(/Copy invite link|Share the poll/);
+  await expect(share).toHaveText('Copy the link');
   const panels = await page.locator('.panels').boundingBox();
   expect((await share.boundingBox()).y).toBeGreaterThan(panels.y + panels.height - 1);
   expect((await share.boundingBox()).height).toBeGreaterThanOrEqual(44);

@@ -9,3 +9,4 @@ docs/.video/
 .dev.vars*
 .env*
 site/
+.claude/worktrees/

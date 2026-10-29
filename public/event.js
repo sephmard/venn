@@ -227,7 +227,7 @@ export async function renderEvent(id, navigate) {
           <p class="poll-meta" id="ev-meta"></p>
           <div id="ev-details"></div>
         </div>
-        ${guest ? '' : `<div class="poll-share"><button class="btn btn-primary" id="copy">${canShare ? 'Share the poll' : 'Copy invite link'}</button></div>`}
+        ${guest ? '' : `<div class="poll-share"><button class="btn btn-primary" id="copy">Copy link</button>${canShare ? '<button class="btn" id="share-sheet">Share</button>' : ''}</div>`}
       </header>
       ${
         guest && saved(id).adminToken
@@ -360,7 +360,7 @@ export async function renderEvent(id, navigate) {
       ${
         // Guests came to answer: passing the link on waits at the bottom, under everything else.
         guest
-          ? `<p class="poll-share guest-share muted" style="text-align:center;margin:20px 0 0">Know someone who should answer too? <button type="button" class="link-btn" id="copy">${canShare ? 'Share the poll' : 'Copy invite link'}</button></p>`
+          ? `<p class="poll-share guest-share muted" style="text-align:center;margin:16px 0 0">Know someone who should answer too? <button type="button" class="link-btn" id="copy">Copy the link</button></p>`
           : ''
       }
     </article>`;
@@ -373,9 +373,9 @@ export async function renderEvent(id, navigate) {
       location.reload();
     };
 
-  // The share sheet sends a short nudge with the link; a copy is the bare link, which chat apps unfurl.
-  $('#copy').onclick = () => {
-    track('share', { how: canShare ? 'sheet' : 'copy', from: 'poll' });
+  // Copy link is the bare link, which chat apps unfurl; the share sheet sends a short nudge with it.
+  const shareSheet = () => {
+    track('share', { how: 'sheet', from: 'poll' });
     const { title, emoji, organizer, finalStart } = ev();
     // With its own picture, a poll has no emoji to show.
     const text = inviteText({
@@ -385,8 +385,13 @@ export async function renderEvent(id, navigate) {
       pick: optionsMode && !partsMode,
       set: finalStart != null,
     });
-    canShare ? navigator.share({ title, text, url: shareUrl }).catch(() => {}) : copy(shareUrl, 'Invite link copied');
+    navigator.share({ title, text, url: shareUrl }).catch(() => {});
   };
+  $('#copy').onclick = () => {
+    track('share', { how: 'copy', from: 'poll' });
+    copy(shareUrl, 'Link copied');
+  };
+  if ($('#share-sheet')) $('#share-sheet').onclick = shareSheet;
   $('#name').value = me()?.name || lastName();
   $('#name').oninput = () => setDirty(true);
 
@@ -1527,7 +1532,7 @@ export async function renderEvent(id, navigate) {
 
   // ----- picking the final time -----
   $('#event-root').addEventListener('click', async (e) => {
-    if (e.target.closest('[data-share]')) return $('#copy').click();
+    if (e.target.closest('[data-share]')) return canShare ? shareSheet() : $('#copy').click();
     // Change the date: the next best dates, right in the banner, each with Pick.
     if (e.target.closest('#change-date, #change-cancel')) {
       st.changing = !!e.target.closest('#change-date');

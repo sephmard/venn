@@ -98,3 +98,53 @@ test('a tap on the hours calendar gives the hour tapped, as the labels read', as
   await tapAt(page, day, 1290, '#when');
   await expect(page.locator('#free-list')).toContainText('9:30 – 10:00 PM');
 });
+
+test('on the hours calendar a tap goes round, as on days: available, if needed, removed', async ({ page }) => {
+  await page.goto('/new');
+  await setLevel(page, 'hours');
+  const day = addDays(await nextMonth(page), 3);
+  await tapAt(page, day, 1140, '#when');
+  const block = page.locator('#when .tg-block');
+  await expect(block).toHaveCount(1);
+  await block.click();
+  await expect(page.locator('#when .tg-block.opt-maybe')).toHaveCount(1);
+  await block.click();
+  await expect(block).toHaveCount(0);
+  await expect(page.locator('#free-list .chip')).toHaveCount(0);
+});
+
+test('on a phone, press and hold on hours to draw a time, or to move one; a swipe still scrolls', async ({
+  page,
+  context,
+  isMobile,
+}) => {
+  test.skip(!isMobile, 'touch only');
+  const cdp = await context.newCDPSession(page);
+  const touch = (type, x, y) =>
+    cdp.send('Input.dispatchTouchEvent', { type, touchPoints: type === 'touchEnd' ? [] : [{ x, y }] });
+  await page.goto('/new');
+  await setLevel(page, 'hours');
+  const col = page.locator('#when .tg-col.tg-draw').nth(1);
+  await page.locator('#when .tg-scroll').scrollIntoViewIfNeeded();
+  const row = await col.evaluate((el) => {
+    el.closest('.tg-scroll').scrollTop = 0;
+    return parseFloat(getComputedStyle(el.closest('.tg')).getPropertyValue('--row'));
+  });
+  const box = await col.boundingBox();
+  const x = box.x + box.width / 2;
+  const y = (m) => box.y + ((m - 420) / 30) * row + row / 2;
+  // Hold at 9, drag down to the 11:30 half hour: 9 AM – 12 PM.
+  await touch('touchStart', x, y(540));
+  await page.waitForTimeout(450);
+  for (let m = 570; m <= 690; m += 30) await touch('touchMove', x, y(m));
+  await touch('touchEnd');
+  await expect(page.locator('#free-list')).toContainText('9 AM – 12 PM');
+  // Hold the time, drag it down an hour: 10 AM – 1 PM.
+  const b = await page.locator('#when .tg-block').boundingBox();
+  await touch('touchStart', b.x + b.width / 2, b.y + b.height / 2);
+  await page.waitForTimeout(450);
+  for (let i = 1; i <= 4; i++) await touch('touchMove', b.x + b.width / 2, b.y + b.height / 2 + (row * 2 * i) / 4);
+  await touch('touchEnd');
+  await expect(page.locator('#free-list')).toContainText('10 AM – 1 PM');
+  await expect(page.locator('#when .tg-block.opt-maybe')).toHaveCount(0); // a hold isn't a tap
+});

@@ -248,18 +248,19 @@ export async function submit(body, occasion, answer = null) {
     });
     // A little party, while the poll page loads behind it.
     import('./event.js').catch(() => {});
-    // The main button shares the poll: the phone's share sheet, or the link copied.
+    // The main button copies the link; on phones, Share opens the share sheet.
     const url = `${location.origin}/e/${id}`;
     let copying = null; // the link being copied, so its toast can show once the poll is open
     const text = (await invite)?.inviteText({ ...body, pick: body.mode === 'options' && body.layout !== 'parts' });
-    const share = () => {
-      if (navigator.share && matchMedia('(pointer: coarse)').matches) navigator.share({ title, text, url }).catch(() => {});
-      else
-        copying = navigator.clipboard.writeText(url).then(
-          () => true,
-          () => false,
-        );
-    };
+    const share = () =>
+      (copying = navigator.clipboard.writeText(url).then(
+        () => true,
+        () => false,
+      ));
+    const sheet =
+      navigator.share && matchMedia('(pointer: coarse)').matches
+        ? () => navigator.share({ title, text, url }).catch(() => {})
+        : null;
     // The next one of a plan: also one tap to email last time's group.
     const also = body.seriesOf ? editPoll?.inviteLast(url, title) : null;
     const party = (await celebration)?.celebrate({
@@ -267,6 +268,7 @@ export async function submit(body, occasion, answer = null) {
       picture: icon?.picture(),
       title,
       share,
+      sheet,
       also,
     });
     await party?.shown;
