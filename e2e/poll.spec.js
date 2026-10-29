@@ -3230,3 +3230,55 @@ test('the picked date says so on its row, and the organizer changes it in two ta
   const ev = await (await request.get(`/api/events/${id}`)).json();
   expect(ev.finalStart).toBe(options[1].start);
 });
+
+test('days and times mix: a day keeps the hours drawn on it, and days added after are all day', async ({ page }) => {
+  await page.goto('/new/free');
+  await page.fill('#organizer', 'Sam');
+  await page.fill('#title', 'Dinner');
+  const first = await nextMonth(page);
+  // 6 to 9 PM on the 1st, drawn on the hours calendar.
+  await setLevel(page, 'hours');
+  await addHours(page, 1, [1080, 1140, 1200]);
+  await expect(page.locator('#free-list')).toContainText('6 – 9 PM');
+  // Back on the days, two more days: the 1st keeps its times.
+  await setLevel(page, 'days');
+  await tapDays(page, [addDays(first, 2), addDays(first, 3)]);
+  await expect(page.locator(`#when .cal-day[data-date="${first}"] small`)).toHaveText('Times');
+  await expect(page.locator(`#when .cal-day[data-date="${addDays(first, 2)}"] small`)).toHaveText('Available');
+  await expect(page.locator('#free-list .mix-note')).toContainText('6 – 9 PM');
+  await expect(page.locator('#free-list .mix-note')).toContainText('The other days are all day.');
+  await expect(page.locator('#summary')).toHaveText('3 days to choose from');
+  // Created: one poll with the times, and the two days whole.
+  await page.click('#submit');
+  await expect(page).toHaveURL(/\/e\//);
+  const ev = await (await page.request.get(`/api/events/${page.url().split('/e/')[1]}`)).json();
+  expect(ev.windows).toEqual([
+    { date: first, start: 1080, end: 1260 },
+    { date: addDays(first, 2), start: 540, end: 1320 },
+    { date: addDays(first, 3), start: 540, end: 1320 },
+  ]);
+});
+
+test('days and parts of the day mix: an evening stays an evening, and a day added after is the whole day', async ({ page }) => {
+  await page.goto('/new/free');
+  await page.fill('#organizer', 'Sam');
+  await page.fill('#title', 'Drinks');
+  // A Monday of next month, so its week is on the calendar.
+  const next = await nextMonth(page);
+  const monday = addDays(next, (8 - new Date(`${next}T12:00:00Z`).getUTCDay()) % 7);
+  await tapDays(page, [monday]);
+  // Parts of the day: only the evening that Monday.
+  await setLevel(page, 'parts');
+  for (const r of [0, 1]) await page.locator(`#when .pg-cell[data-d="${monday}"][data-r="${r}"]`).click(); // available, then if needed
+  for (const r of [0, 1]) await page.locator(`#when .pg-cell[data-d="${monday}"][data-r="${r}"]`).click(); // then off
+  await expect(page.locator('#summary')).toHaveText('1 time to choose from');
+  // Back on the days, the Wednesday: the Monday keeps its evening.
+  await setLevel(page, 'days');
+  await tapDays(page, [addDays(monday, 2)]);
+  await expect(page.locator('#free-list .mix-note')).toContainText('Evening');
+  await page.click('#submit');
+  await expect(page).toHaveURL(/\/e\//);
+  const ev = await (await page.request.get(`/api/events/${page.url().split('/e/')[1]}`)).json();
+  expect(ev.layout).toBe('parts');
+  expect(ev.options).toHaveLength(4); // Monday's evening, and Wednesday's morning, afternoon and evening
+});
