@@ -1371,6 +1371,8 @@ test('ask when people are free: parts of the day', async ({ page, request }) => 
   await expect(rows.nth(2)).toHaveAccessibleName(/1 unavailable/);
   await expect(rows.nth(0)).toContainText('✓ Everyone');
   await expect(page.locator('#panel-group .legend', { hasText: 'Unavailable' })).toBeVisible();
+  // Just the three answers in the key: "✓ Everyone" on a row says itself.
+  await expect(page.locator('.ov-legend')).toHaveText(/^\s*Available\s*If needed\s*Unavailable\s*$/);
   // A tap shows who.
   await rows.first().click();
   await expect(rows.first()).toHaveAttribute('aria-expanded', 'true');
