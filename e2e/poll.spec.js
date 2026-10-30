@@ -352,7 +352,7 @@ test('ask when people are free: paint hours and see the best time', async ({ pag
   await addHours(page, 2, [540, 600, 660]);
   await expect(page.locator('#free-list')).toContainText('9 AM – 12 PM');
   await page.click('#submit');
-  await expect(page.locator('#panel-mine h2')).toHaveText('When are you available?');
+  await expect(page.locator('#panel-mine > h2')).toHaveText('When are you available?');
   await changeAnswer(page); // the organizer's answer came with the poll
   // Answered like any poll: a row for each stretch of time offered, here 9 AM – 12 PM on two days.
   const rows = page.locator('#mine .row');
@@ -1200,7 +1200,7 @@ test('with answers hidden, a guest stays on their own answer after sending it; a
   await request.post(`/api/events/${id}/finalize`, { data: { start: t0 }, headers: { 'x-admin-token': adminToken } });
   await page.reload();
   if (await page.locator('#tab-mine').isVisible()) await page.click('#tab-mine');
-  await expect(page.locator('#panel-mine h2')).toHaveText('The date is picked. Can you make it?');
+  await expect(page.locator('#panel-mine > h2')).toHaveText('The date is picked. Can you make it?');
 });
 
 test('installable: manifest and icons are served', async ({ request }) => {
