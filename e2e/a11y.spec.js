@@ -22,6 +22,14 @@ async function audit(page, label, { party = false } = {}) {
     const t = document.getElementById('toast');
     if (t) t.textContent = '';
   });
+  // Colours fading from one to the next (a button's background as a look comes in) aren't either.
+  // Waited for from here, with a limit: some tests stop the page's clock.
+  await page
+    .waitForFunction(() => !document.getAnimations().some((a) => a instanceof CSSTransition && a.playState === 'running'), null, {
+      polling: 100,
+      timeout: 2000,
+    })
+    .catch(() => {});
   // Nor is the "poll created" celebration while it fades away (it has its own audit).
   if (!party) await expect(page.locator('.party')).toHaveCount(0, { timeout: 10_000 });
   // The celebration's own audit waits for its buttons to finish fading in: half-faded text isn't what people read.
