@@ -3146,6 +3146,29 @@ test('times drawn in hours stay on every level, and the poll asks about them whe
   expect(ev.windows).toEqual([{ date: first, start: 1140, end: 1200 }]);
 });
 
+test("what the organizer picks is the key's green at every level, in the retro look too", async ({ page }) => {
+  for (const url of ['/new/free', '/new/free?retro=1']) {
+    await page.goto(url);
+    const first = await nextMonth(page);
+    const green = () => page.locator('.tap-key .swatch-yes').evaluate((el) => getComputedStyle(el).backgroundColor);
+    const bg = (sel) =>
+      page
+        .locator(sel)
+        .first()
+        .evaluate((el) => getComputedStyle(el).backgroundColor);
+    await tapDays(page, [first]);
+    expect(await bg(`#when .cal-day[data-date="${first}"]`)).toBe(await green());
+    await setLevel(page, 'parts');
+    expect(await bg('#when .pg-cell.part.on')).toBe(await green());
+    await setLevel(page, 'hours');
+    // A time of its own on the 2nd (the 1st is all day there).
+    await tapAt(page, addDays(first, 1), 1080, '#when');
+    await expect(page.locator('#when .tg-block.opt:not(.opt-maybe)').first()).toBeVisible();
+    for (const b of await page.locator('#when .tg-block.opt:not(.opt-maybe)').all())
+      expect(await b.evaluate((el) => getComputedStyle(el).backgroundColor)).toBe(await green());
+  }
+});
+
 /** A finger swipe across `sel`, `dx` pixels sideways in about 150ms; `rest` ms of holding first. */
 async function swipeAcross(page, sel, dx, rest = 0) {
   await page
