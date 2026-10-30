@@ -1,5 +1,5 @@
 // The create pages' shared parts. Every new poll is a Venn:
-//   /new       You pick the days (and times) that could work. Everyone marks when they're available; Venn finds the overlap.
+//   /new       You pick the days (and times) that could work; everyone marks theirs; Venn finds the overlap.
 //   /new/pick  The older "vote on a few dates" page, for editing and copying polls made with it.
 
 import { IF_NEEDED, YES, isEmail } from './core.js';
@@ -14,11 +14,12 @@ await new Promise((done) =>
   ),
 );
 
-// The organizer's privacy choices, and their switches in "Privacy options".
+// The organizer's on/off choices, and their switches: "Privacy options", and the retro look.
 const PRIVACY = [
   ['requireEmail', '#p-email'],
   ['hideNames', '#p-names'],
   ['hideResults', '#p-results'],
+  ['retro', '#p-retro'],
 ];
 
 // Kinds of plans (templates), with sensible defaults: see templates.js.
@@ -122,6 +123,7 @@ export function youFields() {
         <p class="hint" id="notify-hint">We'll email you the link and each answer.</p>
       </div>
       <p class="hint" id="notify-off" hidden>Email isn't switched on for this Venn server.</p>
+      <label class="switch"><input type="checkbox" role="switch" id="p-retro"> Retro look</label>
       <details class="reveal" id="privacy-opts">
         <summary>Privacy options</summary>
         <label class="switch"><input type="checkbox" role="switch" id="p-email"> Ask guests for their email</label>
@@ -185,7 +187,7 @@ export function wirePlan(onOccasion) {
     // Tapping the same template over and over gets noticed.
     taps = taps[0] === o ? [o, taps[1] + 1] : [o, 1];
     if (e.isTrusted && taps[1] > 4) egg('taps', o);
-    // What it fills in (template-notes.js), unless another was chosen meanwhile or a poll is being edited.
+    // What it fills in (template-notes.js), unless another was chosen or a poll is edited.
     const notes = await import('./template-notes.js').catch(() => null);
     if (!notes || !$('#desc') || (o !== current && current)) return; // or the page has gone
     const fill = notes.prefill(current, $('#desc').value, noted);

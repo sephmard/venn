@@ -62,7 +62,7 @@ export function fillCommon(ev, src, { occasions, privacy, icon }) {
   // An edited poll keeps the time zone it was made in, so its times don't move.
   if (ev.timezone) $('#tz').value = ev.timezone;
   for (const [key, el] of privacy) $(el).checked = !!ev[key];
-  $('#privacy-opts').open = privacy.some(([key]) => ev[key]);
+  $('#privacy-opts').open = privacy.some(([key]) => key !== 'retro' && ev[key]);
   if (src.edit) {
     $('#create h1').textContent = 'Edit your poll';
     $('#create .lede')?.remove();

@@ -7,7 +7,9 @@
 export const STICKER_KEYS = ['its-set', 'see-you-there', 'im-in', 'finn-approves', 'plans-over-excuses', 'cant-wait'];
 
 const EVERY = 3200;
-const src = (key) => `/img/stickers/finn-${key}.webp`;
+// A retro poll (or the website's retro mode) shows the retro set.
+const src = (key) =>
+  `/img/stickers/${globalThis.document?.documentElement?.classList.contains('retro') ? 'retro/' : ''}finn-${key}.webp`;
 
 /** The stickers stacked in one square of `size` px, the first showing. Decorative: put it in aria-hidden. */
 export const stickerStack = (size) =>

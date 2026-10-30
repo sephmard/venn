@@ -124,6 +124,8 @@ The app (`public/styles.css`, for `/new` and `/e/:id`) uses the same colors and 
 
 The website has a second look, switched on by **Retro mode** in its menu (`public/retro-mode.js`, a tiny script in `<head>` so it never flashes; remembered in this browser; off by default). It sets `html.retro`, and every retro rule in `site.css` sits under it. The app and poll pages never change.
 
+**Retro polls.** An organizer can give one poll the **Retro look** (a switch when creating it, and in its organizer tools). Its page then opens in the same night-sky look for everyone (`public/retro-app.css`, fetched only for those polls, over `html.retro`), with an arcade toast and the retro Finn stickers, and its emails come re-coloured in neon (`retroEmail` in `src/notify.js`). The answers keep their meaning: available is green, if needed amber, unavailable pink.
+
 **Direction: retrofuturist.** A synthwave night: deep-space purple with stars and faint scanlines, chrome headlines with a sunset gradient on the words that matter, neon cyan and magenta, and arcade pixel type for small labels. The hero sets a striped sun on a moving neon grid, and the Venn's circles are glowing rings that light up where they cross. Bold and playful, but the words stay easy to read. One look, day or night (`color-scheme: dark`).
 
 ### Color
