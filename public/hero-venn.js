@@ -43,11 +43,11 @@ function start(fig) {
 
   // The story, in seconds: noise, then the messages find their friends, then the circles meet.
   // Unhurried, so each step can be followed.
-  const GATHER = 6,
-    JOIN = 8.6,
-    MET = 11,
-    PART = 26,
-    LOOP = 29.5;
+  const GATHER = 3,
+    JOIN = 5.4,
+    MET = 7.6,
+    PART = 20,
+    LOOP = 23.5;
   let t0 = performance.now();
   let idleSince = still ? 0 : null; // after a tap or a drag, the circles just float a while
   let grab = null; // { i, x, y, from: {x, y} }
