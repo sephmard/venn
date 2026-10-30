@@ -16,6 +16,9 @@ the same PR** (and CLAUDE.md if it's a rule that matters in review).
   UI instead. Cut helper text, hints and labels that restate what the screen already shows. Every
   word must earn its place. ("Webhooks for Slack…", "what your guests will mark" and "long enough"
   were all cut for this.)
+- **Concise copy: the strongest line, once.** Drop a heading that only restates the sentence under
+  it; the concrete line ("Free, with no trial, no paid plan and no catch.") is the message. The
+  website's "good stuff" list is those lines alone, with no bold titles.
 - **Elegant and intuitive over clever.** Fewer controls, fewer choices, one obvious way.
 - **Think as the user.** Walk the real journey (organizer creating, guest answering, organizer
   picking, changing their mind) on a phone before calling something done.
@@ -59,6 +62,10 @@ the same PR** (and CLAUDE.md if it's a rule that matters in review).
 - **Times drawn in hours stay as drawn on every level.** The list shows them on Days and Parts of day
   too; on Parts of day their part is lit, and tapping it acts on those times. The poll asks about
   them wherever Create is pressed.
+- **Guests answer on the list, always.** A poll opens on its list for the people it's sent to, with no
+  calendar view; only the organizer can switch to a calendar. **Time selection is the same for every
+  poll**: a row per option with Yes / If needed / No. An hours poll's rows are the stretches of time
+  the organizer offered; no painting half hours, no parts of the day as well.
 - Likewise, **parts of the day show on Hours** as those parts' times, whichever way you get there.
 - Templates shape the calendar only while nothing is picked; they never move or remove picks. A second
   tap turns one off.

@@ -1098,29 +1098,11 @@ ol.best .when {
   opacity: 0.7;
 }
 
-/* Hours grid (paint and heatmap) */
-/* Three buttons on a line, which never push past a phone's edge: in a wide font, the last moves to
-   a second line instead. */
-.brush {
-  display: flex;
-  flex-wrap: wrap;
-  border-radius: 22px;
-  margin-bottom: 4px;
-}
-.brush button {
-  flex: 1 1 auto;
-  white-space: nowrap;
-  padding: 6px 8px;
-}
+/* Hours grid (everyone's answers) */
 @media (max-width: 374px) {
   .seg button {
     padding-inline: 4px;
     font-size: 0.9375rem;
-  }
-  .brush button {
-    padding: 6px 3px;
-    gap: 4px;
-    font-size: 0.8125rem;
   }
 }
 .swatch {
@@ -1153,36 +1135,11 @@ ol.best .when {
   width: max-content;
   min-width: 100%;
 }
-/* A mouse drags across cells to paint. On touch screens a swipe scrolls and a tap marks one time. */
-.grid:not(.readonly) .cell {
-  touch-action: none;
-}
-@media (pointer: coarse) {
-  .grid:not(.readonly),
-  .grid:not(.readonly) .cell {
-    touch-action: pan-y;
-  }
-}
 .grid .day-label {
   font-size: 0.75rem;
   text-align: center;
   line-height: 1.2;
   padding-bottom: 4px;
-}
-.grid .day-fill {
-  border: 0;
-  background: none;
-  color: inherit;
-  font: inherit;
-  font-size: 0.75rem;
-  min-height: 44px;
-  border-radius: 8px;
-  cursor: pointer;
-  text-decoration: underline dotted;
-  text-underline-offset: 3px;
-}
-.grid .day-fill:hover {
-  background: var(--surface-2);
 }
 .grid .day-label b {
   display: block;
@@ -2150,20 +2107,6 @@ pre.code {
     padding-inline: 12px;
   }
 }
-.hview-h {
-  margin: 0 0 6px;
-  font-weight: 650;
-}
-.hview {
-  margin-bottom: 4px;
-}
-#quick-hours > .hint {
-  margin: 4px 0 2px;
-}
-.quick-votes {
-  grid-template-columns: repeat(auto-fit, minmax(96px, 1fr));
-}
-
 /* Blocks on the week: drag an edge to change the length; "if needed" options are amber. */
 .tg-handle {
   position: absolute;

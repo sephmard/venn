@@ -819,7 +819,9 @@ h3 {
 .hl-list li {
   position: relative;
   padding-left: 34px;
-  color: var(--ink-2);
+  color: var(--ink);
+  font-size: 1.0625rem;
+  font-weight: 550;
   line-height: 1.5;
 }
 .hl-list li::before {
@@ -836,10 +838,6 @@ h3 {
   color: var(--green);
   font-size: 0.8rem;
   font-weight: 800;
-}
-.hl-list b {
-  display: block;
-  color: var(--ink);
 }
 .hl-list a {
   color: var(--green);

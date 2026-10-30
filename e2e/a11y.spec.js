@@ -271,13 +271,8 @@ for (const scheme of ['light', 'dark']) {
       await addHours(page, 3);
       await page.click('#submit');
       await changeAnswer(page);
-      await expect(page.locator('[data-hview="quick"]')).toBeVisible({ timeout: 10_000 }); // after the celebration
-      await page.click('[data-hview="quick"]');
-      await page.locator('#quick-hours .part-vote').first().click();
-      await audit(page, 'hours poll (quick answers)');
-      await page.click('[data-hview="exact"]');
-      await expect(page.locator('#mine .cell[data-slot]').first()).toBeVisible();
-      await audit(page, 'hours poll (exact times)');
+      await expect(page.locator('#mine .row').first()).toBeVisible({ timeout: 10_000 }); // after the celebration
+      await audit(page, 'hours poll');
       // Older polls ask about mornings, afternoons and evenings.
       const day = (d, h) => Date.UTC(2030, 0, d, h);
       const options = [8, 9].flatMap((d) => [
@@ -439,7 +434,7 @@ for (const scheme of ['light', 'dark']) {
 }
 
 for (const scheme of ['light', 'dark']) {
-  test(`a guest answering a whole-day poll on its calendar passes the checks at 375px (${scheme})`, async ({ page }) => {
+  test(`answering a whole-day poll on its calendar passes the checks at 375px (${scheme})`, async ({ page }) => {
     await page.emulateMedia({ colorScheme: scheme });
     await page.setViewportSize({ width: 375, height: 812 });
     const dates = Array.from({ length: 14 }, (_, i) => `2030-01-${String(6 + i).padStart(2, '0')}`);
@@ -454,7 +449,10 @@ for (const scheme of ['light', 'dark']) {
         durationMinutes: 1440,
       },
     });
-    await page.goto(`/e/${(await res.json()).id}`);
+    const { id, adminToken } = await res.json();
+    await page.goto(`/e/${id}#admin=${adminToken}`);
+    await changeAnswer(page);
+    await page.click('[data-mine-view="calendar"]');
     const days = page.locator('button.dcal-day');
     await days.nth(1).click();
     await days.nth(2).click();
