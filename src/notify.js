@@ -151,9 +151,10 @@ export const escHtml = (s) =>
   String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
 
 // Venn's dog, shown in every notification. Served from the instance's own public/ folder, so it
-// works for anyone hosting Venn; links in emails need the absolute URL.
+// works for anyone hosting Venn; links in emails need the absolute URL. The version makes mail
+// apps, which keep their own copy, fetch it again when the picture changes.
 export const MASCOT_PATH = '/img/venn-dog.png';
-const mascotUrl = (pageUrl) => new URL(MASCOT_PATH, pageUrl).href;
+const mascotUrl = (pageUrl) => `${new URL(MASCOT_PATH, pageUrl).href}?v=2`;
 
 /** `signed`: end with "Planned with Venn… make your own", for guests. Organizers already use Venn. */
 function emailLayout(bodyHtml, footerHtml, pageUrl, { signed = true } = {}) {

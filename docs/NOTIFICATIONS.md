@@ -78,7 +78,7 @@ Providers live in [`src/email.js`](../src/email.js). Each one is a small object:
 
 Add it to `EMAIL_PROVIDERS`, add a test next to the others in `test/email.test.js`, and document its settings here. Outbound requests run on the server, so the browser's Content Security Policy doesn't change.
 
-Every email shows Venn's dog (`public/img/venn-dog.png`), loaded from your own instance's address. To use another picture, replace that file.
+Every email shows Venn's dog (`public/img/venn-dog.png`), loaded from your own instance's address. To use another picture, replace that file, with no see-through holes inside the figure (retro emails are dark, and a hole shows the background), and raise the `?v=` in `mascotUrl` (`src/notify.js`) so mail apps fetch it again.
 
 ### If emails land in spam
 

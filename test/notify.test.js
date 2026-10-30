@@ -2,7 +2,7 @@ import { test, before, after, beforeEach } from 'node:test';
 import assert from 'node:assert/strict';
 import { createHmac } from 'node:crypto';
 import { createApp } from '../server.js';
-import { existsSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import {
   MASCOT_PATH,
   MAX_ORGANIZER_EMAILS,
@@ -69,7 +69,7 @@ test("every notification email shows Venn's dog, from the instance's own site", 
     pollUrl: 'https://venn.example/e/abc',
     unsubscribeUrl: 'https://venn.example/e/abc#unsubscribe=u',
   });
-  assert.match(ready.html, /<img src="https:\/\/venn\.example\/img\/venn-dog\.png"/);
+  assert.match(ready.html, /<img src="https:\/\/venn\.example\/img\/venn-dog\.png\?v=2"/);
   const s = {
     event: 'test',
     poll: { title: 'Dinner', url: 'https://venn.example/e/abc', responses: 0 },
@@ -227,10 +227,10 @@ test('Slack and Discord get messages in their own format', () => {
   );
   const slack = webhookBody('https://hooks.slack.com/services/T/B/x', summary);
   assert.deepEqual(Object.keys(slack), ['text', 'blocks']);
-  assert.match(slack.blocks[0].accessory.image_url, /\/img\/venn-dog\.png$/);
+  assert.match(slack.blocks[0].accessory.image_url, /\/img\/venn-dog\.png\?v=2$/);
   const discord = webhookBody('https://discord.com/api/webhooks/1/abc', summary);
   assert.deepEqual(Object.keys(discord), ['content', 'embeds']);
-  assert.match(discord.embeds[0].thumbnail.url, /\/img\/venn-dog\.png$/);
+  assert.match(discord.embeds[0].thumbnail.url, /\/img\/venn-dog\.png\?v=2$/);
   assert.equal(webhookBody('https://example.com/hook', summary), summary);
 });
 
@@ -644,4 +644,57 @@ test("an email's Text message button opens the poll's own message, never anythin
   assert.ok(html.includes('<meta name="robots" content="noindex">'));
   assert.match(await page('Mozilla/5.0 (Linux; Android 15)'), /href="sms:\?body=/);
   assert.equal((await fetch(`${base}/api/events/nope/sms`)).status, 404);
+});
+
+test("Venn's dog has no see-through holes inside him, so his teeth stay white on the retro emails' dark background", async () => {
+  // Decode the PNG (8-bit palette, transparency in tRNS) without a dependency.
+  const { inflateSync } = await import('node:zlib');
+  const buf = readFileSync(new URL(`../public${MASCOT_PATH}`, import.meta.url));
+  const chunks = {};
+  let idat = [];
+  for (let i = 8; i < buf.length;) {
+    const len = buf.readUInt32BE(i);
+    const type = buf.toString('ascii', i + 4, i + 8);
+    const data = buf.subarray(i + 8, i + 8 + len);
+    if (type === 'IDAT') idat.push(data);
+    else chunks[type] = data;
+    i += 12 + len;
+  }
+  const w = chunks.IHDR.readUInt32BE(0);
+  const h = chunks.IHDR.readUInt32BE(4);
+  assert.equal(chunks.IHDR[8], 8); // 8-bit
+  assert.equal(chunks.IHDR[9], 3); // palette, as it's kept small
+  const raw = inflateSync(Buffer.concat(idat));
+  const rows = [];
+  let prev = Buffer.alloc(w);
+  for (let y = 0; y < h; y++) {
+    const f = raw[y * (w + 1)];
+    const line = Buffer.from(raw.subarray(y * (w + 1) + 1, (y + 1) * (w + 1)));
+    for (let x = 0; x < w; x++) {
+      const a = x ? line[x - 1] : 0;
+      const b = prev[x];
+      const c = x ? prev[x - 1] : 0;
+      const p = a + b - c;
+      const pr =
+        Math.abs(p - a) <= Math.abs(p - b) && Math.abs(p - a) <= Math.abs(p - c) ? a : Math.abs(p - b) <= Math.abs(p - c) ? b : c;
+      line[x] = (line[x] + [0, a, b, (a + b) >> 1, pr][f]) & 255;
+    }
+    rows.push(line);
+    prev = line;
+  }
+  const alpha = (x, y) => (chunks.tRNS && rows[y][x] < chunks.tRNS.length ? chunks.tRNS[rows[y][x]] : 255);
+  // Flood the see-through pixels from the edge; any left over are holes inside the dog.
+  const seen = new Uint8Array(w * h);
+  const stack = [];
+  for (let x = 0; x < w; x++) stack.push([x, 0], [x, h - 1]);
+  for (let y = 0; y < h; y++) stack.push([0, y], [w - 1, y]);
+  while (stack.length) {
+    const [x, y] = stack.pop();
+    if (x < 0 || y < 0 || x >= w || y >= h || seen[y * w + x] || alpha(x, y) >= 128) continue;
+    seen[y * w + x] = 1;
+    stack.push([x + 1, y], [x - 1, y], [x, y + 1], [x, y - 1]);
+  }
+  let holes = 0;
+  for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) if (alpha(x, y) < 128 && !seen[y * w + x]) holes++;
+  assert.equal(holes, 0);
 });

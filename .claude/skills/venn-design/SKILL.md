@@ -39,6 +39,8 @@ the same PR** (and CLAUDE.md if it's a rule that matters in review).
   two.
 - Parts of day and Hours show **the week only**, on phones too: no Week / Day switch.
 - Both use the same navigation: **« ‹ › »** (a month, a week), never before this week.
+- **Swipe sideways** on any calendar (Days, Parts of day, Hours; organizers and guests) to go on or
+  back, as ‹ › do. Only a quick swipe: a press that rests first still draws or moves a time.
 - Calendars open on **today's month and week**, even at the very end of a month.
 - A tap goes round the same way at every level: **available, then if needed, then removed**.
 - What's picked is coloured as in the key, at every level and in every look (the retro look too):

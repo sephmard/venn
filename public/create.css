@@ -731,7 +731,6 @@ button.emoji-tile:focus-visible {
   padding: 4px 0;
   font-size: 0.8rem;
 }
-/* What the organizer picks is "available": the key's green, in every look. */
 #when .tg-block:not(.opt-maybe) {
   background: var(--yes);
   border-color: var(--yes);

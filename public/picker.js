@@ -28,6 +28,30 @@ const HOLD = 300; // ms a finger rests before it draws or moves instead of scrol
 /** Phones, and touch screens up to a tablet's width: the calendars open on one day. */
 const touchFirst = () => matchMedia('(max-width: 640px), (pointer: coarse) and (max-width: 1024px)').matches;
 
+/** A quick sideways swipe on `el` presses ‹ or › (sel(n) in root). A rest first is a drag. */
+export function swipe(el, root, sel) {
+  let t;
+  const on = (type, f) => el.addEventListener(type, f, { passive: true });
+  on('touchstart', (e) => (t = e.touches.length < 2 && { p: e.touches[0], at: e.timeStamp }));
+  on('touchmove', ({ touches: [p], timeStamp: ms }) => {
+    if (t && !t.go && Math.hypot(p.clientX - t.p.clientX, p.clientY - t.p.clientY) > 8)
+      t = ms - t.at < HOLD - 50 && { ...t, go: 1 };
+  });
+  on('touchcancel', () => (t = null));
+  on('touchend', (e) => {
+    const { clientX: x, clientY: y } = e.changedTouches[0];
+    const [dx, dy, ms] = t?.go ? [x - t.p.clientX, y - t.p.clientY, e.timeStamp - t.at] : [0];
+    const b = $(sel(dx < 0 ? 1 : -1), root);
+    t = null;
+    if (ms > 600 || Math.abs(dx) < 50 || Math.abs(dx) < 2 * Math.abs(dy) || !b || b.disabled) return;
+    b.click();
+    el.style.setProperty('--swipe-from', `${-Math.sign(dx) * 32}px`);
+    el.classList.remove('swipe-in');
+    void el.offsetWidth;
+    el.classList.add('swipe-in');
+  });
+}
+
 const ymd = (y, m, d) => `${y}-${String(m + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
 
 /**
@@ -168,6 +192,7 @@ export function monthView(
     else cursor = new Date(cursor.getFullYear(), cursor.getMonth() + +nav.dataset.nav, 1);
     render();
   });
+  swipe(grid, root, (n) => `[data-nav="${n}"]`);
   render();
   return {
     render,
@@ -462,6 +487,7 @@ export function timeView(root, opts) {
     return Array.from({ length: 7 }, (_, i) => addDays(weekOf(anchor), i));
   };
   const grid = timeGrid($('.tv-grid', root), { ...opts, dates: shown });
+  swipe($('.tv-grid', root), root, (n) => `.tv-nav [data-step="${n}"]`);
 
   function render() {
     for (const b of $$('[data-view]', root)) b.setAttribute('aria-checked', b.dataset.view === view);
