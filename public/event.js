@@ -468,7 +468,7 @@ export async function renderEvent(id, navigate) {
         ? windows.filter((w) => st.mine[w.start] === v).map((w) => when(w.start, w.end))
         : rows()
             .filter((r) => groupState(st.mine, r.slots) === v)
-            .map((r) => when(r.start, r.end));
+            .map((r) => `${fmtDay.format(dateParts(utcToZoned(r.start, st.tz).date))}, ${fmtTimeRange(r.start, r.end, st.tz)}`);
     const yes = label(YES);
     const maybe = label(IF_NEEDED);
     box.hidden = !hasAnswer();
@@ -1559,32 +1559,48 @@ export async function renderEvent(id, navigate) {
     if (ev().isAdmin) renderOrgAnswer(mine);
   }
 
-  /** The organizer's own answer, given with the poll, as one line; "Change" opens the whole form. */
+  /**
+   * The organizer's view of their own tab: the options in their poll, marked as they marked them when
+   * creating it, with nothing to submit. "Change my answer" opens the whole form.
+   */
   function renderOrgAnswer(mine) {
     const panel = $('#panel-mine');
-    let line = $('#org-answer');
-    if (!line) {
-      line = document.createElement('p');
-      line.className = 'org-answer';
-      line.id = 'org-answer';
-      panel.prepend(line);
+    let box = $('#org-answer');
+    if (!box) {
+      box = document.createElement('div');
+      box.className = 'org-answer';
+      box.id = 'org-answer';
+      panel.prepend(box);
     }
     const compact = st.orgCompact && !!mine && !st.dirty;
     panel.classList.toggle('org-compact', compact);
-    line.hidden = !compact;
+    box.hidden = !compact;
     if (!compact) return;
-    const n = (v) =>
-      partsMode
-        ? windows.filter((w) => st.mine[w.start] === v).length
-        : rows().filter((r) => groupState(st.mine, r.slots) === v).length;
-    const counts = [n(YES) && `${n(YES)} yes`, n(IF_NEEDED) && `${n(IF_NEEDED)} if needed`].filter(Boolean).join(', ');
-    line.innerHTML = `<span><b>Your answer:</b> ${esc(counts || 'none of these work')}</span>
-      <span aria-hidden="true">·</span>
-      <button type="button" class="link-btn" id="org-change">Change<span class="sr-only"> your answer</span></button>`;
+    const options = partsMode ? windows.map((w) => ({ ...w, slots: [w.start] })) : rows();
+    const MARK = { [YES]: '', [IF_NEEDED]: 'If needed', 0: 'Not for you' };
+    let prev = null;
+    box.innerHTML = `<h2 class="panel-title">Options in your poll</h2>
+      <div class="rows">${options
+        .map((o) => {
+          const d = utcToZoned(o.start, zoneOf(o.start, o.end)).date;
+          const first = d !== prev;
+          prev = d;
+          const v = groupState(st.mine, o.slots);
+          const shown = v === 'some' ? 0 : v;
+          const what = daysMode
+            ? fmtDowLong.format(dateParts(d))
+            : partsMode
+              ? when(o.start, o.end)
+              : fmtTimeRange(o.start, o.end, st.tz);
+          return `<div class="row${first ? '' : ' same-day'}" data-v="${shown}">${first ? dateBlock(d) : '<span class="date-block" aria-hidden="true"></span>'}
+            <div class="row-main"><div class="row-when">${esc(what)}</div>${MARK[shown] ? `<div class="row-note">${MARK[shown]}</div>` : ''}</div></div>`;
+        })
+        .join('')}</div>
+      <p class="org-change"><button type="button" class="link-btn" id="org-change">Change my answer</button></p>`;
     $('#org-change').onclick = () => {
       st.orgCompact = false;
       renderMeState();
-      const title = $('.panel-title', panel);
+      const title = $(':scope > .panel-title', panel);
       title.tabIndex = -1;
       title.focus();
     };

@@ -1607,13 +1607,16 @@ test('on a phone, a new poll leads with sharing: one share button, the group, an
   await expect(page.locator('#panel-group')).toBeVisible();
   await expect(page.locator('#best .only-you')).toHaveText('Only your answer so far.');
 
-  // Their own answer, given with the poll, is one line until they change it.
+  // Their own tab shows the options in their poll, nothing to submit: their answer came with it.
   await page.click('#tab-mine');
-  await expect(page.locator('#org-answer')).toHaveText(/^Your answer: 7 yes\s*·\s*Change your answer$/);
+  const options = page.locator('#org-answer .row');
+  await expect(page.locator('#org-answer h2')).toHaveText('Options in your poll');
+  await expect(options).toHaveCount(7);
+  await expect(page.locator('#org-answer .row[data-v="2"]')).toHaveCount(7);
   for (const hidden of ['#mine', '#name', '#save', '#leave']) await expect(page.locator(hidden)).toBeHidden();
-  await page.getByRole('button', { name: 'Change your answer' }).click();
+  await page.getByRole('button', { name: 'Change my answer' }).click();
   await expect(page.locator('#org-answer')).toBeHidden();
-  await expect(page.locator('#panel-mine .panel-title')).toBeFocused();
+  await expect(page.locator('#panel-mine > .panel-title')).toBeFocused();
   for (const shown of ['#mine', '#name', '#save', '#leave']) await expect(page.locator(shown)).toBeVisible();
   await expect(page.locator('#name')).toHaveValue('Sam');
 
@@ -1623,7 +1626,10 @@ test('on a phone, a new poll leads with sharing: one share button, the group, an
   await page.locator('#mine .row').nth(1).locator('[data-vote="1"]').click();
   await submit(page);
   await page.click('#tab-mine');
-  await expect(page.locator('#org-answer')).toHaveText(/^Your answer: 1 yes, 1 if needed\s*·\s*Change your answer$/);
+  await expect(options.nth(0)).toHaveAttribute('data-v', '2');
+  await expect(options.nth(1)).toHaveAttribute('data-v', '1');
+  await expect(options.nth(1)).toContainText('If needed');
+  await expect(options.nth(2)).toContainText('Not for you');
 
   // Coming back later, the tools are folded away and it's still the group first.
   await page.reload();

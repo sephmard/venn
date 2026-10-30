@@ -250,8 +250,8 @@ for (const scheme of ['light', 'dark']) {
       await audit(page, 'new poll on a phone (organizer, the group)');
       await page.click('#tab-mine');
       await expect(page.locator('#org-answer')).toBeVisible();
-      await audit(page, 'new poll on a phone (organizer, their answer in one line)');
-      await page.getByRole('button', { name: 'Change your answer' }).click();
+      await audit(page, 'new poll on a phone (organizer, the options in their poll)');
+      await page.getByRole('button', { name: 'Change my answer' }).click();
       await expect(page.locator('#save')).toBeVisible();
       // The sticky Submit bar covers whatever row scrolls under it; check the quick buttons in view.
       await page.locator('#none').evaluate((el) => el.scrollIntoView({ block: 'center' }));
