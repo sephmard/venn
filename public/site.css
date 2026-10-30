@@ -495,7 +495,8 @@ h2 em {
   left: 0;
   top: 0;
   z-index: 2;
-  padding: 4px 10px;
+  padding: 4px 10px 5px;
+  text-align: left;
   border-radius: 14px 14px 14px 4px;
   background: var(--card);
   color: var(--ink);
@@ -505,6 +506,12 @@ h2 em {
   box-shadow: 0 6px 16px -8px rgb(0 0 0 / 0.35);
   pointer-events: none;
   opacity: 0;
+}
+.venn-chip b {
+  display: block;
+  font-size: 0.625rem;
+  font-weight: 600;
+  color: var(--ink-2);
 }
 @media (prefers-color-scheme: dark) {
   .venn-c {
@@ -548,7 +555,10 @@ h2 em {
 
 /* For groups */
 .groups {
-  max-width: 960px;
+  display: grid;
+  grid-template-columns: minmax(0, 0.85fr) minmax(0, 1.25fr);
+  gap: 64px;
+  align-items: center;
 }
 h3 {
   font-size: 1.125rem;
@@ -556,7 +566,7 @@ h3 {
   font-weight: 600;
   margin: 0 0 6px;
 }
-/* A group chat going round in circles, then the one clear answer. */
+/* "Less group chat. More plans.": a messy chat, then the one clear answer. */
 .story {
   margin: 0;
   display: grid;
@@ -571,16 +581,6 @@ h3 {
   border-radius: 22px;
   transform: rotate(-2deg);
 }
-/* Endless: the newest at the bottom, the rest scrolled away under a fade. */
-.chat-msgs {
-  display: flex;
-  flex-direction: column;
-  justify-content: flex-end;
-  height: 380px;
-  padding: 0 4px 10px;
-  overflow: hidden;
-  mask-image: linear-gradient(transparent, #000 30%);
-}
 .chat-head {
   margin: 0 0 10px;
   font-size: 0.75rem;
@@ -590,11 +590,9 @@ h3 {
   color: var(--ink-2);
 }
 .msg {
-  flex: none;
   width: fit-content;
-  max-width: 88%;
-  margin: 0 0 -3px;
-  transform: translateX(var(--x, 0)) rotate(var(--r, 0));
+  max-width: 100%;
+  margin: 0 0 6px;
   padding: 6px 11px 7px;
   border-radius: 14px 14px 14px 4px;
   background: var(--card);
@@ -608,26 +606,11 @@ h3 {
   color: var(--ink-2);
 }
 .msg-me {
-  margin: 12px 0 0 auto;
-  transform: none;
+  margin: 8px 0 0 auto;
   border: 0;
   border-radius: 14px 14px 4px 14px;
   background: var(--green);
   color: var(--green-ink);
-}
-.chat-unread {
-  display: inline-block;
-  margin-left: 6px;
-  padding: 1px 7px;
-  border-radius: 999px;
-  background: #c62a2f;
-  color: #fff;
-  letter-spacing: 0;
-}
-.msg-typing span {
-  display: inline-block;
-  font-size: 1.1rem;
-  line-height: 0.8;
 }
 .story-arrow {
   font-size: 1.75rem;
@@ -1285,6 +1268,7 @@ h3 {
   :root {
     --section: 64px;
   }
+  .groups,
   .tpl-hero {
     grid-template-columns: minmax(0, 1fr);
     gap: 48px;
@@ -1366,27 +1350,6 @@ h3 {
    page rises into place as it scrolls into view (CSS only; browsers without scroll-driven
    animations just show everything). */
 @media (prefers-reduced-motion: no-preference) {
-  /* The chat won't sit still: each message bobs, and someone's always typing. */
-  .msg:not(.msg-me) {
-    animation: bob 3.2s ease-in-out infinite alternate;
-  }
-  .msg:nth-child(3n) {
-    animation-duration: 2.6s;
-    animation-delay: -1s;
-  }
-  .msg:nth-child(3n + 1) {
-    animation-duration: 3.8s;
-    animation-delay: -2s;
-  }
-  .msg-typing span {
-    animation: dot 1s ease-in-out infinite;
-  }
-  .msg-typing span:nth-child(3) {
-    animation-delay: 0.15s;
-  }
-  .msg-typing span:nth-child(4) {
-    animation-delay: 0.3s;
-  }
   .blob {
     animation: drift 18s ease-in-out infinite alternate;
   }
@@ -1409,16 +1372,6 @@ h3 {
       animation-timeline: view();
       animation-range: entry 0% entry 45%;
     }
-  }
-}
-@keyframes bob {
-  to {
-    translate: 0 -5px;
-  }
-}
-@keyframes dot {
-  50% {
-    translate: 0 -4px;
   }
 }
 @keyframes drift {
