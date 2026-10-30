@@ -1,6 +1,7 @@
 // Notifications when people respond to a poll: email (through a provider in email.js) and webhooks.
 // Everything here runs after the response is saved, so failures never affect the person answering.
 
+import { pushEnabled, sendPush } from './push.js';
 import {
   IF_NEEDED,
   ValidationError,
@@ -145,6 +146,21 @@ export function summaryText(s) {
     text += ` Best time so far: ${s.bestTime.label} (${can} of ${s.poll.responses} can make it).`;
   } else if (s.poll.responses === 0) text += ' No responses yet.';
   return text;
+}
+
+const PUSH_VERBS = {
+  'response.created': 'answered',
+  'response.updated': 'changed their answer',
+  'response.deleted': 'removed their answer',
+};
+
+/** A phone notification: short, the poll's name as its title, and a tap opens the poll. */
+export function pushMessage(s) {
+  const who = s.response ? `${s.response.name} ${PUSH_VERBS[s.event] || 'answered'}` : 'Notifications are on';
+  const best = s.bestTime
+    ? ` · ${s.bestTime.available + s.bestTime.ifNeeded} of ${s.poll.responses} can make the best time so far`
+    : '';
+  return { title: s.poll.title, body: who + best, url: s.poll.url, tag: s.poll.id };
 }
 
 export const escHtml = (s) =>
@@ -453,7 +469,7 @@ export async function sendWebhook(url, secret, s, { fetchImpl, now }) {
 export async function notifyResponse({ store, env, fetchImpl, now, origin, ev, kind, participantId, name }) {
   try {
     const settings = await store.getNotify(ev.id);
-    if (!settings || (!settings.webhookUrl && !settings.email)) return;
+    if (!settings || (!settings.webhookUrl && !settings.email && !settings.push?.length)) return;
     const participants = await store.listParticipants(ev.id);
     const s = buildSummary(ev, participants, { kind, name, origin, now: now() });
     const delivery = { ...(settings.lastDelivery || {}) };
@@ -469,6 +485,20 @@ export async function notifyResponse({ store, env, fetchImpl, now, origin, ev, k
               (delivery.webhook = { at: now(), ok: false, error: e.name === 'TimeoutError' ? 'Timed out' : 'Could not connect' }),
           ),
       );
+    }
+    // Each of the organizer's devices; one that has unsubscribed (gone) is forgotten.
+    const gone = new Set();
+    if (settings.push?.length && pushEnabled(env)) {
+      const msg = pushMessage(s);
+      for (const sub of settings.push)
+        jobs.push(
+          sendPush(sub, msg, env, { fetchImpl, now: now() })
+            .then((r) => {
+              if (r.gone) gone.add(sub.endpoint);
+              delivery.push = { at: now(), ok: r.ok, status: r.status };
+            })
+            .catch(() => (delivery.push = { at: now(), ok: false, error: 'Could not connect' })),
+        );
     }
     const recentlyEmailed = kind === 'response.updated' && now() - (emailedAt[participantId] || 0) < EDIT_EMAIL_COOLDOWN_MS;
     let emailsSent = settings.emailsSent || 0;
@@ -492,7 +522,10 @@ export async function notifyResponse({ store, env, fetchImpl, now, origin, ev, k
     await Promise.all(jobs);
     // Re-read so concurrent changes to the settings aren't overwritten.
     const latest = await store.getNotify(ev.id);
-    if (latest) await store.setNotify(ev.id, { ...latest, lastDelivery: delivery, emailedAt, emailsSent });
+    if (latest) {
+      const push = (latest.push || []).filter((p) => !gone.has(p.endpoint));
+      await store.setNotify(ev.id, { ...latest, push, lastDelivery: delivery, emailedAt, emailsSent });
+    }
   } catch (e) {
     console.error('notification failed', e);
   }

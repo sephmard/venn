@@ -234,6 +234,7 @@ function render({ days, since, counts, outcomes }, earlier) {
         { label: 'Started from another poll', n: of('poll.created', { copy: 'yes' }) },
         { label: 'Edited a poll', n: of('poll.edited') },
         { label: 'Added a webhook', n: of('notify.webhook') },
+        { label: 'Turned on phone notifications', n: of('notify.push') },
         { label: 'Deleted a poll', n: of('poll.deleted') },
       ],
       { total: created, sort: false },
