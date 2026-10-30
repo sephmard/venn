@@ -177,22 +177,24 @@ async function makePoll(fetchPath, { pick = false, privacy = {}, title = dinner.
   return id;
 }
 
-async function checkServer(fetchPath, origin) {
-  // The home page: the retro preview, the site's own look; shared in the classic look, the classic
-  // preview at the link it was shared as.
+/** `home`: this server serves the home page itself (Cloudflare serves it before the Worker runs). */
+async function checkServer(fetchPath, origin, { home: servesHome = true } = {}) {
+  // The home page previews the retro look, the site's own; /classic is the home page in the
+  // classic look, with the classic preview at its own address.
   const home = async (path) => {
     const res = await fetchPath(path);
     assert.equal(res.status, 200);
+    assert.match(res.headers.get('content-type'), /text\/html/);
     return res.text();
   };
-  const retro = await home('/');
+  const retro = servesHome ? await home('/') : HOME;
   assert.equal(meta(retro, 'og:image'), 'https://venn.day/og-retro.png');
   assert.equal(meta(retro, 'og:url'), 'https://venn.day/');
-  assert.equal(meta(await home('/?retro=1'), 'og:image'), 'https://venn.day/og-retro.png');
-  const classic = await home('/?retro=0');
+  const classic = await home('/classic');
   assert.equal(meta(classic, 'og:image'), `${origin}/og.png`);
-  assert.equal(meta(classic, 'og:url'), `${origin}/?retro=0`);
+  assert.equal(meta(classic, 'og:url'), `${origin}/classic`);
   assert.equal(meta(classic, 'og:title'), meta(retro, 'og:title'));
+  assert.match(classic, /<link rel="canonical" href="https:\/\/venn\.day\/"/); // one page, two looks
 
   const page = async (id) => {
     const res = await fetchPath(`/e/${id}`);
@@ -278,7 +280,7 @@ test('Worker: poll pages carry the same link preview, without the static ETag', 
   const ctx = { waitUntil: () => {} };
   const origin = 'https://venn.example';
   const fetchPath = (path, init) => worker.fetch(new Request(origin + path, init), env, ctx);
-  await checkServer(fetchPath, origin);
+  await checkServer(fetchPath, origin, { home: false });
 
   const res = await fetchPath('/e/doesnotexist', { headers: { 'if-none-match': '"static"' } });
   assert.equal(res.status, 200);
@@ -287,9 +289,8 @@ test('Worker: poll pages carry the same link preview, without the static ETag', 
   assert.equal(assetRequests.at(-1).headers.get('if-none-match'), null);
   const head = await fetchPath('/e/doesnotexist', { method: 'HEAD' });
   assert.equal(await head.text(), '');
-  // The home page goes through as it is, with its ETag; a classic-look link is always fresh.
-  assert.equal((await fetchPath('/')).headers.get('etag'), '"home"');
-  const classic = await fetchPath('/?retro=0', { headers: { 'if-none-match': '"home"' } });
+  // /classic is always fresh, never the home page's bodiless 304.
+  const classic = await fetchPath('/classic', { headers: { 'if-none-match': '"home"' } });
   assert.equal(classic.status, 200);
   assert.equal(classic.headers.get('etag'), null);
   assert.equal(classic.headers.get('x-frame-options'), 'DENY');

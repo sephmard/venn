@@ -7,8 +7,7 @@ compatibility_date = "2026-10-01"
 [assets]
 directory = "./public"
 binding = "ASSETS"
-# The home page too, so a link shared in the classic look (/?retro=0) gets the classic preview.
-run_worker_first = ["/api/*", "/"]
+run_worker_first = ["/api/*"]
 
 # No scheduled jobs. The hourly "time to plan the next one?" emails were taken out with plans that
 # repeat; an empty list removes their cron trigger from the deployed Worker.

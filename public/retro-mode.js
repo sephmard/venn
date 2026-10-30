@@ -1,12 +1,13 @@
-// Retro mode on the website: the retrofuturist look (html.retro, in site.css) is the site's own,
-// and the switch in the menu turns it off (the classic look), remembered in this browser. Loaded in
-// <head>, before the page is drawn, so it never flashes the other look. While it's off, the
-// address says ?retro=0, so a copied link shares that; ?retro=1 turns it back on.
+// The website's look: retro (html.retro, in site.css) is the site's own; Classic mode in the menu
+// switches to the classic look, remembered in this browser. Loaded in <head>, before the page is
+// drawn, so it never flashes the other look. The home page's address says which: venn.day for
+// retro, venn.day/classic for classic, so a copied link shares the look (and its preview).
 (() => {
   const KEY = 'venn:retro';
   const root = document.documentElement;
-  const asked = new URLSearchParams(location.search).get('retro');
-  let on = asked !== '0';
+  const home = location.pathname === '/' || location.pathname === '/classic';
+  const asked = new URLSearchParams(location.search).get('retro'); // older links: ?retro=1 or 0
+  let on = true;
   const remember = () => {
     try {
       if (on) localStorage.removeItem(KEY);
@@ -15,7 +16,8 @@
       // Not remembered, but this page shows it.
     }
   };
-  if (asked === '1' || asked === '0') remember();
+  if (location.pathname === '/classic' || asked === '0') ((on = false), remember());
+  else if (asked === '1') remember();
   else
     try {
       on = localStorage.getItem(KEY) !== '0';
@@ -24,8 +26,8 @@
     }
   const share = () => {
     const url = new URL(location.href);
-    if (on) url.searchParams.delete('retro');
-    else url.searchParams.set('retro', '0');
+    url.searchParams.delete('retro');
+    if (home) url.pathname = on ? '/' : '/classic';
     if (url.href !== location.href) history.replaceState(history.state, '', url);
   };
   const apply = () => {
@@ -37,13 +39,13 @@
       m.content = on ? '#0d0221' : m.media.includes('dark') ? '#0f1112' : '#faf8f4';
     for (const img of document.querySelectorAll('[data-stickers] img'))
       img.src = img.src.replace(/\/stickers\/(retro\/)?finn-/, on ? '/stickers/retro/finn-' : '/stickers/finn-');
-    for (const b of document.querySelectorAll('.retro-switch')) b.setAttribute('aria-checked', String(on));
+    for (const b of document.querySelectorAll('.classic-switch')) b.setAttribute('aria-checked', String(!on));
   };
   apply();
   share();
   document.addEventListener('DOMContentLoaded', apply);
   document.addEventListener('click', (e) => {
-    if (!e.target.closest('.retro-switch')) return;
+    if (!e.target.closest('.classic-switch')) return;
     on = !on;
     remember();
     apply();

@@ -51,7 +51,7 @@ for (const scheme of ['light', 'dark']) {
       await expect(page.locator('.venn')).toHaveAttribute('data-settled', 'true', { timeout: 18000 });
       await audit(page, 'landing page');
       // And in the classic look.
-      await page.goto('/?retro=0');
+      await page.goto('/classic');
       await expect(page.locator('.venn')).toHaveAttribute('data-settled', 'true', { timeout: 18000 });
       await audit(page, 'landing page, classic look');
       await page.locator('footer').getByRole('link', { name: 'Contact' }).click();

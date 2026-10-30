@@ -87,7 +87,7 @@ async function serveStatic(url, res, store) {
   let rel = normalize(decodeURIComponent(pathname)).replace(/^(\.\.[/\\])+/, '');
   if (rel.endsWith('/')) rel += 'index';
   // Like Cloudflare: /privacy serves privacy.html. The app's own routes get the app shell.
-  const candidates = isAppRoute(pathname) ? ['app.html'] : [rel, `${rel}.html`];
+  const candidates = isAppRoute(pathname) ? ['app.html'] : pathname === '/classic' ? ['index.html'] : [rel, `${rel}.html`];
   let status = 200;
   let file, data;
   for (const c of candidates) {
@@ -107,8 +107,8 @@ async function serveStatic(url, res, store) {
   }
   // Poll pages carry the poll's own link preview (src/preview.js), as on Cloudflare.
   if (status === 200 && isAppRoute(pathname)) data = await appShell(data.toString(), { pathname, origin: url.origin, store });
-  // ...and the home page, in the classic look, the classic one.
-  if (status === 200 && pathname === '/') data = homePage(data.toString(), url);
+  // ...and /classic, the home page in its classic look, the classic one.
+  if (status === 200 && pathname === '/classic') data = homePage(data.toString(), url);
   res.writeHead(status, { ...SECURITY_HEADERS, 'content-type': TYPES[extname(file)] || 'application/octet-stream' });
   res.end(data);
 }

@@ -68,7 +68,7 @@ ${jsonLd.map((d) => `<script type="application/ld+json">${JSON.stringify(d).repl
 <a href="/privacy">Privacy</a>
 <a href="https://docs.venn.day">Docs</a>
 <a href="https://github.com/sephmard/venn">GitHub</a>
-<button type="button" class="retro-switch" role="switch" aria-checked="true">Retro mode</button>
+<button type="button" class="classic-switch" role="switch" aria-checked="false">Classic mode</button>
 </div>
 </details>
 </nav>

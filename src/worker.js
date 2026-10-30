@@ -21,18 +21,15 @@ export default {
         clientIp: request.headers.get('cf-connecting-ip') || '',
       });
     }
-    if (url.pathname === '/') {
-      // The home page comes here first (wrangler.toml) only so a link in the classic look shows
-      // the classic preview (src/preview.js); any other is served as it is.
-      if (url.searchParams.get('retro') !== '0') return env.ASSETS.fetch(request);
-      // A plain GET, so it never comes back as a 304 for the retro page.
-      const asset = await env.ASSETS.fetch(new Request(url));
-      if (!asset.ok) return asset;
+    if (url.pathname === '/classic') {
+      // The home page in the classic look, with the classic preview (src/preview.js). A plain GET,
+      // so it never comes back as a bodiless 304.
+      const asset = await env.ASSETS.fetch(new Request(new URL('/', url)));
       const headers = new Headers(asset.headers);
       for (const k of ['content-length', 'content-encoding', 'etag', 'last-modified']) headers.delete(k);
       for (const [k, v] of Object.entries(SECURITY_HEADERS)) headers.set(k, v);
       const html = homePage(await asset.text(), url);
-      return new Response(request.method === 'HEAD' ? null : html, { status: 200, headers });
+      return new Response(request.method === 'HEAD' ? null : html, { status: asset.status, headers });
     }
     const app = isAppRoute(url.pathname);
     if (app) {
