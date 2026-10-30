@@ -165,9 +165,9 @@ button.emoji-tile:focus-visible {
   border-color: var(--muted);
 }
 .cal-day[aria-pressed='true'] {
-  background: var(--accent);
-  color: var(--accent-ink);
-  border-color: var(--accent);
+  background: var(--yes);
+  color: var(--yes-ink);
+  border-color: var(--yes);
 }
 .cal-day:disabled {
   background: transparent;
@@ -364,7 +364,7 @@ button.emoji-tile:focus-visible {
   cursor: not-allowed;
 }
 .pg-cell.on {
-  background: var(--accent);
+  background: var(--yes);
   border-top-color: transparent;
 }
 .pg-cell.on + .pg-cell.on {
@@ -391,7 +391,7 @@ button.emoji-tile:focus-visible {
   color: var(--muted);
 }
 .pg-cell.part.on small {
-  color: var(--accent-ink);
+  color: var(--yes-ink);
 }
 .pg-cell.part {
   align-content: center;
@@ -565,7 +565,7 @@ button.emoji-tile:focus-visible {
   border-bottom-left-radius: 4px;
 }
 .cal-day.run-r {
-  box-shadow: 5px 0 0 var(--run, var(--accent)); /* fills the 4px gap to the next day */
+  box-shadow: 5px 0 0 var(--run, var(--yes)); /* fills the 4px gap to the next day */
 }
 .cal-day.day-maybe {
   --run: var(--maybe);
@@ -730,6 +730,11 @@ button.emoji-tile:focus-visible {
   height: 52px;
   padding: 4px 0;
   font-size: 0.8rem;
+}
+#when .tg-block:not(.opt-maybe) {
+  background: var(--yes);
+  border-color: var(--yes);
+  color: var(--yes-ink);
 }
 #when .tg-block.opt {
   left: 1px !important;
