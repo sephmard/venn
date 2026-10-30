@@ -1528,6 +1528,12 @@ details.organizer > .danger {
   word-break: break-all;
 }
 
+/* The organizer's retro look switch, on top of the poll. */
+.retro-top {
+  display: flex;
+  justify-content: flex-end;
+  margin: 0 0 8px;
+}
 #toast {
   position: fixed;
   left: 50%;
