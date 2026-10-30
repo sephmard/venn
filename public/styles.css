@@ -2319,6 +2319,7 @@ pre.code {
   outline: 0;
 }
 .ov-item.open > .ov-row.all,
+.ov-item.open > .ov-row.ifn,
 .ov-item.open > .ov-row.best {
   border-radius: var(--radius) var(--radius) 0 0;
 }
@@ -2383,6 +2384,10 @@ pre.code {
 }
 .ov-row.best {
   border-color: var(--yes);
+}
+.ov-row.ifn {
+  border-color: var(--maybe);
+  background: var(--maybe-soft);
 }
 .ov-row.final {
   outline: 2.5px solid var(--final);
