@@ -297,8 +297,7 @@ export function showConfig(update) {
     if (b && notReady) go(notReady.bad[b.dataset.need][2]);
   };
   $('#organizer').addEventListener('input', update);
-  // The retro look: on for a new poll, like the site, and shown here as soon as it changes. A poll
-  // being edited or copied keeps its own (fillCommon).
+  // The retro look: on for a new poll, like the site (an edit or copy keeps its own), shown at once.
   const retro = $('#p-retro');
   if (retro)
     import('./retro-look.js').then(({ retroLook, wantsRetro }) => {
