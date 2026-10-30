@@ -1539,6 +1539,16 @@ details.organizer > .danger {
 }
 
 /* ---------- calendar picker: week / day / month ---------- */
+/* A swiped calendar slides in (picker.js swipe). */
+.swipe-in {
+  animation: swipe-in 0.2s ease-out;
+}
+@keyframes swipe-in {
+  from {
+    transform: translateX(var(--swipe-from));
+    opacity: 0.4;
+  }
+}
 .tv-bar {
   display: flex;
   flex-wrap: wrap;
