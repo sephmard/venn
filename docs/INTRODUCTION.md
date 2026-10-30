@@ -44,7 +44,7 @@ public/            the whole front end, served as-is
   add-to-calendar.js  "Add to your calendar", loaded once a date is picked
   ai-answer.js     "Answer for me" with AI, loaded when a guest opens it
   day-parts.js     answering hours polls by mornings, afternoons and evenings, and "All day"
-  day-answer.js    guests' month calendar for whole-day polls (tap: available, again: if needed), loaded when shown
+  day-answer.js    the organizer's month calendar for answering whole-day polls (tap: available, again: if needed), loaded when shown
   when.js          how a poll's times read ("Fri 11:00 PM – Sat 1:00 AM"), only on the poll page
   celebrate.js     the "Poll created!" celebration
   picker.js        the calendar views: week, day and month, for organizers and guests

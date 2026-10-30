@@ -19,7 +19,7 @@ import {
   isEmail,
 } from './core.js';
 import { inviteText } from './invite.js';
-import { cycleGroup, fitsParts, groupState, partKey } from './day-parts.js';
+import { cycleGroup, groupState } from './day-parts.js';
 import {
   $,
   $$,
@@ -175,10 +175,9 @@ export async function renderEvent(id, navigate) {
     windows.every(
       (w) => !allDaySpan(w.start, w.end, ev().timezone) && utcToZoned(w.start, st.tz).date === utcToZoned(w.end - 1, st.tz).date,
     );
-  // Guests see what they need first: a short poll is just its list, and whole days are answered on a
-  // calendar of the poll's days (day-answer.js), with the list a tap away.
+  // Guests always answer on the list; the organizer can also see the options on a calendar.
   const guest = !ev().isAdmin;
-  const viewSwitch = (calendarOk && (!guest || windows.length > 6)) || daysMode;
+  const viewSwitch = !guest && (calendarOk || daysMode);
   /** Whole days are dates, read in the poll's zone; any other time is read in this device's zone. */
   const zoneOf = (s, e) => (allDaySpan(s, e, ev().timezone) ? ev().timezone : st.tz);
   /** How an option reads: "Sat, Nov 7, evening (6 – 10 PM)" when it's a part of the viewer's day, otherwise its date and time. */
@@ -281,13 +280,7 @@ export async function renderEvent(id, navigate) {
                 ${partsMode ? '<p class="hint legend"><span class="sw sw-y"></span>Tap: available <span class="sw sw-m"></span>Tap again: if needed <span class="sw sw-n"></span>Tap again: unavailable</p>' : ''}
                 <div id="mine" class="rows"></div>
                 <div id="mine-cal" hidden></div>`
-              : `<p class="hview-h" id="hview-h">Answer with</p>
-                <div class="seg hview" role="radiogroup" aria-labelledby="hview-h">
-                  <button type="button" role="radio" data-hview="quick">Parts of the day</button>
-                  <button type="button" role="radio" data-hview="exact">Exact times</button>
-                </div>
-                <div id="quick-hours" class="rows"></div>
-                <div id="exact-hours" class="stack-sm">
+              : `<div id="exact-hours" class="stack-sm">
                 <div class="seg brush" role="group" aria-label="Brush">
                   <button type="button" data-brush="${YES}"><span class="swatch swatch-yes"></span>Available</button>
                   <button type="button" data-brush="${IF_NEEDED}"><span class="swatch swatch-maybe"></span>If needed</button>
@@ -668,7 +661,7 @@ export async function renderEvent(id, navigate) {
   // ----- the calendar view of the options -----
   let calView = null;
   let timeView = null;
-  st.mineView = daysMode && guest ? 'calendar' : 'list';
+  st.mineView = 'list';
   const pieces = (start, end) => {
     // Split an interval into per-day pieces in the viewer's time zone.
     const out = [];
@@ -801,56 +794,9 @@ export async function renderEvent(id, navigate) {
       changed();
     });
 
-  // ----- hours polls, quickly: a day's morning, afternoon, evening or all of it at once -----
-  const BUCKETS = [
-    ['morning', 'Morning'],
-    ['afternoon', 'Afternoon'],
-    ['evening', 'Evening'],
-  ];
-  /** The slots of a day in a bucket ('all' for the whole day), in the viewer's time zone. */
-  const quickSlots = (d, key) =>
-    ev().slots.filter((s) => {
-      const z = utcToZoned(s, st.tz);
-      return z.date === d && (key === 'all' || partKey(z.minutes) === key);
-    });
-  const partsFit = () => fitsParts(ev().slots, st.mine, st.tz);
-  // Guests answer one way at a time. Parts of the day are quicker on a phone; an answer with
-  // exact times opens on exact times, so nothing is hidden.
-  st.hview = isPhone() && partsFit() ? 'quick' : 'exact';
-  function renderQuick() {
-    const box = $('#quick-hours');
-    if (st.hview === 'quick' && !partsFit()) st.hview = 'exact'; // e.g. after changing the time zone
-    for (const b of $$('[data-hview]')) b.setAttribute('aria-checked', b.dataset.hview === st.hview);
-    box.hidden = st.hview !== 'quick';
-    $('#exact-hours').hidden = st.hview === 'quick';
-    if (box.hidden) return;
-    box.innerHTML = LG.dates
-      .map((d) => {
-        const keys = BUCKETS.filter((b) => quickSlots(d, b[0]).length);
-        return `<div class="row parts-row">${dateBlock(d)}
-          <div class="row-main"><div class="row-when">${esc(fmtDowLong.format(dateParts(d)))}</div>${keys.length > 1 ? allDayBtn(`data-quick="${d}|all"`, d) : ''}</div>
-          <div class="part-votes quick-votes">${keys
-            .map(([k, l]) => {
-              const sl = quickSlots(d, k);
-              const a = utcToZoned(sl[0], st.tz).minutes;
-              const z = utcToZoned(slotEnd(ev(), sl.at(-1)), st.tz);
-              return `<button type="button" class="part-vote" data-quick="${d}|${k}"><b>${l}</b><small>${esc(shortRange(a, z.date === d ? z.minutes : 1440))}</small><span class="pv-state"></span></button>`;
-            })
-            .join('')}</div></div>`;
-      })
-      .join('');
-    refreshQuick();
-  }
-  function refreshQuick() {
-    for (const b of $$('.all-day[data-quick]')) showAllDay(b, quickSlots(...b.dataset.quick.split('|')));
-    for (const b of $$('.part-vote[data-quick]'))
-      $('.pv-state', b).innerHTML = showState(b, allState(quickSlots(...b.dataset.quick.split('|'))));
-  }
-
   function renderMine() {
     if (partsMode) return renderMineParts();
     if (listMode) return renderMineList();
-    renderQuick();
     mineEl.style.gridTemplateColumns = gridCols();
     const pressed = (s) => (st.mine[s] === YES ? 'true' : st.mine[s] === IF_NEEDED ? 'mixed' : 'false');
     mineEl.innerHTML = gridHtml(
@@ -866,7 +812,6 @@ export async function renderEvent(id, navigate) {
     calView?.render();
     if (partsMode) return refreshMineParts();
     if (listMode) return refreshMineList();
-    refreshQuick();
     for (const el of $$('.cell[data-slot]', mineEl)) {
       const v = st.mine[el.dataset.slot];
       el.classList.toggle('yes', v === YES);
@@ -918,28 +863,6 @@ export async function renderEvent(id, navigate) {
     changed();
   }
   if (!listMode) {
-    $('#panel-mine').addEventListener('click', (e) => {
-      const hv = e.target.closest('[data-hview]');
-      if (hv && hv.dataset.hview !== st.hview) {
-        // Parts of the day → exact times keeps everything. The other way only when nothing would be lost.
-        const clear = hv.dataset.hview === 'quick' && !partsFit();
-        if (
-          clear &&
-          !confirm('Parts of the day can’t show the exact times you marked. Clear them and answer with parts of the day?')
-        )
-          return;
-        if (clear) {
-          st.mine = {};
-          st.touched.clear();
-        }
-        st.hview = hv.dataset.hview;
-        renderMine();
-        return clear && changed();
-      }
-      // Available → if needed → not marked, for the whole morning, afternoon, evening or day.
-      const q = e.target.closest('[data-quick]');
-      if (q) cycleAll(quickSlots(...q.dataset.quick.split('|')));
-    });
     mineEl.addEventListener('click', (e) => {
       const b = e.target.closest('[data-fill-day]');
       if (!b) return;

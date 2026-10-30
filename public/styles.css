@@ -2150,20 +2150,6 @@ pre.code {
     padding-inline: 12px;
   }
 }
-.hview-h {
-  margin: 0 0 6px;
-  font-weight: 650;
-}
-.hview {
-  margin-bottom: 4px;
-}
-#quick-hours > .hint {
-  margin: 4px 0 2px;
-}
-.quick-votes {
-  grid-template-columns: repeat(auto-fit, minmax(96px, 1fr));
-}
-
 /* Blocks on the week: drag an edge to change the length; "if needed" options are amber. */
 .tg-handle {
   position: absolute;
