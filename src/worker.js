@@ -5,7 +5,7 @@ import { handleApi } from './api.js';
 import { createStore, d1Adapter } from './store.js';
 import { isAppRoute } from './routes.js';
 import { SECURITY_HEADERS } from './security-headers.js';
-import { appShell } from './preview.js';
+import { appShell, homePage } from './preview.js';
 
 let store;
 
@@ -20,6 +20,19 @@ export default {
         waitUntil: (p) => ctx.waitUntil(p),
         clientIp: request.headers.get('cf-connecting-ip') || '',
       });
+    }
+    if (url.pathname === '/') {
+      // The home page comes here first (wrangler.toml) only so a link in retro mode shows the
+      // retro preview (src/preview.js); any other is served as it is.
+      if (url.searchParams.get('retro') !== '1') return env.ASSETS.fetch(request);
+      // A plain GET, so it never comes back as a 304 for the classic page.
+      const asset = await env.ASSETS.fetch(new Request(url));
+      if (!asset.ok) return asset;
+      const headers = new Headers(asset.headers);
+      for (const k of ['content-length', 'content-encoding', 'etag', 'last-modified']) headers.delete(k);
+      for (const [k, v] of Object.entries(SECURITY_HEADERS)) headers.set(k, v);
+      const html = homePage(await asset.text(), url);
+      return new Response(request.method === 'HEAD' ? null : html, { status: 200, headers });
     }
     const app = isAppRoute(url.pathname);
     if (app) {
