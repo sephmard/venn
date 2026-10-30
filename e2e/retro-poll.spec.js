@@ -119,3 +119,47 @@ test('a retro poll’s link preview is retro too: Venn’s retro image, or its o
   const card = await request.get(`/api/events/${plain.id}/card.jpg?v=${now.v}`);
   expect((await card.body()).length).toBeGreaterThan(jpeg.length / 2); // the full 1200 × 630 card, not the stand-in
 });
+
+test('no flash of the other look: a new poll and a retro poll are retro from their very first frame', async ({
+  page,
+  request,
+}) => {
+  // What the page looks like on the first frame it draws.
+  await page.addInitScript(() => {
+    requestAnimationFrame(() => {
+      window.firstFrame = {
+        retro: document.documentElement.classList.contains('retro'),
+        bg: getComputedStyle(document.documentElement).getPropertyValue('--bg').trim(), // the stylesheet's in
+      };
+    });
+  });
+  const retroBg = '#0d0221';
+  // From the website's Create a Venn.
+  await page.goto('/');
+  await page
+    .locator('.topbar')
+    .getByRole('link', { name: /Create a Venn/ })
+    .click();
+  await expect(page).toHaveURL(/\/new/);
+  await expect(page.getByRole('switch', { name: 'Retro look' })).toBeChecked();
+  expect(await page.evaluate(() => window.firstFrame)).toEqual({ retro: true, bg: retroBg });
+  // A poll in the retro look, opened by a guest.
+  const start = Date.UTC(2030, 0, 10, 19);
+  const { id } = await (
+    await request.post('/api/events', {
+      data: { title: 'Game night', timezone: 'UTC', mode: 'options', options: [{ start, end: start + 7200e3 }], retro: true },
+    })
+  ).json();
+  await page.goto(`/e/${id}`);
+  await expect(page.locator('#mine .row')).toHaveCount(1);
+  expect(await page.evaluate(() => window.firstFrame)).toEqual({ retro: true, bg: retroBg });
+  // And one in the usual look stays usual.
+  const plain = await (
+    await request.post('/api/events', {
+      data: { title: 'Dinner', timezone: 'UTC', mode: 'options', options: [{ start, end: start + 7200e3 }] },
+    })
+  ).json();
+  await page.goto(`/e/${plain.id}`);
+  await expect(page.locator('#mine .row')).toHaveCount(1);
+  expect((await page.evaluate(() => window.firstFrame)).retro).toBe(false);
+});

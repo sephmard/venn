@@ -140,8 +140,8 @@ export function homePage(html, url) {
 
 /**
  * The app shell (public/app.html) to send for `pathname`: for a poll page, with that poll's
- * preview tags (or the generic ones for an unknown poll). One database read. Other app routes
- * get the shell as it is.
+ * preview tags (or the generic ones for an unknown poll), and in its retro look from the first
+ * paint when it has one. One database read. Other app routes get the shell as it is.
  */
 export async function appShell(html, { pathname, origin, store }) {
   const m = POLL_PATH.exec(pathname);
@@ -154,5 +154,6 @@ export async function appShell(html, { pathname, origin, store }) {
     console.error(e); // a preview is never worth failing the page over
   }
   if (!ev) return injectTags(html, previewTags(GENERIC, { origin, url, pageTitle: GENERIC.pageTitle }));
-  return injectTags(html, previewTags(pollPreview(ev), { origin, url }));
+  const shell = ev.retro ? html.replace(/<html\b/, '<html class="retro"') : html;
+  return injectTags(shell, previewTags(pollPreview(ev), { origin, url }));
 }
