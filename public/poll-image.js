@@ -19,6 +19,9 @@ const CARD_BYTES = 250_000;
 
 const SANS = 'system-ui, -apple-system, "Segoe UI", Roboto, sans-serif';
 const SERIF = '"Instrument Serif", "Iowan Old Style", "Palatino Linotype", Georgia, serif';
+const ORBITRON = `Orbitron, ${SANS}`;
+// The page is in the retro look (retro-look.js): the poll's, or the create page's switch.
+const retro = () => !!globalThis.document?.documentElement?.classList.contains('retro');
 
 const CSS = `
 .icon-panel{margin-top:12px;padding:16px;border:1.5px solid var(--border);border-radius:var(--radius-lg);background:var(--surface)}
@@ -96,13 +99,13 @@ export function stickerButtons(selected = '') {
 
 /** Draw the link preview in the panel, as people will see it when the link is shared. */
 let drawing = 0;
-async function preview() {
+export async function preview() {
   const img = $('#icon-preview');
   const s = state();
   if (!img || !s.picture) return;
   const n = ++drawing;
   const title = $('#title')?.value.trim() || $('#title')?.placeholder || '';
-  const card = await previewCard(s.picture.blob, title, s.sticker).catch(() => null);
+  const card = await previewCard(s.picture.blob, title, s.sticker, retro()).catch(() => null);
   if (!card || n !== drawing || !img.isConnected) return;
   if (img.src.startsWith('blob:')) URL.revokeObjectURL(img.src);
   img.src = URL.createObjectURL(card);
@@ -284,27 +287,29 @@ export async function squareIcon(img) {
 /**
  * Where everything goes on the link-preview card: the picture big on the right, on a white tile, and
  * Venn's mark, the poll's name and a line about Venn on the left, like Venn's own (public/og.png).
- * Pure, so it's tested without a browser.
+ * `retro`: in the retro look (public/og-retro.png), the name in chrome capitals. Pure, so it's
+ * tested without a browser.
  */
-export function layoutPreview(measure, title) {
+export function layoutPreview(measure, title, retro = false) {
   const { width: W, height: H } = CARD;
   const pad = 80;
   const tile = { size: 440, x: W - pad - 440, y: (H - 440) / 2 };
   const maxWidth = tile.x - pad - 48;
-  const t = fitText(measure, title || 'Plans', {
-    font: (px) => `400 ${px}px ${SERIF}`,
-    max: 96,
-    min: 52,
+  const t = fitText(measure, retro ? (title || 'Plans').toUpperCase() : title || 'Plans', {
+    font: (px) => (retro ? `900 ${px}px ${ORBITRON}` : `400 ${px}px ${SERIF}`),
+    max: retro ? 64 : 96,
+    min: retro ? 36 : 52,
     maxWidth,
     maxLines: 3,
   });
   const lh = t.size * 1.04;
   const line = { text: 'Find the day that works for everyone.', font: `500 26px ${SANS}`, h: 26 * 1.4 };
-  const brand = { x: pad, y: 104, size: 44, font: `700 32px ${SANS}` };
+  const brand = { x: pad, y: 104, size: 44, font: retro ? `900 30px ${ORBITRON}` : `700 32px ${SANS}` };
   const top = brand.y + 40;
   const textH = t.lines.length * lh + 24 + line.h;
   const y0 = top + Math.max(0, (H - pad - top - textH) / 2);
   return {
+    retro,
     width: W,
     height: H,
     tile,
@@ -320,24 +325,26 @@ export function layoutPreview(measure, title) {
  */
 export function drawPreview(ctx, L, picture, sticker = null) {
   const { width: W, height: H, tile } = L;
-  ctx.fillStyle = '#faf8f4';
+  const T = L.retro ? RETRO : PLAIN;
+  ctx.fillStyle = T.bg;
   ctx.fillRect(0, 0, W, H);
   const cx = tile.x + tile.size / 2;
   const cy = tile.y + tile.size / 2;
   const glow = ctx.createRadialGradient(cx, cy, 0, cx, cy, 520);
-  glow.addColorStop(0, '#c3f2de');
-  glow.addColorStop(1, '#faf8f4');
+  glow.addColorStop(0, T.glow);
+  glow.addColorStop(1, T.bg);
   ctx.fillStyle = glow;
   ctx.fillRect(0, 0, W, H);
+  if (L.retro) horizon(ctx, W, H);
 
   // The picture on a white tile, tilted a touch, like a photo stuck on.
   ctx.save();
   ctx.translate(cx, cy);
   ctx.rotate(0.035);
-  ctx.shadowColor = 'rgba(22, 24, 26, 0.18)';
+  ctx.shadowColor = T.shadow;
   ctx.shadowBlur = 40;
-  ctx.shadowOffsetY = 14;
-  ctx.fillStyle = '#ffffff';
+  ctx.shadowOffsetY = L.retro ? 0 : 14;
+  ctx.fillStyle = T.tile;
   const s = tile.size;
   roundRect(ctx, -s / 2, -s / 2, s, s, 44);
   ctx.fill();
@@ -357,45 +364,111 @@ export function drawPreview(ctx, L, picture, sticker = null) {
 
   // Venn's mark and name.
   const { x, y, size: m, font } = L.brand;
-  venn(
-    ctx,
-    [
-      [x + m * 0.35, y - m * 0.14],
-      [x + m * 0.65, y - m * 0.14],
-      [x + m * 0.5, y + m * 0.13],
-    ],
-    m * 0.29,
-  );
+  const centers = [
+    [x + m * 0.35, y - m * 0.14],
+    [x + m * 0.65, y - m * 0.14],
+    [x + m * 0.5, y + m * 0.13],
+  ];
+  if (L.retro) rings(ctx, centers, m * 0.29);
+  else venn(ctx, centers, m * 0.29);
   ctx.textBaseline = 'middle';
   ctx.textAlign = 'left';
-  ctx.fillStyle = '#16181a';
+  ctx.fillStyle = T.ink;
   ctx.font = font;
-  ctx.fillText('Venn', x + m + 10, y);
+  ctx.fillText(L.retro ? 'VENN' : 'Venn', x + m + 10, y);
 
   ctx.font = L.title.font;
+  if (L.retro) {
+    ctx.shadowColor = 'rgba(255, 60, 172, 0.6)';
+    ctx.shadowBlur = 18;
+  }
   for (const l of L.title.lines) ctx.fillText(l.text, l.x, l.y);
-  ctx.fillStyle = '#55585c';
+  ctx.shadowColor = 'transparent';
+  ctx.fillStyle = T.muted;
   ctx.font = L.line.font;
   ctx.fillText(L.line.text, L.line.x, L.line.y);
 }
 
-/** A Finn sticker by its key, ready to draw, or null. */
-export async function stickerPicture(key) {
+// The card's colours: the app's paper, or the retro look's night (retro-app.css).
+const PLAIN = {
+  bg: '#faf8f4',
+  glow: '#c3f2de',
+  tile: '#ffffff',
+  shadow: 'rgba(22, 24, 26, 0.18)',
+  ink: '#16181a',
+  muted: '#55585c',
+};
+const RETRO = {
+  bg: '#0d0221',
+  glow: '#3a0f5c',
+  tile: '#150a35',
+  shadow: 'rgba(45, 226, 230, 0.75)',
+  ink: '#f5f0ff',
+  muted: '#c9bfec',
+};
+
+/** The retro look's neon grid, running to the horizon along the bottom. */
+function horizon(ctx, W, H) {
+  const top = H - 120;
+  ctx.save();
+  ctx.lineWidth = 2;
+  ctx.strokeStyle = 'rgba(255, 60, 172, 0.7)';
+  for (let i = 0, y = top; y < H; i++, y = top + 6 * i * i + 6 * i) {
+    ctx.beginPath();
+    ctx.moveTo(0, y);
+    ctx.lineTo(W, y);
+    ctx.stroke();
+  }
+  ctx.strokeStyle = 'rgba(45, 226, 230, 0.6)';
+  for (let x = -W; x <= 2 * W; x += 80) {
+    ctx.beginPath();
+    ctx.moveTo(W / 2 + (x - W / 2) * 0.25, top);
+    ctx.lineTo(x, H);
+    ctx.stroke();
+  }
+  ctx.restore();
+}
+
+/** The retro logo (public/logo-retro.svg): the three circles as neon rings. */
+function rings(ctx, centers, r) {
+  ctx.save();
+  ctx.lineWidth = r * 0.22;
+  ctx.shadowBlur = r * 0.6;
+  centers.forEach(([cx, cy], i) => {
+    ctx.strokeStyle = ctx.shadowColor = ['#2de2e6', '#ff3cac', '#ffd319'][i];
+    ctx.beginPath();
+    ctx.arc(cx, cy, r * 0.92, 0, Math.PI * 2);
+    ctx.stroke();
+  });
+  ctx.restore();
+}
+
+/** A Finn sticker by its key, ready to draw, or null. `retro`: in the retro look's colours. */
+export async function stickerPicture(key, retro = false) {
   const sticker = key && PREVIEW_STICKERS.find((x) => x.key === key);
   if (!sticker) return null;
   const { makeSticker } = await import('./finn-stickers.js');
-  return decode(await makeSticker(sticker));
+  return decode(await makeSticker(sticker, { retro }));
+}
+
+/** Orbitron, from retro-app.css, if it can load in a moment. */
+async function loadRetroFont() {
+  await Promise.race([document.fonts?.load('900 64px Orbitron').catch(() => {}), new Promise((r) => setTimeout(r, 1500))]);
 }
 
 /** The 1200 × 630 card for the poll's link previews, as a JPEG. */
-async function previewCard(blob, title, stickerKey = '') {
-  const [picture, sticker] = await Promise.all([decode(blob), stickerPicture(stickerKey).catch(() => null), loadFonts()]);
+async function previewCard(blob, title, stickerKey = '', retro = false) {
+  const [picture, sticker] = await Promise.all([
+    decode(blob),
+    stickerPicture(stickerKey, retro).catch(() => null),
+    retro ? loadRetroFont() : loadFonts(),
+  ]);
   const [c, ctx] = canvas(CARD.width, CARD.height);
   const measure = (t, font) => {
     ctx.font = font;
     return ctx.measureText(t).width;
   };
-  drawPreview(ctx, layoutPreview(measure, title), picture, sticker);
+  drawPreview(ctx, layoutPreview(measure, title, retro), picture, sticker);
   return jpeg(c, CARD_BYTES);
 }
 
@@ -435,7 +508,7 @@ export async function upload(id, adminToken, title) {
       s.had = false;
       return null;
     }
-    const card = await previewCard(s.picture.blob, title, s.sticker).catch(() => null);
+    const card = await previewCard(s.picture.blob, title, s.sticker, retro()).catch(() => null);
     const body = { icon: s.picture.url, ...(card && { card: await dataUrl(card) }) };
     const { image } = await api(`events/${encodeURIComponent(id)}/image`, { method: 'PUT', body, headers });
     s.had = true;
@@ -444,5 +517,25 @@ export async function upload(id, adminToken, title) {
   } catch (e) {
     toast(`Your poll is saved, but not its picture: ${e.message}`);
     return null;
+  }
+}
+
+/**
+ * The organizer turned the retro look on or off on poll `ev`'s page: draw its link-preview card again
+ * to match, with the Finn sticker it had (remembered on this device), and save it. Returns the
+ * picture's new version, or null when there's no card to redraw or it couldn't be saved.
+ */
+export async function restyle(ev, headers) {
+  if (!ev.image?.card) return null;
+  try {
+    const id = encodeURIComponent(ev.id);
+    const res = await fetch(`/api/events/${id}/icon.jpg?v=${ev.image.v}`);
+    if (!res.ok) throw new Error(res.statusText);
+    const blob = await res.blob();
+    const card = await previewCard(blob, ev.title, saved(ev.id).sticker ?? DEFAULT_STICKER, !!ev.retro);
+    const body = { icon: await dataUrl(blob), card: await dataUrl(card) };
+    return (await api(`events/${id}/image`, { method: 'PUT', body, headers })).image;
+  } catch {
+    return null; // the old card stays: a preview is never worth an error
   }
 }

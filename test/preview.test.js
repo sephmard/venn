@@ -54,6 +54,15 @@ test('preview: before a date is picked, the poll asks, with the organizer’s na
   );
 });
 
+test('preview: a poll in the retro look shows Venn’s retro images, and its own picture over them', () => {
+  assert.equal(pollPreview({ ...dinner, retro: true, finalStart: null }).image.path, '/og-retro.png');
+  assert.equal(pollPreview({ ...dinner, retro: true, finalStart: seven }).image.path, '/og-set-retro.png');
+  assert.match(
+    pollPreview({ ...dinner, retro: true, id: 'abc', finalStart: null, image: { v: 3, card: true } }).image.path,
+    /card\.jpg\?v=3$/,
+  );
+});
+
 test('preview: once it’s set, the date in the poll’s time zone and how many can make it', () => {
   const answers = [
     { [seven]: YES, [half]: YES },

@@ -199,6 +199,12 @@ export function retroSwitch({ id, headers, ev }) {
         await api(`events/${id}/settings`, { method: 'PUT', body: { retro: on }, headers });
         ev.retro = on;
         (await import('./retro-look.js')).retroLook(on);
+        // The poll's own link-preview card, drawn again in the new look.
+        const image = await import('./poll-image.js').then(
+          (m) => m.restyle({ ...ev, id }, headers),
+          () => null,
+        );
+        if (image) ev.image = image;
       } catch (ex) {
         sw.checked = !on;
         toast(ex.message);

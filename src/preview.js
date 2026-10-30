@@ -5,10 +5,13 @@
 import { allDaySpan, buildSlots, isOptionsPoll, meetingEnd, rankTimes } from '../public/core.js';
 import { imagePath } from './images.js';
 
-// Static images, rendered by `npm run og` (scripts/og-image.js): one to ask, one once it's set.
+// Static images, rendered by `npm run og` (scripts/og-image.js): one to ask, one once it's set,
+// and both again for polls in the retro look.
 export const OG_IMAGES = {
   vote: { path: '/og.png', alt: 'Venn: find the day that works for everyone' },
   set: { path: '/og-set.png', alt: "Venn: it's set" },
+  retroVote: { path: '/og-retro.png', alt: 'Venn: find the day that works for everyone' },
+  retroSet: { path: '/og-set-retro.png', alt: "Venn: it's set" },
 };
 
 // For a poll that doesn't exist (any more): the same as the home page's.
@@ -72,7 +75,8 @@ function spanLabel(ev, slots) {
  * Only what anyone with the link can already see: no participant names or emails, and no counts
  * when the organizer hides results or names. `answers` is empty unless the date is picked and
  * results are visible. A poll with its own picture (src/images.js) shows its card instead of Venn's
- * images, at a versioned URL so chat apps fetch it again when it changes.
+ * images, at a versioned URL so chat apps fetch it again when it changes. A poll in the retro look
+ * gets Venn's retro images.
  */
 export function pollPreview(ev) {
   // A poll's own picture is its icon: then its emoji isn't shown as well.
@@ -86,7 +90,7 @@ export function pollPreview(ev) {
       : isOptionsPoll(ev)
         ? `${slots.length} ${slots.length === 1 ? 'choice' : 'choices'}, ${spanLabel(ev, slots)}. Tap the ones that work.`
         : `${spanLabel(ev, slots)}. Tap when you're free.`;
-    return { title, description: `${who} ${ask} No sign-up.`, image: own || OG_IMAGES.vote };
+    return { title, description: `${who} ${ask} No sign-up.`, image: own || (ev.retro ? OG_IMAGES.retroVote : OG_IMAGES.vote) };
   }
   let description = `It's set: ${setLabel(ev, ev.finalStart)}`;
   const answers = ev.answers || [];
@@ -96,7 +100,7 @@ export function pollPreview(ev) {
     const can = best ? best.yes.length + best.ifNeeded.length : 0;
     description += ` · ${can} of ${answers.length} can make it`;
   }
-  return { title, description, image: own || OG_IMAGES.set };
+  return { title, description, image: own || (ev.retro ? OG_IMAGES.retroSet : OG_IMAGES.set) };
 }
 
 /** The <head> tags for a preview. Every value is escaped; `url` and image paths are made absolute against `origin`. */

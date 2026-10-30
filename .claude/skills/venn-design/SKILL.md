@@ -105,7 +105,8 @@ the same PR** (and CLAUDE.md if it's a rule that matters in review).
   DESIGN.md has both.
 - A poll can have the **Retro look** too (the organizer's switch, off by default; on the create page,
   and on top of the poll): its page in neon
-  for everyone, its "Your Venn is ready!", arcade toasts, retro Finn, and neon emails. Picking it shows it on the create page at
+  for everyone, its "Your Venn is ready!", arcade toasts, retro Finn, neon emails, and a retro link preview
+  (Venn's retro image, or its own picture's card drawn in neon). Picking it shows it on the create page at
   once; it starts on when the site is retro. Available stays green, if needed amber,
   unavailable pink.
 - The hero Venn tells the story in motion, **from noise to a plan**: a group chat's messages bounce
