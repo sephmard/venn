@@ -128,16 +128,14 @@ export function injectTags(html, tags) {
 }
 
 /**
- * The home page (public/index.html) for a link in retro mode (`?retro=1`, public/retro-mode.js):
- * the retro image in its preview, and the link itself as the page's address, so chat apps show
- * the look it was shared in. Any other link gets the page as it is.
+ * The home page (public/index.html) at /classic, the site in its classic look: the classic image
+ * in its preview, and /classic as its address, so chat apps show the look it was shared in. The
+ * page itself (at /) previews the retro look, the site's own.
  */
 export function homePage(html, url) {
-  if (url.searchParams.get('retro') !== '1') return html;
-  const img = OG_IMAGES.retroVote;
   return html
-    .replace(/(<meta property="og:image" content=")[^"]*/, `$1${url.origin}${img.path}`)
-    .replace(/(<meta property="og:url" content=")[^"]*/, `$1${url.origin}/?retro=1`);
+    .replace(/(<meta property="og:image" content=")[^"]*/, `$1${url.origin}${OG_IMAGES.vote.path}`)
+    .replace(/(<meta property="og:url" content=")[^"]*/, `$1${url.origin}/classic`);
 }
 
 /**

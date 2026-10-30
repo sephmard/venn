@@ -1371,7 +1371,7 @@ html.retro .logo-retro {
   display: block;
 }
 /* The switch, last in the menu: a little track that lights up. */
-.retro-switch {
+.classic-switch {
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -1386,10 +1386,10 @@ html.retro .logo-retro {
   font: 500 1rem var(--sans);
   cursor: pointer;
 }
-.retro-switch:hover {
+.classic-switch:hover {
   background: var(--paper-2);
 }
-.retro-switch::after {
+.classic-switch::after {
   content: '';
   flex: none;
   width: 36px;
@@ -1398,8 +1398,8 @@ html.retro .logo-retro {
   background: radial-gradient(circle at 10px 50%, #fff 6px, transparent 6.5px) var(--ink-2);
   transition: background-position 0.15s;
 }
-.retro-switch[aria-checked='true']::after {
-  background: radial-gradient(circle at 26px 50%, #0d0221 6px, transparent 6.5px), linear-gradient(90deg, #2de2e6, #ff3cac);
+.classic-switch[aria-checked='true']::after {
+  background: radial-gradient(circle at 26px 50%, #fff 6px, transparent 6.5px) var(--green);
 }
 @font-face {
   font-family: 'Orbitron';
