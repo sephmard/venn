@@ -5,6 +5,7 @@
 #              CLOUDFLARE_EMAIL=<optional, true to send notification emails with Cloudflare Email Sending;
 #                               a secret works too>
 #   secrets:   CLOUDFLARE_API_TOKEN (Workers + D1 edit), CLOUDFLARE_ACCOUNT_ID
+#              VAPID_PUBLIC_KEY, VAPID_PRIVATE_KEY <optional: phone notifications; make them with `npm run vapid`>
 name: Deploy
 
 on:
@@ -65,6 +66,8 @@ jobs:
         env:
           RAW_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           RAW_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          VAPID_PUBLIC_KEY: ${{ secrets.VAPID_PUBLIC_KEY }}
+          VAPID_PRIVATE_KEY: ${{ secrets.VAPID_PRIVATE_KEY }}
         run: |
           # Forgive copy-paste slips (spaces, line breaks, a "Bearer " prefix), and say what's
           # wrong without ever printing the secrets.
@@ -87,3 +90,13 @@ jobs:
           fi
           echo "Token: ${#token} characters. Account ID: ok."
           CLOUDFLARE_API_TOKEN=$token CLOUDFLARE_ACCOUNT_ID=$account npx wrangler deploy
+          # Phone notifications (docs/NOTIFICATIONS.md): the key pair, from the repository's secrets, onto
+          # the Worker. Without both, they stay off.
+          if [ -n "$VAPID_PUBLIC_KEY" ] && [ -n "$VAPID_PRIVATE_KEY" ]; then
+            node -e 'process.stdout.write(JSON.stringify({ VAPID_PUBLIC_KEY: process.env.VAPID_PUBLIC_KEY.trim(), VAPID_PRIVATE_KEY: process.env.VAPID_PRIVATE_KEY.trim() }))' > "$RUNNER_TEMP/vapid.json"
+            CLOUDFLARE_API_TOKEN=$token CLOUDFLARE_ACCOUNT_ID=$account npx wrangler secret bulk "$RUNNER_TEMP/vapid.json"
+            rm -f "$RUNNER_TEMP/vapid.json"
+            echo "Phone notifications: on."
+          else
+            echo "VAPID_PUBLIC_KEY and VAPID_PRIVATE_KEY aren't both set, so phone notifications stay off."
+          fi
