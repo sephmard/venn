@@ -1419,16 +1419,13 @@ details.organizer > .danger {
   display: block;
   margin-top: 4px;
 }
-/* The organizer answers when they create the poll: one line, and "Change" opens the form. */
+/* The organizer answers when they create the poll: their tab shows the poll's options, and
+   "Change my answer" opens the form. */
 #panel-mine.org-compact > :not(.org-answer) {
   display: none;
 }
-.org-answer {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 0 8px;
-  margin: 0;
+.org-change {
+  margin: 12px 0 0;
 }
 .tz-line {
   margin-top: 8px;
@@ -1539,14 +1536,20 @@ details.organizer > .danger {
 }
 
 /* ---------- calendar picker: week / day / month ---------- */
-/* A swiped calendar slides in (picker.js swipe). */
-.swipe-in {
-  animation: swipe-in 0.2s ease-out;
+/* Calendars follow a sideways swipe (picker.js swipe), and the first one on a touch screen nudges
+   once, a peek at the next, so it's plain that they move. */
+.swipe-hint {
+  animation: swipe-hint 0.9s ease-in-out;
 }
-@keyframes swipe-in {
-  from {
-    transform: translateX(var(--swipe-from));
-    opacity: 0.4;
+@keyframes swipe-hint {
+  40% {
+    transform: translateX(-36px);
+    opacity: 0.75;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .swipe-hint {
+    animation: none;
   }
 }
 .tv-bar {

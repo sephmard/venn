@@ -22,6 +22,22 @@ async function audit(page, label, { party = false } = {}) {
     const t = document.getElementById('toast');
     if (t) t.textContent = '';
   });
+  // Colours fading from one to the next (a button's background as a look comes in), or a calendar's
+  // one-time nudge, aren't either.
+  // Waited for from here, with a limit: some tests stop the page's clock.
+  await page
+    .waitForFunction(
+      () =>
+        !document
+          .getAnimations()
+          .some((a) => (a instanceof CSSTransition || a.animationName === 'swipe-hint') && a.playState === 'running'),
+      null,
+      {
+        polling: 100,
+        timeout: 2000,
+      },
+    )
+    .catch(() => {});
   // Nor is the "poll created" celebration while it fades away (it has its own audit).
   if (!party) await expect(page.locator('.party')).toHaveCount(0, { timeout: 10_000 });
   // The celebration's own audit waits for its buttons to finish fading in: half-faded text isn't what people read.
@@ -234,8 +250,8 @@ for (const scheme of ['light', 'dark']) {
       await audit(page, 'new poll on a phone (organizer, the group)');
       await page.click('#tab-mine');
       await expect(page.locator('#org-answer')).toBeVisible();
-      await audit(page, 'new poll on a phone (organizer, their answer in one line)');
-      await page.getByRole('button', { name: 'Change your answer' }).click();
+      await audit(page, 'new poll on a phone (organizer, the options in their poll)');
+      await page.getByRole('button', { name: 'Change my answer' }).click();
       await expect(page.locator('#save')).toBeVisible();
       // The sticky Submit bar covers whatever row scrolls under it; check the quick buttons in view.
       await page.locator('#none').evaluate((el) => el.scrollIntoView({ block: 'center' }));

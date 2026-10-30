@@ -40,7 +40,11 @@ the same PR** (and CLAUDE.md if it's a rule that matters in review).
 - Parts of day and Hours show **the week only**, on phones too: no Week / Day switch.
 - Both use the same navigation: **« ‹ › »** (a month, a week), never before this week.
 - **Swipe sideways** on any calendar (Days, Parts of day, Hours; organizers and guests) to go on or
-  back, as ‹ › do. Only a quick swipe: a press that rests first still draws or moves a time.
+  back, as ‹ › do. Only a quick swipe: a press that rests first still draws or moves a time. The
+  calendar **follows the finger**, slides off as the next one slides in, springs back when the swipe
+  is short, and resists where there's nothing further (before this week). So it's plain that it
+  moves, the first calendar on a touch screen **nudges once**, a peek at the next, until someone has
+  swiped (still for reduced motion).
 - Calendars open on **today's month and week**, even at the very end of a month.
 - A tap goes round the same way at every level: **available, then if needed, then removed**.
 - What's picked is coloured as in the key, at every level and in every look (the retro look too):

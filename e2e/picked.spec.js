@@ -117,7 +117,7 @@ test('once the date is picked, a new guest just says if they can make it', async
   const { id, adminToken } = await datesPoll(request, [['Ana', dates]]);
   await finalize(request, id, adminToken, day(dates[1]));
   await page.goto(`/e/${id}`);
-  await expect(page.locator('#panel-mine h2')).toHaveText('The date is picked. Can you make it?');
+  await expect(page.locator('#panel-mine > h2')).toHaveText('The date is picked. Can you make it?');
   await expect(page.locator('#answer-full')).toBeHidden();
   const yes = page.locator('#answer-final [data-final-vote="2"]');
   await yes.click();
