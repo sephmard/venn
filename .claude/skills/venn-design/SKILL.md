@@ -111,7 +111,7 @@ the same PR** (and CLAUDE.md if it's a rule that matters in review).
   unavailable pink.
 - The hero Venn tells the story in motion, **from noise to a plan**: a group chat's messages bounce
   around, fly to the three friends, the circles drift together and the day that works pops out, then
-  they keep floating, unhurried (about 20 seconds a loop) so each step can be followed. It plays while in view. Tap replays it; press and hold a circle (a mouse just
+  they keep floating, unhurried (about 30 seconds a loop, slow enough to read the messages as they drift) so each step can be followed. It plays while in view. Tap replays it; press and hold a circle (a mouse just
   drags) to pull a friend away, and the ✓ follows the overlap. Still for reduced motion.
 - The same top bar on every page: logo, Create a Venn, menu. GitHub lives in the menu and footer, not
   the bar. No floating buttons.

@@ -6,7 +6,7 @@ test('the messages find their friends, the circles meet, and Saturday pops out',
   await page.goto('/');
   const venn = page.locator('.venn');
   await expect(venn.locator('.venn-chip')).toHaveCount(8);
-  await expect(venn).toHaveAttribute('data-settled', 'true', { timeout: 12000 });
+  await expect(venn).toHaveAttribute('data-settled', 'true', { timeout: 18000 });
   await expect(venn.locator('.venn-hit')).not.toHaveClass(/\boff\b/);
 });
 
@@ -14,7 +14,7 @@ test('pull a friend away and the day goes; let go and it comes back', { tag: '@s
   await page.goto('/');
   const venn = page.locator('.venn');
   await venn.scrollIntoViewIfNeeded();
-  await expect(venn).toHaveAttribute('data-settled', 'true', { timeout: 12000 });
+  await expect(venn).toHaveAttribute('data-settled', 'true', { timeout: 18000 });
   const hit = venn.locator('.venn-hit');
   const lee = await venn.locator('.venn-c.c3').boundingBox();
   const [x, y] = [lee.x + lee.width / 2, lee.y + lee.height * 0.75];

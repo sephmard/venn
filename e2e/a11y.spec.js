@@ -44,15 +44,16 @@ for (const scheme of ['light', 'dark']) {
     test.use({ colorScheme: scheme });
 
     test('landing and privacy pages', { tag: '@site' }, async ({ page }) => {
+      test.slow(); // the Venn takes its time, twice
       await mockContact(page);
       await page.goto('/');
       // Once the Venn's circles have met (other sections animate as they scroll into view).
-      await expect(page.locator('.venn')).toHaveAttribute('data-settled', 'true', { timeout: 12000 });
+      await expect(page.locator('.venn')).toHaveAttribute('data-settled', 'true', { timeout: 18000 });
       await audit(page, 'landing page');
       // And in retro mode.
       await page.evaluate(() => localStorage.setItem('venn:retro', '1'));
       await page.reload();
-      await expect(page.locator('.venn')).toHaveAttribute('data-settled', 'true', { timeout: 12000 });
+      await expect(page.locator('.venn')).toHaveAttribute('data-settled', 'true', { timeout: 18000 });
       await audit(page, 'landing page, retro mode');
       await page.evaluate(() => localStorage.removeItem('venn:retro'));
       await page.reload();

@@ -25,7 +25,7 @@ function start(fig) {
     el.textContent = text;
     fig.append(el);
     // A path of its own through the noise.
-    const r = () => 0.45 + Math.random() * 0.6;
+    const r = () => 0.22 + Math.random() * 0.3;
     return { el, to, a: r(), b: r(), p: Math.random() * 6.3, q: Math.random() * 6.3 };
   });
   fig.classList.add('venn-live');
@@ -43,11 +43,11 @@ function start(fig) {
 
   // The story, in seconds: noise, then the messages find their friends, then the circles meet.
   // Unhurried, so each step can be followed.
-  const GATHER = 4,
-    JOIN = 5.8,
-    MET = 7.6,
-    PART = 18,
-    LOOP = 20.4;
+  const GATHER = 6,
+    JOIN = 8.6,
+    MET = 11,
+    PART = 26,
+    LOOP = 29.5;
   let t0 = performance.now();
   let idleSince = still ? 0 : null; // after a tap or a drag, the circles just float a while
   let grab = null; // { i, x, y, from: {x, y} }
@@ -61,7 +61,7 @@ function start(fig) {
       t0 = now - PART * 1000;
     }
     const t = idleSince != null ? MET + 1 : s % LOOP;
-    const float = (i) => (still ? [0, 0] : [Math.sin(now / 2000 + i * 2.1) * 5, Math.cos(now / 2600 + i * 1.3) * 4]);
+    const float = (i) => (still ? [0, 0] : [Math.sin(now / 3200 + i * 2.1) * 5, Math.cos(now / 4000 + i * 1.3) * 4]);
     const centres = circles.map((c, i) => {
       // How far apart and how visible, by where the story is.
       let u = 0,
@@ -69,7 +69,7 @@ function start(fig) {
       if (t < GATHER) ((show = 0), (u = 1));
       else if (t < JOIN) ((show = ease((t - GATHER) / (JOIN - GATHER))), (u = 1));
       else if (t < MET) u = 1 - back((t - JOIN) / (MET - JOIN));
-      else if (t > PART) ((u = ease(Math.min(1, (t - PART) / 2))), (show = 1 - u));
+      else if (t > PART) ((u = ease(Math.min(1, (t - PART) / 3))), (show = 1 - u));
       const [fx, fy] = float(i);
       const sp = spring[i];
       if (sp) {
@@ -97,7 +97,7 @@ function start(fig) {
         H = fig.clientHeight;
       let x = W / 2 + (W / 2 - w / 2) * Math.sin(s * c.a + c.p);
       let y = H / 2 + (H / 2 - h / 2) * Math.sin(s * c.b + c.q);
-      let o = idleSince != null || t > JOIN ? 0 : Math.min(1, t / 0.6);
+      let o = idleSince != null || t > JOIN ? 0 : Math.min(1, t / 1);
       if (idleSince == null && t >= GATHER && t <= JOIN) {
         const u = ease((t - GATHER) / (JOIN - GATHER));
         const to = { x: rest[c.to].x + APART[c.to][0], y: rest[c.to].y + APART[c.to][1] };
