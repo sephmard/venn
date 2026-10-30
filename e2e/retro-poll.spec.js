@@ -26,8 +26,8 @@ test('the organizer picks the retro look: the poll opens in neon for everyone, a
   await g.goto(page.url());
   await expect(g.locator('html')).toHaveClass(/\bretro\b/);
   await expect(g.locator('h1')).toHaveCSS('text-transform', 'uppercase');
-  // Leaving the poll leaves the look behind.
-  await page.goto('/new');
+  // Leaving the poll leaves the look behind: a new poll that asks for the classic look shows it.
+  await page.goto('/new?retro=0');
   await expect(html).not.toHaveClass(/\bretro\b/);
   await expect(page.getByRole('switch', { name: 'Retro look' })).not.toBeChecked();
 });

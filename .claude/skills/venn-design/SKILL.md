@@ -88,6 +88,8 @@ the same PR** (and CLAUDE.md if it's a rule that matters in review).
 - The key is only **Available · If needed · Unavailable** (green · amber · pink). Unavailable is never
   red, and nothing else goes in the key.
 - An open row lists **who answered what**, a labelled line per answer, coloured as in the key.
+- A row everyone can make, but some only if needed, is **amber** and says **"Everyone, if needed"**,
+  never "2 of 2" or green: "✓ Everyone" and green are only for everyone available.
 - Hours results: one smooth track a day on a shared time scale; on phones, no timeline, just each
   day's best stretches. Calm tints, never solid slabs.
 - No × on every person's name: the organizer taps a person, then removes their answer.
@@ -106,8 +108,11 @@ the same PR** (and CLAUDE.md if it's a rule that matters in review).
 **Website (venn.day)**
 
 - Simple and sexy. Four values, framed as benefits (what people get), not features.
-- **Retro mode** (website only, never the app or poll): a switch in the site's menu, off by default,
-  remembered in the browser, and in the address (`?retro=1`) so a copied link shares it, with the retro link preview. On, a synthwave night of stars and scanlines, chrome Orbitron headlines
+- **Retro is the default, for the website and for new polls.** The site's menu has **Classic mode**
+  (a switch, off) for the classic look, remembered in the browser. The home page's address says
+  which: `venn.day` for retro, `venn.day/classic` for classic, so a copied link previews the look
+  it shows. A new poll's **Retro look** starts on (off for someone who chose Classic mode); the
+  organizer can switch it off. Retro: a synthwave night of stars and scanlines, chrome Orbitron headlines
   with a sunset gradient on the key words, neon cyan and magenta, arcade pixel labels, a striped sun
   on a moving grid, a neon logo (`logo-retro.svg`) and Finn stickers on neon circles
   (`img/stickers/retro/`; Finn stays smooth, never chunky pixels). Off, the usual look and logo.

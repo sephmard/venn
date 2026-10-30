@@ -1,62 +1,69 @@
 import { test, expect } from '@playwright/test';
 
-// The website's retro mode: off by default, a switch in the menu, remembered in this browser.
-
-test('retro mode: the menu switches the site to neon and back, and it is remembered', { tag: '@site' }, async ({ page }) => {
-  await page.goto('/');
-  const html = page.locator('html');
-  const sticker = page.locator('[data-stickers] img').first();
-  await expect(html).not.toHaveClass(/\bretro\b/);
-  await expect(page.locator('.brand .logo-classic')).toBeVisible();
-  await expect(page.locator('.brand .logo-retro')).toBeHidden();
-  await expect(sticker).toHaveAttribute('src', /\/stickers\/finn-/);
-
-  await page.getByLabel('Menu').click();
-  const toggle = page.getByRole('switch', { name: 'Retro mode' });
-  await expect(toggle).toHaveAttribute('aria-checked', 'false');
-  await toggle.click();
-  await expect(toggle).toHaveAttribute('aria-checked', 'true');
-  await expect(html).toHaveClass(/\bretro\b/);
-  await expect(page.locator('.brand .logo-retro')).toBeVisible();
-  await expect(page.locator('.brand .logo-classic')).toBeHidden();
-  await expect(sticker).toHaveAttribute('src', /\/stickers\/retro\/finn-/);
-  await expect(page.locator('link[rel="icon"][type="image/svg+xml"]')).toHaveAttribute('href', /logo-retro\.svg/);
-
-  // Remembered: other pages and the next visit open in retro mode.
-  await page.goto('/privacy');
-  await expect(html).toHaveClass(/\bretro\b/);
-  await page.getByLabel('Menu').click();
-  await page.getByRole('switch', { name: 'Retro mode' }).click();
-  await expect(html).not.toHaveClass(/\bretro\b/);
-  await page.goto('/');
-  await expect(html).not.toHaveClass(/\bretro\b/);
-  await expect(sticker).toHaveAttribute('src', /\/stickers\/finn-/);
-});
+// The website's look: retro is its own; Classic mode in the menu, or venn.day/classic, switches to
+// the classic look, remembered in this browser. The home page's address always says which.
 
 test(
-  'a link shares retro mode: ?retro=1 turns it on, and the address carries it while it is on',
+  'retro is the default; Classic mode switches the site to the classic look and back, and it is remembered',
   { tag: '@site' },
   async ({ page }) => {
-    await page.goto('/?retro=1');
-    await expect(page.locator('html')).toHaveClass(/\bretro\b/);
-    await page.goto('/privacy');
-    await expect(page.locator('html')).toHaveClass(/\bretro\b/);
-    await expect(page).toHaveURL(/\?retro=1$/); // remembered, and in the address to copy
+    await page.goto('/');
+    const html = page.locator('html');
+    const sticker = page.locator('[data-stickers] img').first();
+    await expect(html).toHaveClass(/\bretro\b/);
+    await expect(page.locator('.brand .logo-retro')).toBeVisible();
+    await expect(page.locator('.brand .logo-classic')).toBeHidden();
+    await expect(sticker).toHaveAttribute('src', /\/stickers\/retro\/finn-/);
+    await expect(page.locator('link[rel="icon"][type="image/svg+xml"]')).toHaveAttribute('href', /logo-retro\.svg/);
+    await expect(page).toHaveURL(/\/$/);
+
     await page.getByLabel('Menu').click();
-    await page.getByRole('switch', { name: 'Retro mode' }).click();
-    await expect(page).not.toHaveURL(/retro=/);
-    await page.goto('/?retro=0');
-    await expect(page.locator('html')).not.toHaveClass(/\bretro\b/);
+    const toggle = page.getByRole('switch', { name: 'Classic mode' });
+    await expect(toggle).toHaveAttribute('aria-checked', 'false');
+    await toggle.click();
+    await expect(toggle).toHaveAttribute('aria-checked', 'true');
+    await expect(html).not.toHaveClass(/\bretro\b/);
+    await expect(page.locator('.brand .logo-classic')).toBeVisible();
+    await expect(page.locator('.brand .logo-retro')).toBeHidden();
+    await expect(sticker).toHaveAttribute('src', /\/stickers\/finn-/);
+    await expect(page).toHaveURL(/\/classic$/); // the address to copy shares the classic look
+
+    // Remembered: other pages, and the logo's link home, stay classic.
+    await page.goto('/privacy');
+    await expect(html).not.toHaveClass(/\bretro\b/);
+    await page.goto('/');
+    await expect(html).not.toHaveClass(/\bretro\b/);
+    await expect(page).toHaveURL(/\/classic$/);
+    await page.getByLabel('Menu').click();
+    await page.getByRole('switch', { name: 'Classic mode' }).click();
+    await expect(html).toHaveClass(/\bretro\b/);
+    await expect(page).toHaveURL(/\/$/);
+    await page.goto('/privacy');
+    await expect(html).toHaveClass(/\bretro\b/);
   },
 );
 
-test('with the site in retro mode, a new poll starts with the retro look, shown as it is made', async ({ page }) => {
+test('venn.day/classic opens the classic look, and older ?retro= links still work', { tag: '@site' }, async ({ page }) => {
+  await page.goto('/classic');
+  await expect(page.locator('html')).not.toHaveClass(/\bretro\b/);
+  await expect(page.locator('h1')).toBeVisible();
   await page.goto('/?retro=1');
+  await expect(page.locator('html')).toHaveClass(/\bretro\b/);
+  await expect(page).toHaveURL(/\/$/);
+  await page.goto('/?retro=0');
+  await expect(page.locator('html')).not.toHaveClass(/\bretro\b/);
+  await expect(page).toHaveURL(/\/classic$/);
+});
+
+test('a new poll starts in the retro look, like the site; the organizer can switch it off', async ({ page }) => {
   await page.goto('/new');
   const look = page.getByRole('switch', { name: 'Retro look' });
   await expect(look).toBeChecked();
   await expect(page.locator('html')).toHaveClass(/\bretro\b/);
-  // Off: the create page goes back to its usual look at once.
   await look.uncheck();
   await expect(page.locator('html')).not.toHaveClass(/\bretro\b/);
+  // Someone who chose the site's classic look starts new polls in it too.
+  await page.goto('/classic');
+  await page.goto('/new');
+  await expect(page.getByRole('switch', { name: 'Retro look' })).not.toBeChecked();
 });
