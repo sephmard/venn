@@ -161,14 +161,16 @@ button.emoji-tile:focus-visible {
 .cal-day:hover:not(:disabled) {
   border-color: var(--accent);
 }
+/* Today in the accent, as on the week's heads; "Nov 1", where the first page runs into next month,
+   quieter, so today is the one that stands out. */
 .cal-day.today {
-  border-color: var(--muted);
+  border-color: var(--accent);
+  color: var(--accent);
 }
-/* "Nov 1", where the first page runs into next month */
 .cal-day.cal-1st {
   font-size: 0.75rem;
   letter-spacing: -0.02em;
-  color: var(--accent);
+  color: var(--muted);
 }
 .cal-day[aria-pressed='true'] {
   background: var(--yes);
@@ -256,6 +258,9 @@ button.emoji-tile:focus-visible {
   background: var(--maybe);
   border-color: var(--maybe);
   color: var(--maybe-ink);
+}
+.cal-day.today[aria-pressed='true'] {
+  border-color: var(--accent); /* picked, and still plainly today */
 }
 .chip .chip-flip {
   font: inherit;
