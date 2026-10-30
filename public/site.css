@@ -1652,7 +1652,7 @@ html.retro .hero-art::after {
     repeating-linear-gradient(90deg, rgb(255 60 172 / 0.55) 0 2px, transparent 2px 46px);
   transform: perspective(260px) rotateX(62deg);
   transform-origin: 50% 100%;
-  animation: grid-run 2.4s linear infinite;
+  animation: grid-run 5s linear infinite;
 }
 @keyframes grid-run {
   to {

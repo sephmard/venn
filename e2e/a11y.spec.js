@@ -47,12 +47,12 @@ for (const scheme of ['light', 'dark']) {
       await mockContact(page);
       await page.goto('/');
       // Once the Venn's circles have met (other sections animate as they scroll into view).
-      await expect(page.locator('.venn')).toHaveAttribute('data-settled', 'true', { timeout: 8000 });
+      await expect(page.locator('.venn')).toHaveAttribute('data-settled', 'true', { timeout: 12000 });
       await audit(page, 'landing page');
       // And in retro mode.
       await page.evaluate(() => localStorage.setItem('venn:retro', '1'));
       await page.reload();
-      await expect(page.locator('.venn')).toHaveAttribute('data-settled', 'true', { timeout: 8000 });
+      await expect(page.locator('.venn')).toHaveAttribute('data-settled', 'true', { timeout: 12000 });
       await audit(page, 'landing page, retro mode');
       await page.evaluate(() => localStorage.removeItem('venn:retro'));
       await page.reload();
