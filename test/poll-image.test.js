@@ -71,3 +71,16 @@ test('poll image: a poll without a picture keeps its own emoji, and nothing is s
   assert.equal(await icon.upload('def', 'token', 'Cake'), null);
   assert.equal(calls.length, before); // no picture, and none to take away
 });
+
+test('poll image: turning the retro look on redraws a poll’s own link-preview card, and never fails over it', async () => {
+  calls.length = 0;
+  // No picture, or no card: nothing to redraw.
+  assert.equal(await icon.restyle({ id: 'abc', title: 'Dinner' }, {}), null);
+  assert.equal(await icon.restyle({ id: 'abc', title: 'Dinner', image: { v: 2, card: false } }, {}), null);
+  assert.deepEqual(calls, []);
+  // A card it can't draw here (no canvas): the old one stays, and nothing is saved. ("No Finn" on
+  // it, as this device remembers.)
+  store.set('venn:abc', JSON.stringify({ sticker: '' }));
+  assert.equal(await icon.restyle({ id: 'abc', title: 'Dinner', retro: true, image: { v: 2, card: true } }, {}), null);
+  assert.deepEqual(calls, [['/api/events/abc/icon.jpg?v=2', 'GET']]);
+});

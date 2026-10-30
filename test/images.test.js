@@ -371,6 +371,27 @@ test('pictures: the card draws Venn’s name, the poll’s name, a line about Ve
   );
 });
 
+test('pictures: in the retro look, the card has the name in capitals, the retro logo and a neon grid', () => {
+  for (const title of ['Dinner', 'x'.repeat(400)]) {
+    const L = layoutPreview(measure, title, true);
+    assert.ok(L.retro);
+    assert.ok(L.title.lines.length >= 1 && L.title.lines.length <= 3, title);
+    for (const l of L.title.lines) assert.ok(l.x + measure(l.text, L.title.font) <= L.tile.x, l.text);
+  }
+  const { ctx, calls, texts } = fakeContext();
+  const picture = { fake: true };
+  drawPreview(ctx, layoutPreview(measure, 'Dinner at Rosa’s', true), picture);
+  assert.deepEqual(texts(), ['VENN', 'DINNER AT ROSA’S', 'Find the day that works for everyone.']);
+  assert.ok(calls.filter((c) => c[0] === 'arc').length >= 3); // the logo's rings
+  assert.ok(calls.filter((c) => c[0] === 'stroke').length > 6); // and the grid
+  assert.deepEqual(
+    calls.filter((c) => c[0] === 'drawImage').map((c) => c[1]),
+    [picture],
+  );
+  // The usual card keeps its own look.
+  assert.equal(layoutPreview(measure, 'Dinner').retro, false);
+});
+
 test('pictures: Finn stickers for a poll still asking, and none unless one is chosen', async () => {
   const keys = PREVIEW_STICKERS.map((x) => x.key);
   assert.ok(keys.length >= 4);

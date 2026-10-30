@@ -33,6 +33,7 @@ public/            the whole front end, served as-is
   index.html       landing page (/); privacy.html and 404.html sit beside it
   app.html         app shell, served for /new and /e/:id
   og.png, og-set.png  link-preview images: asking, and once the date is picked
+  og-retro.png, og-set-retro.png  the same, for polls in the retro look
   app.js           router
   create.js        the create pages' shared form parts
   create-free.js   creating a Venn (/new): every new poll

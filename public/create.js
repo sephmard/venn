@@ -303,7 +303,10 @@ export function showConfig(update) {
     import('./retro-look.js').then(({ retroLook, wantsRetro }) => {
       if (!editing && wantsRetro()) retro.checked = true;
       retroLook(retro.checked);
-      retro.onchange = () => retroLook(retro.checked);
+      retro.onchange = () => {
+        retroLook(retro.checked);
+        icon?.preview(); // the link preview, in the new look
+      };
     });
   getConfig().then((c) => {
     if (!$('#notify-field')) return;

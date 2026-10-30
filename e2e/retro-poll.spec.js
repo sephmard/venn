@@ -82,3 +82,40 @@ for (const scheme of ['light', 'dark'])
     const { violations } = await new AxeBuilder({ page }).withTags(['wcag2a', 'wcag2aa', 'wcag21aa', 'wcag22aa']).analyze();
     expect(violations.filter((v) => ['serious', 'critical'].includes(v.impact)).map((v) => v.id)).toEqual([]);
   });
+
+test('a retro poll’s link preview is retro too: Venn’s retro image, or its own card drawn again', async ({ page, request }) => {
+  const start = Date.UTC(2030, 0, 10, 19);
+  const make = async (retro) =>
+    (
+      await request.post('/api/events', {
+        data: { title: 'Game night', timezone: 'UTC', mode: 'options', options: [{ start, end: start + 7200e3 }], retro },
+      })
+    ).json();
+  const ogImage = async (id) =>
+    /<meta property="og:image" content="([^"]+)"/.exec(await (await request.get(`/e/${id}`)).text())[1];
+  const plain = await make(false);
+  expect(await ogImage(plain.id)).toMatch(/\/og\.png$/);
+  expect(await ogImage((await make(true)).id)).toMatch(/\/og-retro\.png$/);
+
+  // A poll with its own picture: switching the look on draws its card again, in neon.
+  await page.goto('/');
+  const jpeg = await page.evaluate(() => {
+    const c = Object.assign(document.createElement('canvas'), { width: 64, height: 64 });
+    const ctx = c.getContext('2d');
+    ctx.fillStyle = '#e0a12e';
+    ctx.fillRect(0, 0, 64, 64);
+    return c.toDataURL('image/jpeg');
+  });
+  const headers = { 'x-admin-token': plain.adminToken };
+  const { image } = await (
+    await request.put(`/api/events/${plain.id}/image`, { data: { icon: jpeg, card: jpeg }, headers })
+  ).json();
+  await page.goto(`/e/${plain.id}#admin=${plain.adminToken}`);
+  await page.getByRole('switch', { name: 'Retro look' }).check();
+  await expect.poll(async () => (await (await request.get(`/api/events/${plain.id}`)).json()).image.v).toBeGreaterThan(image.v);
+  const now = (await (await request.get(`/api/events/${plain.id}`)).json()).image;
+  expect(now.card).toBe(true);
+  expect(await ogImage(plain.id)).toMatch(new RegExp(`/card\\.jpg\\?v=${now.v}$`));
+  const card = await request.get(`/api/events/${plain.id}/card.jpg?v=${now.v}`);
+  expect((await card.body()).length).toBeGreaterThan(jpeg.length / 2); // the full 1200 × 630 card, not the stand-in
+});
