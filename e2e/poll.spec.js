@@ -1155,7 +1155,7 @@ test('"Email me a copy" starts ticked and then needs an email; unticked, the ema
   await page.goto(`/e/${id}`);
   await expect(page.locator('#copy-me')).toBeChecked();
   await expect(page.locator('#copy-to')).toHaveAttribute('aria-required', 'true');
-  await expect(page.locator('label[for="copy-to"]')).toContainText('(for your copy)');
+  await expect(page.locator('label[for="copy-to"]')).toContainText('(for your copy, only the organizer sees it)');
   await page.locator('#mine .row').first().locator('[data-vote="2"]').click();
   await page.fill('#name', 'Ana');
   await page.fill('#copy-to', '');
@@ -1165,7 +1165,7 @@ test('"Email me a copy" starts ticked and then needs an email; unticked, the ema
   await expect(page.locator('#copy-to')).toHaveAttribute('aria-invalid', 'true');
   await page.uncheck('#copy-me');
   await expect(page.locator('#copy-to')).toHaveAttribute('aria-required', 'false');
-  await expect(page.locator('label[for="copy-to"]')).toContainText('(optional)');
+  await expect(page.locator('label[for="copy-to"]')).toContainText('(optional, only the organizer sees it)');
   await submit(page);
   await expect(page.locator('#save-state')).toHaveText('Submitted');
 });
@@ -2193,6 +2193,38 @@ test('usage stats: counted as people use Venn, and shown to whoever has the toke
   await expect(page.locator('#token')).toBeVisible();
 });
 
+test('a guest who gives their email (it was optional) is invited with the calendar; one who doesn’t isn’t', async ({
+  page,
+  request,
+  browser,
+}) => {
+  const t0 = Date.UTC(2030, 0, 8, 18);
+  const { id, adminToken } = await (
+    await request.post('/api/events', {
+      data: { title: 'Dinner', timezone: 'UTC', mode: 'options', options: [{ start: t0, end: t0 + 7_200_000 }] },
+    })
+  ).json();
+  // A guest answers on the page, giving their email though nobody asked for it.
+  const g = await (await browser.newContext()).newPage();
+  await g.goto(`/e/${id}`);
+  await expect(g.locator('label[for="copy-to"]')).toContainText('only the organizer sees it');
+  await g.locator('#mine .row').first().locator('[data-vote="2"]').click();
+  await g.fill('#name', 'Ana');
+  if (await g.locator('#copy-me').isVisible()) await g.uncheck('#copy-me');
+  await g.fill('#copy-to', 'ana@example.com');
+  await submit(g);
+  await expect(g.locator('#save-state')).toHaveText('Submitted');
+  // Another leaves it empty.
+  await request.post(`/api/events/${id}/participants`, { data: { name: 'Jo', availability: { [t0]: 2 } } });
+  await request.post(`/api/events/${id}/finalize`, { data: { start: t0 }, headers: { 'x-admin-token': adminToken } });
+
+  await page.goto(`/e/${id}#admin=${adminToken}`);
+  await page.locator('.final-cal summary').click();
+  await expect(page.locator('#cal-add-hint')).toContainText('invite the person who gave their email');
+  const google = new URL(await page.getByRole('link', { name: 'Google Calendar' }).getAttribute('href'));
+  expect(google.searchParams.get('add')).toBe('ana@example.com');
+});
+
 test('when everyone gave their email, the organizer invites them all with the calendar, and can email them the date', async ({
   page,
   request,
@@ -2218,8 +2250,8 @@ test('when everyone gave their email, the organizer invites them all with the ca
 
   await page.goto(`/e/${id}#admin=${adminToken}`);
   await page.locator('.final-cal summary').click();
-  await expect(page.locator('#cal-add-h')).toHaveText('Add it to your calendar, with everyone invited');
-  await expect(page.locator('#cal-add-hint')).toContainText('invite the 2 people who answered');
+  await expect(page.locator('#cal-add-h')).toHaveText('Add it to your calendar, with your guests invited');
+  await expect(page.locator('#cal-add-hint')).toContainText('invite the 2 people who gave their email');
   const google = new URL(await page.getByRole('link', { name: 'Google Calendar' }).getAttribute('href'));
   expect(google.searchParams.get('add')).toBe('ana@example.com,jo@example.com');
   // The iCal file is made in the page, with everyone in it, so the emails never go in a link.

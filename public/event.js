@@ -288,8 +288,8 @@ export async function renderEvent(id, navigate) {
             <label for="name">Your name</label>
             <input id="name" type="text" maxlength="80" autocomplete="name">
           </div>
-          <div id="copy-field"${ev().requireEmail ? '' : ' hidden'}>
-            <label for="copy-to">Your email <span class="muted" id="copy-why">(${ev().requireEmail ? 'only the organizer sees it' : 'optional'})</span></label>
+          <div id="copy-field"${ev().requireEmail || guest ? '' : ' hidden'}>
+            <label for="copy-to">Your email <span class="muted" id="copy-why">(${ev().requireEmail ? 'only the organizer sees it' : 'optional, only the organizer sees it'})</span></label>
             <input id="copy-to" type="email" inputmode="email" autocomplete="email" maxlength="254" placeholder="you@example.com">
             <label class="check" hidden><input type="checkbox" id="copy-me" checked> Email me a copy</label>
           </div>
@@ -805,14 +805,18 @@ export async function renderEvent(id, navigate) {
   let aiOn = false;
   getConfig().then((c) => {
     // Guests can get their answer by email. Optional, and on by default once they give an address.
-    $('#copy-field').hidden = !c.email && !ev().requireEmail;
+    // Guests can give it so the organizer can invite them; the organizer only for a copy.
+    $('#copy-field').hidden = !c.email && !ev().requireEmail && !guest;
     $('#copy-me').parentNode.hidden = !c.email;
     $('#copy-to').value = me()?.email || lastEmail();
     // With "Email me a copy" ticked (it starts ticked), the email is needed for it.
     const needMail = () => {
       const need = ev().requireEmail || (!$('#copy-me').parentNode.hidden && $('#copy-me').checked);
       $('#copy-to').setAttribute('aria-required', need);
-      if (!ev().requireEmail) $('#copy-why').textContent = need ? '(for your copy)' : '(optional)';
+      if (!ev().requireEmail)
+        $('#copy-why').textContent = need
+          ? '(for your copy, only the organizer sees it)'
+          : '(optional, only the organizer sees it)';
     };
     $('#copy-me').onchange = needMail;
     needMail();
@@ -945,7 +949,8 @@ export async function renderEvent(id, navigate) {
     try {
       const body = { name, availability: st.mine };
       const email = $('#copy-to').value.trim();
-      if (ev().requireEmail) body.email = email;
+      // Shown only to the organizer, for the calendar invite once the date is picked.
+      if (!ev().isAdmin || ev().requireEmail) body.email = email;
       const copyTo = wantCopy && email;
       if (copyTo) {
         body.copyTo = copyTo;
@@ -1472,7 +1477,7 @@ export async function renderEvent(id, navigate) {
       };
       if (!calJs) return void loadCal().then(renderBanners); // the date was just picked
       const day = utcToZoned(start, info.allDay ? ev().timezone : st.tz).date.slice(8);
-      // Everyone who gave their email (the organizer sees them when the poll asked for them): invited
+      // Everyone who gave their email with their answer (only the organizer sees them): invited
       // with the calendar, and one tap from an email to them all, in BCC so they don't see each other's.
       const guests = ev().isAdmin
         ? ev()

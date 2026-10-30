@@ -116,6 +116,37 @@ test('full poll lifecycle', async () => {
   assert.equal((await call(`/api/events/${id}`)).status, 404);
 });
 
+test('an email given with an answer (optional) is shown only to the organizer, and an empty one takes it away', async () => {
+  const { id, adminToken } = (await call('/api/events', { method: 'POST', body: newEvent })).data;
+  const admin = { 'x-admin-token': adminToken };
+  const [s0] = (await call(`/api/events/${id}`)).data.slots;
+  const answer = (name, email) =>
+    call(`/api/events/${id}/participants`, { method: 'POST', body: { name, availability: { [s0]: 2 }, email } });
+  // Optional: none is fine, a wrong one isn't.
+  const jo = await answer('Jo');
+  assert.equal(jo.status, 201);
+  assert.equal((await answer('Kim', 'not an email')).status, 400);
+  const ann = (await answer('Ann', 'Ann@Example.com')).data;
+  const emails = async (headers) =>
+    (await call(`/api/events/${id}`, { headers })).data.participants.map((p) => [p.name, p.email]);
+  assert.deepEqual(await emails(admin), [
+    ['Jo', undefined],
+    ['Ann', 'ann@example.com'],
+  ]);
+  // Other guests never see it.
+  assert.deepEqual(await emails({ 'x-edit-token': jo.data.editToken }), [
+    ['Jo', undefined],
+    ['Ann', undefined],
+  ]);
+  // A changed answer without the field keeps it; with the field empty, it's gone.
+  const put = (body) =>
+    call(`/api/events/${id}/participants/${ann.id}`, { method: 'PUT', body, headers: { 'x-edit-token': ann.editToken } });
+  assert.equal((await put({ name: 'Ann', availability: {} })).status, 200);
+  assert.equal((await emails(admin))[1][1], 'ann@example.com');
+  assert.equal((await put({ name: 'Ann', availability: {}, email: '' })).status, 200);
+  assert.equal((await emails(admin))[1][1], undefined);
+});
+
 test('organizer privacy: required emails, hidden names, hidden answers', async () => {
   const created = await call('/api/events', { method: 'POST', body: { ...newEvent, requireEmail: true, hideNames: true } });
   assert.equal(created.status, 201);

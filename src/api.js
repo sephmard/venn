@@ -129,10 +129,13 @@ const hostAvailability = (ev, marked) =>
   marked != null ? normalizeAvailability(marked, buildSlots(ev)) : Object.fromEntries(buildSlots(ev).map((s) => [s, YES]));
 
 /** The email someone answers with, when the organizer asks everyone for one. */
+/**
+ * A guest's email, shown only to the organizer (for the calendar invite once the date is picked):
+ * required when the poll asks everyone for one, otherwise theirs to give. null when none.
+ */
 function participantEmail(ev, body) {
-  if (!ev.requireEmail) return null;
   const email = normalizeEmail(body.email);
-  if (!email) throw new ValidationError('Add your email. The organizer asked everyone for one.');
+  if (!email && ev.requireEmail) throw new ValidationError('Add your email. The organizer asked everyone for one.');
   return email;
 }
 
@@ -805,7 +808,8 @@ export async function handleApi(
         const copyTo = normalizeEmail(body.copyTo);
         const email = isHost ? null : participantEmail(ev, body);
         await store.updateParticipant({ id: p.id, eventId: ev.id, name, availability, now: now() });
-        if (email) await store.setParticipantEmail(ev.id, p.id, email);
+        // An answer sent with an email field sets it, or takes it away when left empty.
+        if (!isHost && 'email' in body) await store.setParticipantEmail(ev.id, p.id, email);
         const editToken = request.headers.get('x-edit-token');
         if (editToken) await sendCopy(ev, copyTo, { participantId: p.id, editToken, name, availability });
         // The organizer isn't told about their own answer.
