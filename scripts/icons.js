@@ -1,5 +1,5 @@
 // Renders the icons: `npm run icons`.
-// - public/icons/*.png from public/icons/icon.svg (app and home-screen icons)
+// - public/icons/*.png from public/icons/icon-retro.svg (app and home-screen icons, in the retro look)
 // - tab icons as .ico (16, 32 and 48 px) from their SVGs: public/favicon, public/favicon-poll
 //   (poll pages) and site-src/favicon (docs.venn.day)
 import { readFileSync, writeFileSync } from 'node:fs';
@@ -24,7 +24,7 @@ for (const [name, size] of [
   ['icon-512.png', 512],
   ['apple-touch-icon.png', 180],
 ]) {
-  writeFileSync(join(pub, 'icons', name), await render(join(pub, 'icons', 'icon.svg'), size));
+  writeFileSync(join(pub, 'icons', name), await render(join(pub, 'icons', 'icon-retro.svg'), size));
 }
 
 // An .ico file is a small header and directory followed by the images; modern ones hold PNGs.

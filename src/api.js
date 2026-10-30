@@ -28,6 +28,7 @@ import { pollKind, planOf, recordUsage, sizeOf, usageEnabled, usageReport } from
 import { AiUnavailableError, aiEnabled, allowAiRequest, answerForMe, draftPoll, summarize, writeMessage } from './ai.js';
 import { allowContactRequest, contactEmail, contactEnabled, contactInbox, normalizeContact } from './contact.js';
 import { allowPlacesRequest, placesProvider, placesState, searchPlaces } from './places.js';
+import { MAX_PUSH_DEVICES, checkSubscription, pushEnabled, sendPush } from './push.js';
 
 const sharedPlaces = placesState();
 const sharedContactWindows = new Map();
@@ -141,6 +142,9 @@ function notifyView(settings, env) {
   return {
     emailAvailable: emailEnabled(env),
     email: s.email || null,
+    // Phones and computers getting a notification; which ones stays on the server.
+    pushAvailable: pushEnabled(env),
+    pushDevices: (s.push || []).length,
     webhookUrl: s.webhookUrl || null,
     webhookSecret: s.webhookUrl ? s.webhookSecret : null,
     lastDelivery: s.lastDelivery || {},
@@ -295,6 +299,8 @@ export async function handleApi(
         usage: usageEnabled(env),
         // The home page's feature requests and "Contact us", emailed to EMAIL_REPLY_TO.
         contact: contactEnabled(env),
+        // Notifications on the organizer's phone: the server's public VAPID key, or false.
+        push: pushEnabled(env) ? env.VAPID_PUBLIC_KEY : false,
         // Address search in "Where": 'photon' or 'google' (each needs its own attribution), or false.
         places: placesProvider(env) || false,
         // OAuth client IDs are public by design; they only identify the app to Google/Microsoft.
@@ -574,9 +580,33 @@ export async function handleApi(
           settings.webhookUrl = webhookUrl;
           if (!webhookUrl) settings.webhookSecret = null;
         }
+        // { push: subscription } adds this device (replacing the oldest past the limit); { pushRemove: endpoint } drops it.
+        let added = null;
+        if (body.push) {
+          if (!pushEnabled(env)) throw new ValidationError("Notifications on your phone aren't set up on this server");
+          try {
+            added = checkSubscription(body.push);
+          } catch (e) {
+            throw new ValidationError(e.message);
+          }
+          settings.push = [...(settings.push || []).filter((p) => p.endpoint !== added.endpoint), added].slice(-MAX_PUSH_DEVICES);
+        }
+        if (typeof body.pushRemove === 'string')
+          settings.push = (settings.push || []).filter((p) => p.endpoint !== body.pushRemove);
         await store.setNotify(ev.id, settings);
         if (body.email) count('notify.email', {});
         if (body.webhookUrl) count('notify.webhook', {});
+        if (added) {
+          count('notify.push', {});
+          // A first one straight away, so it's plain it works.
+          const hello = {
+            title: ev.title,
+            body: "You'll get a notification here when someone answers.",
+            url: `${origin}/e/${ev.id}`,
+            tag: ev.id,
+          };
+          waitUntil(sendPush(added, hello, env, { fetchImpl, now: now() }).catch((e) => console.error('push failed', e)));
+        }
         return json(notifyView(settings, env));
       }
 

@@ -2,7 +2,7 @@
 // answered with). Loaded when the organizer opens one, so guests never download this code.
 
 import { meetingEnd } from './core.js';
-import { $, ago, api, copy, esc, lastEmail, toast } from './ui.js';
+import { $, ago, api, copy, esc, getConfig, lastEmail, save, saved, toast } from './ui.js';
 
 // ----- the organizer's tools, at the top of the poll -----
 
@@ -115,6 +115,7 @@ function renderNotify(ctx, s) {
         <button type="button" class="link-btn" id="notify-close">Close</button>
       </div>
       <p class="hint">Find out when someone answers, changes their answers or removes them.</p>
+      ${s.pushAvailable ? '<fieldset class="notify-way" id="push-way"><legend>On this device</legend><div id="push-row"></div></fieldset>' : ''}
       <form id="notify-form" class="stack" novalidate>
         <fieldset class="notify-way">
           <legend>Email</legend>
@@ -154,6 +155,7 @@ function renderNotify(ctx, s) {
       </form>
     </section>`;
   $('#notify-close').onclick = () => ctx.close();
+  if (s.pushAvailable) pushRow(ctx, s);
   if ($('#copy-secret')) $('#copy-secret').onclick = () => copy(s.webhookSecret, 'Secret copied');
   if ($('#test-hook'))
     $('#test-hook').onclick = async (e) => {
@@ -183,6 +185,62 @@ function renderNotify(ctx, s) {
     } catch (ex) {
       $('#notify-err').textContent = ex.message;
       if (btn) btn.disabled = false;
+    }
+  };
+}
+
+/**
+ * A notification on this phone or computer when someone answers (Web Push; src/push.js and sw.js).
+ * One subscription serves every poll on this device; turning it off here only stops this poll's.
+ */
+async function pushRow(ctx, s) {
+  const row = $('#push-row');
+  const { id, headers } = ctx;
+  const ios = /iP(hone|ad|od)/.test(navigator.userAgent) || (/Mac/.test(navigator.userAgent) && navigator.maxTouchPoints > 1);
+  const app = matchMedia('(display-mode: standalone)').matches || navigator.standalone;
+  if (!('serviceWorker' in navigator && 'PushManager' in window && 'Notification' in window)) {
+    row.innerHTML = `<p class="hint">${
+      ios && !app
+        ? 'To get notifications on this iPhone, add Venn to your Home Screen: tap <b>Share</b>, then <b>Add to Home Screen</b>. Venns you make in it can notify you.'
+        : "This browser can't show notifications from Venn."
+    }</p>`;
+    return;
+  }
+  const reg = await navigator.serviceWorker.getRegistration('/');
+  const sub = await reg?.pushManager.getSubscription();
+  const on = !!sub && saved(id).push === sub.endpoint && s.pushDevices > 0;
+  const blocked = Notification.permission === 'denied';
+  row.innerHTML = blocked
+    ? `<p class="hint">Notifications are blocked for Venn in this browser's settings.</p>`
+    : `<p class="hint">${on ? '<span class="ok">✓ On.</span> This device gets a notification when someone answers.' : 'A notification on this device when someone answers.'}</p>
+      <button type="button" class="btn btn-sm" id="push-btn">${on ? 'Turn off' : 'Turn on'}</button>`;
+  if (blocked) return;
+  $('#push-btn').onclick = async (e) => {
+    e.target.disabled = true;
+    try {
+      let next;
+      if (on) {
+        next = await api(`events/${id}/notifications`, { method: 'PUT', body: { pushRemove: sub.endpoint }, headers });
+        save(id, { push: null });
+        toast('Notifications off on this device');
+      } else {
+        if ((await Notification.requestPermission()) !== 'granted') throw new Error('Notifications weren’t allowed');
+        const key = (await getConfig()).push;
+        const ready = await navigator.serviceWorker.register('/sw.js').then(() => navigator.serviceWorker.ready);
+        const fresh =
+          (await ready.pushManager.getSubscription()) ||
+          (await ready.pushManager.subscribe({
+            userVisibleOnly: true,
+            applicationServerKey: Uint8Array.from(atob(key.replace(/-/g, '+').replace(/_/g, '/')), (c) => c.charCodeAt(0)),
+          }));
+        next = await api(`events/${id}/notifications`, { method: 'PUT', body: { push: fresh.toJSON() }, headers });
+        save(id, { push: fresh.endpoint });
+        toast('Notifications on. A first one is on its way.');
+      }
+      pushRow(ctx, next);
+    } catch (ex) {
+      toast(ex.message);
+      e.target.disabled = false;
     }
   };
 }

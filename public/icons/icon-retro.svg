@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <!-- The app icon in the retro look: logo-retro.svg on the website's night, kept inside the
+       maskable safe zone. `npm run icons` renders the PNGs from it. -->
+  <defs><linearGradient id="night" x1="0" y1="0" x2="0" y2="512" gradientUnits="userSpaceOnUse"><stop offset="0" stop-color="#0d0221"/><stop offset="0.6" stop-color="#160634"/><stop offset="1" stop-color="#24083f"/></linearGradient></defs>
+  <rect width="512" height="512" fill="url(#night)"/>
+  <g transform="translate(256 256) scale(21) translate(-8 -8.2)">
+    <defs><linearGradient id="sun" x1="0" y1="5" x2="0" y2="11" gradientUnits="userSpaceOnUse"><stop offset="0" stop-color="#ffd319"/><stop offset="0.5" stop-color="#ff2975"/><stop offset="1" stop-color="#f222ff"/></linearGradient><filter id="glow" x="-30%" y="-30%" width="160%" height="160%"><feGaussianBlur stdDeviation="0.55" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter><clipPath id="a"><circle cx="5.6" cy="6.1" r="4.6"/></clipPath><clipPath id="b"><circle cx="10.4" cy="6.1" r="4.6"/></clipPath></defs>
+<g fill-opacity="0.45"><circle cx="5.6" cy="6.1" r="4.6" fill="#2de2e6"/><circle cx="10.4" cy="6.1" r="4.6" fill="#ff3cac"/><circle cx="8" cy="10.3" r="4.6" fill="#ffd319"/></g>
+<g clip-path="url(#a)"><g clip-path="url(#b)"><circle cx="8" cy="10.3" r="4.6" fill="url(#sun)"/></g></g>
+<g fill="none" stroke-width="0.6" filter="url(#glow)"><circle cx="5.6" cy="6.1" r="4.3" stroke="#2de2e6"/><circle cx="10.4" cy="6.1" r="4.3" stroke="#ff3cac"/><circle cx="8" cy="10.3" r="4.3" stroke="#ffd319"/></g>
+  </g>
+</svg>

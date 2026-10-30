@@ -73,6 +73,7 @@ export const USAGE_EVENTS = {
   'answer.deleted': { kind: KINDS },
   'notify.email': {},
   'notify.webhook': {},
+  'notify.push': {},
   'calendar.ics': {},
   'ai.used': { feature: ['draft', 'answer', 'summary', 'message'] },
   // Browser

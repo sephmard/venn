@@ -1,7 +1,8 @@
 # Notifications
 
-Organizers can be told whenever someone responds to a poll, changes their answers or removes them. There are two ways:
+Organizers can be told whenever someone responds to a poll, changes their answers or removes them. There are three ways:
 
+- **On their phone or computer** (Web Push). Off until the server has a key pair: see [Phone notifications](#phone-notifications).
 - **Email**, the default. Off until the server has an email provider: [Cloudflare Email Sending](https://developers.cloudflare.com/email-service/) or [Resend](https://resend.com) are built in, and [others can be added](#adding-an-email-provider).
 - **Custom notifications** (webhooks), to Slack, Discord, Zapier, Make or your own endpoint. Always available. The panel shows an example of the JSON and how to check the signature.
 
@@ -19,6 +20,25 @@ When email is on, the poll page asks people who answer for their email, as an op
 - The address is used for that email only. It isn't stored with the poll, shown to anyone, or used again.
 - Because anyone could type someone else's address, each answer gets at most 3 copies, and each poll at most 300.
 - With the API, send `copyTo` with `POST` or `PUT /api/events/:id/participants`.
+
+## Phone notifications
+
+The organizer taps **Turn on** under _On this device_ in the Notifications panel, and their phone or computer gets a notification each time someone answers: the poll's name, who answered, and how many can make the best time so far. A tap opens the poll. A first notification comes straight away, so it's plain it works.
+
+- **iPhone and iPad:** notifications need Venn on the Home Screen (iOS 16.4 or later). In Safari, tap **Share**, then **Add to Home Screen**, and open Venn from there. A Home Screen app keeps its own storage, apart from Safari's, so it notifies about the Venns made in it. The panel says so on an iPhone in Safari.
+- **Android, Mac and Windows:** in Chrome, Edge, Firefox or Safari, straight from the browser.
+- Each poll notifies at most 5 devices. Turning it off on one only stops that poll's notifications there.
+- The message is encrypted for the device ([RFC 8291](https://www.rfc-editor.org/rfc/rfc8291)), so the push service can't read it, and each request is signed with the server's key ([VAPID](https://www.rfc-editor.org/rfc/rfc8292)). It's done with WebCrypto in [`src/push.js`](../src/push.js): no dependencies. [`public/sw.js`](../public/sw.js), the service worker, only shows notifications. It caches nothing.
+
+To turn it on, make a key pair once and set both:
+
+```sh
+npm run vapid               # prints VAPID_PUBLIC_KEY=… and VAPID_PRIVATE_KEY=…
+npx wrangler secret put VAPID_PUBLIC_KEY
+npx wrangler secret put VAPID_PRIVATE_KEY
+```
+
+With Node, set them as environment variables. `VAPID_SUBJECT` is optional: a `mailto:` address or `https://` URL push services can contact you at (by default `https://venn.day`). Keep the same keys: new ones stop every device that's already subscribed. Once set, `GET /api/config` reports the public key as `"push"`.
 
 ## Turning on email
 
