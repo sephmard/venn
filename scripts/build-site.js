@@ -103,6 +103,7 @@ function docPage([src, page, title]) {
   <link rel="stylesheet" href="site.css">
 </head>
 <body>
+  <div class="scene" aria-hidden="true"></div>
   <a class="skip" href="#content">Skip to content</a>
   <header class="top">
     <div class="bar">
