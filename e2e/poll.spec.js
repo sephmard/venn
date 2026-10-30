@@ -505,8 +505,10 @@ test('guests need a name and an answer to save, and can say none of these work',
     await request.post('/api/events', { data: { title: 'Dinner', timezone: 'UTC', mode: 'options', options } })
   ).json();
   await page.goto(`/e/${id}`);
-  // This test server has no email, so the optional "email me a copy" field stays hidden.
-  await expect(page.locator('#copy-field')).toBeHidden();
+  // The optional email is there (for the organizer's invite), but with no email on this test
+  // server, "Email me a copy" isn't offered.
+  await expect(page.locator('#copy-field')).toBeVisible();
+  await expect(page.locator('#copy-me')).toBeHidden();
   // Checking a calendar is coming later; until then guests don't see it, and answering comes first.
   await expect(page.locator('#cal-btn')).toHaveCount(0);
   await expect(page.locator('#copy')).not.toHaveClass(/btn-primary/);
