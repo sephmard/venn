@@ -1539,14 +1539,20 @@ details.organizer > .danger {
 }
 
 /* ---------- calendar picker: week / day / month ---------- */
-/* A swiped calendar slides in (picker.js swipe). */
-.swipe-in {
-  animation: swipe-in 0.2s ease-out;
+/* Calendars follow a sideways swipe (picker.js swipe), and the first one on a touch screen nudges
+   once, a peek at the next, so it's plain that they move. */
+.swipe-hint {
+  animation: swipe-hint 0.9s ease-in-out;
 }
-@keyframes swipe-in {
-  from {
-    transform: translateX(var(--swipe-from));
-    opacity: 0.4;
+@keyframes swipe-hint {
+  40% {
+    transform: translateX(-36px);
+    opacity: 0.75;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .swipe-hint {
+    animation: none;
   }
 }
 .tv-bar {

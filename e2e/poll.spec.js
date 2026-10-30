@@ -3231,6 +3231,46 @@ test('a sideways swipe moves the calendar on or back, at every level; a held pre
   }
 });
 
+test('a swipe follows the finger, springs back when it is short, and the first calendar on a phone nudges once to show it', async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 375, height: 812 });
+  await page.goto('/new/free');
+  const grid = page.locator('#when .cal-grid');
+  const month = page.locator('#when .cal-month');
+  // Nobody has swiped yet: the calendar nudges, a peek at the next month.
+  await expect(grid).toHaveClass(/\bswipe-hint\b/, { timeout: 3000 });
+  await expect(grid).not.toHaveClass(/\bswipe-hint\b/, { timeout: 3000 });
+  const now = await month.textContent();
+  // Under the finger it moves with it; let go early and slowly, and it goes back where it was.
+  const moved = await grid.evaluate(async (el) => {
+    const r = el.getBoundingClientRect();
+    const [x, y] = [r.left + r.width / 2, r.top + 60];
+    const touch = (cx) => new Touch({ identifier: 1, target: el, clientX: cx, clientY: y });
+    const fire = (type, cx) =>
+      el.dispatchEvent(
+        new TouchEvent(type, { bubbles: true, touches: type === 'touchend' ? [] : [touch(cx)], changedTouches: [touch(cx)] }),
+      );
+    const wait = (ms) => new Promise((ok) => setTimeout(ok, ms));
+    fire('touchstart', x);
+    fire('touchmove', x - 20);
+    fire('touchmove', x - 60);
+    const during = el.style.transform;
+    await wait(700);
+    fire('touchend', x - 60);
+    return during;
+  });
+  expect(moved).toBe('translateX(-60px)');
+  await expect.poll(() => grid.evaluate((el) => el.style.transform)).toBe('');
+  await expect(month).toHaveText(now);
+  // A swipe goes on, and once someone has swiped, the nudge doesn't come back.
+  await swipeAcross(page, '#when .cal-grid', -120);
+  await expect(month).not.toHaveText(now);
+  await page.reload();
+  await page.waitForTimeout(1500);
+  await expect(page.locator('#when .cal-grid')).not.toHaveClass(/\bswipe-hint\b/);
+});
+
 test('days in a row asks first when days have their own times, and keeping them leaves it off', async ({ page }) => {
   await page.goto('/new/free');
   const first = await nextMonth(page);

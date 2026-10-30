@@ -28,28 +28,59 @@ const HOLD = 300; // ms a finger rests before it draws or moves instead of scrol
 /** Phones, and touch screens up to a tablet's width: the calendars open on one day. */
 const touchFirst = () => matchMedia('(max-width: 640px), (pointer: coarse) and (max-width: 1024px)').matches;
 
-/** A quick sideways swipe on `el` presses ‹ or › (sel(n) in root). A rest first is a drag. */
+/** A sideways swipe on `el` follows the finger and presses ‹ or › (sel(n) in root). A rest first is a
+ * drag. The first calendar on a touch screen nudges once, until a swipe. */
+let hinted = false;
 export function swipe(el, root, sel) {
   let t;
   const on = (type, f) => el.addEventListener(type, f, { passive: true });
+  const btn = (dir) => $(sel(dir), root);
+  const move = (x, ms = 0) => {
+    el.style.transition = ms ? `transform ${ms}ms ease-out, opacity ${ms}ms ease-out` : 'none';
+    el.style.transform = x ? `translateX(${x}px)` : '';
+    el.style.opacity = x ? String(1 - Math.min(Math.abs(x) / el.offsetWidth, 1) / 2) : '';
+  };
   on('touchstart', (e) => (t = e.touches.length < 2 && { p: e.touches[0], at: e.timeStamp }));
   on('touchmove', ({ touches: [p], timeStamp: ms }) => {
-    if (t && !t.go && Math.hypot(p.clientX - t.p.clientX, p.clientY - t.p.clientY) > 8)
-      t = ms - t.at < HOLD - 50 && { ...t, go: 1 };
+    if (!t) return;
+    const [dx, dy] = [p.clientX - t.p.clientX, p.clientY - t.p.clientY];
+    if (!t.go && Math.hypot(dx, dy) > 8) t = ms - t.at < HOLD - 50 && { ...t, go: Math.abs(dx) > Math.abs(dy) };
+    if (!t?.go) return;
+    const b = btn(dx < 0 ? 1 : -1);
+    move(!b || b.disabled ? dx / 4 : dx);
   });
-  on('touchcancel', () => (t = null));
+  on('touchcancel', () => (t?.go && move(0, 200), (t = null)));
   on('touchend', (e) => {
-    const { clientX: x, clientY: y } = e.changedTouches[0];
-    const [dx, dy, ms] = t?.go ? [x - t.p.clientX, y - t.p.clientY, e.timeStamp - t.at] : [0];
-    const b = $(sel(dx < 0 ? 1 : -1), root);
+    const was = t;
     t = null;
-    if (ms > 600 || Math.abs(dx) < 50 || Math.abs(dx) < 2 * Math.abs(dy) || !b || b.disabled) return;
-    b.click();
-    el.style.setProperty('--swipe-from', `${-Math.sign(dx) * 32}px`);
-    el.classList.remove('swipe-in');
-    void el.offsetWidth;
-    el.classList.add('swipe-in');
+    if (!was?.go) return;
+    const dx = e.changedTouches[0].clientX - was.p.clientX;
+    const dir = dx < 0 ? 1 : -1;
+    const b = btn(dir);
+    const w = el.offsetWidth;
+    const fast = Math.abs(dx) > 40 && Math.abs(dx) / (e.timeStamp - was.at) > 0.3;
+    if (!b || b.disabled || (Math.abs(dx) < w / 4 && !fast)) return move(0, 200);
+    hinted = true;
+    try {
+      localStorage.setItem('venn:swiped', '1');
+    } catch {}
+    move(-dir * w, 140);
+    setTimeout(() => {
+      b.click();
+      move(dir * w * 0.5);
+      void el.offsetWidth;
+      move(0, 200);
+    }, 140);
   });
+  let seen = false;
+  try {
+    seen = !!localStorage.getItem('venn:swiped');
+  } catch {}
+  if (!hinted && !seen && touchFirst() && btn(1) && !btn(1).disabled) {
+    hinted = true;
+    setTimeout(() => el.isConnected && el.classList.add('swipe-hint'), 700);
+    el.addEventListener('animationend', () => el.classList.remove('swipe-hint'), { once: true });
+  }
 }
 
 const ymd = (y, m, d) => `${y}-${String(m + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
