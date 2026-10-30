@@ -49,7 +49,7 @@ function head({ title, description, path, ogTitle, ogDescription, image, jsonLd 
 <meta name="twitter:card" content="summary_large_image" />
 <link rel="icon" href="/favicon.ico?v=5" sizes="32x32" />
 <link rel="icon" href="/favicon.svg?v=5" type="image/svg+xml" />
-<link rel="preload" href="/fonts/instrument-serif-latin-400-normal.woff2" as="font" type="font/woff2" crossorigin />
+<link rel="preload" href="/fonts/orbitron-latin-900-normal.woff2" as="font" type="font/woff2" crossorigin />
 <link rel="stylesheet" href="/site.css" />
     <script src="/retro-mode.js"></script>
 ${jsonLd.map((d) => `<script type="application/ld+json">${JSON.stringify(d).replace(/</g, '\\u003c')}</script>`).join('\n')}
