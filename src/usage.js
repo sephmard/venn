@@ -74,6 +74,7 @@ export const USAGE_EVENTS = {
   'notify.email': {},
   'notify.webhook': {},
   'notify.push': {},
+  'push.guest': {},
   'calendar.ics': {},
   'ai.used': { feature: ['draft', 'answer', 'summary', 'message'] },
   // Browser

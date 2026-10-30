@@ -24,6 +24,8 @@ export const pushEnabled = (env) => !!(env.VAPID_PUBLIC_KEY && env.VAPID_PRIVATE
 
 /** Most devices a poll's organizer can be notified on: their phone, laptop and a couple more. */
 export const MAX_PUSH_DEVICES = 5;
+/** Most devices told when a poll's date is picked: its guests', a few each. */
+export const MAX_GUEST_DEVICES = 200;
 
 // The push services browsers use. A subscription's endpoint must be one of them, so the server never
 // posts to an address someone made up.

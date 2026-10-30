@@ -235,6 +235,7 @@ function render({ days, since, counts, outcomes }, earlier) {
         { label: 'Edited a poll', n: of('poll.edited') },
         { label: 'Added a webhook', n: of('notify.webhook') },
         { label: 'Turned on phone notifications', n: of('notify.push') },
+        { label: 'Guests asked to be notified of the date', n: of('push.guest') },
         { label: 'Deleted a poll', n: of('poll.deleted') },
       ],
       { total: created, sort: false },

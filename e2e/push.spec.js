@@ -104,3 +104,64 @@ test('the Home Screen app opens in the retro look, with the retro icon', async (
   expect(sw.ok()).toBe(true);
   expect(sw.headers()['content-type']).toMatch(/javascript/);
 });
+
+test('a guest who answered can be notified when the date is picked, and stop', async ({ page, request }) => {
+  await page.addInitScript((sub) => {
+    let current = null;
+    const pushManager = {
+      getSubscription: async () => current,
+      subscribe: async () => (current = { endpoint: sub.endpoint, toJSON: () => sub }),
+    };
+    const reg = { pushManager };
+    Object.defineProperty(Notification, 'permission', { get: () => 'default' });
+    Notification.requestPermission = async () => 'granted';
+    navigator.serviceWorker.register = async () => reg;
+    navigator.serviceWorker.getRegistration = async () => reg;
+    Object.defineProperty(navigator.serviceWorker, 'ready', { get: () => Promise.resolve(reg) });
+  }, SUB);
+  const { id } = await (
+    await request.post('/api/events', {
+      data: {
+        title: 'Dinner',
+        timezone: 'UTC',
+        mode: 'options',
+        options: [{ start: Date.UTC(2030, 0, 4, 19), end: Date.UTC(2030, 0, 4, 21) }],
+      },
+    })
+  ).json();
+  const ana = await (await request.post(`/api/events/${id}/participants`, { data: { name: 'Ana', availability: {} } })).json();
+  await page.route('**/api/config', async (route) => {
+    const res = await route.fetch();
+    await route.fulfill({ response: res, json: { ...(await res.json()), push: KEY } });
+  });
+  const puts = [];
+  await page.route(`**/api/events/${id}/participants/${ana.id}/push`, async (route) => {
+    puts.push({ body: route.request().postDataJSON(), token: route.request().headers()['x-edit-token'] });
+    await route.fulfill({ json: { ok: true } });
+  });
+  await page.goto(`/e/${id}#edit=${ana.id}.${ana.editToken}`);
+  const line = page.locator('#edit-link');
+  await line.getByRole('button', { name: '🔔 Notify me when the date is picked' }).click();
+  await expect(line).toContainText("You'll get a notification when the date is picked.");
+  expect(puts.at(-1)).toEqual({ body: { push: SUB }, token: ana.editToken });
+  await line.getByRole('button', { name: 'Turn off' }).click();
+  await expect(line.getByRole('button', { name: '🔔 Notify me when the date is picked' })).toBeVisible();
+  expect(puts.at(-1).body).toEqual({ pushRemove: SUB.endpoint });
+});
+
+test("without notifications on the server, a guest's answer line says nothing about them", async ({ page, request }) => {
+  const { id } = await (
+    await request.post('/api/events', {
+      data: {
+        title: 'Dinner',
+        timezone: 'UTC',
+        mode: 'options',
+        options: [{ start: Date.UTC(2030, 0, 4, 19), end: Date.UTC(2030, 0, 4, 21) }],
+      },
+    })
+  ).json();
+  const ana = await (await request.post(`/api/events/${id}/participants`, { data: { name: 'Ana', availability: {} } })).json();
+  await page.goto(`/e/${id}#edit=${ana.id}.${ana.editToken}`);
+  await expect(page.locator('#edit-link')).toContainText('Answering as');
+  await expect(page.locator('#edit-link')).not.toContainText('Notify me');
+});

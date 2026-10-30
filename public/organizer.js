@@ -3,6 +3,7 @@
 
 import { meetingEnd } from './core.js';
 import { $, ago, api, copy, esc, getConfig, lastEmail, save, saved, toast } from './ui.js';
+import { currentSub, pushSupport, subscribe } from './push-client.js';
 
 // ----- the organizer's tools, at the top of the poll -----
 
@@ -196,9 +197,8 @@ function renderNotify(ctx, s) {
 async function pushRow(ctx, s) {
   const row = $('#push-row');
   const { id, headers } = ctx;
-  const ios = /iP(hone|ad|od)/.test(navigator.userAgent) || (/Mac/.test(navigator.userAgent) && navigator.maxTouchPoints > 1);
-  const app = matchMedia('(display-mode: standalone)').matches || navigator.standalone;
-  if (!('serviceWorker' in navigator && 'PushManager' in window && 'Notification' in window)) {
+  const { ios, app, supported } = pushSupport();
+  if (!supported) {
     row.innerHTML = `<p class="hint">${
       ios && !app
         ? 'To get notifications on this iPhone, add Venn to your Home Screen: tap <b>Share</b>, then <b>Add to Home Screen</b>. Venns you make in it can notify you.'
@@ -206,8 +206,7 @@ async function pushRow(ctx, s) {
     }</p>`;
     return;
   }
-  const reg = await navigator.serviceWorker.getRegistration('/');
-  const sub = await reg?.pushManager.getSubscription();
+  const sub = await currentSub();
   const on = !!sub && saved(id).push === sub.endpoint && s.pushDevices > 0;
   const blocked = Notification.permission === 'denied';
   row.innerHTML = blocked
@@ -224,15 +223,7 @@ async function pushRow(ctx, s) {
         save(id, { push: null });
         toast('Notifications off on this device');
       } else {
-        if ((await Notification.requestPermission()) !== 'granted') throw new Error('Notifications weren’t allowed');
-        const key = (await getConfig()).push;
-        const ready = await navigator.serviceWorker.register('/sw.js').then(() => navigator.serviceWorker.ready);
-        const fresh =
-          (await ready.pushManager.getSubscription()) ||
-          (await ready.pushManager.subscribe({
-            userVisibleOnly: true,
-            applicationServerKey: Uint8Array.from(atob(key.replace(/-/g, '+').replace(/_/g, '/')), (c) => c.charCodeAt(0)),
-          }));
+        const fresh = await subscribe((await getConfig()).push);
         next = await api(`events/${id}/notifications`, { method: 'PUT', body: { push: fresh.toJSON() }, headers });
         save(id, { push: fresh.endpoint });
         toast('Notifications on. A first one is on its way.');

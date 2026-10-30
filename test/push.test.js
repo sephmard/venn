@@ -229,3 +229,87 @@ test('without a key pair, phone notifications are off and say so', async (t) => 
   });
   assert.equal(res.status, 400);
 });
+
+test("a guest's phone is told when the date is picked and when it changes, and only theirs", async (t) => {
+  const keys = await vapidKeys();
+  const env = { VAPID_PUBLIC_KEY: keys.publicKey, VAPID_PRIVATE_KEY: keys.privateKey };
+  const { call, pushes } = await serve(t, env);
+  const two = { ...poll, options: [...poll.options, { start: Date.UTC(2030, 0, 5, 19), end: Date.UTC(2030, 0, 5, 21) }] };
+  const { data } = await call('/api/events', { method: 'POST', body: two });
+  const admin = { 'x-admin-token': data.adminToken };
+  const ana = (await call(`/api/events/${data.id}/participants`, { method: 'POST', body: { name: 'Ana', availability: {} } }))
+    .data;
+  const phone = await browserKeys();
+  const sub = { endpoint: 'https://fcm.googleapis.com/fcm/send/ana', keys: phone.keys };
+  const path = `/api/events/${data.id}/participants/${ana.id}/push`;
+  const read = async (p) => JSON.parse((await decrypt(p.init.body, phone)).text);
+
+  // Only Ana, with her own edit token.
+  assert.equal((await call(path, { method: 'PUT', body: { push: sub } })).status, 403);
+  assert.equal((await call(path, { method: 'PUT', body: { push: sub }, headers: { 'x-edit-token': 'nope' } })).status, 403);
+  const mine = { 'x-edit-token': ana.editToken };
+  assert.equal((await call(path, { method: 'PUT', body: { push: sub }, headers: mine })).status, 200);
+  assert.equal(pushes.length, 1);
+  assert.equal((await read(pushes[0])).body, "You'll get a notification here when the date is picked.");
+  // The organizer's settings don't show it, and the organizer isn't notified of it.
+  const view = (await call(`/api/events/${data.id}/notifications`, { headers: admin })).data;
+  assert.equal(JSON.stringify(view).includes(sub.endpoint), false);
+  assert.equal(view.pushDevices, 0);
+
+  pushes.length = 0;
+  await call(`/api/events/${data.id}/finalize`, { method: 'POST', body: { start: two.options[0].start }, headers: admin });
+  assert.equal(pushes.length, 1);
+  assert.deepEqual(await read(pushes[0]), {
+    title: 'Dinner',
+    body: 'The date is picked. Tap to see it.',
+    url: (await read(pushes[0])).url,
+    tag: data.id,
+  });
+  assert.match((await read(pushes[0])).url, new RegExp(`/e/${data.id}$`));
+  // Picking the same again says nothing; a different date says it changed.
+  pushes.length = 0;
+  await call(`/api/events/${data.id}/finalize`, { method: 'POST', body: { start: two.options[0].start }, headers: admin });
+  assert.equal(pushes.length, 0);
+  await call(`/api/events/${data.id}/finalize`, { method: 'POST', body: { start: two.options[1].start }, headers: admin });
+  assert.equal((await read(pushes[0])).body, 'The date changed. Tap to see it.');
+
+  // Once Ana has removed her answer, her phone isn't told any more.
+  await call(`/api/events/${data.id}/participants/${ana.id}`, { method: 'DELETE', headers: mine });
+  pushes.length = 0;
+  await call(`/api/events/${data.id}/finalize`, { method: 'POST', body: { start: two.options[0].start }, headers: admin });
+  assert.equal(pushes.length, 0);
+});
+
+test('a guest can turn it off, and a gone phone is forgotten', async (t) => {
+  const keys = await vapidKeys();
+  const env = { VAPID_PUBLIC_KEY: keys.publicKey, VAPID_PRIVATE_KEY: keys.privateKey };
+  let status = 201;
+  const { call, pushes } = await serve(t, env, () => status);
+  const two = { ...poll, options: [...poll.options, { start: Date.UTC(2030, 0, 5, 19), end: Date.UTC(2030, 0, 5, 21) }] };
+  const { data } = await call('/api/events', { method: 'POST', body: two });
+  const admin = { 'x-admin-token': data.adminToken };
+  const answer = async (name) =>
+    (await call(`/api/events/${data.id}/participants`, { method: 'POST', body: { name, availability: {} } })).data;
+  const [ana, lee] = [await answer('Ana'), await answer('Lee')];
+  const subOf = async (who) => ({ endpoint: `https://web.push.apple.com/${who}`, keys: (await browserKeys()).keys });
+  const [anaSub, leeSub] = [await subOf('ana'), await subOf('lee')];
+  const put = (p, body) =>
+    call(`/api/events/${data.id}/participants/${p.id}/push`, { method: 'PUT', body, headers: { 'x-edit-token': p.editToken } });
+  await put(ana, { push: anaSub });
+  await put(lee, { push: leeSub });
+  // Lee turns it off: only Ana hears.
+  await put(lee, { pushRemove: leeSub.endpoint });
+  pushes.length = 0;
+  await call(`/api/events/${data.id}/finalize`, { method: 'POST', body: { start: two.options[0].start }, headers: admin });
+  assert.deepEqual(
+    pushes.map((p) => p.url),
+    [anaSub.endpoint],
+  );
+  // Ana's phone has unsubscribed: it's dropped, and not tried again.
+  status = 410;
+  await call(`/api/events/${data.id}/finalize`, { method: 'POST', body: { start: two.options[1].start }, headers: admin });
+  status = 201;
+  pushes.length = 0;
+  await call(`/api/events/${data.id}/finalize`, { method: 'POST', body: { start: two.options[0].start }, headers: admin });
+  assert.equal(pushes.length, 0);
+});

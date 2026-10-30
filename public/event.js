@@ -1551,8 +1551,13 @@ export async function renderEvent(id, navigate) {
       link.hidden = false;
       // Organizers have their organizer link for other devices; guests get a personal link.
       link.innerHTML = `Answering as <b>${esc(mine.name)}</b>.${ev().isAdmin ? '' : ' To change it from another device, <button type="button" class="link-btn" id="copy-edit">copy your personal link</button>.'}`;
-      if (!ev().isAdmin)
+      if (!ev().isAdmin) {
         $('#copy-edit').onclick = () => copy(`${shareUrl}#edit=${s.participantId}.${s.editToken}`, 'Personal link copied');
+        // "Notify me when the date is picked", where the server and this device can (guest-push.js).
+        link.insertAdjacentHTML('beforeend', '<span id="guest-push"></span>');
+        const ctx = { id, participantId: s.participantId, headers: authHeaders(), picked: ev().finalStart != null };
+        import('./guest-push.js').then((m) => m.guestPush($('#guest-push'), ctx)).catch(() => {});
+      }
     } else link.hidden = true;
     // Guests who just answered are the people most likely to plan the next thing.
     $('#grow').hidden = !mine || ev().isAdmin;
