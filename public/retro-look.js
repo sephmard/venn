@@ -8,12 +8,6 @@ export function retroLook(on) {
   if (on && !document.querySelector('link[href="/retro-app.css"]'))
     document.head.append(Object.assign(document.createElement('link'), { rel: 'stylesheet', href: '/retro-app.css' }));
 }
-/** Whether a new poll starts in the retro look: the link says ?retro=1, or the website is in retro mode. */
-export function wantsRetro() {
-  if (new URLSearchParams(location.search).get('retro') === '1') return true;
-  try {
-    return localStorage.getItem('venn:retro') === '1';
-  } catch {
-    return false;
-  }
-}
+/** Whether a new poll starts in the retro look: only when its link says ?retro=1. The website is
+ * retro by default, so it doesn't decide a poll's look; the organizer does. */
+export const wantsRetro = () => new URLSearchParams(location.search).get('retro') === '1';

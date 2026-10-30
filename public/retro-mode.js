@@ -1,24 +1,31 @@
-// Retro mode on the website: the switch in the menu turns on the retrofuturist look (html.retro, in
-// site.css), remembered in this browser. Loaded in <head>, before the page is drawn, so it never
-// flashes the other look. Off, the site is its usual self. While it's on, the address says
-// ?retro=1, so a copied link shares it; ?retro=0 turns it off.
+// Retro mode on the website: the retrofuturist look (html.retro, in site.css) is the site's own,
+// and the switch in the menu turns it off (the classic look), remembered in this browser. Loaded in
+// <head>, before the page is drawn, so it never flashes the other look. While it's off, the
+// address says ?retro=0, so a copied link shares that; ?retro=1 turns it back on.
 (() => {
   const KEY = 'venn:retro';
   const root = document.documentElement;
   const asked = new URLSearchParams(location.search).get('retro');
-  let on = asked === '1';
-  try {
-    if (asked === '1' || asked === '0') {
-      if (on) localStorage.setItem(KEY, '1');
-      else localStorage.removeItem(KEY);
-    } else on = localStorage.getItem(KEY) === '1';
-  } catch {
-    // Storage blocked: the link's choice, or the usual look; the switch still works for this page.
-  }
+  let on = asked !== '0';
+  const remember = () => {
+    try {
+      if (on) localStorage.removeItem(KEY);
+      else localStorage.setItem(KEY, '0');
+    } catch {
+      // Not remembered, but this page shows it.
+    }
+  };
+  if (asked === '1' || asked === '0') remember();
+  else
+    try {
+      on = localStorage.getItem(KEY) !== '0';
+    } catch {
+      // Storage blocked: the site's own look.
+    }
   const share = () => {
     const url = new URL(location.href);
-    if (on) url.searchParams.set('retro', '1');
-    else url.searchParams.delete('retro');
+    if (on) url.searchParams.delete('retro');
+    else url.searchParams.set('retro', '0');
     if (url.href !== location.href) history.replaceState(history.state, '', url);
   };
   const apply = () => {
@@ -38,12 +45,7 @@
   document.addEventListener('click', (e) => {
     if (!e.target.closest('.retro-switch')) return;
     on = !on;
-    try {
-      if (on) localStorage.setItem(KEY, '1');
-      else localStorage.removeItem(KEY);
-    } catch {
-      // Not remembered, but on for now.
-    }
+    remember();
     apply();
     share();
   });

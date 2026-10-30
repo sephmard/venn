@@ -104,8 +104,11 @@ the same PR** (and CLAUDE.md if it's a rule that matters in review).
 **Website (venn.day)**
 
 - Simple and sexy. Four values, framed as benefits (what people get), not features.
-- **Retro mode** (website only, never the app or poll): a switch in the site's menu, off by default,
-  remembered in the browser, and in the address (`?retro=1`) so a copied link shares it, with the retro link preview. On, a synthwave night of stars and scanlines, chrome Orbitron headlines
+- **Retro mode** (website only, never the app or poll) is **the website's default look**. A switch in
+  the site's menu turns it off (the classic look), remembered in the browser. While retro, the
+  address is plain (`venn.day/`) and a copied link previews retro; while classic, the address says
+  `?retro=0` so a copied link previews classic. It never decides a new poll's look: that's the
+  organizer's Retro look switch, off by default. Retro: a synthwave night of stars and scanlines, chrome Orbitron headlines
   with a sunset gradient on the key words, neon cyan and magenta, arcade pixel labels, a striped sun
   on a moving grid, a neon logo (`logo-retro.svg`) and Finn stickers on neon circles
   (`img/stickers/retro/`; Finn stays smooth, never chunky pixels). Off, the usual look and logo.

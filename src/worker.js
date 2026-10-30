@@ -22,10 +22,10 @@ export default {
       });
     }
     if (url.pathname === '/') {
-      // The home page comes here first (wrangler.toml) only so a link in retro mode shows the
-      // retro preview (src/preview.js); any other is served as it is.
-      if (url.searchParams.get('retro') !== '1') return env.ASSETS.fetch(request);
-      // A plain GET, so it never comes back as a 304 for the classic page.
+      // The home page comes here first (wrangler.toml) only so a link in the classic look shows
+      // the classic preview (src/preview.js); any other is served as it is.
+      if (url.searchParams.get('retro') !== '0') return env.ASSETS.fetch(request);
+      // A plain GET, so it never comes back as a 304 for the retro page.
       const asset = await env.ASSETS.fetch(new Request(url));
       if (!asset.ok) return asset;
       const headers = new Headers(asset.headers);

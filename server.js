@@ -107,7 +107,7 @@ async function serveStatic(url, res, store) {
   }
   // Poll pages carry the poll's own link preview (src/preview.js), as on Cloudflare.
   if (status === 200 && isAppRoute(pathname)) data = await appShell(data.toString(), { pathname, origin: url.origin, store });
-  // ...and the home page, in retro mode, the retro one.
+  // ...and the home page, in the classic look, the classic one.
   if (status === 200 && pathname === '/') data = homePage(data.toString(), url);
   res.writeHead(status, { ...SECURITY_HEADERS, 'content-type': TYPES[extname(file)] || 'application/octet-stream' });
   res.end(data);
