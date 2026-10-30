@@ -308,3 +308,10 @@ test('Worker: poll pages carry the same link preview, without the static ETag', 
   assert.equal(missing.status, 404);
   assert.equal(missing.headers.get('x-frame-options'), 'DENY');
 });
+
+test('Worker: the hourly run sends what deadlines have due, and nothing when none are', async () => {
+  const waiting = [];
+  await worker.scheduled({ scheduledTime: Date.now() }, { DB: fakeD1() }, { waitUntil: (p) => waiting.push(p) });
+  assert.equal(waiting.length, 1);
+  assert.equal(await waiting[0], 0);
+});

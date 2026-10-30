@@ -3,6 +3,7 @@
 import { LIMITS, ValidationError, YES, allDaySpan, isValidTimeZone, buildSlots, meetingEnd, overlapEnd } from '../public/core.js';
 import { buildIcs, googleCalendarUrl, outlookCalendarUrl } from '../public/calendar-export.js';
 import { setLabel } from './preview.js';
+import { applyDeadline, closesLabel, deadlineView, isClosed, normalizeDeadline, stopReminders } from './deadline.js';
 import { normalizeAvailability, normalizeEventInput, normalizeName } from './validate.js';
 import { SECURITY_HEADERS } from './security-headers.js';
 import { IMAGE_FILES, MAX_IMAGE_BODY, imagePath, imageResponse, parseImage } from './images.js';
@@ -128,7 +129,6 @@ function publicEvent(ev, participants, { isAdmin, ownHash = null, emails = new M
 const hostAvailability = (ev, marked) =>
   marked != null ? normalizeAvailability(marked, buildSlots(ev)) : Object.fromEntries(buildSlots(ev).map((s) => [s, YES]));
 
-/** The email someone answers with, when the organizer asks everyone for one. */
 /**
  * A guest's email, shown only to the organizer (for the calendar invite once the date is picked):
  * required when the poll asks everyone for one, otherwise theirs to give. null when none.
@@ -168,10 +168,24 @@ function guestToken(settings, participantId) {
 function stopEmails(settings, token) {
   if (typeof token !== 'string' || !token) return null;
   if (settings.unsubscribeToken && timingSafeEqual(token, settings.unsubscribeToken)) return { ...settings, email: null };
+  // Someone the organizer invited, stopping their reminders (src/deadline.js).
+  const invitee = stopReminders(settings, token, timingSafeEqual);
+  if (invitee) return invitee;
   const [participantId, secret = ''] = token.split('.');
   const mine = settings.guestTokens && Object.hasOwn(settings.guestTokens, participantId) && settings.guestTokens[participantId];
   if (!mine || !timingSafeEqual(secret, mine)) return null;
   return { ...settings, stopped: [...new Set([...(settings.stopped || []), participantId])] };
+}
+
+/**
+ * The deadline an edited poll gets: what the edit sent, or the one it had (with its reminders),
+ * as long as the poll still asks everyone for their email.
+ */
+function keptDeadline(body, next, ev, settings, at) {
+  if ('deadline' in body) return normalizeDeadline(body, next, at);
+  if (!next.requireEmail || ev.deadline == null) return { deadline: null, remindEvery: null, invitees: [] };
+  const r = settings.remind || {};
+  return { deadline: ev.deadline, remindEvery: r.every ?? null, invitees: (r.invitees || []).map((i) => i.email) };
 }
 
 /** Point the organizer's notifications at an email address, or turn them off with an empty one. */
@@ -416,6 +430,9 @@ export async function handleApi(
       if (!previous) delete event.seriesOf;
       const notifyEmail = body.notifyEmail ? normalizeEmail(body.notifyEmail) : null;
       if (notifyEmail && !emailEnabled(env)) throw new ValidationError("Email notifications aren't set up on this server");
+      // A deadline for answers, and who to remind (src/deadline.js): checked before anything is saved.
+      const remind = {};
+      const due = applyDeadline(event, remind, normalizeDeadline(body, event, now()), { now: now(), origin });
       const id = randomId(10);
       const adminToken = randomId(24);
       // `hostAnswers`: the times the organizer offers count as their own answer (yes to all).
@@ -435,7 +452,7 @@ export async function handleApi(
         });
       if (notifyEmail) {
         // No confirmation step: the organizer gets their poll's link straight away, then an email per answer.
-        const settings = { emailsSent: 1 };
+        const settings = { emailsSent: 1, ...remind };
         setNotifyEmail(settings, notifyEmail, env);
         await store.setNotify(id, settings);
         const msg = pollReadyEmail({
@@ -449,6 +466,8 @@ export async function handleApi(
           sendEmail(env, { to: notifyEmail, ...msg, headers }, { fetchImpl }).catch((e) => console.error('poll email failed', e)),
         );
       }
+      if (!notifyEmail && remind.remind) await store.setNotify(id, remind);
+      if (due != null) await store.setReminderDue(id, due);
       count('poll.created', {
         ...pollKind(event),
         plan: planOf(event),
@@ -493,6 +512,9 @@ export async function handleApi(
         if (ev.hostId) next.hostId = ev.hostId;
         // The edit form doesn't send it, so a poll keeps the one it follows on from.
         if (ev.seriesOf) next.seriesOf = ev.seriesOf;
+        // Its deadline: as sent, or as it was when not sent; never without everyone's email.
+        const settings = (await store.getNotify(ev.id)) || {};
+        const due = applyDeadline(next, settings, keptDeadline(body, next, ev, settings, now()), { now: now(), origin });
         // The organizer's own answer follows the new times: what they sent, or what they'd already
         // answered for the times that are still there. It's checked before the poll changes.
         const host = participants.find((p) => p.id === ev.hostId);
@@ -519,6 +541,8 @@ export async function handleApi(
           next.finalEnd = overlapEnd(next, buildSlots(next), people, ev.finalStart);
         }
         await store.updateEvent(ev.id, next);
+        await store.setNotify(ev.id, settings);
+        await store.setReminderDue(ev.id, due);
         if (!keep) await store.setFinal(ev.id, null);
         count('poll.edited', kindOf(next));
         return json({ ok: true });
@@ -677,8 +701,34 @@ export async function handleApi(
       const body = await readJson(request);
       const next = applyPrivacy(data, body);
       delete next.repeat; // plans that repeated were taken out; a poll that had one drops it here
+      // No emails, no deadline: Venn couldn't tell who's answered.
+      if (!next.requireEmail && next.deadline != null) {
+        const s = (await store.getNotify(ev.id)) || {};
+        applyDeadline(next, s, { deadline: null }, { now: now(), origin });
+        await store.setNotify(ev.id, s);
+        await store.setReminderDue(ev.id, null);
+      }
       await store.updateEvent(ev.id, next);
       return json(Object.fromEntries(PRIVACY.map((k) => [k, !!next[k]])));
+    }
+
+    // GET|PUT /api/events/:id/deadline  { deadline, remindEvery, invitees }: when answers close, and
+    // who to remind until then (src/deadline.js). Organizer only: it's the one place invitees' emails are.
+    if (parts.length === 3 && parts[2] === 'deadline') {
+      if (method !== 'GET' && method !== 'PUT') return error(405, 'Method not allowed');
+      if (!isAdmin) return error(403, 'Only the organizer can see or change the deadline');
+      const settings = (await store.getNotify(ev.id)) || {};
+      const { id: _id, adminHash, finalStart, createdAt, ...data } = ev;
+      if (method === 'PUT') {
+        const due = applyDeadline(data, settings, normalizeDeadline(await readJson(request), data, now()), {
+          now: now(),
+          origin,
+        });
+        await store.updateEvent(ev.id, data);
+        await store.setNotify(ev.id, settings);
+        await store.setReminderDue(ev.id, due);
+      }
+      return json(deadlineView(data, settings, await store.listEmails(ev.id)));
     }
 
     // PUT /api/events/:id/image  { icon, card? }: the poll's own picture, in base64 (src/images.js).
@@ -759,6 +809,10 @@ export async function handleApi(
       }
       return json({ ok: true });
     }
+
+    // After the deadline, only the organizer can answer (src/deadline.js).
+    if (parts[2] === 'participants' && (method === 'POST' || method === 'PUT') && !isAdmin && isClosed(ev, now()))
+      return error(403, `Answers closed on ${closesLabel(ev)}.`);
 
     // POST /api/events/:id/participants
     if (parts.length === 3 && method === 'POST') {

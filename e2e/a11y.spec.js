@@ -166,6 +166,7 @@ for (const scheme of ['light', 'dark']) {
       await page.locator('#privacy-opts summary').click();
       for (const name of ['Ask guests for their email', 'Hide answers from guests'])
         await page.getByRole('switch', { name }).check();
+      await expect(page.locator('#dl-at')).toBeVisible(); // asking for emails allows a deadline
       await audit(page, 'create (privacy options)');
       await page.click('#submit');
       await page.getByRole('button', { name: 'View poll' }).click();
@@ -173,6 +174,7 @@ for (const scheme of ['light', 'dark']) {
       if (!(await page.locator('#privacy-open').isVisible())) await page.locator('details.organizer summary').click();
       await page.click('#privacy-open');
       await expect(page.locator('#privacy-form')).toBeVisible();
+      await expect(page.locator('#dl-at')).toBeVisible();
       await audit(page, 'organizer privacy panel');
       const guest = await browser.newContext({ colorScheme: scheme });
       const g = await guest.newPage();
