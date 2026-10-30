@@ -45,7 +45,9 @@ the same PR** (and CLAUDE.md if it's a rule that matters in review).
   is short, and resists where there's nothing further (before this week). So it's plain that it
   moves, the first calendar on a touch screen **nudges once**, a peek at the next, until someone has
   swiped (still for reduced motion).
-- Calendars open on **today's month and week**, even at the very end of a month.
+- Calendars open on **this week**: the month calendar's first page starts at this week's Monday (no
+  rows of past days) and runs to the month's end, or on to next month's when under two weeks are left
+  ("Oct – Nov 2026", with "Nov 1" marked). › then goes month by month.
 - A tap goes round the same way at every level: **available, then if needed, then removed**.
 - What's picked is coloured as in the key, at every level and in every look (the retro look too):
   available is green, if needed amber. Never the theme's accent.

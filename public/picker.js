@@ -109,9 +109,12 @@ export function monthView(
 ) {
   const today = todayStr();
   const toggle = !!selected;
-  // Open on this month, always: › is a tap away.
+  // The first page starts at this week, to the month's end (next month's, if under two weeks are left).
   const now = new Date();
-  let cursor = new Date(now.getFullYear(), now.getMonth(), 1);
+  const thisMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+  const span = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate() - now.getDate() < 14 ? 2 : 1;
+  const monthsFrom = (c) => (c.getFullYear() - thisMonth.getFullYear()) * 12 + c.getMonth() - thisMonth.getMonth();
+  let cursor = thisMonth;
   let view = views?.[0] || 'month';
   const weekOf = (d) => addDays(d, -((dateParts(d).getUTCDay() + 6) % 7));
   let weekStart = weekOf(today); // the Monday of the week shown, in week view
@@ -135,21 +138,30 @@ export function monthView(
     const week = view === 'week';
     for (const b of $$('[data-cal-view]', root)) b.setAttribute('aria-checked', b.dataset.calView === view);
     grid.classList.toggle('cal-week', week);
+    if (monthsFrom(cursor) < span) cursor = thisMonth;
     const y = cursor.getFullYear(),
       m = cursor.getMonth();
+    const first = !week && monthsFrom(cursor) === 0;
+    const end = new Date(y, m + (first ? span : 1), 0);
     const days = week
       ? Array.from({ length: 7 }, (_, i) => addDays(weekStart, i))
-      : Array.from({ length: new Date(y, m + 1, 0).getDate() }, (_, i) => ymd(y, m, i + 1));
+      : first
+        ? Array.from({ length: Math.round((end - new Date(`${weekOf(today)}T00:00`)) / 864e5) + 1 }, (_, i) =>
+            addDays(weekOf(today), i),
+          )
+        : Array.from({ length: end.getDate() }, (_, i) => ymd(y, m, i + 1));
     $('.cal-month', root).textContent = week
       ? `${fmtMonthDay.format(dateParts(days[0]))} – ${fmtMonthDay.format(dateParts(days[6]))}`
-      : cursor.toLocaleDateString(undefined, { month: 'long', year: 'numeric' });
+      : first && span > 1
+        ? `${fmtMonth.format(dateParts(ymd(y, m, 1)))}${y !== end.getFullYear() ? ` ${y}` : ''} – ${fmtMonth.format(dateParts(ymd(end.getFullYear(), end.getMonth(), 1)))} ${end.getFullYear()}`
+        : cursor.toLocaleDateString(undefined, { month: 'long', year: 'numeric' });
     $('[data-nav="-1"]', root).setAttribute('aria-label', week ? 'Previous week' : 'Previous month');
     $('[data-nav="1"]', root).setAttribute('aria-label', week ? 'Next week' : 'Next month');
     let h = Array.from(
       { length: 7 },
       (_, i) => `<span class="cal-dow" aria-hidden="true">${fmtDow.format(new Date(Date.UTC(2023, 0, 2 + i)))}</span>`,
     ).join('');
-    if (!week) h += '<span></span>'.repeat((new Date(y, m, 1).getDay() + 6) % 7); // weeks start on Monday
+    if (!week && !first) h += '<span></span>'.repeat((new Date(y, m, 1).getDay() + 6) % 7); // weeks start on Monday
     for (const ds of days) {
       const d = +ds.slice(8);
       const mark = marks(ds);
@@ -157,12 +169,11 @@ export function monthView(
       const off = ds < today;
       // The number is the visible name; the weekday, month and note are read out with it.
       const dt = dateParts(ds);
-      h += `<button type="button" class="cal-day${ds === today ? ' today' : ''}${mark ? ' marked' : ''} ${dayClass(ds)}" data-date="${ds}" ${state}${off ? ' disabled' : ''}><span class="sr-only">${esc(fmtDow.format(dt))} </span>${d}<span class="sr-only"> ${esc(fmtMonth.format(dt))}${mark ? `, ${esc(mark)}` : ''}</span>${mark ? `<small aria-hidden="true">${esc(mark)}</small>` : ''}</button>`;
+      const mo = first && d === 1 && ds !== days[0] ? `${esc(fmtMonth.format(dt))} ` : '';
+      h += `<button type="button" class="cal-day${ds === today ? ' today' : ''}${mark ? ' marked' : ''}${mo ? ' cal-1st' : ''} ${dayClass(ds)}" data-date="${ds}" ${state}${off ? ' disabled' : ''}><span class="sr-only">${esc(fmtDow.format(dt))} </span>${mo}${d}<span class="sr-only"> ${esc(fmtMonth.format(dt))}${mark ? `, ${esc(mark)}` : ''}</span>${mark ? `<small aria-hidden="true">${esc(mark)}</small>` : ''}</button>`;
     }
     grid.innerHTML = h;
-    $('[data-nav="-1"]', root).disabled = week
-      ? weekStart <= today
-      : y === new Date().getFullYear() && m === new Date().getMonth();
+    $('[data-nav="-1"]', root).disabled = week ? weekStart <= today : first;
   }
 
   // Toggle mode: drag across days with a mouse; a tap (or Enter/Space) toggles one.
@@ -220,7 +231,14 @@ export function monthView(
     const nav = e.target.closest('[data-nav]');
     if (!nav) return;
     if (view === 'week') weekStart = addDays(weekStart, 7 * +nav.dataset.nav);
-    else cursor = new Date(cursor.getFullYear(), cursor.getMonth() + +nav.dataset.nav, 1);
+    else {
+      const k = monthsFrom(cursor) + +nav.dataset.nav;
+      cursor = new Date(
+        thisMonth.getFullYear(),
+        thisMonth.getMonth() + (k <= 0 ? 0 : k < span ? (+nav.dataset.nav > 0 ? span : 0) : k),
+        1,
+      );
+    }
     render();
   });
   swipe(grid, root, (n) => `[data-nav="${n}"]`);

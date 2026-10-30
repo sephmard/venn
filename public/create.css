@@ -164,6 +164,11 @@ button.emoji-tile:focus-visible {
 .cal-day.today {
   border-color: var(--muted);
 }
+/* "Nov 1", where the first page runs into next month */
+.cal-day.cal-1st {
+  font-size: 0.8125rem;
+  color: var(--accent);
+}
 .cal-day[aria-pressed='true'] {
   background: var(--yes);
   color: var(--yes-ink);
