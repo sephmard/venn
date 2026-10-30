@@ -39,10 +39,10 @@ const PAGES = {
   // organizer's Pick: an open row and its button as one card.
   // +0.25 each for switching lengths keeping the days, and the week's fills that show when they're on.
   // +0.25 for the shared stylesheet's change-the-date list and one-question answer.
-  'vote on a few dates page': ['create-pick.js', ['create.css'], 57.75], // +0.25 for the landing pages' link-only templates, +0.25 for a guest's one-tap own poll, +0.25 for calendar day heads, +0.25 for the shared stylesheet's answers by who and the smooth timeline, +0.25 for « » on parts of the day and taps on the hour, +1 for press and hold to draw or move a time on touch, +0.5 for a buzz on iPhones when a drag begins, +0.25 for the retro look switch and its preview, +0.25 for swiping the calendars sideways, +0.5 for calendars that follow the finger when swiped and nudge once to show it, +0.75 for the next week or month sliding in under a swipe, +0.5 for the month calendar opening on this week, +2 for the retro look (retro-app.css and app-look.js) with every app page, so it's there from the first paint
+  'vote on a few dates page': ['create-pick.js', ['create.css'], 58.5], // +0.25 for the landing pages' link-only templates, +0.25 for a guest's one-tap own poll, +0.25 for calendar day heads, +0.25 for the shared stylesheet's answers by who and the smooth timeline, +0.25 for « » on parts of the day and taps on the hour, +1 for press and hold to draw or move a time on touch, +0.5 for a buzz on iPhones when a drag begins, +0.25 for the retro look switch and its preview, +0.25 for swiping the calendars sideways, +0.5 for calendars that follow the finger when swiped and nudge once to show it, +0.75 for the next week or month sliding in under a swipe, +0.5 for the month calendar opening on this week, +2 for the retro look (retro-app.css and app-look.js) with every app page, so it's there from the first paint, +0.5 for fetching each page's code all at once and the retro sky as a layer of its own, so it opens and scrolls smoothly on phones
   // +0.25 for usage stats, +0.25 for the landing pages' templates, +0.25 for a guest's one-tap own poll
   // (template by emoji) and the day labels that fit.
-  'ask when people are available page': ['create-free.js', ['create.css'], 56.5], // +0.5: the above, and days in a row as a switch; +0.25 for days and times mixed in one poll; +0.25 for the shared stylesheet's answers by who and the smooth timeline, +0.25 for « » on parts of the day and taps on the hour, +0.75 for press and hold to draw a time on touch, +0.25 for the parts' times on phones and the drag you can see, +0.25 for the retro look switch, +0.25 for swiping the calendars sideways, +0.25 for picks in the key's colours in every look, +0.25 for calendars that follow the finger when swiped and nudge once to show it, +0.75 for the next week or month sliding in under a swipe, +0.5 for the month calendar opening on this week, +2 for the retro look (retro-app.css and app-look.js) with every app page, so it's there from the first paint, +0.25 for the guests' notify row (shared styles)
+  'ask when people are available page': ['create-free.js', ['create.css'], 57], // +0.5: the above, and days in a row as a switch; +0.25 for days and times mixed in one poll; +0.25 for the shared stylesheet's answers by who and the smooth timeline, +0.25 for « » on parts of the day and taps on the hour, +0.75 for press and hold to draw a time on touch, +0.25 for the parts' times on phones and the drag you can see, +0.25 for the retro look switch, +0.25 for swiping the calendars sideways, +0.25 for picks in the key's colours in every look, +0.25 for calendars that follow the finger when swiped and nudge once to show it, +0.75 for the next week or month sliding in under a swipe, +0.5 for the month calendar opening on this week, +2 for the retro look (retro-app.css and app-look.js) with every app page, so it's there from the first paint, +0.25 for the guests' notify row (shared styles), +0.5 for fetching each page's code all at once and the retro sky as a layer of its own, so it opens and scrolls smoothly on phones
   // +0.5 for big groups: "+N more" people, names behind "See who", ticks on whole best times.
   // +0.5 for the organizer's tools only on their own link, with "Organizer view" on the guest link.
   // +1 for Change the date as a list in the banner, and one question once the date is picked.
@@ -50,7 +50,7 @@ const PAGES = {
   // +0.5 for calendar days as a weekday over its number, today circled, and past days striped (shared styles).
   // +0.25 for who answered what, a line per answer, when a row in everyone's answers is open.
   // +0.25 for removing an answer from the person tapped, and the smooth timeline (shared styles).
-  'poll page': ['event.js', [], 48.25],
+  'poll page': ['event.js', [], 48.5], // +0.25 for fetching its code all at once and the retro sky as its own layer
 };
 
 for (const [name, [entry, css, PAGE_KB]] of Object.entries(PAGES)) {
@@ -70,4 +70,16 @@ for (const [name, [entry, css, PAGE_KB]] of Object.entries(PAGES)) {
 
 test('page weight: the router loads pages on demand, not up front', () => {
   assert.doesNotMatch(read('app.js').toString(), /^import\b/m);
+});
+
+test('app-look.js fetches each page’s modules up front: exactly the ones the page imports', () => {
+  const src = read('app-look.js').toString();
+  const lists = [...src.matchAll(/\[('[\w.-]+\.js'(?:, '[\w.-]+\.js')*)\]/g)].map((m) =>
+    m[1].split(', ').map((s) => s.slice(1, -1)),
+  );
+  assert.equal(lists.length, 2);
+  const [create, poll] = lists;
+  // The create page's, and the look it applies before drawing (app.js).
+  assert.deepEqual(new Set(create), new Set([...closure('create-free.js'), 'retro-look.js']));
+  assert.deepEqual(new Set(poll), closure('event.js'));
 });

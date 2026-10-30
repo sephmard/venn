@@ -44,12 +44,26 @@ html.retro {
   --serif: 'Orbitron', system-ui, sans-serif;
   color-scheme: dark;
 }
+/* The night sky and the scanlines are fixed layers of their own, which phones move without
+   repainting as the page scrolls (a fixed background attachment repaints on every frame). */
 html.retro body {
+  background: #0d0221;
+}
+html.retro body::before,
+html.retro body::after {
+  content: '';
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  transform: translateZ(0);
+}
+html.retro body::before {
+  z-index: -1;
   background:
     radial-gradient(1px 1px at 12% 18%, #fff8 50%, transparent 51%),
     radial-gradient(1px 1px at 72% 9%, #fff9 50%, transparent 51%),
     radial-gradient(1px 1px at 88% 36%, #fff7 50%, transparent 51%),
-    linear-gradient(180deg, #0d0221 0%, #160634 60%, #24083f 100%) fixed;
+    linear-gradient(180deg, #0d0221 0%, #160634 60%, #24083f 100%);
   background-size:
     320px 320px,
     260px 260px,
@@ -58,11 +72,7 @@ html.retro body {
 }
 /* Scanlines, faint. */
 html.retro body::after {
-  content: '';
-  position: fixed;
-  inset: 0;
   z-index: 100;
-  pointer-events: none;
   background: repeating-linear-gradient(180deg, rgb(255 255 255 / 0.025) 0 1px, transparent 1px 3px);
 }
 /* Chrome headlines. */

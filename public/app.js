@@ -10,12 +10,9 @@ async function route() {
   const path = location.pathname.replace(/\/$/, '');
   const poll = path.match(/^\/e\/([A-Za-z0-9]+)$/);
   // The look carries on until the page says, so moving between pages never flashes the other one:
-  // a new poll's is set here, before it's drawn; a poll's once it loads (event.js), and an edited or
+  // a new poll's is set below, before it's drawn; a poll's once it loads (event.js), and an edited or
   // copied one's once its poll does (create.js).
-  if (!poll && !/[?&](edit|copy)=/.test(location.search)) {
-    const { retroLook, wantsRetro } = await import('./retro-look.js');
-    retroLook(wantsRetro());
-  }
+  const look = !poll && !/[?&](edit|copy)=/.test(location.search) && import('./retro-look.js');
   // Poll pages get their own tab icon.
   for (const l of document.querySelectorAll('link[rel=icon]'))
     l.href = l.href.replace(/favicon[^.]*/, poll ? 'favicon-poll' : 'favicon');
@@ -24,8 +21,13 @@ async function route() {
   else {
     // Every new poll is a Venn (create-free.js). /new/pick is the older "vote on a few dates" page,
     // still used to edit or copy polls made with it; nothing links to it otherwise.
-    if (path === '/new/pick') off = (await import('./create-pick.js')).renderPick();
-    else off = (await import('./create-free.js')).renderFree();
+    const pick = path === '/new/pick';
+    const page = pick ? import('./create-pick.js') : import('./create-free.js'); // fetched alongside the look
+    if (look) {
+      const { retroLook, wantsRetro } = await look;
+      retroLook(wantsRetro());
+    }
+    off = pick ? (await page).renderPick() : (await page).renderFree();
   }
   if (typeof off === 'function') cleanup = off;
 }
