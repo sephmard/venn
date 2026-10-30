@@ -42,8 +42,11 @@ the same PR** (and CLAUDE.md if it's a rule that matters in review).
 - **Swipe sideways** on any calendar (Days, Parts of day, Hours; organizers and guests) to go on or
   back, as ‹ › do. The calendar follows the finger with the next (or last) week or month sliding in
   beside it, like turning a page; let go past a quarter, or flick, to land on it, otherwise it springs
-  back. A press that rests first still draws or moves a time.
-- Calendars open on **today's month and week**, even at the very end of a month.
+  back. Once a swipe is sideways the page doesn't scroll up or down with it. A press that rests first
+  still draws or moves a time.
+- Calendars open on **this week**: the month calendar's first page starts at this week's Monday (no
+  rows of past days) and runs to the month's end, or on to next month's when under two weeks are left
+  ("Oct – Nov 2026", with "Nov 1" marked). › then goes month by month.
 - A tap goes round the same way at every level: **available, then if needed, then removed**.
 - What's picked is coloured as in the key, at every level and in every look (the retro look too):
   available is green, if needed amber. Never the theme's accent.

@@ -13,6 +13,7 @@ export const nextMonth = (page) =>
 /** On a month calendar, show next month. */
 export async function showNextMonth(page) {
   const first = await nextMonth(page);
+  await page.locator('.cal-day').first().waitFor();
   if (!(await page.locator(`.cal-day[data-date="${first}"]`).count())) await page.click('[data-nav="1"]');
 }
 
@@ -160,6 +161,7 @@ export async function setLevel(page, level) {
  */
 export async function pickDays(page, n, keep = () => true) {
   const picked = [];
+  await page.locator('#when .cal-day').first().waitFor(); // drawn before looking in it
   for (let month = 0; picked.length < n && month < 6; month++) {
     const days = await page.$$eval('#when .cal-day:not(:disabled)', (els) => els.map((e) => e.dataset.date));
     for (const d of days) {
@@ -183,6 +185,7 @@ export async function addHours(page, days, times = [1140]) {
 
 /** Tap these days on the create page's month calendar, moving on a month when the next isn't shown. */
 export async function tapDays(page, dates) {
+  await page.locator('#when .cal-day').first().waitFor(); // the calendar is drawn before looking in it
   for (const d of dates) {
     const day = page.locator(`#when .cal-day[data-date="${d}"]`);
     for (let i = 0; i < 6 && !(await day.count()); i++) await page.click('#when [data-nav="1"]');
