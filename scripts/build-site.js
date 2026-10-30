@@ -47,6 +47,9 @@ const marked = new Marked({
   },
 });
 
+// Images from public/ that a page shows (the retro banner), copied into assets/public/ after the build.
+const publicImages = new Set();
+
 /** Point links from a page that came from `src` (a repo path) at the right place on the site. */
 function rewriteLinks(html, src, page) {
   const fromDir = posix.dirname(page);
@@ -58,12 +61,15 @@ function rewriteLinks(html, src, page) {
     if (pageFor.has(target)) to = posix.relative(fromDir, pageFor.get(target)) || posix.basename(pageFor.get(target));
     else if (target.startsWith('docs/') && /\.(png|gif|svg|jpe?g|webp)$/.test(target))
       to = posix.relative(fromDir, `assets/${target.slice('docs/'.length)}`);
-    else to = `${REPO}/blob/main/${target}`; // anything else: view it on GitHub
+    else if (attr !== 'href' && target.startsWith('public/') && /\.(png|gif|svg|jpe?g|webp)$/.test(target)) {
+      publicImages.add(target);
+      to = posix.relative(fromDir, `assets/${target}`);
+    } else to = `${REPO}/blob/main/${target}`; // anything else: view it on GitHub
     return `${attr}="${to}${hash ? `#${hash}` : ''}"`;
   });
 }
 
-const LOGO = `<img src="logo.svg?v=5" width="26" height="26" alt="">`;
+const LOGO = `<img src="logo.svg?v=6" width="26" height="26" alt="">`;
 
 function sidebar(page) {
   const groups = [...new Set(DOCS.map((d) => d[3]))];
@@ -93,6 +99,7 @@ function docPage([src, page, title]) {
   <meta property="og:title" content="${esc(fullTitle)}">
   <link rel="icon" href="favicon.ico?v=5" sizes="32x32">
   <link rel="icon" href="favicon.svg?v=5" type="image/svg+xml">
+  <meta name="theme-color" content="#0d0221">
   <link rel="stylesheet" href="site.css">
 </head>
 <body>
@@ -133,14 +140,15 @@ function docPage([src, page, title]) {
 rmSync(out, { recursive: true, force: true });
 mkdirSync(out, { recursive: true });
 cpSync(join(root, 'docs'), join(out, 'assets'), { recursive: true, filter: (p) => !p.endsWith('.md') });
-// The docs have their own tab icon; the header shows the main logo.
+// The docs have their own tab icon; the header shows the website's retro logo, as the docs are retro.
 cpSync(join(root, 'site-src', 'favicon.svg'), join(out, 'favicon.svg'));
 cpSync(join(root, 'site-src', 'favicon.ico'), join(out, 'favicon.ico'));
-cpSync(join(root, 'public', 'favicon.svg'), join(out, 'logo.svg'));
+cpSync(join(root, 'public', 'logo-retro.svg'), join(out, 'logo.svg'));
 cpSync(join(root, 'public', 'fonts'), join(out, 'fonts'), { recursive: true });
 cpSync(join(root, 'site-src', 'site.css'), join(out, 'site.css'));
 writeFileSync(join(out, '.nojekyll'), ''); // serve files as-is
 for (const doc of DOCS) writeFileSync(join(out, doc[1]), docPage(doc));
+for (const img of publicImages) cpSync(join(root, img), join(out, 'assets', img));
 
 // Every local link and image on the site must exist.
 const broken = [];

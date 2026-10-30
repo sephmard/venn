@@ -123,6 +123,9 @@ the same PR** (and CLAUDE.md if it's a rule that matters in review).
   on a moving grid, a neon logo (`logo-retro.svg`) and Finn stickers on neon circles
   (`img/stickers/retro/`; Finn stays smooth, never chunky pixels). Off, the usual look and logo.
   DESIGN.md has both.
+- The **README and the developer docs** (docs.venn.day, `site-src/site.css`) are always retro and
+  short: the retro link-preview banner, retro screenshots (`npm run screenshots`), then only what a
+  developer needs, longer detail folded away or left to the docs.
 - A poll can have the **Retro look** too (the organizer's switch, off by default; on the create page,
   and on top of the poll): its page in neon
   for everyone, its "Your Venn is ready!", arcade toasts, retro Finn, neon emails, and a retro link preview
