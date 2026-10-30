@@ -7,6 +7,7 @@ async function route() {
   cleanup();
   cleanup = () => {};
   document.getElementById('toast').hidden = true;
+  document.documentElement.classList.remove('retro');
   const path = location.pathname.replace(/\/$/, '');
   const poll = path.match(/^\/e\/([A-Za-z0-9]+)$/);
   // Poll pages get their own tab icon.

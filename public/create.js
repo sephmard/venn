@@ -4,7 +4,7 @@
 
 import { IF_NEEDED, YES, isEmail } from './core.js';
 import { TEMPLATES, orderTemplates, templateIndex } from './templates.js';
-import { $, $$, api, esc, getConfig, lastEmail, lastName, localTz, rememberEmail, rememberName, save, toast } from './ui.js';
+import { $, $$, api, esc, save, toast, getConfig, lastEmail, lastName, localTz, rememberEmail, rememberName } from './ui.js';
 
 // The create pages' own styles, so people answering a poll never download them. They load before
 // the page is drawn, so it never shows unstyled.
@@ -64,6 +64,7 @@ export async function loadSource(src) {
 /** Fill in everything both kinds of poll share: the plan, the organizer and the privacy options. */
 export function fillCommon(ev, src) {
   editPoll.fillCommon(ev, src, { occasions: OCCASIONS, privacy: PRIVACY, icon });
+  if (ev.retro) import('./retro-look.js').then((m) => m.retroLook(true));
   if (src.edit) editing = src.id;
 }
 
@@ -296,6 +297,14 @@ export function showConfig(update) {
     if (b && notReady) go(notReady.bad[b.dataset.need][2]);
   };
   $('#organizer').addEventListener('input', update);
+  // The retro look: on when the site is retro, and shown here as soon as it's picked.
+  const retro = $('#p-retro');
+  if (retro)
+    import('./retro-look.js').then(({ retroLook, wantsRetro }) => {
+      if (!editing && wantsRetro()) retro.checked = true;
+      retroLook(retro.checked);
+      retro.onchange = () => retroLook(retro.checked);
+    });
   getConfig().then((c) => {
     if (!$('#notify-field')) return;
     $('#notify-field').hidden = !c.email;

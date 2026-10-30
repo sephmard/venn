@@ -33,9 +33,30 @@ test('retro mode: the menu switches the site to neon and back, and it is remembe
   await expect(sticker).toHaveAttribute('src', /\/stickers\/finn-/);
 });
 
-test('the app keeps its own look, retro mode or not', async ({ page }) => {
-  await page.goto('/');
-  await page.evaluate(() => localStorage.setItem('venn:retro', '1'));
+test(
+  'a link shares retro mode: ?retro=1 turns it on, and the address carries it while it is on',
+  { tag: '@site' },
+  async ({ page }) => {
+    await page.goto('/?retro=1');
+    await expect(page.locator('html')).toHaveClass(/\bretro\b/);
+    await page.goto('/privacy');
+    await expect(page.locator('html')).toHaveClass(/\bretro\b/);
+    await expect(page).toHaveURL(/\?retro=1$/); // remembered, and in the address to copy
+    await page.getByLabel('Menu').click();
+    await page.getByRole('switch', { name: 'Retro mode' }).click();
+    await expect(page).not.toHaveURL(/retro=/);
+    await page.goto('/?retro=0');
+    await expect(page.locator('html')).not.toHaveClass(/\bretro\b/);
+  },
+);
+
+test('with the site in retro mode, a new poll starts with the retro look, shown as it is made', async ({ page }) => {
+  await page.goto('/?retro=1');
   await page.goto('/new');
+  const look = page.getByRole('switch', { name: 'Retro look' });
+  await expect(look).toBeChecked();
+  await expect(page.locator('html')).toHaveClass(/\bretro\b/);
+  // Off: the create page goes back to its usual look at once.
+  await look.uncheck();
   await expect(page.locator('html')).not.toHaveClass(/\bretro\b/);
 });

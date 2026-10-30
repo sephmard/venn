@@ -13,6 +13,7 @@ test('the organizer picks the retro look: the poll opens in neon for everyone, a
   await page.fill('#organizer', 'Sam');
   await addOptions(page, 3, [1140]);
   await page.getByRole('switch', { name: 'Retro look' }).check();
+  await expect(page.locator('html')).toHaveClass(/\bretro\b/); // shown as soon as it's picked
   await page.click('#submit');
   await page.getByRole('button', { name: 'View poll' }).click();
   const html = page.locator('html');
@@ -26,6 +27,7 @@ test('the organizer picks the retro look: the poll opens in neon for everyone, a
   // Leaving the poll leaves the look behind.
   await page.goto('/new');
   await expect(html).not.toHaveClass(/\bretro\b/);
+  await expect(page.getByRole('switch', { name: 'Retro look' })).not.toBeChecked();
 });
 
 test('the organizer can switch the retro look on later, from the poll', async ({ page, request }) => {
