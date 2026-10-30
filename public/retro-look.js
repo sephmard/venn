@@ -8,12 +8,14 @@ export function retroLook(on) {
   if (on && !document.querySelector('link[href="/retro-app.css"]'))
     document.head.append(Object.assign(document.createElement('link'), { rel: 'stylesheet', href: '/retro-app.css' }));
 }
-/** Whether a new poll starts in the retro look: the link says ?retro=1, or the website is in retro mode. */
+/** Whether a new poll starts in the retro look: yes, like the website, unless the link says
+ * ?retro=0 or this browser chose the website's Classic mode. The organizer can switch it off. */
 export function wantsRetro() {
-  if (new URLSearchParams(location.search).get('retro') === '1') return true;
+  const asked = new URLSearchParams(location.search).get('retro');
+  if (asked) return asked !== '0';
   try {
-    return localStorage.getItem('venn:retro') === '1';
+    return localStorage.getItem('venn:retro') !== '0';
   } catch {
-    return false;
+    return true;
   }
 }

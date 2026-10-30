@@ -122,7 +122,8 @@ for (const path of ['/templates/friendsgiving', '/templates/holiday-party', '/te
     await expect(page.locator('h1')).toBeVisible();
     await expect(page.locator('.faq details')).toHaveCount(4);
     await noSideways(page);
-    // The questions open.
+    // The questions open. (Once the fonts are in, so the click lands where the question is.)
+    await page.evaluate(() => document.fonts.ready);
     await page.locator('.faq summary').first().click();
     await expect(page.locator('.faq details').first().locator('p')).toBeVisible();
     const slug = path.split('/').pop();

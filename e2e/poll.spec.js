@@ -903,9 +903,9 @@ test(
   { tag: '@site' },
   async ({ page }) => {
     await page.goto('/');
-    // The usual logo; the neon one waits for retro mode.
-    await expect(page.locator('.brand img.logo-classic')).toBeVisible();
-    await expect(page.locator('.brand img.logo-retro')).toBeHidden();
+    // The neon logo, the site's own look; the usual one waits for Classic mode.
+    await expect(page.locator('.brand img.logo-retro')).toBeVisible();
+    await expect(page.locator('.brand img.logo-classic')).toBeHidden();
     const nav = page.getByRole('navigation', { name: 'Main' });
     await expect(nav.getByRole('link', { name: 'GitHub' })).toBeHidden(); // not in the bar itself
     await page.locator('.menu summary').click();
@@ -1330,7 +1330,13 @@ test('ask when people are free: parts of the day', async ({ page, request }) => 
   // Everyone's answers are colour-coded: available, if needed and unavailable, with a key.
   const rows = page.locator('#overlap .ov-row');
   await expect(rows.nth(0).locator('.ov-bar')).toHaveCount(0); // everyone's free: ✓ Everyone says it
-  await expect(rows.nth(1).locator('.ov-bar i')).toHaveClass(['m']);
+  // Everyone can, but only if needed: amber, as in the key, not green.
+  await expect(rows.nth(1)).toHaveClass(/\bifn\b/);
+  await expect(rows.nth(1).locator('.ov-count')).toHaveText(/^Everyone, if needed/); // not "1 of 1", nor ✓ Everyone
+  await expect(rows.nth(1)).toHaveAccessibleName(/Everyone can, some only if needed/);
+  expect(await rows.nth(1).evaluate((el) => getComputedStyle(el).borderColor)).toBe(
+    await page.locator('.ov-legend .sw-m').evaluate((el) => getComputedStyle(el).backgroundColor),
+  );
   await expect(rows.nth(2).locator('.ov-bar i')).toHaveClass(['n']);
   await expect(rows.nth(2)).toHaveAccessibleName(/1 unavailable/);
   await expect(rows.nth(0)).toContainText('✓ Everyone');
@@ -2746,6 +2752,9 @@ test("everyone's answers: each time shows its mix of available, if needed and un
   await expect(cards.nth(0).locator('.ov-slot.all')).toHaveCount(4);
   await expect(cards.nth(0).locator('.ov-row')).toContainText('✓ Everyone');
   await expect(cards.nth(1).locator('.ov-row')).toHaveAccessibleName(/1 of 2 available, 1 if needed/);
+  await expect(cards.nth(1).locator('.ov-row')).toHaveClass(/\bifn\b/); // everyone can, one only if needed: amber
+  await expect(cards.nth(1).locator('.ov-count')).toHaveText(/^Everyone, if needed/);
+  await expect(cards.nth(1).locator('.ov-slot.ifn')).toHaveCount(4);
   await cards.nth(0).locator('.ov-row').click();
   await expect(cards.nth(0).locator('.ov-who')).toContainText('John');
   await expect(cards.nth(0).locator('[data-pick]')).toBeVisible();
