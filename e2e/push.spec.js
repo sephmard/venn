@@ -140,7 +140,8 @@ test('a guest who answered can be notified when the date is picked, and stop', a
     await route.fulfill({ json: { ok: true } });
   });
   await page.goto(`/e/${id}#edit=${ana.id}.${ana.editToken}`);
-  const line = page.locator('#edit-link');
+  const line = page.locator('#guest-push');
+  await expect(page.locator('#edit-link')).toContainText('Answering as Ana');
   await line.getByRole('button', { name: '🔔 Notify me when the date is picked' }).click();
   await expect(line).toContainText("You'll get a notification when the date is picked.");
   expect(puts.at(-1)).toEqual({ body: { push: SUB }, token: ana.editToken });
@@ -163,5 +164,5 @@ test("without notifications on the server, a guest's answer line says nothing ab
   const ana = await (await request.post(`/api/events/${id}/participants`, { data: { name: 'Ana', availability: {} } })).json();
   await page.goto(`/e/${id}#edit=${ana.id}.${ana.editToken}`);
   await expect(page.locator('#edit-link')).toContainText('Answering as');
-  await expect(page.locator('#edit-link')).not.toContainText('Notify me');
+  await expect(page.locator('#guest-push')).toBeHidden();
 });
