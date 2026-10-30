@@ -43,9 +43,10 @@ function start(fig) {
 
   // The story, in seconds: noise, then the messages find their friends, then the circles meet.
   // Unhurried, so each step can be followed.
+  // The messages take their time; the circles snap together, and the day pops out at once.
   const GATHER = 3,
     JOIN = 5.4,
-    MET = 7.6,
+    MET = 6.1,
     PART = 20,
     LOOP = 23.5;
   let t0 = performance.now();
@@ -84,9 +85,9 @@ function start(fig) {
       c.style.scale = String(0.7 + 0.3 * show);
       return { x: rest[i].x + x, y: rest[i].y + y };
     });
-    // The ✓ sits where all three meet, and only while they do.
+    // The ✓ sits where all three meet, from the moment they do.
     const m = meet(centres, R * 0.97);
-    const met = !!m && (idleSince != null || (t >= MET && t <= PART));
+    const met = !!m && (idleSince != null || (t > JOIN && t <= PART));
     if (m) hit.style.translate = `calc(-50% + ${m.x - restMid.x}px) ${m.y - restMid.y}px`;
     hit.classList.toggle('off', !met);
     // The messages: bouncing around, then off to whoever sent them.
