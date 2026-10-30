@@ -28,57 +28,89 @@ const HOLD = 300; // ms a finger rests before it draws or moves instead of scrol
 /** Phones, and touch screens up to a tablet's width: the calendars open on one day. */
 const touchFirst = () => matchMedia('(max-width: 640px), (pointer: coarse) and (max-width: 1024px)').matches;
 
-/** A sideways swipe on `el` follows the finger and presses ‹ or › (sel(n) in root). A rest first is a
- * drag. The first calendar on a touch screen nudges once, until a swipe. */
+/** A sideways swipe on `el` drags the next (or last) week or month in beside it, and lets go onto
+ * it: ‹ or › (sel(n) in root). A rest first is a drag. The first calendar on a touch screen nudges
+ * once, until a swipe. */
 let hinted = false;
 export function swipe(el, root, sel) {
-  let t;
-  const on = (type, f) => el.addEventListener(type, f, { passive: true });
+  let t, ghost, settle, nudge; // ghost: a still copy of what was shown, beside what's next
   const btn = (dir) => $(sel(dir), root);
-  const move = (x, ms = 0) => {
-    el.style.transition = ms ? `transform ${ms}ms ease-out, opacity ${ms}ms ease-out` : 'none';
-    el.style.transform = x ? `translateX(${x}px)` : '';
-    el.style.opacity = x ? String(1 - Math.min(Math.abs(x) / el.offsetWidth, 1) / 2) : '';
+  const box = el.parentElement;
+  const put = (node, x, ms = 0) => {
+    node.style.transition = ms ? `transform ${ms}ms ease-out` : 'none';
+    node.style.transform = x ? `translateX(${x}px)` : '';
   };
-  on('touchstart', (e) => (t = e.touches.length < 2 && { p: e.touches[0], at: e.timeStamp }));
-  on('touchmove', ({ touches: [p], timeStamp: ms }) => {
+  const done = () => (ghost.remove(), (ghost = null), box.classList.remove('swiping'), put(el, 0));
+  const later = (f, ms) => {
+    const id = setTimeout((settle = () => (clearTimeout(id), (settle = null), f())), ms);
+  };
+  el.addEventListener(
+    'touchstart',
+    (e) => {
+      settle?.();
+      clearTimeout(nudge);
+      el.classList.remove('swipe-hint');
+      t = e.touches.length < 2 && { p: e.touches[0], at: e.timeStamp };
+      // The touch stays with what it began on, even once the next week has replaced it.
+      const ac = new AbortController();
+      const o = { passive: true, signal: ac.signal };
+      e.target.addEventListener('touchmove', move, { passive: false, signal: ac.signal });
+      for (const k of ['touchend', 'touchcancel']) e.target.addEventListener(k, (ev) => (ac.abort(), end(ev)), o);
+    },
+    { passive: true },
+  );
+  const move = (e) => {
+    const [p, ms] = [e.touches[0], e.timeStamp];
     if (!t) return;
     const [dx, dy] = [p.clientX - t.p.clientX, p.clientY - t.p.clientY];
-    if (!t.go && Math.hypot(dx, dy) > 8) t = ms - t.at < HOLD - 50 && { ...t, go: Math.abs(dx) > Math.abs(dy) };
+    // Sideways wins up to about 55° from level; once it has, the page holds still under it.
+    if (!t.go && Math.hypot(dx, dy) > 8) t = ms - t.at < HOLD - 50 && { ...t, go: Math.abs(dx) > 0.7 * Math.abs(dy) };
     if (!t?.go) return;
-    const b = btn(dx < 0 ? 1 : -1);
-    move(!b || b.disabled ? dx / 4 : dx);
-  });
-  on('touchcancel', () => (t?.go && move(0, 200), (t = null)));
-  on('touchend', (e) => {
+    if (e.cancelable) e.preventDefault();
+    if (!t.dir) {
+      const dir = dx < 0 ? 1 : -1;
+      if (!btn(dir) || btn(dir).disabled) return put(el, dx / 4); // nothing that way: it gives a little
+      Object.assign(t, { dir, w: el.offsetWidth + 16 });
+      ghost = el.cloneNode(true);
+      ghost.inert = true;
+      ghost.ariaHidden = 'true';
+      for (const n of ghost.querySelectorAll('[id]')) n.removeAttribute('id');
+      box.classList.add('swiping');
+      ghost.style.cssText += `;position:absolute;left:${el.offsetLeft}px;top:${el.offsetTop}px;width:${el.offsetWidth}px;height:${el.offsetHeight}px;margin:0`;
+      box.append(ghost);
+      const to = [ghost, ...ghost.querySelectorAll('*')];
+      [el, ...el.querySelectorAll('*')].forEach((n, i) => n.scrollTop && (to[i].scrollTop = n.scrollTop));
+      btn(dir).click();
+    }
+    t.x = t.dir > 0 ? Math.max(-t.w, Math.min(0, dx)) : Math.min(t.w, Math.max(0, dx));
+    put(ghost, t.x);
+    put(el, t.x + t.dir * t.w);
+  };
+  const end = (e) => {
     const was = t;
     t = null;
     if (!was?.go) return;
-    const dx = e.changedTouches[0].clientX - was.p.clientX;
-    const dir = dx < 0 ? 1 : -1;
-    const b = btn(dir);
-    const w = el.offsetWidth;
-    const fast = Math.abs(dx) > 40 && Math.abs(dx) / (e.timeStamp - was.at) > 0.3;
-    if (!b || b.disabled || (Math.abs(dx) < w / 4 && !fast)) return move(0, 200);
-    hinted = true;
-    try {
-      localStorage.setItem('venn:swiped', '1');
-    } catch {}
-    move(-dir * w, 140);
-    setTimeout(() => {
-      b.click();
-      move(dir * w * 0.5);
-      void el.offsetWidth;
-      move(0, 200);
-    }, 140);
-  });
+    if (!was.dir) return put(el, 0, 200);
+    const fast = Math.abs(was.x) > 40 && Math.abs(was.x) / (e.timeStamp - was.at) > 0.3;
+    const keep = e.type === 'touchend' && (Math.abs(was.x) > was.w / 4 || fast);
+    const ms = matchMedia('(prefers-reduced-motion: reduce)').matches ? 0 : 200;
+    if (keep) {
+      hinted = true;
+      try {
+        localStorage.setItem('venn:swiped', '1');
+      } catch {}
+    }
+    put(ghost, keep ? -was.dir * was.w : 0, ms);
+    put(el, keep ? 0 : was.dir * was.w, ms);
+    later(() => (keep || btn(-was.dir).click(), done()), ms); // not far enough: back to what was there
+  };
   let seen = false;
   try {
     seen = !!localStorage.getItem('venn:swiped');
   } catch {}
   if (!hinted && !seen && touchFirst() && btn(1) && !btn(1).disabled) {
     hinted = true;
-    setTimeout(() => el.isConnected && el.classList.add('swipe-hint'), 700);
+    nudge = setTimeout(() => el.isConnected && el.classList.add('swipe-hint'), 700);
     el.addEventListener('animationend', () => el.classList.remove('swipe-hint'), { once: true });
   }
 }

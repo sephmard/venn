@@ -3257,19 +3257,20 @@ test('a sideways swipe moves the calendar on or back, at every level; a held pre
   }
 });
 
-test('a swipe follows the finger, springs back when it is short, and the first calendar on a phone nudges once to show it', async ({
+test('a swipe follows the finger with the next month alongside, springs back when it is short, and the first calendar on a phone nudges once', async ({
   page,
 }) => {
   await page.setViewportSize({ width: 375, height: 812 });
   await page.goto('/new/free');
-  const grid = page.locator('#when .cal-grid');
+  const grid = page.locator('#when .cal-grid:not([aria-hidden])');
   const month = page.locator('#when .cal-month');
   // Nobody has swiped yet: the calendar nudges, a peek at the next month.
   await expect(grid).toHaveClass(/\bswipe-hint\b/, { timeout: 3000 });
   await expect(grid).not.toHaveClass(/\bswipe-hint\b/, { timeout: 3000 });
   const now = await month.textContent();
-  // Under the finger it moves with it; let go early and slowly, and it goes back where it was.
-  const moved = await grid.evaluate(async (el) => {
+  // Under the finger it moves with it, and the next month slides in beside it: a still copy of this one
+  // goes with the finger, and the calendar shows the next month a width (and a gap) along.
+  const during = await grid.evaluate(async (el) => {
     const r = el.getBoundingClientRect();
     const [x, y] = [r.left + r.width / 2, r.top + 60];
     const touch = (cx) => new Touch({ identifier: 1, target: el, clientX: cx, clientY: y });
@@ -3281,13 +3282,25 @@ test('a swipe follows the finger, springs back when it is short, and the first c
     fire('touchstart', x);
     fire('touchmove', x - 20);
     fire('touchmove', x - 60);
-    const during = el.style.transform;
+    const ghost = el.parentElement.querySelector('.cal-grid[aria-hidden="true"]');
+    const seen = {
+      ghost: ghost?.style.transform,
+      ghostDays: ghost?.querySelectorAll('.cal-day').length,
+      grid: el.style.transform,
+      width: el.offsetWidth,
+      month: el.parentElement.querySelector('.cal-month').textContent,
+    };
+    // Let go early and slowly: it goes back where it was.
     await wait(700);
     fire('touchend', x - 60);
-    return during;
+    return seen;
   });
-  expect(moved).toBe('translateX(-60px)');
+  expect(during.ghost).toBe('translateX(-60px)');
+  expect(during.ghostDays).toBeGreaterThan(27);
+  expect(during.grid).toBe(`translateX(${during.width + 16 - 60}px)`);
+  expect(during.month).not.toBe(now); // the next month, previewed
   await expect.poll(() => grid.evaluate((el) => el.style.transform)).toBe('');
+  await expect(page.locator('#when .cal-grid')).toHaveCount(1); // the copy is gone
   await expect(month).toHaveText(now);
   // A swipe goes on, and once someone has swiped, the nudge doesn't come back.
   await swipeAcross(page, '#when .cal-grid', -120);
@@ -3295,6 +3308,46 @@ test('a swipe follows the finger, springs back when it is short, and the first c
   await page.reload();
   await page.waitForTimeout(1500);
   await expect(page.locator('#when .cal-grid')).not.toHaveClass(/\bswipe-hint\b/);
+});
+
+test('a sideways swipe holds the page still, even a little diagonal; an up-and-down drag still scrolls', async ({
+  page,
+  isMobile,
+  browserName,
+}) => {
+  test.skip(!isMobile || browserName !== 'chromium', 'real touch input, on the phone project');
+  await page.goto('/new/free');
+  const grid = page.locator('#when .cal-grid');
+  await grid.scrollIntoViewIfNeeded();
+  const month = page.locator('#when .cal-month');
+  const now = await month.textContent();
+  const cdp = await page.context().newCDPSession(page);
+  const drag = async (dx, dy) => {
+    const r = await grid.boundingBox();
+    const [x, y] = [r.x + r.width * 0.6, r.y + r.height / 2];
+    await cdp.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [{ x, y }] });
+    for (let i = 1; i <= 8; i++) {
+      await cdp.send('Input.dispatchTouchEvent', {
+        type: 'touchMove',
+        touchPoints: [{ x: x + (dx * i) / 8, y: y + (dy * i) / 8 }],
+      });
+      await page.waitForTimeout(16);
+    }
+    await cdp.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
+    await page.waitForTimeout(400);
+  };
+  const scrollY = () => page.evaluate(() => scrollY);
+  // Sideways, even with more up than across in it (about 49°): the calendar moves on, the page doesn't.
+  let before = await scrollY();
+  await drag(-130, -150);
+  await expect(month).not.toHaveText(now);
+  expect(Math.abs((await scrollY()) - before)).toBeLessThanOrEqual(2);
+  // Straight up: the page scrolls, the calendar stays.
+  const shown = await month.textContent();
+  before = await scrollY();
+  await drag(0, -200);
+  expect(await scrollY()).toBeGreaterThan(before + 50);
+  await expect(month).toHaveText(shown);
 });
 
 test('days in a row asks first when days have their own times, and keeping them leaves it off', async ({ page }) => {
