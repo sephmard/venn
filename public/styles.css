@@ -942,13 +942,9 @@ div.poll-share {
   gap: 8px;
   margin-top: 12px;
 }
-/* A guest's "Notify me when the date is picked" (guest-push.js): a row of its own. */
 .guest-push {
   flex-basis: 100%;
   margin: 4px 0;
-}
-.guest-push .hint {
-  margin: 0;
 }
 .save-bar {
   position: sticky;

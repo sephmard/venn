@@ -14,7 +14,7 @@ export async function guestPush(box, ctx) {
   const what = picked ? 'changes' : 'is picked';
   // A row of its own, under "Answering as …": the button, or that it's on and a way to stop it.
   box.innerHTML = on
-    ? `<p class="hint"><span class="ok">🔔 You'll get a notification when the date ${esc(what)}.</span> <button type="button" class="link-btn" id="gp-off">Turn off</button></p>`
+    ? `<span class="hint"><span class="ok">🔔 You'll get a notification when the date ${esc(what)}.</span> <button type="button" class="link-btn" id="gp-off">Turn off</button></span>`
     : `<button type="button" class="btn btn-sm" id="gp-on">🔔 Notify me when the date ${esc(what)}</button>`;
   box.hidden = false;
   const path = `events/${id}/participants/${participantId}/push`;
