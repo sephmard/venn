@@ -1,15 +1,26 @@
 // Retro mode on the website: the switch in the menu turns on the retrofuturist look (html.retro, in
 // site.css), remembered in this browser. Loaded in <head>, before the page is drawn, so it never
-// flashes the other look. Off, the site is its usual self.
+// flashes the other look. Off, the site is its usual self. While it's on, the address says
+// ?retro=1, so a copied link shares it; ?retro=0 turns it off.
 (() => {
   const KEY = 'venn:retro';
   const root = document.documentElement;
-  let on = false;
+  const asked = new URLSearchParams(location.search).get('retro');
+  let on = asked === '1';
   try {
-    on = localStorage.getItem(KEY) === '1';
+    if (asked === '1' || asked === '0') {
+      if (on) localStorage.setItem(KEY, '1');
+      else localStorage.removeItem(KEY);
+    } else on = localStorage.getItem(KEY) === '1';
   } catch {
-    // Storage blocked: the usual look, and the switch still works for this page.
+    // Storage blocked: the link's choice, or the usual look; the switch still works for this page.
   }
+  const share = () => {
+    const url = new URL(location.href);
+    if (on) url.searchParams.set('retro', '1');
+    else url.searchParams.delete('retro');
+    if (url.href !== location.href) history.replaceState(history.state, '', url);
+  };
   const apply = () => {
     root.classList.toggle('retro', on);
     // What the stylesheet can't swap: the tab icon, the browser bar's colour, Finn's stickers.
@@ -22,6 +33,7 @@
     for (const b of document.querySelectorAll('.retro-switch')) b.setAttribute('aria-checked', String(on));
   };
   apply();
+  share();
   document.addEventListener('DOMContentLoaded', apply);
   document.addEventListener('click', (e) => {
     if (!e.target.closest('.retro-switch')) return;
@@ -33,5 +45,6 @@
       // Not remembered, but on for now.
     }
     apply();
+    share();
   });
 })();

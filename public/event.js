@@ -62,13 +62,6 @@ const VOTES = [
   [0, 'v-no', 'No', '✕'],
 ];
 
-/** The organizer's retro look: this poll's page in neon (retro-app.css, fetched only for these polls). */
-function retroLook(on) {
-  document.documentElement.classList.toggle('retro', !!on);
-  if (on && !$('link[href="/retro-app.css"]'))
-    document.head.append(Object.assign(document.createElement('link'), { rel: 'stylesheet', href: '/retro-app.css' }));
-}
-
 export async function renderEvent(id, navigate) {
   // Organizer and personal edit links carry their secret in the URL fragment,
   // which is never sent to the server. Move it to local storage and tidy the URL.
@@ -127,7 +120,8 @@ export async function renderEvent(id, navigate) {
 
   async function load() {
     st.ev = await api(`events/${id}`, { headers: authHeaders() });
-    retroLook(st.ev.retro);
+    if (st.ev.retro) import('./retro-look.js').then((m) => m.retroLook(st.ev.retro));
+    else document.documentElement.classList.remove('retro');
     if (!st.ev.isAdmin && saved(id).adminToken && asOrganizer()) forget(id, 'adminToken');
     // With the organizer link on another device, the organizer's own answer is still theirs.
     if (st.ev.isAdmin && !saved(id).participantId && st.ev.participants.some((p) => p.id === st.ev.hostId))
@@ -229,6 +223,7 @@ export async function renderEvent(id, navigate) {
     <button type="button" class="pill pill-quiet" id="none">Clear</button>`;
   app.innerHTML = `
     <article id="event-root" class="poll">
+      ${guest ? '' : `<p class="retro-top"><label class="switch"><input type="checkbox" role="switch" id="retro-top"${ev().retro ? ' checked' : ''}> Retro look</label></p>`}
       <header class="poll-head">
         <span class="emoji-tile big" aria-hidden="true">${picture ? `<img src="${esc(picture)}" alt="">` : esc(ev().emoji || '🗓️')}</span>
         <div class="poll-head-text">
@@ -396,6 +391,7 @@ export async function renderEvent(id, navigate) {
     });
     navigator.share({ title, text, url: shareUrl }).catch(() => {});
   };
+  org?.retroSwitch({ id, headers: authHeaders(), ev: st.ev });
   $('#copy').onclick = () => {
     track('share', { how: 'copy', from: 'poll' });
     copy(shareUrl, 'Link copied');
@@ -1895,7 +1891,6 @@ export async function renderEvent(id, navigate) {
       .catch((ex) => toast(ex.message));
 
   return () => {
-    retroLook(false);
     calView?.cleanup();
     clearInterval(poll);
     window.removeEventListener('pointerup', endPaint);

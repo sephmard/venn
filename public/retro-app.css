@@ -108,3 +108,33 @@ html.retro #toast:not(:empty) {
   font-size: 0.6875rem;
   line-height: 1.7;
 }
+
+/* "Your Venn is ready!": chrome, and the three circles as neon rings. */
+html.retro .party h2 {
+  font-weight: 900;
+  text-transform: uppercase;
+  font-size: 34px;
+  background: linear-gradient(180deg, #fff 0%, #e4e9ff 38%, #9d8fd6 50%, #fff 53%, #cdd5ff 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+html.retro .party-hero i {
+  opacity: 0.35;
+  mix-blend-mode: screen;
+}
+html.retro .party-hero i:nth-child(1) {
+  background: #2de2e6;
+  box-shadow: 0 0 30px #2de2e6;
+}
+html.retro .party-hero i:nth-child(2) {
+  background: #ff3cac;
+  box-shadow: 0 0 30px #ff3cac;
+}
+html.retro .party-hero i:nth-child(3) {
+  background: #ffd319;
+  box-shadow: 0 0 30px #ffd319;
+}
+html.retro .party .party-go {
+  box-shadow: 0 0 24px -2px rgb(45 226 230 / 0.8);
+}

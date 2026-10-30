@@ -187,13 +187,31 @@ function renderNotify(ctx, s) {
   };
 }
 
+// ----- the retro look, on top of the poll -----
+
+/** The organizer's switch: the poll's retro look, for everyone, at once. ctx: { id, headers, ev } */
+export function retroSwitch({ id, headers, ev }) {
+  const sw = $('#retro-top');
+  if (sw)
+    sw.onchange = async () => {
+      const on = sw.checked;
+      try {
+        await api(`events/${id}/settings`, { method: 'PUT', body: { retro: on }, headers });
+        ev.retro = on;
+        (await import('./retro-look.js')).retroLook(on);
+      } catch (ex) {
+        sw.checked = !on;
+        toast(ex.message);
+      }
+    };
+}
+
 // ----- privacy -----
 
 const SETTINGS = [
   ['requireEmail', 'Ask guests for their email'],
   ['hideNames', 'Hide names from guests'],
   ['hideResults', 'Hide answers from guests'],
-  ['retro', 'Retro look'],
 ];
 
 /** ctx: { id, ev, headers, close, reload } */
