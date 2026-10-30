@@ -261,8 +261,6 @@ aside {
   font-family: var(--serif);
   font-weight: 700;
   letter-spacing: 0.02em;
-}
-.prose h3 {
   font-size: 1.125rem;
   margin: 32px 0 8px;
 }
