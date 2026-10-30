@@ -1,4 +1,5 @@
 // Regenerates the README images (docs/screenshots/*.png and docs/demo.gif): `npm run screenshots`.
+// The README shows the retro look; stills('light') or stills('dark') shoot the usual one.
 // Needs Playwright's Chromium (`npx playwright install chromium`) and ffmpeg (for the GIF).
 
 import { execFileSync } from 'node:child_process';
@@ -55,7 +56,7 @@ const SAM = [2, 0, 1, 2, 0];
 
 const toAvailability = (votes) => Object.fromEntries(OPTIONS.map((o, i) => [o.start, votes[i]]).filter(([, v]) => v));
 
-async function seedPoll() {
+async function seedPoll(retro) {
   const { id, adminToken } = await api('/api/events', {
     title: 'Dinner at Rosa’s',
     emoji: '🍝',
@@ -66,6 +67,7 @@ async function seedPoll() {
     mode: 'options',
     layout: 'parts',
     options: OPTIONS,
+    ...(retro && { retro: true }),
   });
   for (const [name, votes] of Object.entries(PEOPLE))
     await api(`/api/events/${id}/participants`, { name, availability: toAvailability(votes) });
@@ -97,6 +99,8 @@ async function shoot(page, selector, path, { from, crop, pad = 24 } = {}) {
   const width = page.viewportSize().width;
   const c = crop ? await box(crop) : { left: pad, right: width - pad };
   const x = Math.max(0, c.left - pad);
+  // Backgrounds sized to the window (the retro night) must reach the bottom of a tall shot.
+  if (bottom > page.viewportSize().height) await page.setViewportSize({ width, height: Math.ceil(bottom) });
   await page.screenshot({
     path,
     fullPage: true,
@@ -144,9 +148,12 @@ async function answerAsSam(page, id) {
   await page.evaluate(() => scrollTo(0, 0));
 }
 
-async function stills(dark) {
-  const suffix = dark ? 'dark' : 'light';
-  const { id } = await seedPoll();
+// One set of stills: light, dark, or the retro look (a synthwave night, whatever the colour scheme).
+async function stills(look) {
+  const dark = look === 'dark';
+  const retro = look === 'retro';
+  const suffix = look;
+  const { id } = await seedPoll(retro);
 
   const desktop = await newPage({ dark });
   await answerAsSam(desktop, id);
@@ -154,14 +161,14 @@ async function stills(dark) {
   await desktop.addStyleTag({ content: `${HIDE_TOAST} .save-bar { position: static !important; }` });
   await shoot(desktop, '#panel-group', join(out, `results-${suffix}.png`), { crop: '#event-root' });
 
-  await desktop.goto(`${base}/new`);
+  await desktop.goto(`${base}/new${retro ? '?retro=1' : ''}`);
   await desktop.addStyleTag({ content: HIDE_TOAST });
   await desktop.click('[data-occasion="0"]');
   await desktop.fill('#title', 'Dinner at Rosa’s');
   await desktop.click('#more-box summary'); // Where is under More details
   await desktop.fill('#location', 'Rosa’s Trattoria, 14 Elm St');
   // Date and time, by parts of the day: Friday to Sunday evenings, Saturday only if needed.
-  await desktop.click('[data-mode="time"]');
+  await desktop.click('[data-level="parts"]');
   await showDay(desktop, fri);
   for (const d of [0, 1, 2])
     await desktop.locator(`#when .pg-cell[data-d="${addDays(fri, d)}"][data-m="${EVENING.start}"]`).click();
@@ -238,7 +245,7 @@ async function recordDemo() {
   await page.waitForTimeout(700);
   await click('[data-occasion="0"]', 300);
   await type('#title', 'Dinner at Rosa’s');
-  await click('[data-mode="time"]', 500);
+  await click('[data-level="parts"]', 500);
   await showDay(page, fri, (sel) => click(sel, 300));
   for (const d of [0, 1, 2]) await click(`#when .pg-cell[data-d="${addDays(fri, d)}"][data-m="${EVENING.start}"]`, 300);
   await page.waitForTimeout(600);
@@ -278,8 +285,7 @@ async function recordDemo() {
 }
 
 try {
-  await stills(false);
-  await stills(true);
+  await stills('retro');
   console.log('wrote docs/screenshots/*.png');
   try {
     execFileSync('ffmpeg', ['-version'], { stdio: 'ignore' });
