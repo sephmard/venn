@@ -64,6 +64,15 @@ test('preview: a poll in the retro look shows Venn’s retro images, and its own
   );
 });
 
+test('the app shell: a poll in the retro look comes in it from the first paint; others, and other pages, as they are', async () => {
+  const store = (ev) => ({ getPreview: async () => ev && { ...dinner, ...ev, answers: [] } });
+  const at = (pathname, ev) => appShell(SHELL, { pathname, origin: 'https://venn.example', store: store(ev) });
+  assert.match(await at('/e/abc', { retro: true }), /<html class="retro" lang="en">/);
+  assert.match(await at('/e/abc', { retro: false }), /<html lang="en">/);
+  assert.match(await at('/e/gone', null), /<html lang="en">/);
+  assert.equal(await at('/new', null), SHELL); // a new poll's look is the browser's to pick (app-look.js)
+});
+
 test('preview: once it’s set, the date in the poll’s time zone and how many can make it', () => {
   const answers = [
     { [seven]: YES, [half]: YES },

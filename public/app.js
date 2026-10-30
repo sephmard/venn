@@ -7,9 +7,15 @@ async function route() {
   cleanup();
   cleanup = () => {};
   document.getElementById('toast').hidden = true;
-  document.documentElement.classList.remove('retro');
   const path = location.pathname.replace(/\/$/, '');
   const poll = path.match(/^\/e\/([A-Za-z0-9]+)$/);
+  // The look carries on until the page says, so moving between pages never flashes the other one:
+  // a new poll's is set here, before it's drawn; a poll's once it loads (event.js), and an edited or
+  // copied one's once its poll does (create.js).
+  if (!poll && !/[?&](edit|copy)=/.test(location.search)) {
+    const { retroLook, wantsRetro } = await import('./retro-look.js');
+    retroLook(wantsRetro());
+  }
   // Poll pages get their own tab icon.
   for (const l of document.querySelectorAll('link[rel=icon]'))
     l.href = l.href.replace(/favicon[^.]*/, poll ? 'favicon-poll' : 'favicon');

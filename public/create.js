@@ -64,7 +64,7 @@ export async function loadSource(src) {
 /** Fill in everything both kinds of poll share: the plan, the organizer and the privacy options. */
 export function fillCommon(ev, src) {
   editPoll.fillCommon(ev, src, { occasions: OCCASIONS, privacy: PRIVACY, icon });
-  if (ev.retro) import('./retro-look.js').then((m) => m.retroLook(true));
+  import('./retro-look.js').then((m) => m.retroLook(ev.retro));
   if (src.edit) editing = src.id;
 }
 
@@ -301,8 +301,7 @@ export function showConfig(update) {
   const retro = $('#p-retro');
   if (retro)
     import('./retro-look.js').then(({ retroLook, wantsRetro }) => {
-      if (!source() && wantsRetro()) retro.checked = true;
-      retroLook(retro.checked);
+      if (!source()) retroLook((retro.checked = wantsRetro()));
       retro.onchange = () => {
         retroLook(retro.checked);
         icon?.preview(); // the link preview, in the new look
