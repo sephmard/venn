@@ -31,16 +31,19 @@ const bar = (yes, maybe, no) =>
 
 /**
  * One row: r = { start, label, day, yes, maybe, no } (names), n people in all.
- * kind: 'all' (everyone's free), 'best' (the most overlap) or ''.
+ * kind: 'all' (everyone's free), 'best' (the most overlap) or ''. Everyone can, some only if needed:
+ * 'ifn', amber as in the key.
  */
 function row(r, n, { kind, open, final, pick, mine }) {
   const [yes, maybe, no] = [r.yes.length, r.maybe.length, r.no.length];
-  const said = `${yes} of ${n} available${maybe ? `, ${maybe} if needed` : ''}${no ? `, ${no} unavailable` : ''}${kind === 'all' ? ". Everyone's free" : kind === 'best' ? '. The most overlap' : ''}`;
+  if (maybe && yes + maybe === n) kind = 'ifn';
+  const whole = kind === 'all' || kind === 'ifn';
+  const said = `${yes} of ${n} available${maybe ? `, ${maybe} if needed` : ''}${no ? `, ${no} unavailable` : ''}${kind === 'all' ? ". Everyone's free" : kind === 'ifn' ? '. Everyone can, some only if needed' : kind === 'best' ? '. The most overlap' : ''}`;
   return `<li class="ov-item${open ? ' open' : ''}">
     <button type="button" class="ov-row${kind ? ` ${kind}` : ''}${final ? ' final' : ''}" data-ov="${r.start}" aria-expanded="${open}">
       <span class="ov-when">${r.day ? `<span class="sr-only">${esc(dayName(r.day))}, </span>` : ''}${esc(r.label)}${final ? ' <span class="ov-picked">✓ Picked</span>' : ''}</span>
-      <span class="ov-count">${kind === 'all' ? '✓ Everyone' : `${yes + maybe} of ${n}`}${mine ? ` <span class="ov-mine">${esc(mine)}</span>` : ''}<span class="sr-only">. ${esc(said)}</span><span class="ov-chev" aria-hidden="true"></span></span>
-      ${kind === 'all' ? '' : `<span class="ov-bar" aria-hidden="true">${bar(yes, maybe, no)}</span>`}
+      <span class="ov-count">${whole ? '✓ Everyone' : `${yes + maybe} of ${n}`}${mine ? ` <span class="ov-mine">${esc(mine)}</span>` : ''}<span class="sr-only">. ${esc(said)}</span><span class="ov-chev" aria-hidden="true"></span></span>
+      ${whole ? '' : `<span class="ov-bar" aria-hidden="true">${bar(yes, maybe, no)}</span>`}
     </button>
     ${open ? `<div class="ov-who">${group(r.yes, 'yes', 'Available')}${group(r.maybe, 'maybe', 'If needed')}${group(r.no, 'no', 'Unavailable')}${pick ? `<div class="ov-pick">${pick}</div>` : ''}</div>` : ''}
   </li>`;
