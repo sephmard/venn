@@ -5,6 +5,7 @@ import {
   changeAnswer,
   mockContact,
   mockPlaces,
+  nextMonth,
   pickDays,
   setLevel,
   showNextMonth,
@@ -114,7 +115,7 @@ for (const scheme of ['light', 'dark']) {
       await audit(page, 'vote on a few dates (week or day)');
       await page.click('[data-length="days"]');
       await showNextMonth(page);
-      await page.locator('.cal-day').first().click();
+      await page.locator(`.cal-day[data-date="${await nextMonth(page)}"]`).click();
       // The trip and its ×, clear of the sticky bar (a month can take six rows of the calendar above).
       await page
         .locator('[data-remove]')

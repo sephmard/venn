@@ -215,10 +215,11 @@ test('on a phone, a time stretches by the grip at its bottom, and taps beside it
   await expect(list).toContainText('10:30 – 11:00 AM');
 });
 
-test('the month calendar opens on this month, even at its end', async ({ page }) => {
+test('the month calendar opens on this week, even at the end of a month', async ({ page }) => {
   await page.clock.setFixedTime(new Date(2026, 9, 29, 12));
   await page.goto('/new');
-  await expect(page.locator('.cal-month')).toHaveText(/October 2026/);
+  await expect(page.locator('.cal-month')).toHaveText(/^Oct – Nov 2026$/);
+  await expect(page.locator('.cal-day').first()).toHaveAttribute('data-date', '2026-10-26');
 });
 
 test('hours open at 11 AM, and on a phone each part of the day shows its times', async ({ page, isMobile }) => {

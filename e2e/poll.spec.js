@@ -124,8 +124,12 @@ test('a trip: options that last several days become all-day calendar events', as
   await expect(page.locator('[data-length="days"]')).toHaveAttribute('aria-pressed', 'true');
   await expect(page.locator('.tg')).toHaveCount(0); // whole-day options are picked on the month only
   await expect(page.locator('#span')).toHaveValue('3');
-  await showNextMonth(page);
-  for (const i of [0, 7, 14, 21, 3, 10, 17]) await page.locator('.cal-day').nth(i).click();
+  const first = await nextMonth(page);
+  for (const i of [0, 7, 14, 21, 3, 10, 17]) {
+    const day = page.locator(`.cal-day[data-date="${addDays(first, i)}"]`);
+    if (!(await day.count())) await page.click('[data-nav="1"]');
+    await day.click();
+  }
   await expect(page.locator('#summary')).toHaveText('7 options to vote on');
   // Each trip shows as a block on the calendar, and its length can be changed on its own.
   await expect(page.locator('.cal-day.in-trip')).toHaveCount(14);
@@ -330,14 +334,30 @@ test('ask when people are available: what the organizer picks is available or if
   expect(new Set(hours)).toEqual(new Set([1]));
 });
 
-test('month calendars open on this month, even near its end', async ({ page }) => {
-  const shown = () => page.locator('.cal-day').first().getAttribute('data-date');
-  // January 28: four days left, and still January, with February a tap away.
+test('month calendars open on this week, and run on to next month when this one is nearly over', async ({ page }) => {
+  const shown = () => page.locator('#when .cal-day').first().getAttribute('data-date');
+  // Monday January 28: four days left, so this week to the end of February, with "Feb 1" marked.
   await page.clock.setFixedTime(new Date(2030, 0, 28, 12));
   await page.goto('/new/free');
-  await page.fill('#organizer', 'Sam');
-  expect(await shown()).toBe('2030-01-01');
-  await page.click('[data-nav="1"]');
+  expect(await shown()).toBe('2030-01-28');
+  await expect(page.locator('#when .cal-month')).toHaveText(/^Jan – Feb 2030$/);
+  await expect(page.locator('#when .cal-day').last()).toHaveAttribute('data-date', '2030-02-28');
+  await expect(page.locator('#when .cal-day.cal-1st')).toHaveAttribute('data-date', '2030-02-01');
+  await expect(page.locator('#when .cal-day.cal-1st')).toContainText('Feb 1');
+  await expect(page.locator('#when [data-nav="-1"]')).toBeDisabled();
+  // › goes on to March, and ‹ comes back to the first page.
+  await page.click('#when [data-nav="1"]');
+  expect(await shown()).toBe('2030-03-01');
+  await page.click('#when [data-nav="-1"]');
+  expect(await shown()).toBe('2030-01-28');
+  // Mid-month, the first page is this week to the month's end; no past weeks before it.
+  await page.clock.setFixedTime(new Date(2030, 0, 9, 12)); // a Wednesday
+  await page.goto('/new/free');
+  expect(await shown()).toBe('2030-01-07');
+  await expect(page.locator('#when .cal-month')).toHaveText(/^January 2030$/);
+  await expect(page.locator('#when .cal-day').last()).toHaveAttribute('data-date', '2030-01-31');
+  await expect(page.locator('#when .cal-day:disabled')).toHaveCount(2); // Monday and Tuesday
+  await page.click('#when [data-nav="1"]');
   expect(await shown()).toBe('2030-02-01');
 });
 
