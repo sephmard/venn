@@ -281,6 +281,7 @@ export async function renderEvent(id, navigate) {
           <div class="my-picks" id="my-picks" aria-live="polite" hidden></div>
           <div class="mine-footer">
             <p class="hint" id="edit-link" hidden></p>
+            <div class="guest-push" id="guest-push" hidden></div>
             <button type="button" class="link-btn danger" id="leave" hidden>Remove my answer</button>
           </div>
           <div>
@@ -1551,9 +1552,14 @@ export async function renderEvent(id, navigate) {
       link.hidden = false;
       // Organizers have their organizer link for other devices; guests get a personal link.
       link.innerHTML = `Answering as <b>${esc(mine.name)}</b>.${ev().isAdmin ? '' : ' To change it from another device, <button type="button" class="link-btn" id="copy-edit">copy your personal link</button>.'}`;
-      if (!ev().isAdmin)
+      if (!ev().isAdmin) {
         $('#copy-edit').onclick = () => copy(`${shareUrl}#edit=${s.participantId}.${s.editToken}`, 'Personal link copied');
+        // "Notify me when the date is picked", where the server and this device can (guest-push.js).
+        const ctx = { id, participantId: s.participantId, headers: authHeaders(), picked: ev().finalStart != null };
+        import('./guest-push.js').then((m) => m.guestPush($('#guest-push'), ctx)).catch(() => {});
+      }
     } else link.hidden = true;
+    if (!mine || ev().isAdmin) $('#guest-push').hidden = true;
     // Guests who just answered are the people most likely to plan the next thing.
     $('#grow').hidden = !mine || ev().isAdmin;
     if (ev().isAdmin) renderOrgAnswer(mine);

@@ -942,6 +942,10 @@ div.poll-share {
   gap: 8px;
   margin-top: 12px;
 }
+.guest-push {
+  flex-basis: 100%;
+  margin: 4px 0;
+}
 .save-bar {
   position: sticky;
   bottom: 0;

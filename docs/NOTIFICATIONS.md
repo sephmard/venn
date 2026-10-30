@@ -27,6 +27,7 @@ The organizer taps **Turn on** under _On this device_ in the Notifications panel
 
 - **iPhone and iPad:** notifications need Venn on the Home Screen (iOS 16.4 or later). In Safari, tap **Share**, then **Add to Home Screen**, and open Venn from there. A Home Screen app keeps its own storage, apart from Safari's, so it notifies about the Venns made in it. The panel says so on an iPhone in Safari.
 - **Android, Mac and Windows:** in Chrome, Edge, Firefox or Safari, straight from the browser.
+- **Guests** who have answered get **🔔 Notify me when the date is picked** under their answer, where the browser can show notifications. They're told when the organizer picks the date ("The date is picked. Tap to see it.") and if it changes later. It's tied to their answer: removing the answer, or **Turn off**, stops it. At most 5 devices per guest, 200 per poll.
 - Each poll notifies at most 5 devices. Turning it off on one only stops that poll's notifications there.
 - The message is encrypted for the device ([RFC 8291](https://www.rfc-editor.org/rfc/rfc8291)), so the push service can't read it, and each request is signed with the server's key ([VAPID](https://www.rfc-editor.org/rfc/rfc8292)). It's done with WebCrypto in [`src/push.js`](../src/push.js): no dependencies. [`public/sw.js`](../public/sw.js), the service worker, only shows notifications. It caches nothing.
 

@@ -28,7 +28,7 @@ import { pollKind, planOf, recordUsage, sizeOf, usageEnabled, usageReport } from
 import { AiUnavailableError, aiEnabled, allowAiRequest, answerForMe, draftPoll, summarize, writeMessage } from './ai.js';
 import { allowContactRequest, contactEmail, contactEnabled, contactInbox, normalizeContact } from './contact.js';
 import { allowPlacesRequest, placesProvider, placesState, searchPlaces } from './places.js';
-import { MAX_PUSH_DEVICES, checkSubscription, pushEnabled, sendPush } from './push.js';
+import { MAX_GUEST_DEVICES, MAX_PUSH_DEVICES, checkSubscription, pushEnabled, sendPush } from './push.js';
 
 const sharedPlaces = placesState();
 const sharedContactWindows = new Map();
@@ -244,6 +244,28 @@ export async function handleApi(
       retro: ev.retro,
     });
     waitUntil(sendEmail(env, { to, ...msg, headers }, { fetchImpl }).catch((e) => console.error('answer copy failed', e)));
+  }
+
+  /** The news on the phones of guests who asked (guest-push.js): the date is picked, or changed. */
+  function pushTheDate(ev, changed) {
+    waitUntil(
+      (async () => {
+        const subs = (await store.getNotify(ev.id))?.guestPush || [];
+        if (!subs.length || !pushEnabled(env)) return;
+        const msg = {
+          title: ev.title,
+          body: changed ? 'The date changed. Tap to see it.' : 'The date is picked. Tap to see it.',
+          url: `${origin}/e/${ev.id}`,
+          tag: ev.id,
+        };
+        const sent = await Promise.all(subs.map((sub) => sendPush(sub, msg, env, { fetchImpl, now: now() }).catch(() => ({}))));
+        // Phones that have unsubscribed are forgotten.
+        const gone = new Set(subs.filter((_, i) => sent[i].gone).map((sub) => sub.endpoint));
+        if (!gone.size) return;
+        const latest = (await store.getNotify(ev.id)) || {};
+        await store.setNotify(ev.id, { ...latest, guestPush: (latest.guestPush || []).filter((p) => !gone.has(p.endpoint)) });
+      })().catch((e) => console.error('date push failed', e)),
+    );
   }
 
   /**
@@ -676,6 +698,7 @@ export async function handleApi(
     if (parts.length === 3 && parts[2] === 'finalize' && method === 'POST') {
       if (!isAdmin) return error(403, 'Only the organizer can pick the final time');
       const { start } = await readJson(request);
+      const before = ev.finalStart;
       if (start !== null && !buildSlots(ev).includes(start)) throw new ValidationError('That time is not part of this poll');
       await store.setFinal(ev.id, start);
       // "Any overlap": the picked time runs to the end of the overlap it starts.
@@ -688,12 +711,51 @@ export async function handleApi(
       if (start !== null) {
         count('poll.finalized', kindOf(ev));
         await emailTheDate(ev, start);
+        if (start !== before) pushTheDate(ev, before != null);
       }
       return json({ ok: true, finalStart: start });
     }
 
     if (parts[2] !== 'participants') return error(404, 'Not found');
     const slots = buildSlots(ev);
+
+    // PUT /api/events/:id/participants/:pid/push  { push: subscription } | { pushRemove: endpoint }
+    // A guest's phone, told when the date is picked. With their own edit token.
+    if (parts.length === 5 && parts[4] === 'push' && method === 'PUT') {
+      const p = await store.getParticipant(ev.id, parts[3]);
+      if (!p) return error(404, 'Response not found');
+      if (!(await tokenMatches(request.headers.get('x-edit-token'), p.editHash)))
+        return error(403, 'You can only change your own notifications');
+      if (!pushEnabled(env)) throw new ValidationError("Notifications on your phone aren't set up on this server");
+      const body = await readJson(request);
+      const settings = (await store.getNotify(ev.id)) || {};
+      let list = settings.guestPush || [];
+      let added = null;
+      if (body.push) {
+        try {
+          added = checkSubscription(body.push);
+        } catch (e) {
+          throw new ValidationError(e.message);
+        }
+        list = list.filter((x) => x.endpoint !== added.endpoint);
+        const theirs = list.filter((x) => x.pid === p.id);
+        if (theirs.length >= MAX_PUSH_DEVICES) list = list.filter((x) => x !== theirs[0]);
+        list = [...list, { ...added, pid: p.id }].slice(-MAX_GUEST_DEVICES);
+      }
+      if (typeof body.pushRemove === 'string') list = list.filter((x) => !(x.pid === p.id && x.endpoint === body.pushRemove));
+      await store.setNotify(ev.id, { ...settings, guestPush: list });
+      if (added) {
+        count('push.guest', {});
+        const hello = {
+          title: ev.title,
+          body: `You'll get a notification here when the date ${ev.finalStart == null ? 'is picked' : 'changes'}.`,
+          url: `${origin}/e/${ev.id}`,
+          tag: ev.id,
+        };
+        waitUntil(sendPush(added, hello, env, { fetchImpl, now: now() }).catch((e) => console.error('push failed', e)));
+      }
+      return json({ ok: true });
+    }
 
     // POST /api/events/:id/participants
     if (parts.length === 3 && method === 'POST') {
@@ -756,6 +818,10 @@ export async function handleApi(
       if (method === 'DELETE') {
         if (!isOwner && !isAdmin) return error(403, 'You can only remove your own response');
         await store.deleteParticipant(ev.id, p.id);
+        // Their phones aren't told about the date any more.
+        const settings = await store.getNotify(ev.id);
+        if (settings?.guestPush?.some((x) => x.pid === p.id))
+          await store.setNotify(ev.id, { ...settings, guestPush: settings.guestPush.filter((x) => x.pid !== p.id) });
         notify(ev, 'response.deleted', p.id, p.name);
         count('answer.deleted', kindOf(ev));
         return json({ ok: true });
