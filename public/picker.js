@@ -201,7 +201,7 @@ export function monthView(
       const off = ds < today;
       // The number is the visible name; the weekday, month and note are read out with it.
       const dt = dateParts(ds);
-      const mo = first && d === 1 && ds !== days[0] ? `${esc(fmtMonth.format(dt))} ` : '';
+      const mo = first && d === 1 && ds !== days[0] && !mark ? `${esc(fmtMonth.format(dt))} ` : '';
       h += `<button type="button" class="cal-day${ds === today ? ' today' : ''}${mark ? ' marked' : ''}${mo ? ' cal-1st' : ''} ${dayClass(ds)}" data-date="${ds}" ${state}${off ? ' disabled' : ''}><span class="sr-only">${esc(fmtDow.format(dt))} </span>${mo}${d}<span class="sr-only"> ${esc(fmtMonth.format(dt))}${mark ? `, ${esc(mark)}` : ''}</span>${mark ? `<small aria-hidden="true">${esc(mark)}</small>` : ''}</button>`;
     }
     grid.innerHTML = h;
