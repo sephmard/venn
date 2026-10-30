@@ -96,6 +96,7 @@ test('Change, under the date, lists the next best dates; picking one asks first,
   await rows.first().getByRole('button', { name: 'Pick' }).click();
   await page.click('#pc-yes');
   await expect(page.locator('#final-h')).toHaveText(/Sat, Jan 12/);
+  await expect(page.locator('#toast')).toContainText('Date changed'); // a change still says so
   await expect(page.locator('#change-list')).toHaveCount(0);
 });
 
