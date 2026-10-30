@@ -46,7 +46,9 @@ the same PR** (and CLAUDE.md if it's a rule that matters in review).
   still draws or moves a time.
 - Calendars open on **this week**: the month calendar's first page starts at this week's Monday (no
   rows of past days) and runs to the month's end, or on to next month's when under two weeks are left
-  ("Oct – Nov 2026", with "Nov 1" marked). › then goes month by month.
+  ("Oct – Nov 2026", with "Nov 1" marked, quietly). › then goes month by month.
+- **Today is teal** (the accent) on every calendar: its number and ring on Days, as on the week's
+  heads; picked, it keeps the ring.
 - A tap goes round the same way at every level: **available, then if needed, then removed**.
 - What's picked is coloured as in the key, at every level and in every look (the retro look too):
   available is green, if needed amber. Never the theme's accent.
