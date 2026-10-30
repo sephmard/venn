@@ -111,6 +111,7 @@ test('vote on a few dates: collect votes, pick the final date', async ({ page, r
   await expect(page.locator('#pick-check .pc-when')).not.toBeEmpty();
   await page.click('#pc-yes');
   await expect(page.locator('.banner-final')).toContainText("It's happening");
+  await expect(page.locator('#toast')).toBeEmpty(); // the date is right there: no "It's set" pop-up
   await expect(page.locator('.banner-final a', { hasText: 'Google Calendar' })).toHaveAttribute('href', /calendar\.google\.com/);
   const ics = await request.get(`/api/events/${id}/event.ics`);
   expect(await ics.text()).toContain('SUMMARY:Dinner');

@@ -88,6 +88,8 @@ the same PR** (and CLAUDE.md if it's a rule that matters in review).
 - Every Pick asks first, in the page ("Pick this time?" with the date in big type and who can make
   it): picking tells everyone. **Never `confirm()`**: in-app browsers block it.
 - **Change** sits right under the picked date; changing lists the next best dates.
+- No "It's set" pop-up after a first pick: the picked date is right there. A change or a clear still
+  says so.
 - Organizer tools start closed, and their closed line always reads **Organizer tools**, the same
   before and after a date is picked (a note like "Check your inbox" goes under it). Sharing comes first: **Copy link** is the main button (after creating
   and on the poll), with **Share** (the phone's share sheet) beside it.

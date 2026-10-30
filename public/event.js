@@ -1562,13 +1562,8 @@ export async function renderEvent(id, navigate) {
       st.celebrate = start != null;
       renderAll();
       if (start != null) $('#banners').scrollIntoView({ behavior: reducedMotion() ? 'auto' : 'smooth', block: 'start' });
-      toast(
-        start == null
-          ? 'Date cleared. Pick another one below.'
-          : was != null
-            ? 'Date changed. Let everyone know, so they can update their calendars.'
-            : "It's set. Share it so everyone can add it to their calendar.",
-      );
+      if (start == null) toast('Date cleared. Pick another one below.');
+      else if (was != null) toast('Date changed. Let everyone know, so they can update their calendars.');
     } catch (ex) {
       toast(ex.message);
     }
