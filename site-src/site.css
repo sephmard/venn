@@ -1,38 +1,41 @@
-/* Styles for the developer docs (docs.venn.day). Same tokens and type as venn.day: see DESIGN.md. */
+/* Styles for the developer docs (docs.venn.day): the website's retro mode, always on. A synthwave
+   night, chrome Orbitron headlines, neon cyan links and arcade pixel labels. See DESIGN.md. */
 
 @font-face {
-  font-family: 'Instrument Serif';
-  src: url('fonts/instrument-serif-latin-400-normal.woff2') format('woff2');
-  font-weight: 400;
+  font-family: 'Orbitron';
+  src: url('fonts/orbitron-latin-900-normal.woff2') format('woff2');
+  font-weight: 900;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'Orbitron';
+  src: url('fonts/orbitron-latin-700-normal.woff2') format('woff2');
+  font-weight: 700;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'Press Start 2P';
+  src: url('fonts/press-start-2p-latin-400-normal.woff2') format('woff2');
   font-display: swap;
 }
 
 :root {
-  --paper: #faf8f4;
-  --paper-2: #f2eee6;
-  --line: #e4dfd4;
-  --ink: #16181a;
-  --ink-2: #55585c;
-  --green: #0b7a5c;
-  --green-soft: #dcefe6;
-  --code-bg: #f2eee6;
-  --serif: 'Instrument Serif', Georgia, serif;
+  --paper: #0d0221;
+  --paper-2: #1a0b3d;
+  --line: #3a2170;
+  --ink: #f5f0ff;
+  --ink-2: #c9bfec;
+  --green: #2de2e6; /* neon cyan: links and focus */
+  --green-soft: #2a1060;
+  --magenta: #ff3cac;
+  --code-bg: #150a35;
+  --sunset: linear-gradient(180deg, #ffd319 0%, #ff901f 35%, #ff2975 70%, #f222ff 100%);
+  --chrome: linear-gradient(180deg, #ffffff 0%, #e4e9ff 38%, #9d8fd6 50%, #ffffff 53%, #cdd5ff 100%);
+  --serif: 'Orbitron', 'Eurostile', 'Bank Gothic', system-ui, sans-serif;
+  --pixel: 'Press Start 2P', ui-monospace, monospace;
   --sans: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
   --mono: ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
-  color-scheme: light;
-}
-@media (prefers-color-scheme: dark) {
-  :root {
-    --paper: #0f1112;
-    --paper-2: #171a1c;
-    --line: #2a2e31;
-    --ink: #f1eee8;
-    --ink-2: #a6a9ad;
-    --green: #2fc497;
-    --green-soft: #163a2f;
-    --code-bg: #171a1c;
-    color-scheme: dark;
-  }
+  color-scheme: dark;
 }
 
 * {
@@ -40,7 +43,20 @@
 }
 body {
   margin: 0;
-  background: var(--paper);
+  background:
+    radial-gradient(1px 1px at 12% 18%, #fff8 50%, transparent 51%),
+    radial-gradient(1px 1px at 72% 9%, #fff9 50%, transparent 51%),
+    radial-gradient(1.5px 1.5px at 38% 42%, #fff6 50%, transparent 51%),
+    radial-gradient(1px 1px at 88% 36%, #fff7 50%, transparent 51%),
+    radial-gradient(1px 1px at 55% 72%, #fff5 50%, transparent 51%),
+    linear-gradient(180deg, #0d0221 0%, #160634 55%, #24083f 100%) fixed;
+  background-size:
+    320px 320px,
+    260px 260px,
+    400px 400px,
+    300px 300px,
+    360px 360px,
+    auto;
   color: var(--ink);
   font: 1rem/1.65 var(--sans);
   -webkit-font-smoothing: antialiased;
@@ -53,8 +69,17 @@ img {
   max-width: 100%;
   height: auto;
 }
+/* Scanlines, faint, as on an old screen. */
+body::after {
+  content: '';
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  pointer-events: none;
+  background: repeating-linear-gradient(180deg, rgb(255 255 255 / 0.025) 0 1px, transparent 1px 3px);
+}
 :focus-visible {
-  outline: 3px solid var(--green);
+  outline: 3px solid #ffd319;
   outline-offset: 2px;
   border-radius: 4px;
 }
@@ -80,12 +105,16 @@ img {
   justify-content: space-between;
   gap: 16px;
 }
+/* Dark glass over the sky, a neon horizon under it. */
 .top {
   position: sticky;
   top: 0;
   z-index: 5;
-  background: var(--paper);
-  border-bottom: 1px solid var(--line);
+  background: rgb(13 2 33 / 0.82);
+  backdrop-filter: blur(8px);
+  box-shadow:
+    0 1px 0 0 rgb(255 60 172 / 0.6),
+    0 6px 24px -10px rgb(255 60 172 / 0.6);
 }
 .top .bar {
   height: 64px;
@@ -95,20 +124,24 @@ img {
   align-items: center;
   gap: 10px;
   min-height: 44px;
-  font-weight: 700;
+  font-family: var(--serif);
+  font-weight: 900;
   font-size: 1.1rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
   color: var(--ink);
   text-decoration: none;
 }
 .tag {
-  font-size: 0.75rem;
-  font-weight: 600;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
+  font-family: var(--pixel);
+  font-size: 0.5625rem;
+  font-weight: 400;
+  letter-spacing: 0.04em;
   color: var(--green);
-  background: var(--green-soft);
+  border: 1px solid var(--green);
+  box-shadow: 0 0 10px -2px rgb(45 226 230 / 0.7);
   border-radius: 999px;
-  padding: 3px 9px;
+  padding: 5px 9px;
 }
 .top nav {
   display: flex;
@@ -156,13 +189,15 @@ aside {
   display: flex;
   flex-direction: column;
 }
+/* Arcade pixels for the small labels. */
 .toc .group {
-  margin: 20px 0 6px;
-  font-size: 0.75rem;
-  font-weight: 600;
-  letter-spacing: 0.1em;
+  margin: 22px 0 8px;
+  font-family: var(--pixel);
+  font-size: 0.5625rem;
+  line-height: 1.8;
+  letter-spacing: 0.04em;
   text-transform: uppercase;
-  color: var(--ink-2);
+  color: var(--magenta);
 }
 .toc .group:first-child {
   margin-top: 0;
@@ -183,6 +218,7 @@ aside {
   background: var(--green-soft);
   color: var(--green);
   font-weight: 600;
+  box-shadow: inset 2px 0 0 var(--green);
 }
 
 /* ---------- article ---------- */
@@ -191,27 +227,40 @@ aside {
   max-width: 760px;
   padding: 40px 0 72px;
 }
+/* Chrome headlines in wide capitals; a long word breaks rather than push a phone sideways. */
 .prose h1,
 .prose h2 {
   font-family: var(--serif);
-  font-weight: 400;
-  letter-spacing: -0.01em;
+  font-weight: 900;
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
   line-height: 1.1;
+  overflow-wrap: anywhere;
+  background: var(--chrome);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
 }
 .prose h1 {
-  font-size: clamp(2.5rem, 5vw, 3.25rem);
+  font-size: clamp(1.9rem, 6vw, 3rem);
   margin: 0 0 16px;
 }
 .prose h1 + p {
   font-size: 1.125rem;
   color: var(--ink-2);
 }
+/* Each section starts at a neon horizon. */
 .prose h2 {
-  font-size: 2rem;
+  font-size: clamp(1.2rem, 5vw, 1.6rem);
   margin: 48px 0 12px;
-  padding-top: 8px;
+  padding-top: 24px;
+  border-top: 1px solid;
+  border-image: linear-gradient(90deg, rgb(255 60 172 / 0.6), transparent) 1;
 }
 .prose h3 {
+  font-family: var(--serif);
+  font-weight: 700;
+  letter-spacing: 0.02em;
   font-size: 1.125rem;
   margin: 32px 0 8px;
 }
@@ -228,6 +277,9 @@ aside {
 .prose pre {
   background: var(--code-bg);
   border: 1px solid var(--line);
+  box-shadow:
+    0 0 0 1px rgb(45 226 230 / 0.15),
+    0 0 30px -12px rgb(255 60 172 / 0.45);
   border-radius: 12px;
   padding: 16px 18px;
   overflow-x: auto;
@@ -260,7 +312,7 @@ aside {
 .prose blockquote {
   margin: 16px 0;
   padding: 12px 18px;
-  border-left: 3px solid var(--green);
+  border-left: 3px solid var(--magenta);
   background: var(--paper-2);
   border-radius: 0 10px 10px 0;
 }
@@ -269,6 +321,20 @@ aside {
 }
 .prose details {
   margin: 16px 0;
+}
+.prose summary {
+  cursor: pointer;
+  font-weight: 600;
+  min-height: 44px;
+  display: flex;
+  align-items: center;
+}
+/* Pictures glow like the website's screenshots. */
+.prose img {
+  border-radius: 14px;
+  box-shadow:
+    0 0 0 1px rgb(45 226 230 / 0.35),
+    0 0 50px -12px rgb(255 60 172 / 0.5);
 }
 .edit {
   margin-top: 56px;
@@ -343,5 +409,11 @@ footer a {
   }
   .top nav a {
     padding: 0 8px;
+    font-size: 0.875rem;
+  }
+  /* The wide capitals a touch tighter, so the bar fits. */
+  .brand {
+    gap: 8px;
+    letter-spacing: 0.03em;
   }
 }
