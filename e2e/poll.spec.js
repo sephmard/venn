@@ -3237,19 +3237,20 @@ test('a sideways swipe moves the calendar on or back, at every level; a held pre
   }
 });
 
-test('a swipe follows the finger, springs back when it is short, and the first calendar on a phone nudges once to show it', async ({
+test('a swipe follows the finger with the next month alongside, springs back when it is short, and the first calendar on a phone nudges once', async ({
   page,
 }) => {
   await page.setViewportSize({ width: 375, height: 812 });
   await page.goto('/new/free');
-  const grid = page.locator('#when .cal-grid');
+  const grid = page.locator('#when .cal-grid:not([aria-hidden])');
   const month = page.locator('#when .cal-month');
   // Nobody has swiped yet: the calendar nudges, a peek at the next month.
   await expect(grid).toHaveClass(/\bswipe-hint\b/, { timeout: 3000 });
   await expect(grid).not.toHaveClass(/\bswipe-hint\b/, { timeout: 3000 });
   const now = await month.textContent();
-  // Under the finger it moves with it; let go early and slowly, and it goes back where it was.
-  const moved = await grid.evaluate(async (el) => {
+  // Under the finger it moves with it, and the next month slides in beside it: a still copy of this one
+  // goes with the finger, and the calendar shows the next month a width (and a gap) along.
+  const during = await grid.evaluate(async (el) => {
     const r = el.getBoundingClientRect();
     const [x, y] = [r.left + r.width / 2, r.top + 60];
     const touch = (cx) => new Touch({ identifier: 1, target: el, clientX: cx, clientY: y });
@@ -3261,13 +3262,25 @@ test('a swipe follows the finger, springs back when it is short, and the first c
     fire('touchstart', x);
     fire('touchmove', x - 20);
     fire('touchmove', x - 60);
-    const during = el.style.transform;
+    const ghost = el.parentElement.querySelector('.cal-grid[aria-hidden="true"]');
+    const seen = {
+      ghost: ghost?.style.transform,
+      ghostDays: ghost?.querySelectorAll('.cal-day').length,
+      grid: el.style.transform,
+      width: el.offsetWidth,
+      month: el.parentElement.querySelector('.cal-month').textContent,
+    };
+    // Let go early and slowly: it goes back where it was.
     await wait(700);
     fire('touchend', x - 60);
-    return during;
+    return seen;
   });
-  expect(moved).toBe('translateX(-60px)');
+  expect(during.ghost).toBe('translateX(-60px)');
+  expect(during.ghostDays).toBeGreaterThan(27);
+  expect(during.grid).toBe(`translateX(${during.width + 16 - 60}px)`);
+  expect(during.month).not.toBe(now); // the next month, previewed
   await expect.poll(() => grid.evaluate((el) => el.style.transform)).toBe('');
+  await expect(page.locator('#when .cal-grid')).toHaveCount(1); // the copy is gone
   await expect(month).toHaveText(now);
   // A swipe goes on, and once someone has swiped, the nudge doesn't come back.
   await swipeAcross(page, '#when .cal-grid', -120);

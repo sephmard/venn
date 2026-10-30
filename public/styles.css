@@ -1552,6 +1552,11 @@ details.organizer > .danger {
     animation: none;
   }
 }
+/* While a swipe pulls in the next week or month, the two sit side by side, clipped to the calendar. */
+.swiping {
+  position: relative;
+  overflow-x: clip;
+}
 .tv-bar {
   display: flex;
   flex-wrap: wrap;
