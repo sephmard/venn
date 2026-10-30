@@ -60,8 +60,9 @@ the same PR** (and CLAUDE.md if it's a rule that matters in review).
   too; on Parts of day their part is lit, and tapping it acts on those times. The poll asks about
   them wherever Create is pressed.
 - **Guests answer on the list, always.** A poll opens on its list for the people it's sent to, with no
-  calendar view; only the organizer can switch to a calendar. Hours polls are answered with exact
-  times only, never parts of the day as well.
+  calendar view; only the organizer can switch to a calendar. **Time selection is the same for every
+  poll**: a row per option with Yes / If needed / No. An hours poll's rows are the stretches of time
+  the organizer offered; no painting half hours, no parts of the day as well.
 - Likewise, **parts of the day show on Hours** as those parts' times, whichever way you get there.
 - Templates shape the calendar only while nothing is picked; they never move or remove picks. A second
   tap turns one off.

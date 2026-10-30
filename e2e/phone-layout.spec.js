@@ -180,9 +180,8 @@ test.describe('on a 320px phone', () => {
       })
     ).json();
     await page.goto(`/e/${hours.id}`);
-    await page.getByRole('radio', { name: 'Exact times' }).click();
-    await expect(page.locator('#exact-hours .brush')).toBeVisible();
-    await fits(page, 'exact times');
+    await expect(page.locator('#mine .row')).toHaveCount(1);
+    await fits(page, 'hours');
   });
 
   test('ask when people are available: the answer choices and days in a row fit, in a wide font too', async ({ page }) => {

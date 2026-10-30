@@ -271,8 +271,8 @@ for (const scheme of ['light', 'dark']) {
       await addHours(page, 3);
       await page.click('#submit');
       await changeAnswer(page);
-      await expect(page.locator('#mine .cell[data-slot]').first()).toBeVisible({ timeout: 10_000 }); // after the celebration
-      await audit(page, 'hours poll (exact times)');
+      await expect(page.locator('#mine .row').first()).toBeVisible({ timeout: 10_000 }); // after the celebration
+      await audit(page, 'hours poll');
       // Older polls ask about mornings, afternoons and evenings.
       const day = (d, h) => Date.UTC(2030, 0, d, h);
       const options = [8, 9].flatMap((d) => [

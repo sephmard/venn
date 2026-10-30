@@ -51,7 +51,6 @@ import {
   shortTime,
   toast,
   track,
-  dayChip,
   isPhone,
 } from './ui.js';
 import { fmtTimeRange, fmtWhen } from './when.js';
@@ -104,7 +103,6 @@ export async function renderEvent(id, navigate) {
     ev: null,
     tz: localTz, // times in this device's time zone; whole-day polls read their days as dates (below)
     mine: {},
-    brush: YES,
     dirty: false,
     focus: null, // participant id highlighted in the group view
     inspect: null, // slot being inspected in the group heatmap
@@ -217,7 +215,7 @@ export async function renderEvent(id, navigate) {
   // The poll's own picture (poll-image.js), in place of its emoji.
   const picture = ev().image && `/api/events/${encodeURIComponent(id)}/icon.jpg?v=${ev().image.v}`;
   // "Yes to all", "None of these work" and "Clear": above the options for the organizer, under them for guests.
-  const quickPills = `<button type="button" class="pill pill-quiet" id="fill">${listMode ? 'Yes to all' : 'All'}</button>
+  const quickPills = `<button type="button" class="pill pill-quiet" id="fill">Yes to all</button>
     <button type="button" class="pill pill-quiet" id="decline">None of these work</button>
     <button type="button" class="pill pill-quiet" id="none">Clear</button>`;
   app.innerHTML = `
@@ -268,28 +266,16 @@ export async function renderEvent(id, navigate) {
           </div>
           ${optionsMode ? '<div id="ai-answer" class="ai-panel" hidden></div>' : ''}
           ${
-            listMode
-              ? `${
-                  viewSwitch
-                    ? `<div class="seg mine-view" role="radiogroup" aria-label="Show the options as">
+            viewSwitch
+              ? `<div class="seg mine-view" role="radiogroup" aria-label="Show the options as">
                         <button type="button" role="radio" data-mine-view="list">List</button>
                         <button type="button" role="radio" data-mine-view="calendar">Calendar</button>
                       </div>`
-                    : ''
-                }
+              : ''
+          }
                 ${partsMode ? '<p class="hint legend"><span class="sw sw-y"></span>Tap: available <span class="sw sw-m"></span>Tap again: if needed <span class="sw sw-n"></span>Tap again: unavailable</p>' : ''}
                 <div id="mine" class="rows"></div>
-                <div id="mine-cal" hidden></div>`
-              : `<div id="exact-hours" class="stack-sm">
-                <div class="seg brush" role="group" aria-label="Brush">
-                  <button type="button" data-brush="${YES}"><span class="swatch swatch-yes"></span>Available</button>
-                  <button type="button" data-brush="${IF_NEEDED}"><span class="swatch swatch-maybe"></span>If needed</button>
-                  <button type="button" data-brush="0"><span class="swatch swatch-no"></span>Unavailable</button>
-                </div>
-                <div class="tv-strip" id="hour-days" role="group" aria-label="Days" hidden></div>
-                <div class="grid-scroll"><div class="grid" id="mine" role="group" aria-label="Your availability. Use the arrow keys to move and Space to mark a time."></div></div>
-                </div>`
-          }
+                <div id="mine-cal" hidden></div>
           ${guest ? `<div class="quick-actions">${quickPills}</div>` : ''}
           </div>
           <div class="my-picks" id="my-picks" aria-live="polite" hidden></div>
@@ -418,7 +404,7 @@ export async function renderEvent(id, navigate) {
   });
 
   // ----- grid layout (hours polls) in the viewer's time zone -----
-  let L, LG;
+  let LG;
   function computeLayout() {
     const dates = new Set(),
       mins = new Set(),
@@ -430,32 +416,16 @@ export async function renderEvent(id, navigate) {
       at.set(`${z.date}|${z.minutes}`, s);
     }
     LG = { dates: [...dates].sort(), mins: [...mins].sort((a, b) => a - b), at };
-    // Phones paint one day at a time, picked from a strip of days.
-    const oneDay = isPhone() && LG.dates.length > 1;
-    if (oneDay && !LG.dates.includes(st.hourDay)) st.hourDay = LG.dates[0];
-    L = oneDay ? { ...LG, dates: [st.hourDay], mins: LG.mins.filter((m) => LG.at.has(`${st.hourDay}|${m}`)) } : LG;
-    const strip = $('#hour-days');
-    strip.hidden = !oneDay;
-    if (oneDay)
-      strip.innerHTML = LG.dates
-        .map((d) => {
-          const n = ev().slots.filter((s) => st.mine[s] && utcToZoned(s, st.tz).date === d).length;
-          return `<button type="button" class="tv-chip" data-hour-day="${d}" aria-pressed="${d === st.hourDay}">${dayChip(d, n ? '✓' : '')}</button>`;
-        })
-        .join('');
   }
 
   // `cellAttrs(slot)` adds the role and state: toggle buttons in your grid, labelled images in the group heatmap.
-  // In your own grid the day names are buttons that mark the whole day at once.
-  function gridHtml(cellClass, cellAttrs = () => '', layout = L, dayButtons = false) {
+  function gridHtml(cellClass, cellAttrs = () => '', layout = LG) {
     const { dates, mins, at } = layout;
     const labelEvery = ev().slotMinutes >= 60 ? ev().slotMinutes : 60;
     let h = '<div></div>';
     for (const d of dates) {
       const dt = dateParts(d);
-      h += dayButtons
-        ? `<button type="button" class="day-label day-fill" data-fill-day="${d}"><b>${fmtDow.format(dt)}</b>${fmtMonthDay.format(dt)}<span class="sr-only">: mark the whole day</span></button>`
-        : `<div class="day-label"><b>${fmtDow.format(dt)}</b>${fmtMonthDay.format(dt)}</div>`;
+      h += `<div class="day-label"><b>${fmtDow.format(dt)}</b>${fmtMonthDay.format(dt)}</div>`;
     }
     mins.forEach((m, r) => {
       h += `<div class="time-label">${m % labelEvery === 0 ? minutesLabel(m) : ''}</div>`;
@@ -469,7 +439,7 @@ export async function renderEvent(id, navigate) {
     });
     return h;
   }
-  const gridCols = (layout = L) => `auto repeat(${layout.dates.length}, minmax(38px, 1fr))`;
+  const gridCols = (layout = LG) => `auto repeat(${layout.dates.length}, minmax(38px, 1fr))`;
   const finalSet = () => {
     const set = new Set();
     const f = ev().finalStart;
@@ -490,25 +460,15 @@ export async function renderEvent(id, navigate) {
   };
 
   // ----- what I've picked so far, in words -----
-  const hasAnswer = () => Object.values(st.mine).some((v) => v > 0) || st.declined || (listMode && st.touched.size > 0);
-  /** Runs of available slots on each day of an hours poll: "Sat, Nov 7: 9 AM – 12 PM". */
-  function hourRuns(v) {
-    const runs = [];
-    let cur = null;
-    for (const s of ev().slots) {
-      const z = utcToZoned(s, st.tz);
-      const end = utcToZoned(slotEnd(ev(), s), st.tz);
-      const to = end.date === z.date ? end.minutes : 1440;
-      if (st.mine[s] === v && cur && cur.date === z.date && cur.to === z.minutes) cur.to = to;
-      else if (st.mine[s] === v) runs.push((cur = { date: z.date, from: z.minutes, to }));
-      else cur = null;
-    }
-    return runs.map((r) => `${fmtDay.format(dateParts(r.date))}, ${shortRange(r.from, r.to)}`);
-  }
+  const hasAnswer = () => Object.values(st.mine).some((v) => v > 0) || st.declined || st.touched.size > 0;
   function renderPicks() {
     const box = $('#my-picks');
     const label = (v) =>
-      listMode ? windows.filter((w) => st.mine[w.start] === v).map((w) => when(w.start, w.end)) : hourRuns(v);
+      partsMode
+        ? windows.filter((w) => st.mine[w.start] === v).map((w) => when(w.start, w.end))
+        : rows()
+            .filter((r) => groupState(st.mine, r.slots) === v)
+            .map((r) => when(r.start, r.end));
     const yes = label(YES);
     const maybe = label(IF_NEEDED);
     box.hidden = !hasAnswer();
@@ -526,27 +486,44 @@ export async function renderEvent(id, navigate) {
     const counts = [yes.length ? `${yes.length} yes` : '', maybe.length ? `${maybe.length} if needed` : '']
       .filter(Boolean)
       .join(', ');
-    const rest = windows.length - yes.length - maybe.length;
-    const left = ev().slots.filter((x) => !st.mine[x] && !st.touched.has(String(x))).length;
-    box.innerHTML = `<p><b>Your answer:</b> ${esc(counts)}${listMode && rest ? `, no to ${rest === 1 ? 'the other one' : `the other ${rest}`}` : ''}${listMode && left ? ` <span class="dirty">(${left} not answered, counted as no)</span>` : ''}</p>
+    const rest = units().length - yes.length - maybe.length;
+    const left = unanswered();
+    box.innerHTML = `<p><b>Your answer:</b> ${esc(counts)}${rest > 0 ? `, no to ${rest === 1 ? 'the other one' : `the other ${rest}`}` : ''}${left ? ` <span class="dirty">(${left} not answered, counted as no)</span>` : ''}</p>
       <div class="chips">${shown}${chips.length > max ? `<span class="chip">+${chips.length - max} more</span>` : ''}</div>`;
   }
 
   /** The date block on the left of a row: weekday, big day number, month. */
   const dateBlock = (d) => {
     const dt = dateParts(d);
-    // Whole-day, parts-of-the-day and hours polls name the weekday in the row itself.
-    return `<span class="date-block" aria-hidden="true">${daysMode || partsMode || !listMode ? '' : `<small>${esc(fmtDow.format(dt))}</small>`}<b>${dt.getUTCDate()}</b><small>${esc(dt.toLocaleDateString(undefined, { month: 'short', timeZone: 'UTC' }))}</small></span>`;
+    // Whole-day and parts-of-the-day polls name the weekday in the row itself.
+    return `<span class="date-block" aria-hidden="true">${daysMode || partsMode ? '' : `<small>${esc(fmtDow.format(dt))}</small>`}<b>${dt.getUTCDate()}</b><small>${esc(dt.toLocaleDateString(undefined, { month: 'short', timeZone: 'UTC' }))}</small></span>`;
   };
 
+  // Every poll is answered a row at a time. An hours poll's row is a stretch of time the organizer
+  // offered (its half hours run together on one day), and its answer goes to each of those times.
+  const rows = () => {
+    if (listMode) return windows.map((w) => ({ ...w, slots: [w.start] }));
+    const out = [];
+    for (const s of ev().slots) {
+      const last = out.at(-1);
+      if (last?.end === s && utcToZoned(s, st.tz).date === utcToZoned(last.start, st.tz).date) {
+        last.end = slotEnd(ev(), s);
+        last.slots.push(s);
+      } else out.push({ start: s, end: slotEnd(ev(), s), slots: [s] });
+    }
+    return out;
+  };
+  let rowSlots = new Map();
   function renderMineList() {
     let prev = null;
-    mineEl.innerHTML = windows
+    const rs = rows();
+    rowSlots = new Map(rs.map((r) => [String(r.start), r.slots]));
+    mineEl.innerHTML = rs
       .map((w) => {
         const d = utcToZoned(w.start, st.tz).date;
         const first = d !== prev;
         prev = d;
-        const isFinal = w.start === ev().finalStart;
+        const isFinal = ev().finalStart != null && w.start <= ev().finalStart && ev().finalStart < w.end;
         const label = fmtWhen(w.start, w.end, st.tz);
         return `<div class="row${first ? '' : ' same-day'}${isFinal ? ' final' : ''}" data-opt="${w.start}">
           ${first ? dateBlock(d) : '<span class="date-block" aria-hidden="true"></span>'}
@@ -755,25 +732,20 @@ export async function renderEvent(id, navigate) {
       st.mineView = v.dataset.mineView;
       renderMineView();
     }
-    const day = e.target.closest('[data-hour-day]');
-    if (day) {
-      st.hourDay = day.dataset.hourDay;
-      computeLayout();
-      renderMine();
-    }
   });
 
   function refreshMineList() {
     const people = others().filter((p) => p.id !== me()?.id);
     const answeredBefore = !!me();
     for (const el of $$('[data-opt]', mineEl)) {
-      const s = el.dataset.opt;
-      const v = st.mine[s] || 0;
-      const shown = v > 0 || answeredBefore || st.touched.has(s) ? v : -1;
+      const slots = rowSlots.get(el.dataset.opt) || [el.dataset.opt];
+      // An answer from before that marks only some of a row's times shows as neither.
+      const v = groupState(st.mine, slots);
+      const shown = v === 'some' ? -1 : v > 0 || answeredBefore || st.touched.has(String(slots[0])) ? v : -1;
       el.dataset.v = shown;
       for (const b of $$('[data-vote]', el)) b.setAttribute('aria-checked', +b.dataset.vote === shown);
-      const yes = people.filter((p) => p.availability[s] === YES).map((p) => p.name);
-      const maybe = people.filter((p) => p.availability[s] === IF_NEEDED).length;
+      const yes = people.filter((p) => groupState(p.availability, slots) === YES).map((p) => p.name);
+      const maybe = people.filter((p) => groupState(p.availability, slots) === IF_NEEDED).length;
       $('.row-tally', el).innerHTML =
         yes.length || maybe
           ? `${avatarStack(yes, 4)}<span class="hint">${yes.length ? `${yes.length} yes` : ''}${yes.length && maybe ? ', ' : ''}${maybe ? `${maybe} if needed` : ''}</span>`
@@ -781,149 +753,29 @@ export async function renderEvent(id, navigate) {
     }
   }
 
-  if (listMode)
+  if (!partsMode)
     mineEl.addEventListener('click', (e) => {
       const b = e.target.closest('[data-vote]');
       if (!b) return;
-      const s = b.closest('[data-opt]').dataset.opt;
+      const row = b.closest('[data-opt]').dataset.opt;
       const v = +b.dataset.vote;
-      if (v) st.mine[s] = v;
-      else delete st.mine[s];
-      st.touched.add(s);
+      for (const s of rowSlots.get(row) || [row]) {
+        if (v) st.mine[s] = v;
+        else delete st.mine[s];
+        st.touched.add(String(s));
+      }
       refreshMine();
       changed();
     });
 
   function renderMine() {
     if (partsMode) return renderMineParts();
-    if (listMode) return renderMineList();
-    mineEl.style.gridTemplateColumns = gridCols();
-    const pressed = (s) => (st.mine[s] === YES ? 'true' : st.mine[s] === IF_NEEDED ? 'mixed' : 'false');
-    mineEl.innerHTML = gridHtml(
-      (s) => (st.mine[s] === YES ? 'yes' : st.mine[s] === IF_NEEDED ? 'maybe' : '') + (finalSet().has(s) ? ' final' : ''),
-      (s) => `role="button" aria-pressed="${pressed(s)}" aria-label="${esc(fmtWhen(s, slotEnd(ev(), s), st.tz))}"`,
-      L,
-      true,
-    );
-    const first = $('.cell[data-slot]', mineEl);
-    if (first) first.tabIndex = 0;
+    renderMineList();
   }
   function refreshMine() {
     calView?.render();
     if (partsMode) return refreshMineParts();
-    if (listMode) return refreshMineList();
-    for (const el of $$('.cell[data-slot]', mineEl)) {
-      const v = st.mine[el.dataset.slot];
-      el.classList.toggle('yes', v === YES);
-      el.classList.toggle('maybe', v === IF_NEEDED);
-      el.setAttribute('aria-pressed', v === YES ? 'true' : v === IF_NEEDED ? 'mixed' : 'false');
-    }
-  }
-
-  // ----- painting (hours polls) -----
-  let drag = null;
-  let tap = null; // a touch on a time, which marks it if the finger doesn't move
-  const pos = (el) => ({ r: +el.dataset.r, c: +el.dataset.c });
-  /** Mark one time with the brush, or clear it when it already has that mark. */
-  function markCell(el) {
-    const s = el.dataset.slot;
-    if ((st.mine[s] || 0) === st.brush || !st.brush) delete st.mine[s];
-    else st.mine[s] = st.brush;
-    refreshMine();
-    changed();
-  }
-  function paintRect(a, b) {
-    st.mine = { ...drag.snapshot };
-    const [r0, r1] = [Math.min(a.r, b.r), Math.max(a.r, b.r)];
-    const [c0, c1] = [Math.min(a.c, b.c), Math.max(a.c, b.c)];
-    for (let r = r0; r <= r1; r++)
-      for (let c = c0; c <= c1; c++) {
-        const s = L.at.get(`${L.dates[c]}|${L.mins[r]}`);
-        if (s == null) continue;
-        if (drag.value) st.mine[s] = drag.value;
-        else delete st.mine[s];
-      }
-    refreshMine();
-  }
-  const endPaint = (e) => {
-    if (e.type === 'pointercancel') tap = null;
-    if (!drag) return;
-    drag = null;
-    changed();
-  };
-  /** Mark every slot in `slots` with `v`, or clear them all when they already are. */
-  function markAll(slots, v) {
-    const all = slots.every((s) => (st.mine[s] || 0) === v);
-    for (const s of slots) {
-      if (v && !all) st.mine[s] = v;
-      else delete st.mine[s];
-      st.touched.add(String(s));
-    }
-    refreshMine();
-    changed();
-  }
-  if (!listMode) {
-    mineEl.addEventListener('click', (e) => {
-      const b = e.target.closest('[data-fill-day]');
-      if (!b) return;
-      const slots = ev().slots.filter((s) => utcToZoned(s, st.tz).date === b.dataset.fillDay);
-      markAll(slots, st.brush);
-    });
-    // On touch screens a swipe scrolls the page, so a tap marks one time; mice and pens drag.
-    mineEl.addEventListener('pointerup', (e) => {
-      const t = tap;
-      tap = null;
-      if (t && Math.hypot(e.clientX - t.x, e.clientY - t.y) < 10) markCell(t.el);
-    });
-    mineEl.addEventListener('pointerdown', (e) => {
-      const el = e.target.closest('.cell[data-slot]');
-      if (!el || e.button > 0) return;
-      if (e.pointerType === 'touch') return (tap = { el, x: e.clientX, y: e.clientY });
-      e.preventDefault();
-      const cur = st.mine[el.dataset.slot] || 0;
-      drag = { anchor: pos(el), snapshot: { ...st.mine }, value: cur === st.brush ? 0 : st.brush };
-      paintRect(drag.anchor, drag.anchor);
-    });
-    mineEl.addEventListener('pointermove', (e) => {
-      if (!drag) return;
-      const el = document.elementFromPoint(e.clientX, e.clientY)?.closest('#mine .cell[data-slot]');
-      if (el) paintRect(drag.anchor, pos(el));
-    });
-    // Keyboard: arrows move, Space or Enter paints with the current brush.
-    mineEl.addEventListener('keydown', (e) => {
-      const el = e.target.closest('.cell[data-slot]');
-      if (!el) return;
-      let { r, c } = pos(el);
-      const moves = { ArrowUp: [-1, 0], ArrowDown: [1, 0], ArrowLeft: [0, -1], ArrowRight: [0, 1] };
-      if (moves[e.key]) {
-        e.preventDefault();
-        for (let i = 0; i < 200; i++) {
-          r += moves[e.key][0];
-          c += moves[e.key][1];
-          if (r < 0 || c < 0 || r >= L.mins.length || c >= L.dates.length) return;
-          const next = $(`.cell[data-r="${r}"][data-c="${c}"]`, mineEl);
-          if (next) {
-            el.tabIndex = -1;
-            next.tabIndex = 0;
-            next.focus();
-            return;
-          }
-        }
-      } else if (e.key === ' ' || e.key === 'Enter') {
-        e.preventDefault();
-        markCell(el);
-      }
-    });
-    for (const b of $$('[data-brush]'))
-      b.onclick = () => {
-        st.brush = +b.dataset.brush;
-        renderBrush();
-      };
-  }
-  window.addEventListener('pointerup', endPaint);
-  window.addEventListener('pointercancel', endPaint);
-  function renderBrush() {
-    for (const b of $$('[data-brush]')) b.setAttribute('aria-pressed', +b.dataset.brush === st.brush);
+    refreshMineList();
   }
 
   $('#fill').onclick = () => {
@@ -985,9 +837,10 @@ export async function renderEvent(id, navigate) {
   $('#ai-summary-btn').onclick = (e) => org?.summary(e.target, { id, ev: ev(), headers: authHeaders(), when });
 
   // ----- saving -----
-  /** How many options have no answer yet (they'd count as no). Hours polls are painted, so never any. */
+  /** How many rows have no answer yet (they'd count as no). */
+  const units = () => (partsMode ? ev().slots.map((s) => [s]) : [...rowSlots.values()]);
   const unanswered = () =>
-    !listMode || st.declined ? 0 : ev().slots.filter((s) => !st.mine[s] && !st.touched.has(String(s))).length;
+    st.declined ? 0 : units().filter((sl) => sl.every((s) => !st.mine[s] && !st.touched.has(String(s)))).length;
   /** What's still missing before the answer can be saved, or '' when it can. */
   const needs = () => {
     const name = !$('#name').value.trim();
@@ -1006,8 +859,8 @@ export async function renderEvent(id, navigate) {
     $('#save').dataset.ready = !need;
     if (v) {
       // "2 of 14 answered" until every option has an answer, then "Ready to submit" (or what's missing).
-      const total = ev().slots.length;
-      const answered = listMode ? total - unanswered() : total;
+      const total = units().length;
+      const answered = total - unanswered();
       const count = answered && answered < total ? `${answered} of ${total} answered` : '';
       el.className = need || count ? 'dirty' : 'ok';
       el.textContent = [count, need].filter(Boolean).join('. ') || 'Ready to submit';
@@ -1720,7 +1573,10 @@ export async function renderEvent(id, navigate) {
     panel.classList.toggle('org-compact', compact);
     line.hidden = !compact;
     if (!compact) return;
-    const n = (v) => (listMode ? windows.filter((w) => st.mine[w.start] === v).length : hourRuns(v).length);
+    const n = (v) =>
+      partsMode
+        ? windows.filter((w) => st.mine[w.start] === v).length
+        : rows().filter((r) => groupState(st.mine, r.slots) === v).length;
     const counts = [n(YES) && `${n(YES)} yes`, n(IF_NEEDED) && `${n(IF_NEEDED)} if needed`].filter(Boolean).join(', ');
     line.innerHTML = `<span><b>Your answer:</b> ${esc(counts || 'none of these work')}</span>
       <span aria-hidden="true">·</span>
@@ -1766,7 +1622,6 @@ export async function renderEvent(id, navigate) {
     renderHeader();
     renderBanners();
     renderTabs();
-    renderBrush();
     renderMine();
     // The calendar view is built for the viewer's time zone: rebuild it when that changes.
     calView?.cleanup();
@@ -1783,7 +1638,7 @@ export async function renderEvent(id, navigate) {
 
   // Pick up other people's answers every 20s while the tab is visible.
   const poll = setInterval(async () => {
-    if (document.hidden || drag) return;
+    if (document.hidden) return;
     try {
       const before = JSON.stringify(ev().participants) + ev().finalStart;
       await load();
@@ -1794,7 +1649,7 @@ export async function renderEvent(id, navigate) {
         renderGroup();
         renderBest();
         renderMeState();
-        if (listMode) refreshMine();
+        refreshMine();
         renderFinalAnswer();
       }
     } catch {}
@@ -1811,8 +1666,6 @@ export async function renderEvent(id, navigate) {
   return () => {
     calView?.cleanup();
     clearInterval(poll);
-    window.removeEventListener('pointerup', endPaint);
-    window.removeEventListener('pointercancel', endPaint);
     window.removeEventListener('beforeunload', beforeUnload);
   };
 }
