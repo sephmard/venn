@@ -9,6 +9,7 @@ import { SECURITY_HEADERS } from '../src/security-headers.js';
 import { IF_NEEDED, YES, zonedToUtc } from '../public/core.js';
 
 const SHELL = readFileSync(new URL('../public/app.html', import.meta.url), 'utf8');
+const HOME = readFileSync(new URL('../public/index.html', import.meta.url), 'utf8');
 
 /** The content of a <meta> tag, by name or property. */
 const meta = (html, key) => new RegExp(`<meta (?:name|property)="${key}" content="([^"]*)" />`).exec(html)?.[1];
@@ -177,6 +178,20 @@ async function makePoll(fetchPath, { pick = false, privacy = {}, title = dinner.
 }
 
 async function checkServer(fetchPath, origin) {
+  // The home page: shared in retro mode, the retro preview at the link it was shared as.
+  const home = async (path) => {
+    const res = await fetchPath(path);
+    assert.equal(res.status, 200);
+    return res.text();
+  };
+  const classic = await home('/');
+  assert.equal(meta(classic, 'og:image'), 'https://venn.day/og.png');
+  const retro = await home('/?retro=1');
+  assert.equal(meta(retro, 'og:image'), `${origin}/og-retro.png`);
+  assert.equal(meta(retro, 'og:url'), `${origin}/?retro=1`);
+  assert.equal(meta(retro, 'og:title'), meta(classic, 'og:title'));
+  assert.equal(meta(await home('/?retro=0'), 'og:image'), 'https://venn.day/og.png');
+
   const page = async (id) => {
     const res = await fetchPath(`/e/${id}`);
     assert.equal(res.status, 200);
@@ -249,6 +264,7 @@ test('Worker: poll pages carry the same link preview, without the static ETag', 
       fetch: async (req) => {
         assetRequests.push(req);
         const path = new URL(req.url).pathname;
+        if (path === '/') return new Response(HOME, { headers: { 'content-type': 'text/html', etag: '"home"' } });
         if (path === '/app')
           return new Response(SHELL, {
             headers: { 'content-type': 'text/html', etag: '"static"', 'cache-control': 'public, max-age=0, must-revalidate' },
@@ -269,6 +285,13 @@ test('Worker: poll pages carry the same link preview, without the static ETag', 
   assert.equal(assetRequests.at(-1).headers.get('if-none-match'), null);
   const head = await fetchPath('/e/doesnotexist', { method: 'HEAD' });
   assert.equal(await head.text(), '');
+  // The classic home page goes through as it is, with its ETag; a retro link is always fresh.
+  assert.equal((await fetchPath('/')).headers.get('etag'), '"home"');
+  const retro = await fetchPath('/?retro=1', { headers: { 'if-none-match': '"home"' } });
+  assert.equal(retro.status, 200);
+  assert.equal(retro.headers.get('etag'), null);
+  assert.equal(retro.headers.get('x-frame-options'), 'DENY');
+  assert.equal(assetRequests.at(-1).headers.get('if-none-match'), null);
   const missing = await fetchPath('/nope');
   assert.equal(missing.status, 404);
   assert.equal(missing.headers.get('x-frame-options'), 'DENY');

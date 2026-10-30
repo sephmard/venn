@@ -128,6 +128,19 @@ export function injectTags(html, tags) {
 }
 
 /**
+ * The home page (public/index.html) for a link in retro mode (`?retro=1`, public/retro-mode.js):
+ * the retro image in its preview, and the link itself as the page's address, so chat apps show
+ * the look it was shared in. Any other link gets the page as it is.
+ */
+export function homePage(html, url) {
+  if (url.searchParams.get('retro') !== '1') return html;
+  const img = OG_IMAGES.retroVote;
+  return html
+    .replace(/(<meta property="og:image" content=")[^"]*/, `$1${url.origin}${img.path}`)
+    .replace(/(<meta property="og:url" content=")[^"]*/, `$1${url.origin}/?retro=1`);
+}
+
+/**
  * The app shell (public/app.html) to send for `pathname`: for a poll page, with that poll's
  * preview tags (or the generic ones for an unknown poll). One database read. Other app routes
  * get the shell as it is.
