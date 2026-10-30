@@ -54,6 +54,7 @@ test('the organizer can switch the retro look on later, from the top of the poll
   await expect(page.locator('html')).toHaveClass(/\bretro\b/);
   await expect.poll(async () => (await (await request.get(`/api/events/${id}`)).json()).retro).toBe(true);
   // The toast is an arcade box.
+  await page.context().grantPermissions(['clipboard-read', 'clipboard-write']);
   await page.getByRole('button', { name: 'Copy link' }).click();
   await expect(page.locator('#toast')).not.toBeEmpty();
   await expect(page.locator('#toast')).toHaveCSS('font-family', /Press Start 2P/);
