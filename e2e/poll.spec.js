@@ -1332,7 +1332,7 @@ test('ask when people are free: parts of the day', async ({ page, request }) => 
   await expect(rows.nth(0).locator('.ov-bar')).toHaveCount(0); // everyone's free: ✓ Everyone says it
   // Everyone can, but only if needed: amber, as in the key, not green.
   await expect(rows.nth(1)).toHaveClass(/\bifn\b/);
-  await expect(rows.nth(1)).toContainText('✓ Everyone');
+  await expect(rows.nth(1).locator('.ov-count')).toHaveText(/^Everyone, if needed/); // not "1 of 1", nor ✓ Everyone
   await expect(rows.nth(1)).toHaveAccessibleName(/Everyone can, some only if needed/);
   expect(await rows.nth(1).evaluate((el) => getComputedStyle(el).borderColor)).toBe(
     await page.locator('.ov-legend .sw-m').evaluate((el) => getComputedStyle(el).backgroundColor),
@@ -2753,6 +2753,7 @@ test("everyone's answers: each time shows its mix of available, if needed and un
   await expect(cards.nth(0).locator('.ov-row')).toContainText('✓ Everyone');
   await expect(cards.nth(1).locator('.ov-row')).toHaveAccessibleName(/1 of 2 available, 1 if needed/);
   await expect(cards.nth(1).locator('.ov-row')).toHaveClass(/\bifn\b/); // everyone can, one only if needed: amber
+  await expect(cards.nth(1).locator('.ov-count')).toHaveText(/^Everyone, if needed/);
   await expect(cards.nth(1).locator('.ov-slot.ifn')).toHaveCount(4);
   await cards.nth(0).locator('.ov-row').click();
   await expect(cards.nth(0).locator('.ov-who')).toContainText('John');

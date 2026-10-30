@@ -42,7 +42,7 @@ function row(r, n, { kind, open, final, pick, mine }) {
   return `<li class="ov-item${open ? ' open' : ''}">
     <button type="button" class="ov-row${kind ? ` ${kind}` : ''}${final ? ' final' : ''}" data-ov="${r.start}" aria-expanded="${open}">
       <span class="ov-when">${r.day ? `<span class="sr-only">${esc(dayName(r.day))}, </span>` : ''}${esc(r.label)}${final ? ' <span class="ov-picked">✓ Picked</span>' : ''}</span>
-      <span class="ov-count">${whole ? '✓ Everyone' : `${yes + maybe} of ${n}`}${mine ? ` <span class="ov-mine">${esc(mine)}</span>` : ''}<span class="sr-only">. ${esc(said)}</span><span class="ov-chev" aria-hidden="true"></span></span>
+      <span class="ov-count">${kind === 'all' ? '✓ Everyone' : kind === 'ifn' ? 'Everyone, if needed' : `${yes + maybe} of ${n}`}${mine ? ` <span class="ov-mine">${esc(mine)}</span>` : ''}<span class="sr-only">. ${esc(said)}</span><span class="ov-chev" aria-hidden="true"></span></span>
       ${whole ? '' : `<span class="ov-bar" aria-hidden="true">${bar(yes, maybe, no)}</span>`}
     </button>
     ${open ? `<div class="ov-who">${group(r.yes, 'yes', 'Available')}${group(r.maybe, 'maybe', 'If needed')}${group(r.no, 'no', 'Unavailable')}${pick ? `<div class="ov-pick">${pick}</div>` : ''}</div>` : ''}

@@ -88,8 +88,8 @@ the same PR** (and CLAUDE.md if it's a rule that matters in review).
 - The key is only **Available · If needed · Unavailable** (green · amber · pink). Unavailable is never
   red, and nothing else goes in the key.
 - An open row lists **who answered what**, a labelled line per answer, coloured as in the key.
-- A row everyone can make, but some only if needed, is **amber** (✓ Everyone), never green: green is
-  only for everyone available.
+- A row everyone can make, but some only if needed, is **amber** and says **"Everyone, if needed"**,
+  never "2 of 2" or green: "✓ Everyone" and green are only for everyone available.
 - Hours results: one smooth track a day on a shared time scale; on phones, no timeline, just each
   day's best stretches. Calm tints, never solid slabs.
 - No × on every person's name: the organizer taps a person, then removes their answer.
