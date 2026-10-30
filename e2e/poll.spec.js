@@ -352,7 +352,7 @@ test('ask when people are free: paint hours and see the best time', async ({ pag
   await addHours(page, 2, [540, 600, 660]);
   await expect(page.locator('#free-list')).toContainText('9 AM – 12 PM');
   await page.click('#submit');
-  await expect(page.locator('#panel-mine h2')).toHaveText('When are you available?');
+  await expect(page.locator('#panel-mine > h2')).toHaveText('When are you available?');
   await changeAnswer(page); // the organizer's answer came with the poll
   // Answered like any poll: a row for each stretch of time offered, here 9 AM – 12 PM on two days.
   const rows = page.locator('#mine .row');
@@ -1200,7 +1200,7 @@ test('with answers hidden, a guest stays on their own answer after sending it; a
   await request.post(`/api/events/${id}/finalize`, { data: { start: t0 }, headers: { 'x-admin-token': adminToken } });
   await page.reload();
   if (await page.locator('#tab-mine').isVisible()) await page.click('#tab-mine');
-  await expect(page.locator('#panel-mine h2')).toHaveText('The date is picked. Can you make it?');
+  await expect(page.locator('#panel-mine > h2')).toHaveText('The date is picked. Can you make it?');
 });
 
 test('installable: manifest and icons are served', async ({ request }) => {
@@ -1607,13 +1607,16 @@ test('on a phone, a new poll leads with sharing: one share button, the group, an
   await expect(page.locator('#panel-group')).toBeVisible();
   await expect(page.locator('#best .only-you')).toHaveText('Only your answer so far.');
 
-  // Their own answer, given with the poll, is one line until they change it.
+  // Their own tab shows the options in their poll, nothing to submit: their answer came with it.
   await page.click('#tab-mine');
-  await expect(page.locator('#org-answer')).toHaveText(/^Your answer: 7 yes\s*·\s*Change your answer$/);
+  const options = page.locator('#org-answer .row');
+  await expect(page.locator('#org-answer h2')).toHaveText('Options in your poll');
+  await expect(options).toHaveCount(7);
+  await expect(page.locator('#org-answer .row[data-v="2"]')).toHaveCount(7);
   for (const hidden of ['#mine', '#name', '#save', '#leave']) await expect(page.locator(hidden)).toBeHidden();
-  await page.getByRole('button', { name: 'Change your answer' }).click();
+  await page.getByRole('button', { name: 'Change my answer' }).click();
   await expect(page.locator('#org-answer')).toBeHidden();
-  await expect(page.locator('#panel-mine .panel-title')).toBeFocused();
+  await expect(page.locator('#panel-mine > .panel-title')).toBeFocused();
   for (const shown of ['#mine', '#name', '#save', '#leave']) await expect(page.locator(shown)).toBeVisible();
   await expect(page.locator('#name')).toHaveValue('Sam');
 
@@ -1623,7 +1626,10 @@ test('on a phone, a new poll leads with sharing: one share button, the group, an
   await page.locator('#mine .row').nth(1).locator('[data-vote="1"]').click();
   await submit(page);
   await page.click('#tab-mine');
-  await expect(page.locator('#org-answer')).toHaveText(/^Your answer: 1 yes, 1 if needed\s*·\s*Change your answer$/);
+  await expect(options.nth(0)).toHaveAttribute('data-v', '2');
+  await expect(options.nth(1)).toHaveAttribute('data-v', '1');
+  await expect(options.nth(1)).toContainText('If needed');
+  await expect(options.nth(2)).toContainText('Not for you');
 
   // Coming back later, the tools are folded away and it's still the group first.
   await page.reload();
@@ -3229,6 +3235,46 @@ test('a sideways swipe moves the calendar on or back, at every level; a held pre
     await swipeAcross(page, grid, -120, 400);
     await expect(label).toHaveText(week);
   }
+});
+
+test('a swipe follows the finger, springs back when it is short, and the first calendar on a phone nudges once to show it', async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 375, height: 812 });
+  await page.goto('/new/free');
+  const grid = page.locator('#when .cal-grid');
+  const month = page.locator('#when .cal-month');
+  // Nobody has swiped yet: the calendar nudges, a peek at the next month.
+  await expect(grid).toHaveClass(/\bswipe-hint\b/, { timeout: 3000 });
+  await expect(grid).not.toHaveClass(/\bswipe-hint\b/, { timeout: 3000 });
+  const now = await month.textContent();
+  // Under the finger it moves with it; let go early and slowly, and it goes back where it was.
+  const moved = await grid.evaluate(async (el) => {
+    const r = el.getBoundingClientRect();
+    const [x, y] = [r.left + r.width / 2, r.top + 60];
+    const touch = (cx) => new Touch({ identifier: 1, target: el, clientX: cx, clientY: y });
+    const fire = (type, cx) =>
+      el.dispatchEvent(
+        new TouchEvent(type, { bubbles: true, touches: type === 'touchend' ? [] : [touch(cx)], changedTouches: [touch(cx)] }),
+      );
+    const wait = (ms) => new Promise((ok) => setTimeout(ok, ms));
+    fire('touchstart', x);
+    fire('touchmove', x - 20);
+    fire('touchmove', x - 60);
+    const during = el.style.transform;
+    await wait(700);
+    fire('touchend', x - 60);
+    return during;
+  });
+  expect(moved).toBe('translateX(-60px)');
+  await expect.poll(() => grid.evaluate((el) => el.style.transform)).toBe('');
+  await expect(month).toHaveText(now);
+  // A swipe goes on, and once someone has swiped, the nudge doesn't come back.
+  await swipeAcross(page, '#when .cal-grid', -120);
+  await expect(month).not.toHaveText(now);
+  await page.reload();
+  await page.waitForTimeout(1500);
+  await expect(page.locator('#when .cal-grid')).not.toHaveClass(/\bswipe-hint\b/);
 });
 
 test('days in a row asks first when days have their own times, and keeping them leaves it off', async ({ page }) => {

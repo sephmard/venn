@@ -910,6 +910,28 @@ h3 {
   position: relative;
   padding: 28px 24px 24px;
 }
+/* It opens on its heading (autofocus), not with a ring around the close button. */
+.ask h2:focus {
+  outline: none;
+}
+/* On a phone, a sheet up from the bottom, clear of the browser's own bars. */
+@media (max-width: 480px) {
+  .ask {
+    width: 100%;
+    max-width: none;
+    max-height: calc(100dvh - 48px);
+    margin: auto 0 0;
+    border-radius: 24px 24px 0 0;
+  }
+  .ask-body {
+    padding-bottom: calc(24px + env(safe-area-inset-bottom));
+  }
+  @keyframes ask-in {
+    from {
+      transform: translateY(40px);
+    }
+  }
+}
 .ask h2 {
   margin: 0 48px 8px 0;
   font-size: clamp(1.75rem, 5vw, 2.25rem);
@@ -1730,10 +1752,13 @@ html.retro .venn-chip {
 /* Cards: dark glass with a neon edge. */
 html.retro .chat,
 html.retro .result,
-html.retro .ask-body {
+html.retro .ask {
   background: rgb(21 10 53 / 0.85);
   border: 1px solid rgb(45 226 230 / 0.35);
   box-shadow: 0 0 40px -10px rgb(255 60 172 / 0.45);
+}
+html.retro .ask {
+  background: #150a35; /* solid: nothing of the page shows through the form */
 }
 html.retro .msg-me {
   background: #2de2e6;
