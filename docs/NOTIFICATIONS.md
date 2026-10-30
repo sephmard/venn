@@ -38,7 +38,7 @@ npx wrangler secret put VAPID_PUBLIC_KEY
 npx wrangler secret put VAPID_PRIVATE_KEY
 ```
 
-With Node, set them as environment variables. `VAPID_SUBJECT` is optional: a `mailto:` address or `https://` URL push services can contact you at (by default `https://venn.day`). Keep the same keys: new ones stop every device that's already subscribed. Once set, `GET /api/config` reports the public key as `"push"`.
+With the deploy workflow, you can instead add both as repository secrets (Settings → Secrets and variables → Actions) with those names: each deploy puts them on the Worker. With Node, set them as environment variables. `VAPID_SUBJECT` is optional: a `mailto:` address or `https://` URL push services can contact you at (by default `https://venn.day`). Keep the same keys: new ones stop every device that's already subscribed. Once set, `GET /api/config` reports the public key as `"push"`.
 
 ## Turning on email
 
