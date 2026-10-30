@@ -39,6 +39,8 @@ the same PR** (and CLAUDE.md if it's a rule that matters in review).
   two.
 - Parts of day and Hours show **the week only**, on phones too: no Week / Day switch.
 - Both use the same navigation: **« ‹ › »** (a month, a week), never before this week.
+- **Swipe sideways** on any calendar (Days, Parts of day, Hours; organizers and guests) to go on or
+  back, as ‹ › do. Only a quick swipe: a press that rests first still draws or moves a time.
 - Calendars open on **today's month and week**, even at the very end of a month.
 - A tap goes round the same way at every level: **available, then if needed, then removed**.
 - Parts of day and Hours are **one calendar**: the same head, the same slim time column (the part's
@@ -86,6 +88,8 @@ the same PR** (and CLAUDE.md if it's a rule that matters in review).
 - The key is only **Available · If needed · Unavailable** (green · amber · pink). Unavailable is never
   red, and nothing else goes in the key.
 - An open row lists **who answered what**, a labelled line per answer, coloured as in the key.
+- A row everyone can make, but some only if needed, is **amber** and says **"Everyone, if needed"**,
+  never "2 of 2" or green: "✓ Everyone" and green are only for everyone available.
 - Hours results: one smooth track a day on a shared time scale; on phones, no timeline, just each
   day's best stretches. Calm tints, never solid slabs.
 - No × on every person's name: the organizer taps a person, then removes their answer.

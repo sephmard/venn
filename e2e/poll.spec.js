@@ -1330,7 +1330,13 @@ test('ask when people are free: parts of the day', async ({ page, request }) => 
   // Everyone's answers are colour-coded: available, if needed and unavailable, with a key.
   const rows = page.locator('#overlap .ov-row');
   await expect(rows.nth(0).locator('.ov-bar')).toHaveCount(0); // everyone's free: ✓ Everyone says it
-  await expect(rows.nth(1).locator('.ov-bar i')).toHaveClass(['m']);
+  // Everyone can, but only if needed: amber, as in the key, not green.
+  await expect(rows.nth(1)).toHaveClass(/\bifn\b/);
+  await expect(rows.nth(1).locator('.ov-count')).toHaveText(/^Everyone, if needed/); // not "1 of 1", nor ✓ Everyone
+  await expect(rows.nth(1)).toHaveAccessibleName(/Everyone can, some only if needed/);
+  expect(await rows.nth(1).evaluate((el) => getComputedStyle(el).borderColor)).toBe(
+    await page.locator('.ov-legend .sw-m').evaluate((el) => getComputedStyle(el).backgroundColor),
+  );
   await expect(rows.nth(2).locator('.ov-bar i')).toHaveClass(['n']);
   await expect(rows.nth(2)).toHaveAccessibleName(/1 unavailable/);
   await expect(rows.nth(0)).toContainText('✓ Everyone');
@@ -2746,6 +2752,9 @@ test("everyone's answers: each time shows its mix of available, if needed and un
   await expect(cards.nth(0).locator('.ov-slot.all')).toHaveCount(4);
   await expect(cards.nth(0).locator('.ov-row')).toContainText('✓ Everyone');
   await expect(cards.nth(1).locator('.ov-row')).toHaveAccessibleName(/1 of 2 available, 1 if needed/);
+  await expect(cards.nth(1).locator('.ov-row')).toHaveClass(/\bifn\b/); // everyone can, one only if needed: amber
+  await expect(cards.nth(1).locator('.ov-count')).toHaveText(/^Everyone, if needed/);
+  await expect(cards.nth(1).locator('.ov-slot.ifn')).toHaveCount(4);
   await cards.nth(0).locator('.ov-row').click();
   await expect(cards.nth(0).locator('.ov-who')).toContainText('John');
   await expect(cards.nth(0).locator('[data-pick]')).toBeVisible();
@@ -3135,6 +3144,68 @@ test('times drawn in hours stay on every level, and the poll asks about them whe
   await expect(page).toHaveURL(/\/e\//);
   const ev = await (await page.request.get(`/api/events/${page.url().split('/e/')[1]}`)).json();
   expect(ev.windows).toEqual([{ date: first, start: 1140, end: 1200 }]);
+});
+
+/** A finger swipe across `sel`, `dx` pixels sideways in about 150ms; `rest` ms of holding first. */
+async function swipeAcross(page, sel, dx, rest = 0) {
+  await page
+    .locator(sel)
+    .first()
+    .evaluate(
+      async (el, [dx, rest]) => {
+        const r = el.getBoundingClientRect();
+        const [x, y] = [r.left + r.width / 2, r.top + Math.min(r.height / 2, 120)];
+        const touch = (cx) => new Touch({ identifier: 1, target: el, clientX: cx, clientY: y });
+        const fire = (type, cx) =>
+          el.dispatchEvent(
+            new TouchEvent(type, {
+              bubbles: true,
+              touches: type === 'touchend' ? [] : [touch(cx)],
+              changedTouches: [touch(cx)],
+            }),
+          );
+        const wait = (ms) => new Promise((ok) => setTimeout(ok, ms));
+        fire('touchstart', x);
+        await wait(rest);
+        for (let i = 1; i <= 5; i++) {
+          fire('touchmove', x + (dx * i) / 5);
+          await wait(30);
+        }
+        fire('touchend', x + dx);
+      },
+      [dx, rest],
+    );
+}
+
+test('a sideways swipe moves the calendar on or back, at every level; a held press never does', async ({ page }) => {
+  await page.goto('/new/free');
+  const month = page.locator('#when .cal-month');
+  const now = await month.textContent();
+  await swipeAcross(page, '#when .cal-grid', -120);
+  await expect(month).not.toHaveText(now);
+  const next = await month.textContent();
+  await swipeAcross(page, '#when .cal-grid', 120);
+  await expect(month).toHaveText(now);
+  // Never before this month: a swipe back from here stays.
+  await swipeAcross(page, '#when .cal-grid', 120);
+  await expect(month).toHaveText(now);
+  expect(next).not.toBe(now);
+  for (const [level, grid] of [
+    ['parts', '#when .pg-scroll'],
+    ['hours', '#when .tv-grid'],
+  ]) {
+    await setLevel(page, level);
+    const label = page.locator('#when .tv-label');
+    const week = await label.textContent();
+    await swipeAcross(page, grid, -120);
+    await expect(label).not.toHaveText(week);
+    await swipeAcross(page, grid, 120);
+    await expect(label).toHaveText(week);
+    await expect(page.locator('#when .tg-block, #when .pg-cell.on')).toHaveCount(0); // nothing picked on the way
+    // Up and down, or after a rest (a drag), it stays.
+    await swipeAcross(page, grid, -120, 400);
+    await expect(label).toHaveText(week);
+  }
 });
 
 test('days in a row asks first when days have their own times, and keeping them leaves it off', async ({ page }) => {

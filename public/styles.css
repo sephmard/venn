@@ -1539,6 +1539,16 @@ details.organizer > .danger {
 }
 
 /* ---------- calendar picker: week / day / month ---------- */
+/* A swiped calendar slides in (picker.js swipe). */
+.swipe-in {
+  animation: swipe-in 0.2s ease-out;
+}
+@keyframes swipe-in {
+  from {
+    transform: translateX(var(--swipe-from));
+    opacity: 0.4;
+  }
+}
 .tv-bar {
   display: flex;
   flex-wrap: wrap;
@@ -2309,6 +2319,7 @@ pre.code {
   outline: 0;
 }
 .ov-item.open > .ov-row.all,
+.ov-item.open > .ov-row.ifn,
 .ov-item.open > .ov-row.best {
   border-radius: var(--radius) var(--radius) 0 0;
 }
@@ -2373,6 +2384,10 @@ pre.code {
 }
 .ov-row.best {
   border-color: var(--yes);
+}
+.ov-row.ifn {
+  border-color: var(--maybe);
+  background: var(--maybe-soft);
 }
 .ov-row.final {
   outline: 2.5px solid var(--final);

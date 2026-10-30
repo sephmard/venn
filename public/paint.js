@@ -3,7 +3,7 @@
 // organizer zooms in from whole days, so most whole-day polls never do.
 
 import { addDays } from './core.js';
-import { addMonths, dayChip, isPhone, tinyTime } from './picker.js';
+import { addMonths, dayChip, isPhone, swipe, tinyTime } from './picker.js';
 import { $, $$, dateParts, dayHead, dayLabel, esc, fmtMonthDay, shortRange, shortTime, todayStr } from './ui.js';
 
 const STEP = 30;
@@ -258,6 +258,7 @@ export function paintView(
       render();
     }
   });
+  swipe($('.pg-scroll', root), root, (n) => `[data-pstep="${n}"]`);
   render();
   return {
     render,
