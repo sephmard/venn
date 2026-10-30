@@ -43,6 +43,8 @@ the same PR** (and CLAUDE.md if it's a rule that matters in review).
   back, as ‹ › do. Only a quick swipe: a press that rests first still draws or moves a time.
 - Calendars open on **today's month and week**, even at the very end of a month.
 - A tap goes round the same way at every level: **available, then if needed, then removed**.
+- What's picked is coloured as in the key, at every level and in every look (the retro look too):
+  available is green, if needed amber. Never the theme's accent.
 - Parts of day and Hours are **one calendar**: the same head, the same slim time column (the part's
   name runs up its row), the same height, so switching between them moves nothing, not even for a
   frame (the calendar on show stays until the next is ready).
