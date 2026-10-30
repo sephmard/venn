@@ -3137,6 +3137,68 @@ test('times drawn in hours stay on every level, and the poll asks about them whe
   expect(ev.windows).toEqual([{ date: first, start: 1140, end: 1200 }]);
 });
 
+/** A finger swipe across `sel`, `dx` pixels sideways in about 150ms; `rest` ms of holding first. */
+async function swipeAcross(page, sel, dx, rest = 0) {
+  await page
+    .locator(sel)
+    .first()
+    .evaluate(
+      async (el, [dx, rest]) => {
+        const r = el.getBoundingClientRect();
+        const [x, y] = [r.left + r.width / 2, r.top + Math.min(r.height / 2, 120)];
+        const touch = (cx) => new Touch({ identifier: 1, target: el, clientX: cx, clientY: y });
+        const fire = (type, cx) =>
+          el.dispatchEvent(
+            new TouchEvent(type, {
+              bubbles: true,
+              touches: type === 'touchend' ? [] : [touch(cx)],
+              changedTouches: [touch(cx)],
+            }),
+          );
+        const wait = (ms) => new Promise((ok) => setTimeout(ok, ms));
+        fire('touchstart', x);
+        await wait(rest);
+        for (let i = 1; i <= 5; i++) {
+          fire('touchmove', x + (dx * i) / 5);
+          await wait(30);
+        }
+        fire('touchend', x + dx);
+      },
+      [dx, rest],
+    );
+}
+
+test('a sideways swipe moves the calendar on or back, at every level; a held press never does', async ({ page }) => {
+  await page.goto('/new/free');
+  const month = page.locator('#when .cal-month');
+  const now = await month.textContent();
+  await swipeAcross(page, '#when .cal-grid', -120);
+  await expect(month).not.toHaveText(now);
+  const next = await month.textContent();
+  await swipeAcross(page, '#when .cal-grid', 120);
+  await expect(month).toHaveText(now);
+  // Never before this month: a swipe back from here stays.
+  await swipeAcross(page, '#when .cal-grid', 120);
+  await expect(month).toHaveText(now);
+  expect(next).not.toBe(now);
+  for (const [level, grid] of [
+    ['parts', '#when .pg-scroll'],
+    ['hours', '#when .tv-grid'],
+  ]) {
+    await setLevel(page, level);
+    const label = page.locator('#when .tv-label');
+    const week = await label.textContent();
+    await swipeAcross(page, grid, -120);
+    await expect(label).not.toHaveText(week);
+    await swipeAcross(page, grid, 120);
+    await expect(label).toHaveText(week);
+    await expect(page.locator('#when .tg-block, #when .pg-cell.on')).toHaveCount(0); // nothing picked on the way
+    // Up and down, or after a rest (a drag), it stays.
+    await swipeAcross(page, grid, -120, 400);
+    await expect(label).toHaveText(week);
+  }
+});
+
 test('days in a row asks first when days have their own times, and keeping them leaves it off', async ({ page }) => {
   await page.goto('/new/free');
   const first = await nextMonth(page);
