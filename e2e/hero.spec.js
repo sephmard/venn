@@ -5,7 +5,8 @@ import { test, expect } from '@playwright/test';
 test('the messages find their friends, the circles meet, and Saturday pops out', { tag: '@site' }, async ({ page }) => {
   await page.goto('/');
   const venn = page.locator('.venn');
-  await expect(venn.locator('.venn-chip')).toHaveCount(8);
+  await expect(venn.locator('.venn-chip')).toHaveCount(10);
+  await expect(venn.locator('.venn-chip').first()).toContainText('Ana');
   await expect(venn).toHaveAttribute('data-settled', 'true', { timeout: 18000 });
   await expect(venn.locator('.venn-hit')).not.toHaveClass(/\boff\b/);
 });

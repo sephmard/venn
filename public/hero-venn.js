@@ -1,5 +1,6 @@
-// The home page's Venn, from noise to a plan: a group chat's messages bounce around, fly to the
-// three friends, and the circles drift together until the day that works for everyone pops out.
+// The home page's Venn, from noise to a plan: a group chat going round in circles, its messages
+// bouncing around, then flying to the three friends, and the circles drift together until the day
+// that works for everyone pops out.
 // It plays while it's in view. Tap to play it again; press and hold a circle (with a mouse, just
 // drag) to pull a friend away and watch the ✓ follow the overlap. Still for reduced motion.
 
@@ -7,22 +8,26 @@ function start(fig) {
   const still = matchMedia('(prefers-reduced-motion: reduce)').matches;
   const circles = [...fig.querySelectorAll('.venn-c')];
   const hit = fig.querySelector('.venn-hit');
-  // Who said what: each message ends up with the friend who sent it.
+  // The group chat going round in circles. Each message ends up with the friend who sent it.
+  const names = ['Ana', 'Sam', 'Lee'];
   const said = [
     ['Thu?', 0],
-    ['Fri works', 0],
-    ['Sat 👍', 0],
-    ['Fri?', 1],
-    ['Sat ok', 1],
-    ['Sun?', 1],
-    ['Wed!', 2],
-    ['Sat?', 2],
+    ['Fri works!', 0],
+    ['wait which week', 0],
+    ["can't do Thu 😩", 1],
+    ['Sat? Sun?', 1],
+    ['oh wait, no', 1],
+    ['👍', 1],
+    ['Wed!!', 2],
+    ['???', 2],
+    ['did we pick a day', 2],
   ];
   const chips = said.map(([text, to]) => {
     const el = document.createElement('span');
     el.className = 'venn-chip';
     el.setAttribute('aria-hidden', 'true');
-    el.textContent = text;
+    el.append(Object.assign(document.createElement('b'), { textContent: names[to] }), text);
+    el.style.rotate = `${Math.round(Math.random() * 12 - 6)}deg`;
     fig.append(el);
     // A path of its own through the noise.
     const r = () => 0.22 + Math.random() * 0.3;
