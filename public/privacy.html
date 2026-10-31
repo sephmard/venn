@@ -49,7 +49,7 @@
     <main id="main" class="wrap page">
       <article class="prose">
         <h1>Privacy</h1>
-        <p class="meta">Last updated October 26, 2026</p>
+        <p class="meta">Last updated October 30, 2026</p>
         <p>
           Venn is built to know as little about you as possible. There are no accounts, no cookies, no ads and nothing that
           follows you around. This page explains exactly what is stored.
@@ -67,6 +67,11 @@
             stored with your answer and shown only to the organizer, so they can invite you from their calendar once they pick the
             date. When they do, Venn uses it to send you that one email, with calendar links. Leave the field empty and it isn't
             kept; clear it later and it's gone. It's deleted when you remove your answer or the organizer deletes the poll.
+          </li>
+          <li>
+            <b>Invited guests' emails, if the organizer sets a deadline and lists who they invited:</b> kept with the organizer's
+            private settings, shown only to them, and used only to remind those who haven't answered yet. Every reminder has a
+            one-click link to stop them. They're deleted with the poll.
           </li>
           <li>
             <b>Notification settings, if the organizer turns them on:</b> an email address or a webhook URL. These are never shown
@@ -103,8 +108,8 @@
         <ul>
           <li><b>Cloudflare</b> hosts the site and the database.</li>
           <li>
-            <b>Cloudflare Email</b> (or Resend) sends emails: notifications, only to the address the organizer gave, and copies of
-            an answer, only to the address the person gave.
+            <b>Cloudflare Email</b> (or Resend) sends emails: notifications, only to the address the organizer gave; copies of an
+            answer, only to the address the person gave; and reminders, only to the guests the organizer invited.
           </li>
           <li>
             <b>Photon</b>, run by Komoot with OpenStreetMap data, suggests places as an organizer types in <i>Where</i>. What's

@@ -128,6 +128,7 @@ export function youFields() {
       <details class="reveal" id="privacy-opts">
         <summary>Privacy options</summary>
         <label class="switch"><input type="checkbox" role="switch" id="p-email"> Ask guests for their email</label>
+        <div id="deadline-box" hidden></div>
         <label class="switch"><input type="checkbox" role="switch" id="p-names"> Hide names from guests</label>
         <label class="switch"><input type="checkbox" role="switch" id="p-results"> Hide answers from guests</label>
       </details>
@@ -225,6 +226,7 @@ export async function submit(body, occasion, answer = null) {
   const emoji = icon?.emoji() || occasion()?.emoji;
   if (emoji) body.emoji = emoji;
   for (const [key, el] of PRIVACY) body[key] = $(el).checked;
+  if (deadline && !$('#deadline-box').hidden) Object.assign(body, deadline.values());
   const notifyEmail = !$('#notify-field') || $('#notify-field').hidden ? '' : $('#notify').value.trim();
   if (notifyEmail) body.notifyEmail = notifyEmail;
   if (body.organizer) rememberName(body.organizer);
@@ -288,9 +290,12 @@ export async function submit(body, occasion, answer = null) {
   }
 }
 
+let deadline = null; // deadline-fields.js, once asking everyone's email is switched on
+
 /** Show the email field when this server sends email; the organizer's email is then required. */
 export function showConfig(update) {
   tried = false;
+  deadline = null;
   // Each thing still needed, named in the sticky bar, goes to its field.
   $('#summary').onclick = (e) => {
     const b = e.target.closest('[data-need]');
@@ -307,6 +312,21 @@ export function showConfig(update) {
         icon?.preview(); // the link preview, in the new look
       };
     });
+  // Asking everyone's email allows a deadline, and reminders (deadline-fields.js). An edited poll's
+  // deadline is changed in its organizer tools.
+  const askEmail = $('#p-email');
+  askEmail?.addEventListener('change', async () => {
+    const box = $('#deadline-box');
+    if (source()?.edit) return;
+    if (askEmail.checked && !deadline) {
+      const [m, c] = await Promise.all([import('./deadline-fields.js'), getConfig()]).catch(() => []);
+      if (!m || deadline) return;
+      deadline = m;
+      box.innerHTML = m.fields({}, { email: !!c.email });
+      m.wire();
+    }
+    box.hidden = !askEmail.checked || !deadline;
+  });
   getConfig().then((c) => {
     if (!$('#notify-field')) return;
     $('#notify-field').hidden = !c.email;

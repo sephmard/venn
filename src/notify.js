@@ -306,6 +306,47 @@ export function pollReadyEmail({ title, pollUrl, unsubscribeUrl, retro = false }
 }
 
 /**
+ * To someone the organizer invited who hasn't answered yet, as the deadline nears: a nudge, when
+ * answers close, and one tap to answer. `organizer` may be empty; `closes` is in the poll's zone.
+ */
+export function deadlineReminderEmail({ title, organizer, closes, pollUrl, unsubscribeUrl, last = false, retro = false }) {
+  const who = organizer ? `${organizer} is` : "You're";
+  const subject = last ? `Last chance: when works for “${title}”?` : `When works for “${title}”?`;
+  const lead = organizer
+    ? `${who} finding a time for “${title}”, and hasn't heard from you yet.`
+    : `Answers for “${title}” close soon, and you haven't answered yet.`;
+  const text = `${lead}\n\nAnswers close ${closes}. It takes a few seconds, no sign-up:\n\n${pollUrl}\n\nStop these reminders: ${unsubscribeUrl}\n`;
+  const html = emailLayout(
+    `${heading(last ? 'Last chance to answer ⏳' : 'When works for you? 🗓️')}${para(escHtml(lead))}${para(
+      `Answers close <strong>${escHtml(closes)}</strong>. It takes a few seconds, no sign-up.`,
+    )}${button(pollUrl, 'Answer the poll')}`,
+    `You get these reminders because the organizer invited this address to “${escHtml(title)}”. <a href="${escHtml(unsubscribeUrl)}" style="color:#6b6d70">Stop these reminders</a>.`,
+    pollUrl,
+  );
+  return { subject, text, html: styled(html, retro) };
+}
+
+/**
+ * To the organizer, when answers close: who answered, and the best time so far, ready to pick.
+ * `best` is that time in the poll's zone, or null when nobody's free at the same time.
+ */
+export function answersClosedEmail({ title, answered, waiting, best, pollUrl, unsubscribeUrl, retro = false }) {
+  const subject = `Answers are in for “${title}”`;
+  const count = `${answered} ${answered === 1 ? 'person' : 'people'} answered${waiting ? `; ${waiting} didn't` : ''}.`;
+  const pick = best ? `The best time so far: ${best}.` : 'Nobody has a time in common yet.';
+  const text = `Answers for “${title}” are closed. ${count}\n\n${pick} Pick the date here:\n\n${pollUrl}\n\nStop these emails: ${unsubscribeUrl}\n`;
+  const html = emailLayout(
+    `${heading('Answers are in 🎉')}${para(`Answers for <strong>${escHtml(title)}</strong> are closed. ${escHtml(count)}`)}${para(
+      best ? `The best time so far: <strong>${escHtml(best)}</strong>.` : escHtml(pick),
+    )}${button(pollUrl, 'Pick the date')}`,
+    stopFooter(unsubscribeUrl),
+    pollUrl,
+    { signed: false },
+  );
+  return { subject, text, html: styled(html, retro) };
+}
+
+/**
  * To everyone who answered with their email, once the organizer picks the date: it's happening, and
  * one tap to put it in their calendar. `when` is the date in the poll's time zone (src/preview.js).
  */

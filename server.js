@@ -14,6 +14,7 @@ import { createStore, sqliteAdapter } from './src/store.js';
 import { SECURITY_HEADERS } from './src/security-headers.js';
 import { isAppRoute } from './src/routes.js';
 import { appShell, homePage } from './src/preview.js';
+import { sendDeadlines } from './src/deadline.js';
 import { placesState } from './src/places.js';
 
 const root = dirname(fileURLToPath(import.meta.url));
@@ -36,7 +37,14 @@ const TYPES = {
 // Node can resolve DNS, so webhook hosts are checked against private addresses before use.
 const resolveHost = async (host) => (await lookup(host, { all: true })).map((a) => a.address);
 
-export function createApp({ dbPath = ':memory:', env = process.env, fetchImpl = fetch, resolve = resolveHost, anthropic } = {}) {
+export function createApp({
+  dbPath = ':memory:',
+  env = process.env,
+  fetchImpl = fetch,
+  resolve = resolveHost,
+  anthropic,
+  now = Date.now,
+} = {}) {
   if (dbPath !== ':memory:') mkdirSync(dirname(dbPath), { recursive: true });
   const store = createStore(sqliteAdapter(new DatabaseSync(dbPath)));
   const aiWindows = new Map(); // AI rate limiting, per server
@@ -65,6 +73,7 @@ export function createApp({ dbPath = ':memory:', env = process.env, fetchImpl = 
           resolveHost: resolve,
           clientIp: req.socket.remoteAddress || '',
           anthropic,
+          now,
           aiWindows,
           places,
         });
@@ -79,6 +88,8 @@ export function createApp({ dbPath = ':memory:', env = process.env, fetchImpl = 
     }
   });
   server.settled = () => Promise.all([...pending]);
+  // Reminders before a poll's deadline, and "answers are in" after it (src/deadline.js); hourly below.
+  server.deadlines = (at = now()) => sendDeadlines({ store, env, fetchImpl, now: at });
   return server;
 }
 
@@ -118,4 +129,5 @@ if (import.meta.url === `file://${process.argv[1]}`) {
   const dbPath = process.env.DB_PATH || join(root, 'data', 'venn.db');
   const app = createApp({ dbPath });
   app.listen(port, () => console.log(`Venn running at http://localhost:${port}`));
+  setInterval(() => app.deadlines().catch((e) => console.error(e)), 60 * 60_000).unref();
 }

@@ -412,6 +412,7 @@ input[type='url'],
 input[type='number'],
 input[type='time'],
 input[type='date'],
+input[type='datetime-local'],
 textarea,
 select {
   width: 100%;
@@ -664,6 +665,7 @@ details.organizer[open] summary::before {
   gap: 8px;
 }
 .where,
+.deadline-line,
 .note {
   margin: 10px 0 0;
 }
@@ -959,6 +961,18 @@ div.poll-share {
   background: var(--surface);
   border-top: 1.5px solid var(--border);
   border-radius: 0 0 var(--radius-lg) var(--radius-lg);
+}
+
+/* After the deadline, a guest's answer stays in view, with nothing left to change or send. */
+.poll:has(.panel.closed) .guest-share,
+.panel.closed :is(.save-bar, .mine-footer, #copy-field, .quick-actions, div:has(> #name)) {
+  display: none;
+}
+.panel.closed #answer-full {
+  opacity: 0.6;
+}
+.closed-note {
+  font-weight: 600;
 }
 
 /* Best options */

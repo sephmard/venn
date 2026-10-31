@@ -254,6 +254,7 @@ export async function renderEvent(id, navigate) {
                   : 'Which of these work for you?'
                 : 'When are you available?'
           }</h2>
+          <p class="closed-note" id="closed-note" hidden>Answers are closed. ${esc(ev().organizer || 'The organizer')} is picking the date.</p>
           <div class="final-answer" id="answer-final" role="group" aria-label="Can you make it?" hidden>
             <button type="button" class="btn" data-final-vote="${YES}">Yes</button>
             <button type="button" class="btn" data-final-vote="${IF_NEEDED}">If needed</button>
@@ -1434,7 +1435,29 @@ export async function renderEvent(id, navigate) {
       !optionsMode && ev().durationMinutes > ev().slotMinutes
         ? `<p class="hint">Looking for ${daysMode ? `${lengthLabel(ev().durationMinutes)} in a row` : `${lengthLabel(ev().durationMinutes)}`}.</p>`
         : '';
-    $('#ev-details').innerHTML = where + (ev().description ? `<p class="note">${esc(ev().description)}</p>` : '') + what;
+    // When answers close (src/deadline.js), until the date is picked; on this device's clock.
+    const closes =
+      ev().deadline != null && ev().finalStart == null
+        ? `<p class="deadline-line"><span aria-hidden="true">⏳</span> Answers ${Date.now() >= ev().deadline ? 'closed' : 'close'} ${esc(
+            new Intl.DateTimeFormat(undefined, {
+              weekday: 'short',
+              month: 'short',
+              day: 'numeric',
+              hour: 'numeric',
+              minute: '2-digit',
+            }).format(ev().deadline),
+          )}</p>`
+        : '';
+    $('#ev-details').innerHTML = where + (ev().description ? `<p class="note">${esc(ev().description)}</p>` : '') + what + closes;
+    renderClosed();
+  }
+
+  /** After the deadline, guests see their answer but can't change it, and why. */
+  function renderClosed() {
+    const closed = !ev().isAdmin && ev().deadline != null && ev().finalStart == null && Date.now() >= ev().deadline;
+    $('#panel-mine').classList.toggle('closed', closed);
+    $('#answer-full').inert = closed;
+    $('#closed-note').hidden = !closed;
   }
 
   /** Change the date: the next best dates, each with its count and Pick, and a way back. */

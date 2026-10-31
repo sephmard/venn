@@ -52,6 +52,13 @@ const SCHEMA = [
   // email went.
   `DROP TABLE IF EXISTS series_reminders`,
   `CREATE INDEX IF NOT EXISTS events_final_start ON events(final_start)`,
+  // When a poll with a deadline is next due a look (src/deadline.js): reminders to invitees who
+  // haven't answered, or the organizer's "answers are closed" email. Gone once that's sent.
+  `CREATE TABLE IF NOT EXISTS reminders (
+     event_id TEXT PRIMARY KEY,
+     next_at INTEGER NOT NULL
+   )`,
+  `CREATE INDEX IF NOT EXISTS reminders_next ON reminders(next_at)`,
 ];
 
 /** The picture's details for a poll's JSON (or nothing, when it has none), from a joined row. */
@@ -123,7 +130,26 @@ export function createStore(db) {
       await db.run('DELETE FROM participant_emails WHERE event_id = ?', [id]);
       await db.run('DELETE FROM notifications WHERE event_id = ?', [id]);
       await db.run('DELETE FROM event_images WHERE event_id = ?', [id]);
+      await db.run('DELETE FROM reminders WHERE event_id = ?', [id]);
       await db.run('DELETE FROM events WHERE id = ?', [id]);
+    },
+
+    /** When poll `eventId` is next due a look for its deadline (src/deadline.js), or never (null). */
+    async setReminderDue(eventId, at) {
+      await init();
+      if (at == null) return db.run('DELETE FROM reminders WHERE event_id = ?', [eventId]);
+      await db.run(
+        'INSERT INTO reminders (event_id, next_at) VALUES (?, ?) ON CONFLICT(event_id) DO UPDATE SET next_at = excluded.next_at',
+        [eventId, at],
+      );
+    },
+
+    /** The polls due a look for their deadline by `now`. */
+    async dueReminders(now) {
+      await init();
+      return (await db.all('SELECT event_id FROM reminders WHERE next_at <= ? ORDER BY next_at LIMIT 200', [now])).map(
+        (r) => r.event_id,
+      );
     },
 
     /** Replace the poll's settings (everything stored in `data`). Its picture is kept apart. */
