@@ -73,6 +73,9 @@ the same PR** (and CLAUDE.md if it's a rule that matters in review).
 - **Times drawn in hours stay as drawn on every level.** The list shows them on Days and Parts of day
   too; on Parts of day their part is lit, and tapping it acts on those times. The poll asks about
   them wherever Create is pressed.
+- **A guest's email is theirs to give, and it invites them.** The answer form has an optional email
+  ("only the organizer sees it"); once the date is picked, the organizer's Google and Apple calendar
+  buttons invite everyone who gave one. Required only when the organizer asks everyone for one.
 - **Guests answer on the list, always.** A poll opens on its list for the people it's sent to, with no
   calendar view; only the organizer can switch to a calendar. **Time selection is the same for every
   poll**: a row per option with Yes / If needed / No. An hours poll's rows are the stretches of time

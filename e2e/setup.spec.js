@@ -136,6 +136,8 @@ test('on a phone, press and hold on hours to draw a time, or to move one; a swip
     navigator.vibrate = () => ++window.buzzes > 0;
   });
   await setLevel(page, 'hours');
+  // Next week, where every day can be drawn on (late in this one, only a day or two can).
+  await page.getByRole('button', { name: 'Next week' }).click();
   const col = page.locator('#when .tg-col.tg-draw').nth(1);
   await page.locator('#when .tg-scroll').scrollIntoViewIfNeeded();
   const row = await col.evaluate((el) => {
@@ -188,6 +190,8 @@ test('on a phone, a time stretches by the grip at its bottom, and taps beside it
   const tap = async (x, y) => (await touch('touchStart', x, y), await touch('touchEnd'));
   await page.goto('/new');
   await setLevel(page, 'hours');
+  // Next week, where every day can be drawn on (late in this one, only a day or two can).
+  await page.getByRole('button', { name: 'Next week' }).click();
   const col = page.locator('#when .tg-col.tg-draw').nth(1);
   await page.locator('#when .tg-scroll').scrollIntoViewIfNeeded();
   const row = await col.evaluate((el) => {

@@ -38,8 +38,8 @@ export function addToCalendar({ id, info, day, url, guests = [] }) {
   // Short names to fit three across a phone; screen readers hear the rest of the name too.
   const btn = (href, logo, name, more, tab = true) =>
     `<a class="cal-btn" href="${esc(href)}"${tab ? ' target="_blank" rel="noopener"' : ''}>${logo}<span>${name}${more ? `<span class="sr-only"> ${more}</span>` : ''}</span></a>`;
-  // The organizer of a poll that asked everyone's email: Google Calendar and iCal invite them all. The
-  // iCal file is made here, so the emails (which only the organizer sees) never go in a link.
+  // The organizer, when guests gave their email with their answer: Google Calendar and iCal invite
+  // them. The iCal file is made here, so the emails (which only the organizer sees) never go in a link.
   const invite = guests.length > 0;
   if (lastIcs) URL.revokeObjectURL(lastIcs); // the file made the last time this was drawn
   lastIcs = invite
@@ -48,10 +48,10 @@ export function addToCalendar({ id, info, day, url, guests = [] }) {
   const ics = lastIcs || `/api/events/${encodeURIComponent(id)}/event.ics`;
   const gcal = googleCalendarUrl({ ...info, guests: guests.map((g) => g.email) });
   return `<div class="cal-add" role="group" aria-labelledby="cal-add-h"${invite ? ' aria-describedby="cal-add-hint"' : ''}>
-    <h3 id="cal-add-h">${invite ? 'Add it to your calendar, with everyone invited' : 'Add to your calendar'}</h3>
+    <h3 id="cal-add-h">${invite ? 'Add it to your calendar, with your guests invited' : 'Add to your calendar'}</h3>
     ${
       invite
-        ? `<p id="cal-add-hint">Google and Apple (iCal) invite the ${guests.length === 1 ? 'person who answered' : `${guests.length} people who answered`}.</p>`
+        ? `<p id="cal-add-hint">Google and Apple (iCal) invite the ${guests.length === 1 ? 'person who gave their email' : `${guests.length} people who gave their email`}.</p>`
         : ''
     }
     <div class="cal-btns">
