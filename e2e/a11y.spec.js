@@ -48,7 +48,12 @@ async function audit(page, label, { party = false } = {}) {
         (el) => el.getAnimations().length === 0 && getComputedStyle(el).opacity === '1',
       ),
     );
-  const results = await new AxeBuilder({ page }).withTags(['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa', 'wcag22aa']).analyze();
+  // The hero's floating chat messages are decoration (hidden from screen readers, always moving,
+  // sometimes faint on purpose): incidental text, which WCAG's contrast rule leaves out.
+  const results = await new AxeBuilder({ page })
+    .withTags(['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa', 'wcag22aa'])
+    .exclude('.venn-chip')
+    .analyze();
   const blocking = results.violations.filter((v) => v.impact === 'serious' || v.impact === 'critical');
   const report = blocking
     .map((v) => `${v.id} (${v.impact}): ${v.help}\n  ${v.nodes.map((n) => n.target.join(' ')).join('\n  ')}`)
