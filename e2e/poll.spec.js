@@ -2937,9 +2937,9 @@ test('the week view goes a week with ‹ › and a month with « », never befor
   await page.getByRole('button', { name: 'Next week' }).click();
   expect(await first()).toBe(addDays(sunday, 7));
   await page.getByRole('button', { name: 'Forward a month' }).click();
-  // The week with the same day a month on.
+  // The week with the same day a month on: the day it moves from is today's, a week on.
   const shown = await first();
-  const target = addMonths(addDays(sunday, 7), 1);
+  const target = addMonths(addDays(today, 7), 1);
   expect(shown <= target && target < addDays(shown, 7)).toBe(true);
   await page.getByRole('button', { name: 'Back a month' }).click();
   await page.getByRole('button', { name: 'Back a month' }).click();
