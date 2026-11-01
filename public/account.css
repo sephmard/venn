@@ -663,27 +663,40 @@
   padding: 24px 0 8px;
   color: var(--muted);
 }
-/* The account itself, at the end: who, add a link, sign out. */
+/* The account itself, at the end: who, settings, sign out. */
 .acct-account {
   margin-top: 32px;
 }
 .acct-account .acct-who {
   margin: 0 0 4px;
 }
-.acct-account .acct-add {
-  margin-top: 8px;
-}
 .acct-account .acct-actions {
   margin-top: 12px;
 }
-/* Adding a poll from a link, folded away. */
-.acct-add summary {
-  display: flex;
-  align-items: center;
+/* "Missing a poll?" under the list, and its sheet: how things get here, then pasting a link. */
+.acct-missing {
+  margin: 16px 0 0;
+  text-align: center;
+}
+.acct-missing .link-btn {
   min-height: 44px;
-  color: var(--accent);
+}
+.acct-sheet-p {
+  margin: 0 0 12px;
+  line-height: 1.45;
+}
+.acct-paste {
+  display: grid;
+  gap: 8px;
+  margin-top: 20px;
+  padding-top: 16px;
+  border-top: 1px solid var(--border);
+}
+.acct-paste label {
   font-weight: 600;
-  cursor: pointer;
+}
+.acct-paste .hint:empty {
+  display: none;
 }
 .acct-add-row {
   display: flex;
