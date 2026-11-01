@@ -11,7 +11,10 @@ export function accountHint(value) {
   try {
     if (value === undefined) return JSON.parse(localStorage.getItem(KEY)) || null;
     if (value) localStorage.setItem(KEY, JSON.stringify(value));
-    else localStorage.removeItem(KEY);
+    else {
+      localStorage.removeItem(KEY);
+      localStorage.removeItem('venn:kept'); // signed out: the next account here gets this browser's links too (keep.js)
+    }
   } catch {}
   return value ?? null;
 }
@@ -24,6 +27,8 @@ let loadConfig = () => fetch('/api/config').then((r) => r.json());
 export async function accountMenu(getConfig) {
   if (getConfig) loadConfig = getConfig;
   const me = accountHint();
+  // Signed in: what this browser made, answered or opened by a private link joins the account.
+  if (me) import('./keep.js').then((m) => m.keepThisBrowser()).catch(() => {});
   if (!me && configured === null) {
     // Whether the server has sign-in, as last seen here: drawn at once, so "Sign in" doesn't pop
     // in (and move Create a Venn) after the page has shown. Checked with the server, and redrawn

@@ -29,12 +29,59 @@ export function rememberedLinks(storage = globalThis.localStorage) {
   return out;
 }
 
-/** A pasted organizer (or manage) link, as something to claim, or null. */
-export function parseOrganizerLink(text) {
+/**
+ * The remembered links not sent to the account yet (`kept`: keys sent before), and their keys:
+ * "poll:<id>", "brand:<id>", "answer:<id>.<pid>".
+ */
+export function unkept(links, kept) {
+  const keys = [];
+  const pick = (list, key) =>
+    list.filter((x) => {
+      const k = key(x);
+      if (kept.has(k)) return false;
+      keys.push(k);
+      return true;
+    });
+  return {
+    links: {
+      polls: pick(links.polls, (x) => `poll:${x.id}`),
+      brands: pick(links.brands, (x) => `brand:${x.id}`),
+      answers: pick(links.answers, (x) => `answer:${x.id}.${x.pid}`),
+    },
+    keys,
+  };
+}
+
+/** What was just added to the account, as a toast: "Added to My polls", "Added 2 polls to My polls"… */
+export function addedText({ polls = 0, brands = 0, answers = 0 }) {
+  const p = polls + answers;
+  if (!brands) return p === 1 ? 'Added to My polls' : `Added ${p} polls to My polls`;
+  if (!p) return brands === 1 ? 'Added to your templates' : `Added ${brands} templates to your templates`;
+  return `Added ${p} ${p === 1 ? 'poll' : 'polls'} and ${brands} ${brands === 1 ? 'template' : 'templates'} to My polls`;
+}
+
+/**
+ * A pasted Venn link, as what it is: something to keep with the account ({ kind: 'polls' | 'brands' |
+ * 'answers', item }: an organizer, manage or change-your-answer link), a template's invite
+ * ({ kind: 'invite', item: { id, token } }), a link for guests ({ kind: 'guest', brand }), or null.
+ */
+export function parseVennLink(text) {
   const m = String(text || '')
     .trim()
-    .match(/\/(e|brand)\/([A-Za-z0-9]{1,32})\/?#admin=([A-Za-z0-9]+)$/);
-  return m && { kind: m[1] === 'e' ? 'polls' : 'brands', id: m[2], token: m[3] };
+    .match(/(?:^|\/)(e|brand)\/([A-Za-z0-9]{1,32})\/?(?:#(.*))?$/);
+  if (!m) {
+    const share = String(text || '').match(/\/new\/?(?:\w+)?\?(?:.*&)?brand=([A-Za-z0-9]{1,32})/);
+    return share ? { kind: 'guest', brand: true } : null;
+  }
+  const [, where, id, hash = ''] = m;
+  const h = new URLSearchParams(hash);
+  const token = h.get('admin');
+  if (token && /^[A-Za-z0-9]+$/.test(token)) return { kind: where === 'e' ? 'polls' : 'brands', item: { id, token } };
+  if (where === 'brand' && /^[A-Za-z0-9]{1,64}$/.test(h.get('join') || ''))
+    return { kind: 'invite', item: { id, token: h.get('join') } };
+  const [pid, edit] = (where === 'e' && h.get('edit')?.split('.')) || [];
+  if (pid && edit) return { kind: 'answers', item: { id, pid, token: edit } };
+  return { kind: 'guest', brand: where === 'brand' };
 }
 
 /** What a poll's row says under its name: its picked date, or how many have answered. */

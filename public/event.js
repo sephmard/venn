@@ -70,6 +70,8 @@ export async function renderEvent(id, navigate) {
     const [participantId, editToken] = hash.get('edit').split('.');
     if (participantId && editToken) save(id, { participantId, editToken });
   }
+  // Signed in, a private link opened here adds the poll to My polls (keep.js).
+  if (hash.get('admin') || hash.get('edit')) import('./keep.js').then((m) => m.keepThisBrowser()).catch(() => {});
   // The organizer's tools (Pick, editing, notifications) are for the organizer's link: their private
   // link, or this tab once they've created the poll. On the plain link they see what guests see, with
   // a button back to their tools. Per tab, so a guest link opened later never shows Pick.
