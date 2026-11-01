@@ -27,22 +27,21 @@ Each sign-in switches on when its client ID **and** secret are set. With none se
 3. **Data access:** the default `openid`, `.../auth/userinfo.email` and `.../auth/userinfo.profile` scopes are all sign-in needs.
 4. **Clients → Create client → Web application** (or open the one you made for calendars, which works too):
    - _Authorized redirect URIs:_ `https://your-domain/api/auth/google/callback` (plus `http://localhost:8787/api/auth/google/callback` for local development).
-5. Copy the client ID into `[vars]` in `wrangler.toml` as `GOOGLE_CLIENT_ID` (it's public), and set the secret:
-
-   ```sh
-   npx wrangler secret put GOOGLE_CLIENT_SECRET
-   ```
+5. Give the Worker the client ID and secret, either way:
+   - **Deploying with the GitHub workflow** (`.github/workflows/deploy.yml`): add repository secrets `GOOGLE_CLIENT_ID` and `GOOGLE_CLIENT_SECRET` (Settings → Secrets and variables → Actions). Each deploy puts them on the Worker. Don't set them as variables in the Cloudflare dashboard: a deploy replaces dashboard variables with `wrangler.toml`'s.
+   - **Deploying by hand:** `npx wrangler secret put GOOGLE_CLIENT_ID` and `npx wrangler secret put GOOGLE_CLIENT_SECRET` (or the ID in `[vars]` in `wrangler.toml`; it's public).
+6. Open `https://your-domain/api/config`: `"accounts": ["google"]` means it's on.
 
 ## Microsoft
 
 1. In the [Microsoft Entra admin center](https://entra.microsoft.com/), **App registrations → New registration** (or open the calendars one). Supported accounts: _any organizational directory and personal Microsoft accounts_.
 2. **Authentication → Add a platform → Web**, redirect URI `https://your-domain/api/auth/microsoft/callback`.
-3. **Certificates & secrets → New client secret.** Set `MICROSOFT_CLIENT_ID` in `[vars]` and `npx wrangler secret put MICROSOFT_CLIENT_SECRET`. Secrets expire (at most 24 months), so note the date.
+3. **Certificates & secrets → New client secret.** Set `MICROSOFT_CLIENT_ID` and `MICROSOFT_CLIENT_SECRET` the same way as Google's. Secrets expire (at most 24 months), so note the date.
 
 ## GitHub
 
 1. **Settings → Developer settings → OAuth Apps → New OAuth App**, callback URL `https://your-domain/api/auth/github/callback`.
-2. Generate a client secret; set `GITHUB_CLIENT_ID` and `npx wrangler secret put GITHUB_CLIENT_SECRET`.
+2. Generate a client secret. On the Worker they're `GITHUB_CLIENT_ID` and `GITHUB_CLIENT_SECRET`; as repository secrets for the deploy workflow, `GH_OAUTH_CLIENT_ID` and `GH_OAUTH_CLIENT_SECRET` (GitHub reserves names starting with `GITHUB_`).
 
 ## Why not Cloudflare Access?
 
