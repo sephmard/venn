@@ -121,24 +121,33 @@ test('sign in, and the polls this browser organizes are in My polls, on any devi
   await context.close();
 });
 
-test('the website’s menu has Sign in, and My polls, Account settings and Sign out once signed in', async ({ browser }, info) => {
+test('the website: Sign in beside Create a Venn, then My polls, Account settings and Sign out in the menu', async ({
+  browser,
+}, info) => {
   const context = await browser.newContext({ extraHTTPHeaders: { 'x-test-user': `site-${info.project.name}-${Date.now()}` } });
   const page = await context.newPage();
   await page.goto('/');
-  await page.locator('details.menu summary').click();
-  await page.locator('.menu-panel').getByRole('link', { name: 'Sign in' }).click();
+  const nav = page.getByRole('navigation', { name: 'Main' });
+  const signIn = nav.getByRole('link', { name: 'Sign in' });
+  await expect(signIn).toBeVisible();
+  // Create a Venn stays the main button, first in the bar; the whole bar fits on a phone.
+  await expect(nav.locator(':scope > *').first()).toHaveText('Create a Venn');
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+  const box = await signIn.boundingBox();
+  expect(Math.min(box.width, box.height)).toBeGreaterThanOrEqual(44);
+  await signIn.click();
   await page.getByRole('link', { name: 'Continue with Google' }).click();
   await expect(page.locator('.acct-who')).toBeVisible();
   await page.goto('/');
+  await expect(nav.getByRole('link', { name: 'Sign in' })).toHaveCount(0);
   await page.locator('details.menu summary').click();
   const panel = page.locator('.menu-panel');
   await expect(panel.getByRole('link', { name: 'My polls' })).toBeVisible();
   await expect(panel.getByRole('link', { name: 'Account settings' })).toHaveAttribute('href', '/me/settings');
-  await expect(panel.getByRole('link', { name: 'Sign in' })).toHaveCount(0);
   await panel.getByRole('button', { name: 'Sign out' }).click();
   await expect(panel).toBeHidden();
+  await expect(signIn).toBeVisible();
   await page.locator('details.menu summary').click();
-  await expect(panel.getByRole('link', { name: 'Sign in' })).toBeVisible();
   await expect(panel.getByRole('link', { name: 'My polls' })).toHaveCount(0);
   await context.close();
 });

@@ -35,20 +35,25 @@ async function emailedLink(page, to) {
 test('an account with an email: sign up, confirm, change the password, forget it, reset it', async ({ page }, info) => {
   const email = `ana-${info.project.name}-${Date.now()}@example.com`.toLowerCase();
   await page.goto('/me');
-  await expect(page.getByRole('button', { name: 'Sign in', exact: true })).toBeVisible();
+  // Sign in and Create account side by side at the top, the heading following the one picked.
+  const pick = page.getByRole('group', { name: 'Sign in or create an account' });
+  await expect(pick.getByRole('button', { name: 'Sign in' })).toHaveAttribute('aria-pressed', 'true');
+  await expect(page.locator('.em-submit')).toHaveText('Sign in');
   await noSideways(page);
   await audit(page, 'sign in');
 
   // Create an account: then "check your inbox".
-  await page.getByRole('button', { name: 'Create an account' }).click();
+  await pick.getByRole('button', { name: 'Create account' }).click();
+  await expect(page.locator('h1')).toHaveText('Create your account');
+  await expect(pick.getByRole('button', { name: 'Create account' })).toHaveAttribute('aria-pressed', 'true');
   await page.getByLabel('Email').fill(email);
   await page.getByLabel('Password', { exact: true }).fill('short');
-  await page.getByRole('button', { name: 'Create account' }).click();
+  await page.locator('.em-submit').click();
   await expect(page.locator('#em-error')).toHaveText('Use at least 10 characters');
   await page.getByLabel('Password', { exact: true }).fill('tangerine-kayak-41');
   await page.getByRole('button', { name: 'Show' }).click();
   await expect(page.getByLabel('Password', { exact: true })).toHaveAttribute('type', 'text');
-  await page.getByRole('button', { name: 'Create account' }).click();
+  await page.locator('.em-submit').click();
   await expect(page.locator('.em-sent')).toContainText(`We sent a link to ${email}`);
   await noSideways(page);
 

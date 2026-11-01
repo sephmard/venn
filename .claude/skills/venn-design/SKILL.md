@@ -137,8 +137,8 @@ the same PR** (and CLAUDE.md if it's a rule that matters in review).
   My polls. With no sign-in on the server, anyone can save, as before.
 - **Only polls are branded.** The website, /brand and the create page keep Venn's own look (retro
   by default); /brand shows a **live preview** (Seph, 2026-11-01: he wants to see the template change while he makes it): the real poll page with a sample poll in a frame, as a Guest or the Organizer, updated with every edit, clickable, nothing saved; beside the form on desktop, pinned over it on phones, and the create page shows whose template
-  it is (logo and name). The home page has a "Your brand, on every poll." section, and the menu
-  has "For organizations".
+  it is (logo and name). The menu has "For organizations"; the home page has **no** brand
+  section (Seph, 2026-11-01: keep the website simple).
 - **The editor is a click-through, not a scroll** (Seph, 2026-11-01: only the top of the preview
   changed, so he couldn't tell what a setting did). Eight steps in the poll page's order: Name and
   logo, Starting look, Colours, Answers, Headings, Text, Corners and buttons, What polls start with
@@ -157,10 +157,13 @@ the same PR** (and CLAUDE.md if it's a rule that matters in review).
 **Accounts (My polls, /me)**
 
 - **Optional, always** (Seph, 2026-11-01): sign in with Google (Microsoft, GitHub when set up) to see and manage your polls on any device. Nothing else needs an account (saving a new brand template is the one exception); every poll and template keeps its links.
-- The app's top bar: **Sign in** (not on poll pages, which are for answering), or the person's **initial** with My polls and Sign out. The website's menu: Sign in, or My polls.
+- **Creating a Venn comes first, always** (Seph, 2026-11-01); accounts make it better for people who sign in, never get in the way. **Create a Venn** stays the main button in every bar; **Sign in** sits after it as plain text (on the website's phone bar, a person icon, 44px to tap).
+- The app's top bar: **Sign in** (not on poll pages, which are for answering), or the person's **initial** with My polls, Account settings and Sign out. The website: Sign in in the bar when signed out; signed in, the menu starts with the name, My polls, Account settings and Sign out.
+- **The website's menu is short** (Seph, 2026-11-01): the account (signed in), then For organizations and Contact, then Classic mode, with a thin line between groups. Privacy, Terms, Docs and GitHub are in the footer only.
 - **Sign-in screen** (Seph, 2026-11-01, after Cloudflare's): Finn, "Sign in to Venn", one line on what it's for, the buttons, "No account needed to make or answer a poll.", and under everything **"By continuing, you agree to Venn's Terms and Privacy policy."** (`/terms`, `/privacy`; also under the brand page's sign-in). **Only Google and email** for now; no SSO. A sign-in that fails says so in the page, above the buttons. A tapped button shows it's on its way and can't be tapped twice.
 - **My polls** (Seph, 2026-11-01: see polls created and completed, sort, group, search, templates; best on mobile): three tabs, **Created · Answered · Templates**, each with its count. Answered is every poll answered while signed in (or whose edit link this browser remembers); its row says whether they're in on the picked date (You're in / If needed / Can't make it, in the key's colours), and the answer is theirs on any device while signed in. Search, then **Sort** (Newest, Oldest, Date, Name) and **Group** (Status: Coming up, Waiting on a date, Past; Month; None) as two pills that open the phone's own picker; shown once a list has two or more. The tab, sort and group are remembered. Templates: a row opens it, **New poll** starts one with it, **+ New template** at the end. The account (who, add a poll from its link, Account settings, Sign out) is a card at the end.
-- **Email and password** sits between the provider buttons and the hint, after an "or": Sign in by default, with Forgot password? and Create an account beside it. Making an account or resetting ends in one "Check your inbox" card; emailed links open a page with one button.
+- **Sign in · Create account** (Seph, 2026-11-01: creating an account must be easy to find): a two-way switch under the line on what it's for; the heading follows it ("Sign in to Venn" / "Create your account"), and `/me#signup` opens on Create account. Continue with Google does both.
+- **Email and password** sits between the provider buttons and the hint, after an "or", in the switch's mode; Sign in has Forgot password? under it. Making an account or resetting ends in one "Check your inbox" card; emailed links open a page with one button.
 - **Account settings** (/me/settings, from My polls' account card): email, password, connect Google, devices (sign out others, sign out), and Delete account, which needs the password (if any) and a second press; polls stay.
 
 **Website (venn.day)**
@@ -195,8 +198,8 @@ the same PR** (and CLAUDE.md if it's a rule that matters in review).
   haven't answered, with a one-tap stop. At the deadline answers close (guests see their answer, not a
   form) and the organizer gets one email with the best time, ready to pick. Changed later in Organizer
   tools → Privacy, which also shows each invitee: Answered, Waiting, or Stopped reminders.
-- The same top bar on every page: logo, Create a Venn, menu. GitHub lives in the menu and footer, not
-  the bar. No floating buttons.
+- The same top bar on every page: logo, Create a Venn, (Sign in,) menu. GitHub lives in the footer,
+  not the bar or the menu. No floating buttons.
 
 **Never**
 

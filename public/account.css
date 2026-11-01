@@ -47,6 +47,14 @@
   margin-bottom: 24px;
   font-size: 1.05rem;
 }
+.acct-mode {
+  margin: 0 0 20px;
+}
+.acct-mode button {
+  min-height: 44px;
+  color: var(--text);
+  font-size: 1rem;
+}
 .acct-signin-page .hint {
   margin-top: 20px;
   text-align: center;
