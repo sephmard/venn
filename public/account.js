@@ -56,6 +56,7 @@ export async function renderAccount() {
   document.title = 'My polls · Venn';
   const failed = location.hash === '#signin-failed';
   const forgot = location.hash === '#forgot';
+  const signup = location.hash === '#signup';
   if (location.hash) history.replaceState(null, '', location.pathname);
   app.innerHTML = `<div class="account" aria-busy="true"><h1>My polls</h1><div class="acct-skeleton" aria-hidden="true">${'<span></span>'.repeat(4)}</div></div>`;
   let me;
@@ -69,7 +70,7 @@ export async function renderAccount() {
   if (!me.user) {
     accountHint(null);
     refreshAccountMenu();
-    showSignIn(me.providers || [], failed, forgot);
+    showSignIn(me.providers || [], failed, forgot ? 'forgot' : signup ? 'signup' : 'signin');
     return;
   }
   accountHint({ initial: initial(me.user), name: me.user.name || me.user.email || '' });
@@ -90,13 +91,16 @@ export async function renderAccount() {
 
 // ---------- signed out ----------
 
-function showSignIn(providers, failed, forgot) {
+const HEADINGS = { signin: 'Sign in to Venn', signup: 'Create your account', forgot: 'Sign in to Venn' };
+
+function showSignIn(providers, failed, mode) {
   const buttons = providers.filter((p) => p !== 'email');
+  const email = providers.includes('email');
   app.innerHTML = `
     <div class="account acct-signin-page">
       <div class="acct-hero">
         <span class="acct-hero-art" aria-hidden="true">${stickerStack(120)}</span>
-        <h1>Sign in to Venn</h1>
+        <h1 id="acct-h">${HEADINGS[email ? mode : 'signin']}</h1>
         <p class="lede">${
           providers.length
             ? 'Every poll you make or answer, and your templates, on any device.'
@@ -105,17 +109,39 @@ function showSignIn(providers, failed, forgot) {
       </div>
       ${
         providers.length
-          ? `${failed ? '<p class="acct-alert" role="alert">Sign-in didn’t finish. Try again.</p>' : ''}
+          ? `${
+              email
+                ? `<div class="seg acct-mode" role="group" aria-label="Sign in or create an account">
+                     <button type="button" data-acct-mode="signin">Sign in</button>
+                     <button type="button" data-acct-mode="signup">Create account</button>
+                   </div>`
+                : ''
+            }
+             ${failed ? '<p class="acct-alert" role="alert">Sign-in didn’t finish. Try again.</p>' : ''}
              ${buttons.length ? `<div class="signin">${signInButtons(buttons, '/me')}</div>` : ''}
-             ${providers.includes('email') ? emailSignInForm({ alone: !buttons.length }) : ''}
+             ${email ? emailSignInForm({ alone: !buttons.length }) : ''}
              <p class="hint">No account needed to make or answer a poll.</p>
              ${signInAgree()}`
           : '<a class="btn btn-primary" href="/new" data-link>Create a Venn</a>'
       }
     </div>`;
   rotate(app.querySelector('[data-stickers]'));
-  // Email and password (email-signin.js). /me#forgot opens on "Forgot password?".
-  if (providers.includes('email')) wireEmailSignIn({ mode: forgot ? 'forgot' : 'signin', onSignedIn: renderAccount });
+  // Email and password (email-signin.js). /me#forgot opens on "Forgot password?", /me#signup on
+  // Create account. The switch and the heading follow the form, whichever way it changes.
+  if (email) {
+    const tabs = app.querySelectorAll('[data-acct-mode]');
+    const form = wireEmailSignIn({
+      mode,
+      switcher: true,
+      onSignedIn: renderAccount,
+      onMode: (m) => {
+        $('#acct-h').textContent = HEADINGS[m];
+        for (const t of tabs)
+          t.setAttribute('aria-pressed', String(t.dataset.acctMode === (m === 'signup' ? 'signup' : 'signin')));
+      },
+    });
+    for (const t of tabs) t.onclick = () => t.getAttribute('aria-pressed') !== 'true' && form.show(t.dataset.acctMode);
+  }
   // A tap shows it's on its way (the provider's page can take a moment), and can't be tapped twice.
   for (const a of app.querySelectorAll('.btn-signin'))
     a.addEventListener('click', (e) => {
