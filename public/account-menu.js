@@ -24,12 +24,37 @@ let loadConfig = () => fetch('/api/config').then((r) => r.json());
 export async function accountMenu(getConfig) {
   if (getConfig) loadConfig = getConfig;
   const me = accountHint();
-  if (!me && configured === null) configured = ((await loadConfig().catch(() => ({}))).accounts || []).length > 0;
+  if (!me && configured === null) {
+    // Whether the server has sign-in, as last seen here: drawn at once, so "Sign in" doesn't pop
+    // in (and move Create a Venn) after the page has shown. Checked with the server, and redrawn
+    // only if it changed.
+    const seen = signInSeen();
+    if (seen !== null) {
+      configured = seen;
+      await draw(me);
+    }
+    configured = ((await loadConfig().catch(() => ({}))).accounts || []).length > 0;
+    signInSeen(configured);
+    if (configured === seen) return;
+  }
+  await draw(me);
+}
+
+async function draw(me) {
   // The app's top bar (the website has its menu instead).
   const bar = document.getElementById('app') && document.querySelector('.topbar');
   if (bar) await drawBar(bar, me);
   const panel = document.querySelector('.menu-panel');
   if (panel) drawSiteMenu(panel, me);
+}
+
+const SEEN = 'venn:signin-on';
+function signInSeen(value) {
+  try {
+    if (value === undefined) return { 1: true, 0: false }[localStorage.getItem(SEEN)] ?? null;
+    localStorage.setItem(SEEN, value ? '1' : '0');
+  } catch {}
+  return null;
 }
 
 /** Redraw after signing in or out. */
@@ -99,13 +124,15 @@ function drawSiteMenu(panel, me) {
   panel.querySelector('.acct-group')?.remove();
   panel.closest('.nav-links')?.querySelector('.site-signin')?.remove();
   if (!me && !configured) return;
-  // Signed out: "Sign in" in the bar, quieter than Create a Venn, which stays the main way in.
+  // Signed out: "Sign in", quieter than Create a Venn, which stays the main way in. In the bar on
+  // wider screens; on phones, where the bar is full, first in the menu (site.css shows one).
   if (!me) {
-    // On phones, where the bar is full, a person icon says it.
-    const a = Object.assign(document.createElement('a'), { href: '/me', className: 'site-signin' });
-    a.innerHTML =
-      '<svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><circle cx="12" cy="8" r="4" fill="none" stroke="currentColor" stroke-width="2" /><path d="M4 20c1.5-4 4.5-6 8-6s6.5 2 8 6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" /></svg><span>Sign in</span>';
+    const a = Object.assign(document.createElement('a'), { href: '/me', className: 'site-signin', textContent: 'Sign in' });
     panel.closest('details').before(a);
+    const group = document.createElement('div');
+    group.className = 'acct-group acct-group-out';
+    group.innerHTML = '<a href="/me">Sign in</a><hr class="menu-sep" />';
+    panel.prepend(group);
     return;
   }
   // Signed in: the account first in the menu, set apart from the website's links by a line.

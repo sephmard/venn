@@ -60,8 +60,16 @@ export async function renderAccount() {
   const failed = location.hash === '#signin-failed';
   const forgot = location.hash === '#forgot';
   const signup = location.hash === '#signup';
+  const mode = forgot ? 'forgot' : signup ? 'signup' : 'signin';
   if (location.hash) history.replaceState(null, '', location.pathname);
-  app.innerHTML = `<div class="account" aria-busy="true"><h1>My polls</h1><div class="acct-skeleton" aria-hidden="true">${'<span></span>'.repeat(4)}</div></div>`;
+  // Not signed in here: the sign-in page straight away, with the ways in this server offered last
+  // time, so nothing jumps when the server answers (it's redrawn only if they changed). Signed in:
+  // My polls' outline until the polls come.
+  const early = accountHint() ? null : seenProviders();
+  if (early) showSignIn(early, failed, mode);
+  else if (!accountHint()) showSignIn(null, failed, mode);
+  else
+    app.innerHTML = `<div class="account" aria-busy="true"><h1>My polls</h1><div class="acct-skeleton" aria-hidden="true">${'<span></span>'.repeat(4)}</div></div>`;
   let me;
   try {
     me = await api('me');
@@ -73,7 +81,9 @@ export async function renderAccount() {
   if (!me.user) {
     accountHint(null);
     refreshAccountMenu();
-    showSignIn(me.providers || [], failed, forgot ? 'forgot' : signup ? 'signup' : 'signin');
+    const providers = me.providers || [];
+    seenProviders(providers);
+    if (String(early) !== String(providers)) showSignIn(providers, failed, mode);
     return;
   }
   accountHint({ initial: initial(me.user), name: me.user.name || me.user.email || '' });
@@ -96,7 +106,33 @@ export async function renderAccount() {
 
 const HEADINGS = { signin: 'Sign in to Venn', signup: 'Create your account', forgot: 'Sign in to Venn' };
 
+const PROVIDERS = 'venn:providers';
+/** The ways in this server offered last time (or remember them). */
+function seenProviders(list) {
+  try {
+    if (list) return localStorage.setItem(PROVIDERS, JSON.stringify(list));
+    const seen = JSON.parse(localStorage.getItem(PROVIDERS));
+    return Array.isArray(seen) && seen.every((p) => typeof p === 'string') ? seen : null;
+  } catch {
+    return null;
+  }
+}
+
+/** The sign-in page. `providers` null: not known yet, so the page's shape with the buttons to come. */
 function showSignIn(providers, failed, mode) {
+  if (!providers) {
+    app.innerHTML = `
+      <div class="account acct-signin-page" aria-busy="true">
+        <div class="acct-hero">
+          <span class="acct-hero-art" aria-hidden="true">${stickerStack(120)}</span>
+          <h1 id="acct-h">${HEADINGS[mode]}</h1>
+          <p class="lede">Every poll you make or answer, and your templates, on any device.</p>
+        </div>
+        <div class="acct-skeleton acct-skeleton-signin" aria-hidden="true">${'<span></span>'.repeat(3)}</div>
+      </div>`;
+    rotate(app.querySelector('[data-stickers]'));
+    return;
+  }
   const buttons = providers.filter((p) => p !== 'email');
   const email = providers.includes('email');
   app.innerHTML = `

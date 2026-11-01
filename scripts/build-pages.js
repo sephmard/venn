@@ -67,8 +67,6 @@ ${jsonLd.map((d) => `<script type="application/ld+json">${JSON.stringify(d).repl
 <a href="/brand">For organizations</a>
 <a href="https://docs.venn.day">For developers</a>
 <a href="/#contact">Contact</a>
-<hr class="menu-sep" />
-<button type="button" class="classic-switch" role="switch" aria-checked="false">Classic mode</button>
 </div>
 </details>
 </nav>
@@ -89,6 +87,7 @@ const FOOTER = `<footer class="wrap footer">
 <a href="/privacy">Privacy</a>
 <a href="/terms">Terms</a>
 <a href="/#contact">Contact</a>
+<button type="button" class="classic-switch" role="switch" aria-checked="false">Classic mode</button>
 </nav>
 </footer>
 <script type="module" src="/menu.js"></script>

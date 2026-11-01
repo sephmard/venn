@@ -1,6 +1,6 @@
 import { test, expect } from '@playwright/test';
 
-// The website's look: retro is its own; Classic mode in the menu, or venn.day/classic, switches to
+// The website's look: retro is its own; Classic mode in the footer, or venn.day/classic, switches to
 // the classic look, remembered in this browser. The home page's address always says which.
 
 test(
@@ -17,8 +17,11 @@ test(
     await expect(page.locator('link[rel="icon"][type="image/svg+xml"]')).toHaveAttribute('href', /logo-retro\.svg/);
     await expect(page).toHaveURL(/\/$/);
 
+    // In the footer, not the menu.
     await page.getByLabel('Menu').click();
-    const toggle = page.getByRole('switch', { name: 'Classic mode' });
+    await expect(page.locator('.menu-panel').getByRole('switch')).toHaveCount(0);
+    await page.getByLabel('Menu').click();
+    const toggle = page.locator('footer').getByRole('switch', { name: 'Classic mode' });
     await expect(toggle).toHaveAttribute('aria-checked', 'false');
     await toggle.click();
     await expect(toggle).toHaveAttribute('aria-checked', 'true');
@@ -35,8 +38,7 @@ test(
     await page.goto('/');
     await expect(html).not.toHaveClass(/\bretro\b/);
     await expect(page).toHaveURL(/\/classic$/);
-    await page.getByLabel('Menu').click();
-    await page.getByRole('switch', { name: 'Classic mode' }).click();
+    await page.locator('footer').getByRole('switch', { name: 'Classic mode' }).click();
     await expect(html).toHaveClass(/\bretro\b/);
     await expect(page).toHaveURL(/\/$/);
     await page.goto('/privacy');
