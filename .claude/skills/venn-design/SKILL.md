@@ -123,8 +123,13 @@ the same PR** (and CLAUDE.md if it's a rule that matters in review).
   logo button, three sizes, and the name beside it or not); colours (buttons and links, optionally
   its own page: background, cards, text, and its own answer colours); a font for headings and one
   for text (Venn's own or eight system fonts); corners (square, soft, round) and buttons (pills or
-  the corners); and what its polls start with (name, where, note). **No account needed**: a share
-  link for the team (`/new?brand=…`) and a private manage link, like a poll's organizer link.
+  the corners); and what its polls start with (name, where, note). A share link for the team (`/new?brand=…`) and a private manage link, like
+  a poll's organizer link.
+- **Saving a new template needs an account** (Seph, 2026-11-01: custom templates are for people
+  with an account), where sign-in is set up. Signed out, the Save button reads **Sign in to save**
+  and opens a sign-in panel under the step; the draft (fields, logo, step) survives the sign-in and
+  is saved on the way back. Templates that exist keep working by their links and can be added on
+  My polls. With no sign-in on the server, anyone can save, as before.
 - **Only polls are branded.** The website, /brand and the create page keep Venn's own look (retro
   by default); /brand shows a **live preview** (Seph, 2026-11-01: he wants to see the template change while he makes it): the real poll page with a sample poll in a frame, as a Guest or the Organizer, updated with every edit, clickable, nothing saved; beside the form on desktop, pinned over it on phones, and the create page shows whose template
   it is (logo and name). The home page has a "Your brand, on every poll." section, and the menu
@@ -146,7 +151,7 @@ the same PR** (and CLAUDE.md if it's a rule that matters in review).
 
 **Accounts (My polls, /me)**
 
-- **Optional, always** (Seph, 2026-11-01): sign in with Google (Microsoft, GitHub when set up) to see and manage your polls on any device. Nothing needs an account; every poll and template keeps its links.
+- **Optional, always** (Seph, 2026-11-01): sign in with Google (Microsoft, GitHub when set up) to see and manage your polls on any device. Nothing else needs an account (saving a new brand template is the one exception); every poll and template keeps its links.
 - The app's top bar: **Sign in** (not on poll pages, which are for answering), or the person's **initial** with My polls and Sign out. The website's menu: Sign in, or My polls.
 - My polls: one row per poll (its emoji, name, and the picked date or how many answered), opened as its organizer; brand templates below. Organizer links this browser remembers join the account on their own; another can be pasted in. Delete account asks first, in the page; polls stay.
 

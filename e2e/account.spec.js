@@ -136,3 +136,43 @@ test('a sign-in that doesn’t finish says so', async ({ page }) => {
   await expect(page).toHaveURL(/\/me$/);
   await expect(page.locator('#toast')).toHaveText('Sign-in didn’t finish. Try again.');
 });
+
+test('saving a brand template needs an account: sign in at Save, and the draft is saved on the way back', async ({
+  browser,
+}, info) => {
+  const context = await browser.newContext({ extraHTTPHeaders: { 'x-test-user': `brand-${info.project.name}-${Date.now()}` } });
+  const page = await context.newPage();
+  await page.goto('/brand');
+  await page.fill('#b-name', 'Acme Inc.');
+  await page.locator('#b-accent').evaluate((el) => {
+    el.value = '#6d28d9';
+    el.dispatchEvent(new Event('input'));
+  });
+  // Through the steps to the last; signed out, Save says what it needs.
+  while (await page.locator('#next').isVisible()) await page.click('#next');
+  await page.fill('#b-title', 'Team lunch');
+  await expect(page.locator('#submit')).toHaveText('Sign in to save');
+  await page.click('#submit');
+  await expect(page.locator('#save-signin')).toContainText('Sign in to save your template');
+  await noSideways(page);
+  await audit(page, 'signing in to save a template');
+  await page.locator('#save-signin').getByRole('link', { name: 'Continue with Google' }).click();
+
+  // Back, signed in: saved as it was, with its links, and kept in the account.
+  await expect(page).toHaveURL(/\/brand\/[A-Za-z0-9]+$/);
+  await expect(page.locator('[data-panel="share"]')).toBeVisible();
+  await expect(page.locator('#b-name')).toHaveValue('Acme Inc.');
+  await expect(page.locator('#b-accent')).toHaveValue('#6d28d9');
+  await expect(page.locator('#b-title')).toHaveValue('Team lunch');
+  await expect(page.locator('.topbar .acct-avatar')).toBeVisible();
+  await page.goto('/me');
+  await expect(page.locator('.acct-list[aria-label="Brand templates"] .acct-row')).toContainText('Acme Inc.');
+  // A second one, signed in now, saves straight away.
+  await page.goto('/brand');
+  await page.fill('#b-name', 'Beta Co');
+  while (await page.locator('#next').isVisible()) await page.click('#next');
+  await expect(page.locator('#submit')).toHaveText('Save template');
+  await page.click('#submit');
+  await expect(page.locator('[data-panel="share"]')).toBeVisible();
+  await context.close();
+});

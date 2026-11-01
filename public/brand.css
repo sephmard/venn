@@ -473,3 +473,11 @@
     display: none;
   }
 }
+/* Signing in to save a new template (where the server has sign-in): the ways to sign in, by Save. */
+.save-signin h2 {
+  margin: 0 0 6px;
+  font-size: 1.15rem;
+}
+.save-signin .muted {
+  margin: 0 0 14px;
+}

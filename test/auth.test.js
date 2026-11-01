@@ -280,7 +280,28 @@ test('my polls: made signed in, or claimed with the organizer link; the owner is
 test('my brand templates: made signed in or claimed, and managed with the account', async () => {
   const { session } = await signIn('g-brands');
   const made = (await call('/api/brands', { method: 'POST', body: { name: 'Acme' }, cookie: session })).data;
-  const earlier = (await call('/api/brands', { method: 'POST', body: { name: 'Beta Co' } })).data;
+  // Saving a template needs an account here (sign-in is set up); signed out, nothing is made.
+  const refused = await call('/api/brands', { method: 'POST', body: { name: 'Beta Co' } });
+  assert.equal(refused.status, 401);
+  assert.equal(refused.data.error, 'Sign in to save your template');
+  // One made with its manage link and on no account (as templates were before accounts) can be claimed.
+  const earlier = (await call('/api/brands', { method: 'POST', body: { name: 'Beta Co' }, cookie: session })).data;
+  await call(`/api/me/brands/${earlier.id}`, { method: 'DELETE', cookie: session });
+  assert.deepEqual(
+    (await call('/api/me', { cookie: session })).data.brands.map((b) => b.name),
+    ['Acme'],
+  );
+  // ...and its manage link still changes it, with no account.
+  assert.equal(
+    (
+      await call(`/api/brands/${earlier.id}`, {
+        method: 'PUT',
+        body: { name: 'Beta Co' },
+        headers: { 'x-admin-token': earlier.adminToken },
+      })
+    ).status,
+    200,
+  );
   const claim = await call('/api/me/claim', {
     method: 'POST',
     cookie: session,
@@ -334,7 +355,11 @@ test('/me is a page of the app', () => {
 });
 
 test('My polls: the organizer links this browser remembers, and pasted ones', async () => {
-  const { rememberedLinks, parseOrganizerLink, pollMeta } = await import('../public/account-data.js');
+  const { rememberedLinks, parseOrganizerLink, pollMeta, signInButtons } = await import('../public/account-data.js');
+  const buttons = signInButtons(['google', 'evil"><script>', 'github'], '/brand');
+  assert.match(buttons, /href="\/api\/auth\/google\?next=%2Fbrand"/);
+  assert.match(buttons, /Continue with GitHub/);
+  assert.doesNotMatch(buttons, /script/);
   const items = {
     'venn:abc123': JSON.stringify({ adminToken: 'tok1', participantId: 'p' }),
     'venn:guestonly': JSON.stringify({ participantId: 'p', editToken: 'e' }),

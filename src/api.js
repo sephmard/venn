@@ -533,6 +533,9 @@ export async function handleApi(
 
     // POST /api/brands  { name, accent?, font?, title?, note?, where?, emoji? }: a brand template
     if (parts.length === 1 && parts[0] === 'brands' && method === 'POST') {
+      // Saving a template needs an account, where the server has sign-in (src/auth.js); without it,
+      // templates are kept by their manage link alone. Templates made before keep working either way.
+      if (signInProviders(env).length && !(await currentUser())) return error(401, 'Sign in to save your template');
       const brand = normalizeBrand(await readJson(request, 10_000));
       const id = randomId(10);
       const adminToken = randomId(24);

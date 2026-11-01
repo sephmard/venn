@@ -1,17 +1,20 @@
 // Brand templates (/brand): an organization's own template, with its logo, colour and font, and what
-// its polls start with. No accounts: saving gives a share link for the team (/new?brand=<id>) and a
-// private manage link (/brand/<id>#admin=<token>), kept in this browser too, like a poll's organizer
-// link. See src/brands.js. Loaded only on these pages.
+// its polls start with. Saving gives a share link for the team (/new?brand=<id>) and a private manage
+// link (/brand/<id>#admin=<token>), kept in this browser too, like a poll's organizer link. Where the
+// server has sign-in (src/auth.js), saving a new one needs an account, and it's kept there (My polls);
+// the draft waits in this tab while its maker signs in. See src/brands.js. Loaded only on these pages.
 
 import { BUTTONS, CORNERS, FONTS, LOGO_SIZES, brandLook, mainColours } from './brand-look.js';
-import { $, $$, api, app, esc, forget, save, saved, toast } from './ui.js';
+import { $, $$, api, app, esc, forget, getConfig, save, saved, toast } from './ui.js';
+import { accountHint, refreshAccountMenu } from './account-menu.js';
+import { signInButtons } from './account-data.js';
 
 // The create pages' styles (forms, the sticky bar), and this page's own.
 const sheet = (href) =>
   new Promise((done) =>
     document.head.append(Object.assign(document.createElement('link'), { rel: 'stylesheet', href, onload: done, onerror: done })),
   );
-await Promise.all([sheet('/create.css'), sheet('/brand.css')]);
+await Promise.all([sheet('/create.css'), sheet('/brand.css'), sheet('/account.css')]);
 
 const DEFAULT_ACCENT = '#0b7a5c';
 // A page of its own starts white, with light grey cards and near-black text.
@@ -79,6 +82,27 @@ export async function shrinkLogo(file) {
   }
 }
 
+// A new template's draft, kept in this tab while its maker signs in to save it.
+const DRAFT = 'venn:brand-draft';
+function takeDraft() {
+  try {
+    const d = JSON.parse(sessionStorage.getItem(DRAFT));
+    return d && typeof d === 'object' && d.fields && typeof d.fields.name === 'string' ? d : null;
+  } catch {
+    return null;
+  }
+}
+const keepDraft = (d) => {
+  try {
+    sessionStorage.setItem(DRAFT, JSON.stringify(d));
+  } catch {}
+};
+const dropDraft = () => {
+  try {
+    sessionStorage.removeItem(DRAFT);
+  } catch {}
+};
+
 /** /brand (a new template) or /brand/<id> (managing one, or seeing it from its link). */
 export async function renderBrand(id) {
   brandLook(null); // this page keeps Venn's own look (retro by default); the preview shows the brand's
@@ -109,6 +133,24 @@ export async function renderBrand(id) {
   }
   if (brand && !brand.isAdmin) return showPublic(brand);
   if (brand) remember(id, brand.name);
+  // Back from signing in to save: the draft as it was, saved straight away once signed in.
+  const draft = !id && takeDraft();
+  if (draft) {
+    const failed = location.hash === '#signin-failed';
+    if (location.hash) history.replaceState(null, '', location.pathname);
+    const me = await api('me').catch(() => ({}));
+    if (me.user) {
+      accountHint({
+        initial: (me.user.name || me.user.email || '?').trim().charAt(0).toUpperCase(),
+        name: me.user.name || me.user.email || '',
+      });
+      refreshAccountMenu();
+    }
+    showForm(null, null, draft.step, { ...draft.fields, logo: draft.logo || null });
+    if (me.user) $('#brand-form').requestSubmit();
+    else if (failed) toast('Sign-in didn’t finish. Try again.');
+    return;
+  }
   return showForm(brand, token);
 }
 
@@ -198,12 +240,14 @@ const lookCard = (k, name, l) =>
   `<button type="button" class="look-card" data-look="${k}" style="--lb:${l.bg || '#faf8f4'};--ls:${l.surface || '#ffffff'};--lt:${l.text || '#16181a'};--la:${l.accent};--lr:${CORNERS[l.corners || 'soft'][1] / 2}px;--lbr:${l.buttons === 'corners' ? `${CORNERS[l.corners || 'soft'][1] / 2}px` : '999px'};--lf:${esc(FONTS[l.font]?.[1] || 'inherit')}"><span class="look-sample" aria-hidden="true"><span class="look-aa">Aa</span><span class="look-btn"></span></span><span class="look-name">${esc(name)}</span></button>`;
 
 /** Making a template, or (with `b`) changing one: a step at a time, with the preview beside it. */
-function showForm(b, token, start) {
+function showForm(b, token, start, draft = null) {
   document.title = b ? `${b.name} · Brand template · Venn` : 'Brand template · Venn';
-  const v = (k) => esc(b?.[k] || '');
+  // What the form starts with: the saved template, or a new one's draft kept while its maker signed in.
+  const init = b || draft;
+  const v = (k) => esc(init?.[k] || '');
   const others = mine().filter((x) => x.id !== b?.id);
-  let logo = b?.logo || null; // what shows: the saved one's URL, or a new one's data URL
-  let logoChanged = false;
+  let logo = init?.logo || null; // what shows: the saved one's URL, or a new one's data URL
+  let logoChanged = !b && !!logo;
   // A saved template opens on its links; a new one on its name.
   const steps = b ? [['share', 'Share', 'top'], ...STEPS] : STEPS;
   const ids = steps.map(([id]) => id);
@@ -250,11 +294,11 @@ function showForm(b, token, start) {
               ${Object.entries(LOGO_SIZES)
                 .map(
                   ([k, [name]]) =>
-                    `<button type="button" role="radio" data-logo-size="${k}" aria-checked="${k === (b?.logoSize || 'small')}">${name}</button>`,
+                    `<button type="button" role="radio" data-logo-size="${k}" aria-checked="${k === (init?.logoSize || 'small')}">${name}</button>`,
                 )
                 .join('')}
             </div>
-            <label class="switch"><input type="checkbox" role="switch" id="b-show-name"${b?.hideName ? '' : ' checked'}> Name next to the logo</label>
+            <label class="switch"><input type="checkbox" role="switch" id="b-show-name"${init?.hideName ? '' : ' checked'}> Name next to the logo</label>
           </div>`,
         )}
         ${panel(
@@ -270,24 +314,24 @@ function showForm(b, token, start) {
           'colours',
           `<div class="color-row">
             <label for="b-accent">Buttons and links</label>
-            <input id="b-accent" type="color" value="${esc(b?.accent || DEFAULT_ACCENT)}">
+            <input id="b-accent" type="color" value="${esc(init?.accent || DEFAULT_ACCENT)}">
             <span class="from-logo" id="from-logo" hidden></span>
           </div>
           <div>
             <span class="label" id="page-l">Page</span>
             <div class="seg" role="radiogroup" aria-labelledby="page-l">
-              <button type="button" role="radio" data-page="venn" aria-checked="${!b?.bg}">Venn’s light and dark</button>
-              <button type="button" role="radio" data-page="own" aria-checked="${!!b?.bg}">Your own</button>
+              <button type="button" role="radio" data-page="venn" aria-checked="${!init?.bg}">Venn’s light and dark</button>
+              <button type="button" role="radio" data-page="own" aria-checked="${!!init?.bg}">Your own</button>
             </div>
           </div>
-          <div class="color-trio" id="own-colours"${b?.bg ? '' : ' hidden'}>
+          <div class="color-trio" id="own-colours"${init?.bg ? '' : ' hidden'}>
             ${colourTrio(
               [
                 ['bg', 'Background'],
                 ['surface', 'Cards'],
                 ['text', 'Text'],
               ],
-              b,
+              init,
               OWN,
             )}
           </div>`,
@@ -295,23 +339,23 @@ function showForm(b, token, start) {
         ${panel(
           'answers',
           `<div class="seg" role="radiogroup" aria-label="Answer colours">
-            <button type="button" role="radio" data-answers="venn" aria-checked="${!hasKey(b)}">Venn’s</button>
-            <button type="button" role="radio" data-answers="own" aria-checked="${hasKey(b)}">Your own</button>
+            <button type="button" role="radio" data-answers="venn" aria-checked="${!hasKey(init)}">Venn’s</button>
+            <button type="button" role="radio" data-answers="own" aria-checked="${hasKey(init)}">Your own</button>
           </div>
-          <div class="color-trio" id="own-answers"${hasKey(b) ? '' : ' hidden'}>
+          <div class="color-trio" id="own-answers"${hasKey(init) ? '' : ' hidden'}>
             ${colourTrio(
               [
                 ['yes', 'Available'],
                 ['maybe', 'If needed'],
                 ['no', 'Unavailable'],
               ],
-              b,
+              init,
               KEY,
             )}
           </div>`,
         )}
-        ${panel('headings', fontPicker('font', 'Font for headings', b?.font))}
-        ${panel('text', fontPicker('bodyFont', 'Font for text', b?.bodyFont))}
+        ${panel('headings', fontPicker('font', 'Font for headings', init?.font))}
+        ${panel('text', fontPicker('bodyFont', 'Font for text', init?.bodyFont))}
         ${panel(
           'shape',
           `<div>
@@ -320,7 +364,7 @@ function showForm(b, token, start) {
               ${Object.entries(CORNERS)
                 .map(
                   ([k, [name, r]]) =>
-                    `<button type="button" role="radio" data-corners="${k}" aria-checked="${k === (b?.corners || 'soft')}"><span class="corner-swatch" style="border-radius:${Math.round(r / 2.5)}px" aria-hidden="true"></span>${name}</button>`,
+                    `<button type="button" role="radio" data-corners="${k}" aria-checked="${k === (init?.corners || 'soft')}"><span class="corner-swatch" style="border-radius:${Math.round(r / 2.5)}px" aria-hidden="true"></span>${name}</button>`,
                 )
                 .join('')}
             </div>
@@ -331,7 +375,7 @@ function showForm(b, token, start) {
               ${Object.entries(BUTTONS)
                 .map(
                   ([k, name]) =>
-                    `<button type="button" role="radio" data-buttons="${k}" aria-checked="${k === (b?.buttons || 'pill')}"><span class="corner-swatch button-swatch${k === 'pill' ? ' is-pill' : ''}" aria-hidden="true"></span>${name}</button>`,
+                    `<button type="button" role="radio" data-buttons="${k}" aria-checked="${k === (init?.buttons || 'pill')}"><span class="corner-swatch button-swatch${k === 'pill' ? ' is-pill' : ''}" aria-hidden="true"></span>${name}</button>`,
                 )
                 .join('')}
             </div>
@@ -346,6 +390,7 @@ function showForm(b, token, start) {
           <label for="b-note">Note for everyone</label>
           <textarea id="b-note" maxlength="1000" placeholder="What everyone should know">${v('note')}</textarea>`,
         )}
+        <section class="sheet save-signin" id="save-signin" aria-labelledby="save-signin-h" hidden></section>
       </div>
       <div class="create-bar step-bar">
         <button type="button" class="btn" id="back">Back</button>
@@ -531,6 +576,25 @@ function showForm(b, token, start) {
       };
     };
 
+  // Where the server has sign-in, a new template is saved to an account: signed out, Save says so.
+  let providers = [];
+  const signedOut = () => !b && providers.length > 0 && !accountHint();
+  getConfig().then((c) => {
+    providers = c.accounts || [];
+    if (signedOut()) $('#submit').textContent = 'Sign in to save';
+  });
+  /** Signing in to save: the draft waits in this tab, and the page comes back to it. */
+  const askToSignIn = () => {
+    keepDraft({ fields: fields(), logo: logoChanged ? logo : null, step: ids[at] });
+    $('#save-signin').innerHTML = `
+      <h2 id="save-signin-h">Sign in to save your template</h2>
+      <p class="muted">It’s kept in your account, with your polls, on any device.</p>
+      <div class="signin">${signInButtons(providers, '/brand')}</div>`;
+    $('#save-signin').hidden = false;
+    $('#save-signin').scrollIntoView({ block: 'nearest' });
+    $('#save-signin .btn-signin')?.focus({ preventScroll: true });
+  };
+
   $('#brand-form').onsubmit = async (e) => {
     e.preventDefault();
     const body = fields();
@@ -540,6 +604,7 @@ function showForm(b, token, start) {
       $('#err').textContent = 'Add your organization’s name';
       return $('#b-name').focus();
     }
+    if (signedOut()) return askToSignIn();
     $('#submit').disabled = true;
     try {
       let id = b?.id;
@@ -558,11 +623,18 @@ function showForm(b, token, start) {
         logoChanged = false;
         return toast('Saved. New polls from it look like this.');
       }
+      dropDraft();
       history.replaceState(null, '', `/brand/${id}`);
       showReady(id, admin, body.name);
     } catch (ex) {
-      $('#err').textContent = ex.message;
       $('#submit').disabled = false;
+      // Signed out on the server (the session ended): sign in, and it's saved on the way back.
+      if (ex.status === 401 && !b && providers.length) {
+        accountHint(null);
+        refreshAccountMenu();
+        return askToSignIn();
+      }
+      $('#err').textContent = ex.message;
     }
   };
   if (!b) $('#b-name').focus();
