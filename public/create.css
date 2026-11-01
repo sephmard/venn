@@ -953,14 +953,33 @@ button.emoji-tile:focus-visible {
   width: 44px;
   height: 44px;
 }
-.topic-yesno li {
-  padding: 12px 14px;
-  border-radius: var(--radius);
-  background: var(--surface-2);
+/* Yes or no: the two fixed answers, as guests will see them, not boxes to type in. */
+.topic-yesno {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin: 12px 0 0;
+}
+.topic-yesno .muted {
+  margin-right: 4px;
+}
+.yn-chip {
+  padding: 6px 16px;
+  border-radius: 999px;
+  border: 2px solid currentColor;
   font-weight: 700;
 }
-.topic-create .seg {
-  margin-top: 4px;
+.yn-yes {
+  color: var(--yes);
+  background: var(--yes-soft);
+}
+.yn-no {
+  color: var(--no);
+  background: var(--no-soft);
+}
+.topic-kind {
+  margin-bottom: 14px;
 }
 .topic-single {
   margin-top: 12px;

@@ -36,7 +36,7 @@ export function prefillTitle() {
   const q = new URLSearchParams(location.search);
   const title = titleFromUrl();
   const t = templateFromUrl();
-  if (t >= 0) $(`[data-occasion="${t}"]`).click();
+  if (t >= 0) $(`[data-occasion="${t}"]`)?.click(); // (a topic poll has no templates)
   if (title) $('#title').value = title;
   if (q.get('where')) $('#more-box').open = !!($('#location').value = q.get('where').slice(0, 200));
   after = /^[A-Za-z0-9]{1,32}$/.test(q.get('after') ?? '') ? q.get('after') : null;
