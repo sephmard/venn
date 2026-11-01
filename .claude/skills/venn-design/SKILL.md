@@ -132,7 +132,7 @@ the same PR** (and CLAUDE.md if it's a rule that matters in review).
   a poll's organizer link.
 - **For organizations needs an account** (Seph, 2026-11-01: only for people with an account),
   where sign-in is set up. **/brand** is For organizations: "Your brand on every poll", one line, one
-  button and a live poll in a made-up organization's look (Northwind); with templates in this
+  button and a still picture of the same poll in three organizations' looks (Northwind, Orbit, Bloom), fanned like cards (Seph, 2026-11-01: a live fake poll was confusing and scrolled oddly); with templates in this
   browser, a list of them. Signed out, the button reads **Sign in to make yours** and /brand/new is a
   sign-in card that comes back to the editor. (If a session ends while editing, Save reads **Sign in
   to save** and the draft survives the sign-in.) Templates that exist keep working by their links and can be added on
