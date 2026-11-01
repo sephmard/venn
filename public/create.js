@@ -361,16 +361,18 @@ export function showConfig(update) {
   // A deadline, and reminders to who hasn't answered (deadline-fields.js): with an account, where
   // the server has sign-in. Signed out, the form stays as it is. An edited poll's deadline is
   // changed in its organizer tools.
-  if (!source()?.edit)
+  const opts = $('#deadline-opts');
+  if (opts && !source()?.edit)
     getConfig().then(async (c) => {
       if ((c.accounts || []).length && !(await import('./account-menu.js')).accountHint()) return;
       const m = await import('./deadline-fields.js').catch(() => null);
-      if (!m || deadline || !$('#deadline-box')) return;
+      // Only into this form, still on the page (not a poll opened since).
+      if (!m || deadline || !opts.isConnected) return;
       deadline = m;
-      $('#deadline-box').innerHTML = m.fields({}, { email: !!c.email });
+      $('#deadline-box', opts).innerHTML = m.fields({}, { email: !!c.email });
       // Reminders go to who hasn't answered, told apart by the email they answer with.
       m.wire({ onInvitees: (some) => some && ($('#p-email').checked = true) });
-      $('#deadline-opts').hidden = false;
+      opts.hidden = false;
     });
   getConfig().then((c) => {
     if (!$('#notify-field')) return;
