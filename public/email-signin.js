@@ -7,7 +7,6 @@ import { $, api, esc } from './ui.js';
 
 const MIN = 10; // src/password.js PASSWORD_MIN
 
-
 const field = ({ id, label, type, autocomplete, value = '', hint = '' }) => `
   <div class="em-field">
     <label for="${id}">${label}</label>
