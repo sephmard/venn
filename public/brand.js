@@ -590,8 +590,15 @@ function showForm(b, token, start, draft = null) {
       <h2 id="save-signin-h">Sign in to save your template</h2>
       <p class="muted">It’s kept in your account, with your polls, on any device.</p>
       <div class="signin">${signInButtons(providers, '/brand')}</div>
+      ${providers.includes('email') ? '<div id="save-email"></div>' : ''}
       ${signInAgree()}`;
     $('#save-signin').hidden = false;
+    // Or with an email and password (email-signin.js): signed in, the page comes back to the draft.
+    if (providers.includes('email'))
+      import('./email-signin.js').then(({ emailSignInForm, wireEmailSignIn }) => {
+        $('#save-email').innerHTML = emailSignInForm({ alone: providers.length === 1 });
+        wireEmailSignIn({ onSignedIn: () => location.assign('/brand') });
+      });
     $('#save-signin').scrollIntoView({ block: 'nearest' });
     $('#save-signin .btn-signin')?.focus({ preventScroll: true });
   };

@@ -4,6 +4,8 @@ Venn works fully without an account: polls have their own organizer links, and b
 
 **Saving a new brand template needs an account** when sign-in is set up: `POST /api/brands` answers 401 without a session, and the brand page asks the person to sign in at Save, keeps their draft through the sign-in and saves it on the way back. Templates that already exist keep working by their share and manage links, and can be added to an account from My polls. With no sign-in set up, anyone can save a template, as before.
 
+**Email and password** switches on by itself when the server sends email ([Notifications](NOTIFICATIONS.md)), since every address is confirmed by an emailed link. Set `EMAIL_SIGNIN=off` to keep it off. See [Email and password](#email-and-password) below.
+
 Each sign-in switches on when its client ID **and** secret are set. With none set, nothing about accounts shows anywhere, and `GET /api/config` returns `accounts: []`.
 
 | Provider  | Settings                                                                          | Callback URL                                      |
@@ -22,6 +24,19 @@ Each sign-in switches on when its client ID **and** secret are set. With none se
 - **The owner is the organizer.** For a poll (or template) kept with your account, organizer-only calls work with the session alone. Viewing it, you get the organizer's view only when you ask for it with `x-organizer: 1` (the app does from My polls, which opens `/e/<id>#organizer`), so the plain link still shows what guests see.
 - **Cross-site requests.** Besides `SameSite` and the API taking only JSON, a request that changes something counts as signed out when its `Origin` (or `Sec-Fetch-Site`) is another site.
 - **Leaving.** Sign out ends the session. Delete account (on My polls) removes the account, its sessions and its list; the polls and templates stay, with their links.
+
+## Email and password
+
+For people who'd rather not use Google. Nothing to set up beyond email: Cloudflare Email Sending (needs Workers Paid) or Resend, as in [Notifications](NOTIFICATIONS.md).
+
+- **Signing up** asks for an email and a password, and always answers "check your inbox": the account exists once the emailed link is used. If the address already has an account, the email says so and offers a new password instead, so the page never tells anyone which addresses have accounts.
+- **Links** carry a random 256-bit secret after `#` (never sent to the server in the URL, so never in a log); the server keeps its SHA-256 hash. The page a link opens asks for a tap before using it, since mail scanners open links. Sign-up links last 24 hours, password links 1 hour, email-change links 24 hours, and each works once. At most 3 links an hour go to any one address.
+- **Passwords** are hashed with PBKDF2-HMAC-SHA256 through Web Crypto, 100,000 iterations (the most Cloudflare Workers allow) and a random salt per password, in a string that names its settings so they can be raised later; older hashes are upgraded at the next sign-in. That's about 20 ms of CPU per sign-in, more than the 10 ms the Workers Free plan allows, so run Venn on Workers Paid.
+- **Rules** follow NIST SP 800-63B: at least 10 characters, at most 128, no "must contain a symbol" rules, pasting and password managers welcome. New passwords are checked against [Have I Been Pwned](https://haveibeenpwned.com/Passwords)' leaked passwords: only the first 5 characters of the password's SHA-1 leave the server (with padding on), and if the check can't run the password is allowed. `PWNED_PASSWORDS=off` skips it.
+- **Guessing.** A wrong email and a wrong password get the same answer, in about the same time. After 10 wrong passwords in a row an account pauses for 15 minutes (a reset still works). Each IP gets 30 tries per 10 minutes (`AUTH_RATE_LIMIT`), or bind Cloudflare's rate limiting as `AUTH_RATE_LIMITER`.
+- **Account settings** (`/me/settings`): change the email (the new address confirms by link; the old one is told), change the password (the current one first; other devices are signed out), sign out other devices, connect Google, delete the account (with the password).
+- **A forgotten password** is reset by link. That signs out every browser, cancels pending email changes, emails a notice, and asks to sign in with the new password.
+- **Google and email, together.** Accounts are never joined by matching emails, because that's how accounts get taken over (someone signs up first with your address and waits). Instead: a signed-in person can _connect_ Google in Account settings, after which either signs in to the same account; a Google account can _add a password_, through a link sent to its address; and signing up with an address that has a Google account sends that same "add a password" link.
 
 ## Google
 

@@ -31,7 +31,8 @@ export const EMAIL_PROVIDERS = [
     name: 'resend',
     configured: (env) => Boolean(env.RESEND_API_KEY),
     async send(env, { to, subject, text, html, headers, replyTo }, { fetchImpl }) {
-      const res = await fetchImpl('https://api.resend.com/emails', {
+      // RESEND_API_URL is for the browser tests' stand-in (e2e/fake-oauth.js); nothing else sets it.
+      const res = await fetchImpl(`${env.RESEND_API_URL || 'https://api.resend.com'}/emails`, {
         method: 'POST',
         signal: AbortSignal.timeout(TIMEOUT_MS),
         headers: { authorization: `Bearer ${env.RESEND_API_KEY}`, 'content-type': 'application/json' },

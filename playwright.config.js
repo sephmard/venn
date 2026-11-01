@@ -6,6 +6,7 @@ const FAKE_AI_PORT = 8792;
 const ACCOUNTS_PORT = 8794;
 const FAKE_OAUTH_PORT = 8793;
 export const ACCOUNTS_URL = `http://localhost:${ACCOUNTS_PORT}`;
+export const FAKE_OAUTH_URL = `http://localhost:${FAKE_OAUTH_PORT}`;
 
 export default defineConfig({
   testDir: './e2e',
@@ -48,6 +49,11 @@ export default defineConfig({
         GOOGLE_CLIENT_ID: 'test-google-client',
         GOOGLE_CLIENT_SECRET: 'test-google-secret',
         OAUTH_TEST_BASE: `http://localhost:${FAKE_OAUTH_PORT}`,
+        // Email sign-in, with its emails sent to the same stand-in, and no breach check.
+        EMAIL_FROM: 'Venn <hi@venn.test>',
+        RESEND_API_KEY: 're_test',
+        RESEND_API_URL: `http://localhost:${FAKE_OAUTH_PORT}/resend`,
+        PWNED_PASSWORDS: 'off',
       },
       url: ACCOUNTS_URL,
       reuseExistingServer: !process.env.CI,

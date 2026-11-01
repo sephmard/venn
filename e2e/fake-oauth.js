@@ -5,6 +5,7 @@ import { createServer } from 'node:http';
 
 const PORT = Number(process.env.PORT || 8793);
 const codes = new Map();
+const outbox = [];
 const b64url = (o) => Buffer.from(JSON.stringify(o)).toString('base64url');
 
 createServer(async (req, res) => {
@@ -38,6 +39,19 @@ createServer(async (req, res) => {
       nonce: found.nonce,
     };
     return res.end(JSON.stringify({ access_token: 'x', id_token: `${b64url({ alg: 'none' })}.${b64url(claims)}.x` }));
+  }
+  // A stand-in for Resend, for email sign-in: what's sent is kept, and read back by the tests.
+  if (url.pathname === '/resend/emails' && req.method === 'POST') {
+    let raw = '';
+    for await (const chunk of req) raw += chunk;
+    outbox.push(JSON.parse(raw));
+    res.writeHead(200, { 'content-type': 'application/json' });
+    return res.end('{"id":"x"}');
+  }
+  if (url.pathname === '/outbox') {
+    const to = url.searchParams.get('to');
+    res.writeHead(200, { 'content-type': 'application/json' });
+    return res.end(JSON.stringify(outbox.filter((m) => m.to[0] === to)));
   }
   res.writeHead(404).end();
 }).listen(PORT);

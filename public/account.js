@@ -18,6 +18,7 @@ import {
   signInAgree,
   signInButtons,
 } from './account-data.js';
+import { emailSignInForm, wireEmailSignIn } from './email-signin.js';
 
 await new Promise((done) =>
   document.head.append(
@@ -49,8 +50,12 @@ const saveView = ({ tab, sort, group }) => {
 };
 
 export async function renderAccount() {
+  // Account settings, and the pages the sign-in emails open (account-settings.js).
+  const sub = location.pathname.match(/^\/me\/(settings|confirm|reset|email)\/?$/)?.[1];
+  if (sub) return (await import('./account-settings.js')).renderSub(sub);
   document.title = 'My polls · Venn';
   const failed = location.hash === '#signin-failed';
+  const forgot = location.hash === '#forgot';
   if (location.hash) history.replaceState(null, '', location.pathname);
   app.innerHTML = `<div class="account" aria-busy="true"><h1>My polls</h1><div class="acct-skeleton" aria-hidden="true">${'<span></span>'.repeat(4)}</div></div>`;
   let me;
@@ -64,7 +69,7 @@ export async function renderAccount() {
   if (!me.user) {
     accountHint(null);
     refreshAccountMenu();
-    showSignIn(me.providers || [], failed);
+    showSignIn(me.providers || [], failed, forgot);
     return;
   }
   accountHint({ initial: initial(me.user), name: me.user.name || me.user.email || '' });
@@ -85,7 +90,8 @@ export async function renderAccount() {
 
 // ---------- signed out ----------
 
-function showSignIn(providers, failed) {
+function showSignIn(providers, failed, forgot) {
+  const buttons = providers.filter((p) => p !== 'email');
   app.innerHTML = `
     <div class="account acct-signin-page">
       <div class="acct-hero">
@@ -100,13 +106,16 @@ function showSignIn(providers, failed) {
       ${
         providers.length
           ? `${failed ? '<p class="acct-alert" role="alert">Sign-in didn’t finish. Try again.</p>' : ''}
-             <div class="signin">${signInButtons(providers, '/me')}</div>
+             ${buttons.length ? `<div class="signin">${signInButtons(buttons, '/me')}</div>` : ''}
+             ${providers.includes('email') ? emailSignInForm({ alone: !buttons.length }) : ''}
              <p class="hint">No account needed to make or answer a poll.</p>
              ${signInAgree()}`
           : '<a class="btn btn-primary" href="/new" data-link>Create a Venn</a>'
       }
     </div>`;
   rotate(app.querySelector('[data-stickers]'));
+  // Email and password (email-signin.js). /me#forgot opens on "Forgot password?".
+  if (providers.includes('email')) wireEmailSignIn({ mode: forgot ? 'forgot' : 'signin', onSignedIn: renderAccount });
   // A tap shows it's on its way (the provider's page can take a moment), and can't be tapped twice.
   for (const a of app.querySelectorAll('.btn-signin'))
     a.addEventListener('click', (e) => {
@@ -200,12 +209,8 @@ function showMine(me, view) {
           </form>
         </details>
         <div class="acct-actions">
+          <a class="btn" href="/me/settings" data-link>Account settings</a>
           <button type="button" class="btn" id="acct-out">Sign out</button>
-          <button type="button" class="link-btn acct-delete" id="acct-delete">Delete account</button>
-        </div>
-        <div class="acct-confirm" id="acct-confirm" hidden>
-          <p><b>Delete your account?</b> Your polls stay, with their links.</p>
-          <p class="acct-actions"><button type="button" class="btn btn-danger" id="acct-delete-yes">Delete account</button><button type="button" class="btn" id="acct-delete-no">Keep it</button></p>
         </div>
       </section>
     </div>`;
@@ -298,25 +303,6 @@ function showMine(me, view) {
     }
   };
   $('#acct-out').onclick = () => signOut().then(renderAccount);
-  $('#acct-delete').onclick = () => {
-    $('#acct-confirm').hidden = false;
-    $('#acct-delete-no').focus();
-  };
-  $('#acct-delete-no').onclick = () => {
-    $('#acct-confirm').hidden = true;
-    $('#acct-delete').focus();
-  };
-  $('#acct-delete-yes').onclick = async () => {
-    try {
-      await api('me', { method: 'DELETE' });
-      accountHint(null);
-      refreshAccountMenu();
-      toast('Account deleted');
-      renderAccount();
-    } catch (ex) {
-      toast(ex.message);
-    }
-  };
 }
 
 /** Sign out here: the session ends on the server, and the menu forgets the name. */

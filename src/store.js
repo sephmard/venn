@@ -100,6 +100,41 @@ const SCHEMA = [
      PRIMARY KEY (kind, item_id)
    )`,
   `CREATE INDEX IF NOT EXISTS owners_user ON owners(user_id, kind)`,
+  // Signing in with an email and password (src/email-auth.js). `email` is the login, lowercased;
+  // `hash` is the password's PBKDF2 hash (src/password.js), never the password. `failed` counts wrong
+  // passwords in a row, and `locked_until` pauses guessing after too many.
+  `CREATE TABLE IF NOT EXISTS passwords (
+     user_id TEXT PRIMARY KEY,
+     email TEXT NOT NULL UNIQUE,
+     hash TEXT NOT NULL,
+     failed INTEGER NOT NULL DEFAULT 0,
+     locked_until INTEGER,
+     updated_at INTEGER NOT NULL
+   )`,
+  // Links emailed to finish signing up, set a new password or move to a new email: the SHA-256 hash
+  // of each link's secret, never the secret. `data` carries what the link finishes (a sign-up's
+  // password hash). Each is used once, and expires.
+  `CREATE TABLE IF NOT EXISTS email_tokens (
+     hash TEXT PRIMARY KEY,
+     purpose TEXT NOT NULL,
+     email TEXT NOT NULL,
+     user_id TEXT,
+     data TEXT,
+     created_at INTEGER NOT NULL,
+     expires_at INTEGER NOT NULL
+   )`,
+  `CREATE INDEX IF NOT EXISTS email_tokens_email ON email_tokens(email, created_at)`,
+  // More ways into one account: a Google, Microsoft or GitHub sign-in connected from Account
+  // settings while signed in. Never joined up by matching emails.
+  `CREATE TABLE IF NOT EXISTS identities (
+     provider TEXT NOT NULL,
+     subject TEXT NOT NULL,
+     user_id TEXT NOT NULL,
+     email TEXT,
+     created_at INTEGER NOT NULL,
+     PRIMARY KEY (provider, subject)
+   )`,
+  `CREATE INDEX IF NOT EXISTS identities_user ON identities(user_id)`,
 ];
 
 /** The picture's details for a poll's JSON (or nothing, when it has none), from a joined row. */
@@ -326,6 +361,9 @@ export function createStore(db) {
     /** Forget an account: its sessions and its list. Its polls and templates stay. */
     async deleteUser(userId) {
       await init();
+      await db.run('DELETE FROM passwords WHERE user_id = ?', [userId]);
+      await db.run('DELETE FROM identities WHERE user_id = ?', [userId]);
+      await db.run('DELETE FROM email_tokens WHERE user_id = ?', [userId]);
       await db.run('DELETE FROM owners WHERE user_id = ?', [userId]);
       await db.run('DELETE FROM sessions WHERE user_id = ?', [userId]);
       await db.run('DELETE FROM users WHERE id = ?', [userId]);
@@ -428,6 +466,196 @@ export function createStore(db) {
         [userId],
       );
       return rows.map((r) => ({ id: r.id, name: JSON.parse(r.data).name, logoV: r.logo_v ?? null, createdAt: r.created_at }));
+    },
+
+    // ---------- email and password sign-in (src/email-auth.js) ----------
+
+    /** A new account that signs in with its email: { id, provider: 'email', email, name }. */
+    async createEmailUser({ email, hash, now }) {
+      await init();
+      const id = crypto.randomUUID();
+      await db.run('INSERT INTO users (id, provider, subject, email, name, created_at) VALUES (?, ?, ?, ?, ?, ?)', [
+        id,
+        'email',
+        id,
+        email,
+        '',
+        now,
+      ]);
+      await db.run('INSERT INTO passwords (user_id, email, hash, updated_at) VALUES (?, ?, ?, ?)', [id, email, hash, now]);
+      return { id, provider: 'email', email, name: '' };
+    },
+
+    /** The password login for an email (lowercased), or a user's: { userId, email, hash, failed, lockedUntil }. */
+    async getPassword({ email, userId }) {
+      await init();
+      const r = await db.first(
+        `SELECT user_id, email, hash, failed, locked_until FROM passwords WHERE ${email != null ? 'email' : 'user_id'} = ?`,
+        [email ?? userId],
+      );
+      return r && { userId: r.user_id, email: r.email, hash: r.hash, failed: Number(r.failed), lockedUntil: r.locked_until };
+    },
+
+    /** Give an account a password (or a new one), signing in as `email`. */
+    async setPassword({ userId, email, hash, now }) {
+      await init();
+      await db.run(
+        `INSERT INTO passwords (user_id, email, hash, updated_at) VALUES (?, ?, ?, ?)
+         ON CONFLICT(user_id) DO UPDATE SET email = excluded.email, hash = excluded.hash, failed = 0, locked_until = NULL,
+           updated_at = excluded.updated_at`,
+        [userId, email, hash, now],
+      );
+    },
+
+    /** After a wrong password: count it, and pause guessing from `lockedUntil` if given. */
+    async passwordFailed(userId, lockedUntil = null) {
+      await init();
+      await db.run('UPDATE passwords SET failed = failed + 1, locked_until = COALESCE(?, locked_until) WHERE user_id = ?', [
+        lockedUntil,
+        userId,
+      ]);
+    },
+
+    async passwordWorked(userId, rehash = null) {
+      await init();
+      await db.run('UPDATE passwords SET failed = 0, locked_until = NULL, hash = COALESCE(?, hash) WHERE user_id = ?', [
+        rehash,
+        userId,
+      ]);
+    },
+
+    /** Move a password account to a new email: its login, and the address shown for it. */
+    async changeEmail(userId, email) {
+      await init();
+      await db.run('UPDATE passwords SET email = ? WHERE user_id = ?', [email, userId]);
+      await db.run("UPDATE users SET email = ? WHERE id = ? AND provider = 'email'", [email, userId]);
+    },
+
+    async getUser(id) {
+      await init();
+      return db.first('SELECT id, provider, email, name FROM users WHERE id = ?', [id]);
+    },
+
+    /**
+     * The account a verified email belongs to, for "forgot password" and signing up twice: its
+     * password login, or else a Google or GitHub account with that address (both vouch for it;
+     * Microsoft's addresses aren't verified, so they never count). Null if none.
+     */
+    async findUserByVerifiedEmail(email) {
+      await init();
+      const login = await db.first('SELECT user_id FROM passwords WHERE email = ?', [email]);
+      if (login) return { id: login.user_id, hasPassword: true };
+      const u = await db.first(
+        `SELECT id, provider FROM users WHERE lower(email) = ? AND provider IN ('google', 'github')
+         ORDER BY created_at DESC LIMIT 1`,
+        [email],
+      );
+      return u && { id: u.id, provider: u.provider, hasPassword: false };
+    },
+
+    async createEmailToken({ hash, purpose, email, userId = null, data = null, now, expiresAt }) {
+      await init();
+      await db.run('DELETE FROM email_tokens WHERE expires_at <= ?', [now]);
+      await db.run(
+        'INSERT INTO email_tokens (hash, purpose, email, user_id, data, created_at, expires_at) VALUES (?, ?, ?, ?, ?, ?, ?)',
+        [hash, purpose, email, userId, data, now, expiresAt],
+      );
+    },
+
+    /** How many links were emailed to an address since `since`: a cap on mail to any one inbox. */
+    async countEmailTokens(email, since) {
+      await init();
+      return Number(
+        (await db.first('SELECT COUNT(*) AS n FROM email_tokens WHERE email = ? AND created_at > ?', [email, since]))?.n ?? 0,
+      );
+    },
+
+    /** Use a link: its row if it's live and for `purpose`, deleted so it can't be used again. Else null. */
+    async takeEmailToken(hash, purpose, now) {
+      await init();
+      const r = await db.first('SELECT * FROM email_tokens WHERE hash = ? AND purpose = ? AND expires_at > ?', [
+        hash,
+        purpose,
+        now,
+      ]);
+      if (!r) return null;
+      await db.run('DELETE FROM email_tokens WHERE hash = ?', [hash]);
+      return { purpose: r.purpose, email: r.email, userId: r.user_id, data: r.data };
+    },
+
+    /** Is this link live? (Without using it.) */
+    async peekEmailToken(hash, purpose, now) {
+      await init();
+      const r = await db.first('SELECT email FROM email_tokens WHERE hash = ? AND purpose = ? AND expires_at > ?', [
+        hash,
+        purpose,
+        now,
+      ]);
+      return r ? { email: r.email } : null;
+    },
+
+    /** Forget every live link of one kind for an account or an address, after one of them is used. */
+    async dropEmailTokens({ userId, email, purpose }) {
+      await init();
+      if (userId) await db.run('DELETE FROM email_tokens WHERE user_id = ? AND purpose = ?', [userId, purpose]);
+      if (email) await db.run('DELETE FROM email_tokens WHERE email = ? AND purpose = ?', [email, purpose]);
+    },
+
+    /** Sign out every browser of an account, except the session with hash `keep`, if given. */
+    async deleteSessions(userId, keep = null) {
+      await init();
+      await db.run('DELETE FROM sessions WHERE user_id = ? AND hash IS NOT ?', [userId, keep]);
+    },
+
+    async countSessions(userId, now) {
+      await init();
+      return Number(
+        (await db.first('SELECT COUNT(*) AS n FROM sessions WHERE user_id = ? AND expires_at > ?', [userId, now]))?.n ?? 0,
+      );
+    },
+
+    // ---------- connected sign-ins ----------
+
+    /** The account a connected sign-in leads to, or null. */
+    async identityUser(provider, subject) {
+      await init();
+      return db.first(
+        'SELECT u.id, u.provider, u.email, u.name FROM identities i JOIN users u ON u.id = i.user_id WHERE i.provider = ? AND i.subject = ?',
+        [provider, subject],
+      );
+    },
+
+    /** Whose this sign-in already is, as an account of its own or connected to one: a user id, or null. */
+    async signInOwner(provider, subject) {
+      await init();
+      const own = await db.first('SELECT id FROM users WHERE provider = ? AND subject = ?', [provider, subject]);
+      if (own) return own.id;
+      return (
+        (await db.first('SELECT user_id FROM identities WHERE provider = ? AND subject = ?', [provider, subject]))?.user_id ??
+        null
+      );
+    },
+
+    async addIdentity({ provider, subject, userId, email, now }) {
+      await init();
+      await db.run('INSERT INTO identities (provider, subject, user_id, email, created_at) VALUES (?, ?, ?, ?, ?)', [
+        provider,
+        subject,
+        userId,
+        email,
+        now,
+      ]);
+    },
+
+    /** The sign-ins connected to an account: [{ provider, email }]. */
+    async listIdentities(userId) {
+      await init();
+      return db.all('SELECT provider, email FROM identities WHERE user_id = ? ORDER BY created_at', [userId]);
+    },
+
+    async removeIdentity(userId, provider) {
+      await init();
+      await db.run('DELETE FROM identities WHERE user_id = ? AND provider = ?', [userId, provider]);
     },
 
     async setFinal(id, finalStart) {
