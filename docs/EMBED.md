@@ -11,6 +11,10 @@ Make one at `/brand` (or `POST /api/brands`). On its **White label** step:
 
 Keep the template's manage link (or its `adminToken`): it's what changes the template later, with `PUT /api/brands/:id` and `x-admin-token`.
 
+### Make templates from your server
+
+An app that gives each of its own users a template (each club, team or shop in its own look) can make them with the API instead: `POST /api/brands` with the same fields, from its server. Where the Venn it uses has sign-in set up, as venn.day does, that needs a key from whoever runs it, sent as `authorization: Bearer <key>`. A Venn's keys are its `APP_KEYS` setting ([Self-hosting](SELF-HOSTING.md#optional-features)); keep yours on your server, like a poll's `adminToken`. A template made this way belongs to no account and is managed with its `adminToken`, like any other.
+
 ## 2. Make polls with the API
 
 From your server, make each poll with the template's `brand` id:
