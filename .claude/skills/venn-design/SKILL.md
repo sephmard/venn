@@ -153,6 +153,7 @@ the same PR** (and CLAUDE.md if it's a rule that matters in review).
 - Colours are made readable (WCAG AA) rather than refused. Answers are green, amber and pink unless the template picks its own. On a branded poll the brand's look replaces retro.
 - **Always the Venn retro logo** (Seph, 2026-11-01): the header shows the retro logo in every look, classic included; the organization's logo sits beside the poll, never in place of Venn's.
 - Its polls show the logo and name above the poll for everyone. Deleted, they're plain Venn again.
+- **White label and embedding** (Seph, 2026-11-01: Venn should be white-labelable and embeddable in other apps through the API). The editor's **White label** step (before What polls start with): a **Hide Venn's name and logo** switch, off by default (the one exception to "always the Venn retro logo": on, its polls have no Venn top bar, footer, make-your-own links or Finn), and **Your websites that show its polls**, one a line. Only those websites can frame its polls, at `/embed/<poll>`: the poll alone, no Venn bar, a small "Made with Venn" link unless hidden. Details in docs/EMBED.md.
 
 **Accounts (My polls, /me)**
 

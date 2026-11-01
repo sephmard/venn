@@ -8,7 +8,9 @@ async function route() {
   cleanup = () => {};
   document.getElementById('toast').hidden = true;
   const path = location.pathname.replace(/\/$/, '');
-  const poll = path.match(/^\/e\/([A-Za-z0-9]+)$/);
+  const poll = path.match(/^\/(?:e|embed)\/([A-Za-z0-9]+)$/);
+  const embed = document.documentElement.classList.contains('embed');
+  if (!poll) document.documentElement.classList.remove('white-label'); // a poll's own (event.js)
   const brand = path.match(/^\/brand(?:\/([A-Za-z0-9]+))?$/);
   // The look carries on until the page says, so moving between pages never flashes the other one:
   // a new poll's is set below, before it's drawn; a poll's once it loads (event.js), and an edited or
@@ -19,7 +21,8 @@ async function route() {
     l.href = l.href.replace(/favicon[^.]*/, poll ? 'favicon-poll' : 'favicon');
   let off;
   // The account's place in the top bar (account-menu.js), drawn for each page.
-  import('./account-menu.js').then(async (m) => m.accountMenu((await import('./ui.js')).getConfig)).catch(() => {});
+  // Not in a frame (/embed), where Venn's cookie isn't sent.
+  if (!embed) import('./account-menu.js').then(async (m) => m.accountMenu((await import('./ui.js')).getConfig)).catch(() => {});
   if (poll) off = await (await import('./event.js')).renderEvent(poll[1], navigate);
   // An organization's brand template (brand.js): made, managed or seen from its link.
   else if (path === '/brand/preview') off = await (await import('./brand-demo.js')).renderDemo();
@@ -52,7 +55,9 @@ document.addEventListener('click', (e) => {
   const a = e.target.closest('a[data-link]');
   if (a && !e.metaKey && !e.ctrlKey && !e.shiftKey) {
     e.preventDefault();
-    navigate(a.getAttribute('href'));
+    // In a frame, the poll stays put: other pages open in a new tab.
+    if (document.documentElement.classList.contains('embed')) open(a.getAttribute('href'), '_blank', 'noopener');
+    else navigate(a.getAttribute('href'));
   }
 });
 addEventListener('popstate', route);

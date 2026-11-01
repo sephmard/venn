@@ -173,6 +173,7 @@ export function brandCss(brand, scope = ':root') {
 export function brandLook(brand) {
   document.getElementById('brand-look')?.remove();
   document.documentElement.classList.toggle('branded', !!brand);
+  document.documentElement.classList.toggle('white-label', !!brand?.hideVenn); // no Venn (src/embed.js)
   if (!brand) return;
   document.documentElement.classList.remove('retro'); // an organization's look replaces Venn's retro one
   document.head.append(Object.assign(document.createElement('style'), { id: 'brand-look', textContent: brandCss(brand) }));

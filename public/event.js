@@ -165,7 +165,11 @@ export async function renderEvent(id, navigate) {
     st.ev.isAdmin ? import('./organizer.js').catch(() => null) : null,
     st.ev.finalStart != null && loadCal(),
   ]);
-  document.title = `${ev().title} · Venn`;
+  const plain = document.documentElement.classList;
+  const [embedded, whiteLabel] = [plain.contains('embed'), plain.contains('white-label')];
+  document.title = whiteLabel ? ev().title : `${ev().title} · Venn`;
+  // In a frame (/embed): it fits the poll, and tells the website what happens.
+  const host = embedded ? await import('./embed-frame.js').then((m) => m.connect(id, ev().brand)).catch(() => null) : null;
   track('view', { page: 'poll', as: ev().isAdmin ? 'organizer' : saved(id).participantId ? 'answered' : 'guest' });
   const shareUrl = `${location.origin}/e/${id}`;
   const optionsMode = isOptionsPoll(ev());
@@ -996,23 +1000,25 @@ export async function renderEvent(id, navigate) {
       renderAll();
       const sent = `Submitted.${copyTo ? ` A copy is on its way to ${copyTo}.` : ''}`;
       // A party for every answer sent, guests' and the organizer's.
-      const host = ev().isAdmin ? '' : ev().organizer;
+      const organizer = ev().isAdmin ? '' : ev().organizer;
+      host?.tell('answered', { updated: !created });
       const p = (await party)?.celebrate({
         emoji: (!picture && ev().emoji) || '🎉',
         picture,
         heading: created ? 'Answer submitted!' : 'Answer updated!',
         message: ev().isAdmin
           ? 'Your answer is in. Now the fun part: seeing when everyone can make it.'
-          : `Finn is so glad you're in. ${host ? `${host} can see it now` : 'Everyone can see it now'}. Thanks for helping bring people together.`,
+          : `${whiteLabel ? "Thanks, you're in." : "Finn is so glad you're in."} ${organizer ? `${organizer} can see it now` : 'Everyone can see it now'}. Thanks for helping bring people together.`,
         button: hideAll ? 'Back to the poll' : 'See everyone’s answers',
         // Guests who enjoyed that are the next organizers: one tap to their own poll of the same kind,
         // with the same plan and their name filled in, and the dates left to them.
-        also: ev().isAdmin
-          ? null
-          : {
-              label: 'Planning something? Make yours in 30 seconds',
-              href: `/new?from=guest${ev().emoji ? `&template=${encodeURIComponent(ev().emoji)}` : ''}`,
-            },
+        also:
+          ev().isAdmin || embedded || whiteLabel
+            ? null
+            : {
+                label: 'Planning something? Make yours in 30 seconds',
+                href: `/new?from=guest${ev().emoji ? `&template=${encodeURIComponent(ev().emoji)}` : ''}`,
+              },
       });
       await p?.shown;
       p?.finish();
@@ -1352,6 +1358,7 @@ export async function renderEvent(id, navigate) {
     st.changing = false;
     try {
       await api(`events/${id}/finalize`, { method: 'POST', body: { start }, headers: authHeaders() });
+      host?.tell('picked', { start });
       await load();
       st.celebrate = start != null;
       renderAll();
@@ -1576,9 +1583,10 @@ export async function renderEvent(id, navigate) {
       },
     });
     // Finn, the Venn dog, has something to say at a few moments: finn.js, loaded after the page.
-    import('./finn.js')
-      .then((m) => m.react({ id, ev: ev(), meId: saved(id).participantId, anchor: $('#banners') }))
-      .catch(() => {});
+    if (!whiteLabel)
+      import('./finn.js')
+        .then((m) => m.react({ id, ev: ev(), meId: saved(id).participantId, anchor: $('#banners') }))
+        .catch(() => {});
   }
 
   function renderMeState() {

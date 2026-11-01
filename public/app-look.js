@@ -14,10 +14,13 @@
       on = localStorage.getItem('venn:retro') !== '0';
     } catch {}
   if (on) document.documentElement.classList.add('retro');
+  // A poll shown in another website's frame (/embed/<id>): the poll alone, without Venn's bar.
+  const embed = /^\/embed\//.test(location.pathname);
+  if (embed) document.documentElement.classList.add('embed');
   // Each page's modules (kept in step with their imports by test/budget.test.js).
   const code = create
     ? ['create-free.js', 'core.js', 'picker.js', 'ui.js', 'create.js', 'templates.js', 'retro-look.js']
-    : /^\/e\//.test(location.pathname)
+    : embed || /^\/e\//.test(location.pathname)
       ? ['event.js', 'core.js', 'invite.js', 'day-parts.js', 'ui.js', 'when.js']
       : [];
   const add = (attrs) => document.head.append(Object.assign(document.createElement('link'), attrs));

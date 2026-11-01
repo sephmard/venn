@@ -2,4 +2,6 @@
 // these; anything else that isn't a file in public/ gets the 404 page.
 
 export const isAppRoute = (pathname) =>
-  /^\/(new(\/(pick|free))?|e\/[A-Za-z0-9]+|brand(\/[A-Za-z0-9]+)?|me(\/(settings|confirm|reset|email))?)\/?$/.test(pathname);
+  /^\/(new(\/(pick|free))?|(e|embed)\/[A-Za-z0-9]+|brand(\/[A-Za-z0-9]+)?|me(\/(settings|confirm|reset|email))?)\/?$/.test(
+    pathname,
+  );
