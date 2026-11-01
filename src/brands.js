@@ -6,6 +6,7 @@
 import { ValidationError } from '../public/core.js';
 import { BUTTONS, CORNERS, FONTS, LOGO_SIZES, isHex } from '../public/brand-look.js';
 import { isEmoji } from '../public/emoji.js';
+import { normalizeSites } from './embed.js';
 
 export const BRAND_LIMITS = { name: 60, title: 120, note: 1000, where: 200 };
 export const BRAND_ID_RE = /^[A-Za-z0-9]{1,32}$/;
@@ -48,6 +49,11 @@ export function normalizeBrand(input) {
   }
   if (input.hideName != null && typeof input.hideName !== 'boolean') throw new ValidationError('hideName must be true or false');
   if (input.hideName) brand.hideName = true;
+  // White label (src/embed.js): no Venn name or logo on its polls, and the websites that may frame them.
+  if (input.hideVenn != null && typeof input.hideVenn !== 'boolean') throw new ValidationError('hideVenn must be true or false');
+  if (input.hideVenn) brand.hideVenn = true;
+  const sites = normalizeSites(input.embedSites);
+  if (sites.length) brand.embedSites = sites;
   for (const [key, field] of [
     ['title', 'Poll name'],
     ['note', 'Note'],
@@ -79,5 +85,7 @@ export const publicBrand = (b) => ({
   ...(b.note && { note: b.note }),
   ...(b.where && { where: b.where }),
   ...(b.emoji && { emoji: b.emoji }),
+  ...(b.hideVenn && { hideVenn: true }),
+  ...(b.embedSites?.length && { embedSites: b.embedSites }),
   logo: b.logoV != null ? logoPath(b.id, b.logoV) : null,
 });

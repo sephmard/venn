@@ -20,6 +20,7 @@ const DOCS = [
   ['docs/NOTIFICATIONS.md', 'notifications.html', 'Notifications', 'Reference'],
   ['docs/CALENDARS.md', 'calendars.html', 'Calendars', 'Reference'],
   ['docs/ACCOUNTS.md', 'accounts.html', 'Accounts', 'Reference'],
+  ['docs/EMBED.md', 'embed.html', 'White label and embedding', 'Reference'],
   ['docs/AI.md', 'ai.html', 'AI features', 'Reference'],
   ['docs/USAGE-STATS.md', 'usage-stats.html', 'Usage stats', 'Reference'],
   ['CONTRIBUTING.md', 'contributing.html', 'Contributing', 'Project'],
