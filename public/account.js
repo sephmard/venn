@@ -161,7 +161,7 @@ const brandRow = (b) => `
 const EMPTY = {
   made: ['No polls yet.', '<a class="btn btn-primary" href="/new" data-link>Create a Venn</a>'],
   answered: ['Polls you answer while signed in show up here.', ''],
-  brands: ['Your logo and colours on every poll.', '<a class="btn btn-primary" href="/brand" data-link>Make a template</a>'],
+  brands: ['Your logo and colours on every poll.', '<a class="btn btn-primary" href="/brand/new" data-link>Make a template</a>'],
 };
 
 const options = (all, on) =>
@@ -255,7 +255,7 @@ function showMine(me, view) {
             (g) =>
               `${g.label ? `<h2 class="acct-h">${esc(g.label)} <span class="muted">${g.items.length}</span></h2>` : ''}<ul class="acct-list" aria-label="${esc(g.label || TABS[view.tab])}">${g.items.map(row).join('')}</ul>`,
           )
-          .join('') + (brands ? '<a class="acct-new" href="/brand" data-link>+ New template</a>' : '');
+          .join('') + (brands ? '<a class="acct-new" href="/brand/new" data-link>+ New template</a>' : '');
     }
   };
 

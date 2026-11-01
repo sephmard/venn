@@ -130,26 +130,32 @@ the same PR** (and CLAUDE.md if it's a rule that matters in review).
   for text (Venn's own or eight system fonts); corners (square, soft, round) and buttons (pills or
   the corners); and what its polls start with (name, where, note). A share link for the team (`/new?brand=…`) and a private manage link, like
   a poll's organizer link.
-- **Saving a new template needs an account** (Seph, 2026-11-01: custom templates are for people
-  with an account), where sign-in is set up. Signed out, the Save button reads **Sign in to save**
-  and opens a sign-in panel under the step; the draft (fields, logo, step) survives the sign-in and
-  is saved on the way back. Templates that exist keep working by their links and can be added on
+- **For organizations needs an account** (Seph, 2026-11-01: only for people with an account),
+  where sign-in is set up. **/brand** is For organizations: "Your brand on every poll", one line, one
+  button and a live poll in a made-up organization's look (Northwind); with templates in this
+  browser, a list of them. Signed out, the button reads **Sign in to make yours** and /brand/new is a
+  sign-in card that comes back to the editor. (If a session ends while editing, Save reads **Sign in
+  to save** and the draft survives the sign-in.) Templates that exist keep working by their links and can be added on
   My polls. With no sign-in on the server, anyone can save, as before.
 - **Only polls are branded.** The website, /brand and the create page keep Venn's own look (retro
   by default); /brand shows a **live preview** (Seph, 2026-11-01: he wants to see the template change while he makes it): the real poll page with a sample poll in a frame, as a Guest or the Organizer, updated with every edit, clickable, nothing saved; beside the form on desktop, pinned over it on phones, and the create page shows whose template
-  it is (logo and name). The home page has a "Your brand, on every poll." section, and the menu
-  has "For organizations".
+  it is (logo and name). The menu's "For organizations" opens /brand (no section on the home
+  page).
 - **The editor is a click-through, not a scroll** (Seph, 2026-11-01: only the top of the preview
   changed, so he couldn't tell what a setting did). Eight steps in the poll page's order: Name and
-  logo, Starting look, Colours, Answers, Headings, Text, Corners and buttons, What polls start with
+  logo, Starting look, Colours, Answers, Headings, Text, Corners and buttons, Poll details
   (a saved template opens on Share first). One step shows at a time with Back / Next; the steps are a
   list beside it on desktop and a menu over it on phones, and any step can be opened. While a step is
   open the preview goes to the part of the poll it changes and rings it (dashed magenta), and rings
   it again with every change; Answers opens the group's results. **Starting looks** (Venn,
   Editorial, Midnight, Playful, Tech, Forest, and the logo's own colour once there's a logo) set
   everything in one tap. The logo's colours are offered beside the accent picker. **Compare**, held,
-  shows Venn's own look. Phones: the preview pinned on top, the step under it, Back / Next at the
-  bottom, all on one screen.
+  shows Venn's own look. **Phones** (Seph, 2026-11-01: "very poor on
+  mobile"): one screen, nothing slides: Guest / Organizer and Compare in a slim row, the preview
+  taking all the room the step leaves, the step's settings on the page (no card, no heading: the bar
+  names it) and as tall as they need (scrolling past half the screen), and one bar: **Back · "3/8
+  Colours" · Next**, where the step's name opens every step. Starting looks are one row, swiped
+  sideways. Signing in to save is the whole screen, with "Back to your template".
 - Colours are made readable (WCAG AA) rather than refused. Answers are green, amber and pink unless the template picks its own. On a branded poll the brand's look replaces retro.
 - **Always the Venn retro logo** (Seph, 2026-11-01): the header shows the retro logo in every look, classic included; the organization's logo sits beside the poll, never in place of Venn's.
 - Its polls show the logo and name above the poll for everyone. Deleted, they're plain Venn again.
