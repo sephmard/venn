@@ -774,6 +774,19 @@ h3 {
 .footer a:hover {
   color: var(--ink);
 }
+/* Classic mode, last in the footer's links: the same switch, in the footer's small type. */
+.footer .classic-switch {
+  width: auto;
+  min-height: 44px;
+  padding: 0;
+  gap: 10px;
+  color: var(--ink-2);
+  font: inherit;
+}
+.footer .classic-switch:hover {
+  background: none;
+  color: var(--ink);
+}
 /* For developers: one line and two links above the small print, on every page of the website. */
 .footer-dev {
   flex-basis: 100%;
@@ -1481,7 +1494,7 @@ h3 {
 .logo-classic {
   display: none;
 }
-/* The switch, last in the menu: a little track that lights up. */
+/* The Classic mode switch, in the footer: a little track that lights up. */
 .classic-switch {
   display: flex;
   align-items: center;

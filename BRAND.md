@@ -23,8 +23,8 @@ Venn finds the day that works for a group: dinners, book clubs, trips, game nigh
 
 These come from the owner and outrank habits and defaults. Check every change against them.
 
-1. **Create a Venn is the primary action, everywhere.** Every page leads to making a poll. The top bar on every page is the logo, **Create a Venn** and the menu; signed out, a quiet **Sign in** sits after Create (plain text, or a person icon on phones), and nothing else. Empty states, "Poll not found" and the 404 page offer **Create a Venn**. Nothing (sign-in, templates, promos) competes with it for attention; accounts make Venn better for people who sign in, never stand in the way of creating.
-2. **Keep the website simple.** The home page is the hero, the four benefits, one closing call to action, contact and the footer. No feature promo sections (the brand-template section was taken off for this); features live in the menu ("For organizations") or their own pages. The menu stays short: account, For organizations, For developers, Contact, Classic mode. Privacy, Terms and Contact live in the footer.
+1. **Create a Venn is the primary action, everywhere.** Every page leads to making a poll. The top bar on every page is the logo, **Create a Venn** and the menu; signed out, a quiet **Sign in** sits after Create as plain text on wider screens, and nothing else. On phones the bar is only the logo, Create and the menu; Sign in is first in the menu. Empty states, "Poll not found" and the 404 page offer **Create a Venn**. Nothing (sign-in, templates, promos) competes with it for attention; accounts make Venn better for people who sign in, never stand in the way of creating.
+2. **Keep the website simple.** The home page is the hero, the four benefits, one closing call to action, contact and the footer. No feature promo sections (the brand-template section was taken off for this); features live in the menu ("For organizations") or their own pages. The menu stays short: account, For organizations, For developers, Contact. Privacy, Terms and Contact live in the footer.
 3. **Design mobile-first.** Design for a 375px phone, then check desktop. No sideways scrolling, 44px tap targets, 16px inputs. Walk the real journey on a phone before calling it done.
 4. **Accounts are optional.** Making and answering polls never needs an account, and every poll and template keeps working by its link. Signing in adds a better experience (My polls on any device; saving a new brand template) without getting in the way. Never put a sign-in wall, prompt or banner in front of creating or answering. Sign-in is Google and email for now.
 5. **Every UI PR shows phone and desktop screenshots** in its description: 390px and 1200px, in a Phone / Desktop table, retro (the default) and classic if both changed. See [CONTRIBUTING.md](CONTRIBUTING.md#before-you-open-a-pull-request).
@@ -65,7 +65,7 @@ Friendly, plain and short, like a helpful friend in the group chat.
 
 ## The two looks
 
-**Retro is the default** for the website and for new polls. **Classic mode** in the menu switches to the classic look (remembered in the browser; `venn.day/classic` links to it). An organizer can turn a poll's Retro look off. Brand templates replace both on their own polls only.
+**Retro is the default** for the website and for new polls. **Classic mode** at the end of the footer switches to the classic look (remembered in the browser; `venn.day/classic` links to it). An organizer can turn a poll's Retro look off. Brand templates replace both on their own polls only.
 
 |              | Retro (default)                                                     | Classic                                        |
 | ------------ | ------------------------------------------------------------------- | ---------------------------------------------- |

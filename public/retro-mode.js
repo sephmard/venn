@@ -1,4 +1,4 @@
-// The website's look: retro (html.retro, in site.css) is the site's own; Classic mode in the menu
+// The website's look: retro (html.retro, in site.css) is the site's own; Classic mode in the footer
 // switches to the classic look, remembered in this browser. Loaded in <head>, before the page is
 // drawn, so it never flashes the other look. The home page's address says which: venn.day for
 // retro, venn.day/classic for classic, so a copied link shares the look (and its preview).
