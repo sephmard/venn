@@ -146,10 +146,10 @@ export async function renderBrand(id) {
       });
       refreshAccountMenu();
     }
-    showForm(null, null, draft.step, { ...draft.fields, logo: draft.logo || null });
+    const off = showForm(null, null, draft.step, { ...draft.fields, logo: draft.logo || null });
     if (me.user) $('#brand-form').requestSubmit();
     else if (failed) toast('Sign-in didn’t finish. Try again.');
-    return;
+    return off;
   }
   return showForm(brand, token);
 }
@@ -488,9 +488,8 @@ function showForm(b, token, start, draft = null) {
     $('#err').textContent = '';
     send();
     if (focus) $(`#st-${ids[at]}`).focus({ preventScroll: true });
-    // On a phone the page goes to the preview, with the step under it and Back / Next under that.
-    if (focus && matchMedia('(max-width: 959px)').matches)
-      scrollTo({ top: scrollY + $('#brand-form > h1').getBoundingClientRect().bottom });
+    // On a phone each step starts at its top.
+    $('.step-panels').scrollTop = 0;
   };
   go(at, { focus: false });
   show();
@@ -645,7 +644,37 @@ function showForm(b, token, start, draft = null) {
       $('#err').textContent = ex.message;
     }
   };
-  if (!b) $('#b-name').focus();
+  if (!b && !PHONE.matches) $('#b-name').focus();
+  return fitPhone($('#brand-form'));
+}
+
+/**
+ * On a phone the editor is the screen under the top bar, and nothing else scrolls: the preview on
+ * top, the step under it (scrolling, if it's long) and Back / Next at the bottom. Returns a cleanup.
+ */
+const PHONE = matchMedia('(max-width: 959px)');
+let unfit = null;
+function fitPhone(form) {
+  unfit?.();
+  const root = document.documentElement;
+  const fit = () => {
+    const on = PHONE.matches && document.contains(form);
+    root.classList.toggle('brand-app', on);
+    if (!on) return form.style.removeProperty('height');
+    scrollTo(0, 0);
+    form.style.height = `${Math.max(420, innerHeight - form.getBoundingClientRect().top)}px`;
+  };
+  fit();
+  addEventListener('resize', fit);
+  PHONE.addEventListener?.('change', fit);
+  unfit = () => {
+    removeEventListener('resize', fit);
+    PHONE.removeEventListener?.('change', fit);
+    root.classList.remove('brand-app');
+    form.style.removeProperty('height');
+    unfit = null;
+  };
+  return () => unfit?.();
 }
 
 /** Three colours side by side, each a swatch with its name under it. */
@@ -711,14 +740,21 @@ const previewBox = (views) => `
 
 function livePreview(get) {
   const frame = $('#pv-frame');
+  // The frame is this site's own page, so the two talk directly (no messages to lose on the way):
+  // the frame asks for the template when it's ready (and again if it reloads), and each change is
+  // handed to it, as JSON.
+  const state = () => JSON.stringify(get());
+  window.vennPreviewState = state;
+  const call = (fn, arg) => {
+    try {
+      frame.contentWindow?.vennPreview?.[fn](arg);
+    } catch {}
+  };
   let timer;
   const send = () => {
     clearTimeout(timer);
-    timer = setTimeout(() => frame.contentWindow?.postMessage(get(), location.origin), 120);
+    timer = setTimeout(() => call('show', state()), 120);
   };
-  // The frame says when it's ready (and again if it reloads).
-  const ready = (e) => e.source === frame.contentWindow && e.data?.previewReady && send();
-  addEventListener('message', ready);
   // On a phone the preview stays pinned over the form; it can be folded away.
   $('#pv-toggle').onclick = () => {
     const open = frame.hidden;
@@ -734,7 +770,7 @@ function livePreview(get) {
       if (on === held) return;
       held = on;
       compare.classList.toggle('held', on);
-      frame.contentWindow?.postMessage({ compare: on }, location.origin);
+      call('compare', on);
     };
     compare.addEventListener('pointerdown', (e) => {
       hold(true);

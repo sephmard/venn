@@ -45,6 +45,10 @@ test('brand template: make one, share it, and its polls show the organization’
   // A step at a time, in the poll page's order: the first is its name and logo, and the preview
   // rings the part of the poll each step changes.
   await expect(page.locator('[data-panel="name"]')).toBeVisible();
+  // On a phone the editor is the screen: the page doesn't scroll (only the step does), so nothing
+  // slides under the preview.
+  if (page.viewportSize().width < 960)
+    expect(await page.evaluate(() => document.documentElement.scrollHeight - innerHeight)).toBeLessThanOrEqual(0);
   await expect(page.locator('[data-panel="colours"]')).toBeHidden();
   await expect(page.locator('#back')).toBeDisabled();
   await page.fill('#b-name', 'Acme Inc.');
