@@ -1,10 +1,20 @@
 // HTTP API built on web-standard Request/Response, shared by the Worker and the Node server.
 
-import { LIMITS, ValidationError, YES, allDaySpan, isValidTimeZone, buildSlots, meetingEnd, overlapEnd } from '../public/core.js';
+import {
+  LIMITS,
+  ValidationError,
+  YES,
+  allDaySpan,
+  isTopicPoll,
+  isValidTimeZone,
+  buildSlots,
+  meetingEnd,
+  overlapEnd,
+} from '../public/core.js';
 import { buildIcs, googleCalendarUrl, outlookCalendarUrl } from '../public/calendar-export.js';
 import { setLabel } from './preview.js';
 import { applyDeadline, closesLabel, deadlineView, isClosed, normalizeDeadline, remindNow, stopReminders } from './deadline.js';
-import { normalizeAvailability, normalizeEventInput, normalizeName } from './validate.js';
+import { checkSingle, normalizeAvailability, normalizeEventInput, normalizeName } from './validate.js';
 import { SECURITY_HEADERS } from './security-headers.js';
 import { IMAGE_FILES, IMAGE_LIMITS, MAX_IMAGE_BODY, imagePath, imageResponse, parseImage } from './images.js';
 import { BRAND_ID_RE, BRAND_ROLES, MAX_BRAND_INVITES, normalizeBrand, publicBrand } from './brands.js';
@@ -144,7 +154,9 @@ function publicEvent(ev, participants, { isAdmin, ownHash = null, ownId = null, 
  * needed), or yes to every time they offered.
  */
 const hostAvailability = (ev, marked) =>
-  marked != null ? normalizeAvailability(marked, buildSlots(ev)) : Object.fromEntries(buildSlots(ev).map((s) => [s, YES]));
+  marked != null
+    ? checkSingle(ev, normalizeAvailability(marked, buildSlots(ev)))
+    : Object.fromEntries(buildSlots(ev).map((s) => [s, YES]));
 
 /**
  * A guest's email, shown only to the organizer (for the calendar invite once the date is picked):
@@ -591,7 +603,9 @@ export async function handleApi(
       const id = randomId(10);
       const adminToken = randomId(24);
       // `hostAnswers`: the times the organizer offers count as their own answer (yes to all).
-      const host = body.hostAnswers === true && { id: randomId(10), editToken: randomId(24) };
+      // A topic poll's organizer votes like everyone else: only an answer they marked counts as theirs.
+      const host = body.hostAnswers === true &&
+        (!isTopicPoll(event) || body.hostAvailability != null) && { id: randomId(10), editToken: randomId(24) };
       if (host) event.hostId = host.id;
       // Checked before anything is saved, so a bad answer doesn't leave a poll behind.
       const hostAnswer = host && hostAvailability(event, body.hostAvailability);
@@ -762,6 +776,10 @@ export async function handleApi(
               ));
         // The picked date stays when it's still one of the poll's times (a new title, a note…).
         const keep = ev.finalStart != null && buildSlots(next).includes(ev.finalStart);
+        // A topic poll's picked option, the same way (same id, same words).
+        const pickedLabel = isTopicPoll(ev) && ev.options.find((o) => o.id === ev.picked)?.label;
+        if (pickedLabel && isTopicPoll(next) && next.options.some((o) => o.id === ev.picked && o.label === pickedLabel))
+          next.picked = ev.picked;
         if (host)
           await store.updateParticipant({
             id: host.id,
@@ -804,7 +822,7 @@ export async function handleApi(
 
     // GET /api/events/:id/event.ics
     if (parts.length === 3 && parts[2] === 'event.ics' && method === 'GET') {
-      if (ev.finalStart == null) return error(404, 'No time has been picked yet');
+      if (ev.finalStart == null || isTopicPoll(ev)) return error(404, 'No time has been picked yet');
       const end = meetingEnd(ev, ev.finalStart);
       const body = buildIcs({
         id: ev.id,
@@ -912,6 +930,7 @@ export async function handleApi(
     // POST /api/events/:id/ai/{summary,answer,message}
     if (isAi) {
       const kind = parts[3];
+      if (isTopicPoll(ev)) return error(404, 'Not available for this kind of poll');
       if (['answer', 'summary', 'message'].includes(kind)) count('ai.used', { feature: kind });
       if (kind === 'answer') {
         const body = await readJson(request);
@@ -991,9 +1010,23 @@ export async function handleApi(
     }
 
     // POST /api/events/:id/finalize  { start: number | null }
+    // A topic poll: { option: id | null }, the option the group goes with (kept as `picked`).
     if (parts.length === 3 && parts[2] === 'finalize' && method === 'POST') {
       if (!isAdmin) return error(403, 'Only the organizer can pick the final time');
-      const { start } = await readJson(request);
+      const body = await readJson(request);
+      if (isTopicPoll(ev)) {
+        const option = body.option === undefined ? body.start : body.option;
+        if (option !== null && !buildSlots(ev).includes(option))
+          throw new ValidationError('That option is not part of this poll');
+        const { id: _id, adminHash, finalStart, createdAt, picked: before, ...data } = ev;
+        await store.updateEvent(ev.id, option === null ? data : { ...data, picked: option });
+        if (option !== null) {
+          count('poll.finalized', kindOf(ev));
+          if (option !== before) notify({ ...ev, picked: option }, 'poll.picked', null, null);
+        }
+        return json({ ok: true, picked: option });
+      }
+      const { start } = body;
       const before = ev.finalStart;
       if (start !== null && !buildSlots(ev).includes(start)) throw new ValidationError('That time is not part of this poll');
       await store.setFinal(ev.id, start);
@@ -1007,7 +1040,10 @@ export async function handleApi(
       if (start !== null) {
         count('poll.finalized', kindOf(ev));
         await emailTheDate(ev, start);
-        if (start !== before) pushTheDate(ev, before != null);
+        if (start !== before) {
+          pushTheDate(ev, before != null);
+          notify({ ...ev, finalStart: start }, 'poll.picked', null, null);
+        }
       }
       return json({ ok: true, finalStart: start });
     }
@@ -1061,7 +1097,7 @@ export async function handleApi(
     if (parts.length === 3 && method === 'POST') {
       const body = await readJson(request);
       const name = normalizeName(body.name);
-      const availability = normalizeAvailability(body.availability, slots);
+      const availability = checkSingle(ev, normalizeAvailability(body.availability, slots));
       const copyTo = normalizeEmail(body.copyTo);
       const email = participantEmail(ev, body);
       if ((await store.countParticipants(ev.id)) >= LIMITS.participants)
@@ -1104,7 +1140,7 @@ export async function handleApi(
         if (!isOwner) return error(403, 'You can only edit your own response');
         const body = await readJson(request);
         const name = normalizeName(body.name);
-        const availability = normalizeAvailability(body.availability, slots);
+        const availability = checkSingle(ev, normalizeAvailability(body.availability, slots));
         const copyTo = normalizeEmail(body.copyTo);
         const email = isHost ? null : participantEmail(ev, body);
         await store.updateParticipant({ id: p.id, eventId: ev.id, name, availability, now: now() });

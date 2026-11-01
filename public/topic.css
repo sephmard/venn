@@ -1,0 +1,103 @@
+/* A topic poll's page (topic-poll.js): its rows to answer and the group's results. Loaded only
+   for topic polls; everything else comes from the poll page's styles. */
+.topic-row {
+  grid-template-columns: minmax(0, 1fr);
+}
+.topic-row .vote {
+  grid-column: 1;
+}
+.topic-row .row-when {
+  overflow-wrap: anywhere;
+}
+/* One pick: the whole row is the radio button. */
+button.topic-one {
+  width: 100%;
+  min-height: 56px;
+  text-align: left;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+}
+button.topic-one[data-v='2']::after {
+  content: '✓';
+  justify-self: end;
+  font-weight: 800;
+}
+button.topic-one {
+  grid-template-columns: minmax(0, 1fr) auto;
+}
+@container (min-width: 600px) {
+  .topic-row:not(.topic-one) {
+    grid-template-columns: minmax(0, 1fr) auto;
+  }
+  .topic-row .vote {
+    grid-column: 2;
+    grid-row: 1;
+  }
+}
+.topic-you {
+  display: grid;
+  gap: 6px;
+  margin-top: 16px;
+}
+.topic-poll .desc {
+  margin: 6px 0 0;
+  white-space: pre-line;
+}
+.topic-poll .best-hero .kicker {
+  margin: 0 0 4px;
+  font-weight: 700;
+}
+.t-results {
+  margin-top: 12px;
+}
+ol.t-results li {
+  display: grid;
+  gap: 6px;
+  align-items: stretch;
+}
+.t-result.final {
+  box-shadow: inset 4px 0 0 var(--final);
+  padding-left: 12px;
+}
+.t-line {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  overflow-wrap: anywhere;
+}
+.t-count {
+  color: var(--muted);
+  font-size: 0.9rem;
+  white-space: nowrap;
+}
+.t-bar {
+  display: flex;
+  height: 10px;
+  border-radius: 999px;
+  overflow: hidden;
+  background: var(--surface-2);
+}
+.t-yes {
+  background: var(--yes);
+}
+.t-maybe {
+  background: var(--maybe);
+}
+.t-who {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.875rem;
+}
+.t-result .link-btn {
+  justify-self: start;
+  min-height: 44px;
+}
+.best-hero .btn {
+  margin-top: 14px;
+}
+.banner-final .final-tell a.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}

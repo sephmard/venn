@@ -57,6 +57,7 @@ export function normalizeEventInput(input) {
     base.seriesOf = input.seriesOf;
   }
   if (input.mode === 'options') return normalizeOptionsEvent(input, base);
+  if (input.mode === 'topic') return normalizeTopicEvent(input, base);
   if (input.windows != null) return normalizeWindowsEvent(input, base);
 
   if (!Array.isArray(input.dates) || input.dates.length === 0) throw new ValidationError('Pick at least one date');
@@ -184,6 +185,38 @@ function normalizeOptionsEvent(input, base) {
     ev.layout = 'parts';
   } else if (input.layout != null) throw new ValidationError('Unknown layout');
   return ev;
+}
+
+/**
+ * A topic poll: people vote on options that aren't times (places, books, or one yes-or-no
+ * question). `options: [{ label }]` or plain strings; each gets an id from 1 in the order given,
+ * and answers are keyed by it. `single`: everyone picks one option.
+ */
+function normalizeTopicEvent(input, base) {
+  if (!Array.isArray(input.options) || !input.options.length) throw new ValidationError('Add at least one option');
+  if (input.options.length > LIMITS.topics) throw new ValidationError(`Add at most ${LIMITS.topics} options`);
+  const seen = new Set();
+  const options = input.options.map((o, i) => {
+    const label = cleanText(typeof o === 'string' ? o : o?.label, LIMITS.title, 'Each option', true);
+    const key = label.toLowerCase();
+    if (seen.has(key)) throw new ValidationError(`“${label}” is in the list twice`);
+    seen.add(key);
+    return { id: i + 1, label };
+  });
+  const ev = { ...base, mode: 'topic', options };
+  if (input.single === true) {
+    if (options.length < 2) throw new ValidationError('Add at least two options to pick one');
+    ev.single = true;
+  }
+  return ev;
+}
+
+/** In a "pick one" topic poll, an answer is yes to one option at most. */
+export function checkSingle(ev, availability) {
+  if (!ev.single) return availability;
+  const keys = Object.keys(availability);
+  if (keys.length > 1) throw new ValidationError('Pick one option');
+  return Object.fromEntries(keys.map((k) => [k, YES]));
 }
 
 const POLL_ID_RE = /^[A-Za-z0-9]{1,32}$/;

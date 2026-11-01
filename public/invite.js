@@ -1,7 +1,9 @@
 // The message the share sheet sends with a poll's link: who's asking, and that it's one tap.
 
-export function inviteText({ organizer, title, emoji, pick, set }) {
+export function inviteText({ organizer, title, emoji, pick, set, mode }) {
   const what = [title, emoji].filter(Boolean).join(' ');
+  if (mode === 'topic')
+    return `${organizer ? `${organizer} wants the group's pick: ${what}` : what} Tap the ones you'd go with (no sign-up)`;
   if (set) return `It's set: ${what}! Add it to your calendar:`;
   const ask = pick ? 'Tap the dates that work' : 'Tap your free days';
   return `${organizer ? `${organizer} wants to find a time for ${what}.` : `When works for ${what}?`} ${ask} (no sign-up)`;

@@ -29,11 +29,17 @@ export const OCCASIONS = TEMPLATES;
 // (/templates/friendsgiving) its template as ?template=. The form uses them.
 const titleFromUrl = () => (new URLSearchParams(location.search).get('title') || '').trim().slice(0, 120);
 const templateFromUrl = () => templateIndex(new URLSearchParams(location.search).get('template'));
+// "Find a date for it", from a decided topic poll: ?where= fills Where, and ?after=<poll> makes the
+// date poll follow on from it (seriesOf), so its group can be brought back.
+let after = null;
 export function prefillTitle() {
+  const q = new URLSearchParams(location.search);
   const title = titleFromUrl();
   const t = templateFromUrl();
   if (t >= 0) $(`[data-occasion="${t}"]`).click();
   if (title) $('#title').value = title;
+  if (q.get('where')) $('#more-box').open = !!($('#location').value = q.get('where').slice(0, 200));
+  after = /^[A-Za-z0-9]{1,32}$/.test(q.get('after') ?? '') ? q.get('after') : null;
   const from = fromUrl();
   const keep = new URLSearchParams([...(from ? [['from', from]] : []), ...(brandId ? [['brand', brandId]] : [])]);
   if (title || t >= 0) history.replaceState(null, '', location.pathname + (keep.size ? `?${keep}` : ''));
@@ -77,6 +83,7 @@ let editing = null; // the poll being changed, or null when creating one
 /** A create page starts a new form: not editing anything yet. */
 export function startForm() {
   editing = null;
+  after = null;
   brand = null;
   brandId = brandFromUrl();
   // Coming from a branded poll, the page goes back to Venn's own look.
@@ -278,6 +285,7 @@ export async function submit(body, occasion, answer = null) {
   body.hostAnswers = true;
   // A copy; the next one of a plan also says which poll it follows on from.
   if (source()) Object.assign(body, { copied: true }, editPoll?.seriesFields());
+  else if (after) body.seriesOf = after;
   if (fromUrl()) body.from = fromUrl();
   if (brand) body.brand = brand.id;
   // The celebration (and its picture) load while the poll is saved.

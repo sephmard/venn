@@ -117,6 +117,26 @@ const VERBS = {
 /** Everything a notification needs, independent of the channel. */
 export function buildSummary(ev, participants, { kind, name, origin, now }) {
   const best = rankTimes(ev, buildSlots(ev), participants, 1)[0] || null;
+  // A topic poll: options, not times. `bestOption` in place of `bestTime`, and the option picked.
+  if (ev.mode === 'topic') {
+    const picked = ev.options.find((o) => o.id === ev.picked);
+    return {
+      event: kind,
+      sentAt: new Date(now).toISOString(),
+      poll: {
+        id: ev.id,
+        title: ev.title,
+        url: `${origin}/e/${ev.id}`,
+        mode: 'topic',
+        responses: participants.length,
+        finalStart: null,
+        picked: picked ? { id: picked.id, label: picked.label } : null,
+      },
+      response: name == null ? null : { name },
+      bestTime: null,
+      bestOption: best && { id: best.option, label: best.label, yes: best.yes.length, ifNeeded: best.ifNeeded.length },
+    };
+  }
   return {
     event: kind,
     sentAt: new Date(now).toISOString(),
@@ -139,11 +159,16 @@ export function buildSummary(ev, participants, { kind, name, origin, now }) {
 }
 
 export function summaryText(s) {
+  if (s.event === 'poll.picked')
+    return `“${s.poll.title}” is decided: ${s.poll.picked ? s.poll.picked.label : s.poll.finalStart}.`;
   const who = s.response ? `${s.response.name} ${VERBS[s.event] || 'responded to'}` : 'Test notification for';
   let text = `${who} “${s.poll.title}”.`;
   if (s.bestTime) {
     const can = s.bestTime.available + s.bestTime.ifNeeded;
     text += ` Best time so far: ${s.bestTime.label} (${can} of ${s.poll.responses} can make it).`;
+  } else if (s.bestOption) {
+    const can = s.bestOption.yes + s.bestOption.ifNeeded;
+    text += ` Leading so far: ${s.bestOption.label} (${can} of ${s.poll.responses} said yes).`;
   } else if (s.poll.responses === 0) text += ' No responses yet.';
   return text;
 }
@@ -159,7 +184,9 @@ export function pushMessage(s) {
   const who = s.response ? `${s.response.name} ${PUSH_VERBS[s.event] || 'answered'}` : 'Notifications are on';
   const best = s.bestTime
     ? ` · ${s.bestTime.available + s.bestTime.ifNeeded} of ${s.poll.responses} can make the best time so far`
-    : '';
+    : s.bestOption
+      ? ` · ${s.bestOption.label} leads so far`
+      : '';
   return { title: s.poll.title, body: who + best, url: s.poll.url, tag: s.poll.id };
 }
 
@@ -384,9 +411,11 @@ export function responseEmail(s, unsubscribeUrl, { retro = false } = {}) {
   const can = s.bestTime && s.bestTime.available + s.bestTime.ifNeeded;
   const best = s.bestTime
     ? `Best time so far: ${s.bestTime.label} (${can} of ${s.poll.responses} can make it).`
-    : s.poll.responses
-      ? ''
-      : 'No answers yet.';
+    : s.bestOption
+      ? `Leading so far: ${s.bestOption.label} (${s.bestOption.yes + s.bestOption.ifNeeded} of ${s.poll.responses} said yes).`
+      : s.poll.responses
+        ? ''
+        : 'No answers yet.';
   const text = `${lead}${best ? `\n\n${best}` : ''}\n\nSee everyone's answers: ${s.poll.url}\n\nWaiting on anyone? Send them the same link.\n\nStop these emails: ${unsubscribeUrl}\n`;
   const headline = name && isNew ? heading(`${escHtml(name)} just answered! 🎉`) : '';
   const html = emailLayout(
@@ -517,6 +546,9 @@ export async function notifyResponse({ store, env, fetchImpl, now, origin, ev, k
     const emailedAt = { ...(settings.emailedAt || {}) };
 
     const jobs = [];
+    // The organizer picked it themselves: only their webhook (another app) needs telling.
+    const picked = kind === 'poll.picked';
+    if (picked && !settings.webhookUrl) return;
     if (settings.webhookUrl) {
       jobs.push(
         sendWebhook(settings.webhookUrl, settings.webhookSecret, s, { fetchImpl, now: now() })
@@ -529,7 +561,7 @@ export async function notifyResponse({ store, env, fetchImpl, now, origin, ev, k
     }
     // Each of the organizer's devices; one that has unsubscribed (gone) is forgotten.
     const gone = new Set();
-    if (settings.push?.length && pushEnabled(env)) {
+    if (!picked && settings.push?.length && pushEnabled(env)) {
       const msg = pushMessage(s);
       for (const sub of settings.push)
         jobs.push(
@@ -543,7 +575,7 @@ export async function notifyResponse({ store, env, fetchImpl, now, origin, ev, k
     }
     const recentlyEmailed = kind === 'response.updated' && now() - (emailedAt[participantId] || 0) < EDIT_EMAIL_COOLDOWN_MS;
     let emailsSent = settings.emailsSent || 0;
-    if (settings.email && emailEnabled(env) && !recentlyEmailed && emailsSent < MAX_ORGANIZER_EMAILS) {
+    if (!picked && settings.email && emailEnabled(env) && !recentlyEmailed && emailsSent < MAX_ORGANIZER_EMAILS) {
       const unsubscribeUrl = `${origin}/e/${ev.id}#unsubscribe=${settings.unsubscribeToken}`;
       const msg = responseEmail(s, unsubscribeUrl, { retro: ev.retro });
       jobs.push(

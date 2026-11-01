@@ -67,6 +67,7 @@ function upcoming(ev, now) {
  * instead, so the weekdays and times stay as they were.
  */
 export function freshPoll(ev, now = Date.now()) {
+  if (ev.mode === 'topic') return ev; // options, not dates: nothing goes out of date
   const dates = pollDates(ev);
   if (!dates.length || upcomingAll(ev, now)) return ev;
   const today = utcToZoned(now, ev.timezone).date;
