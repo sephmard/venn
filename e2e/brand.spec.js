@@ -33,9 +33,10 @@ async function audit(page, label) {
 
 test('brand template: make one, share it, and its polls show the organization’s look', async ({ page, browser }) => {
   test.setTimeout(60_000); // every step of the editor, three scans, then four browsers
-  // From the home page.
+  // From the website menu.
   await page.goto('/');
-  await page.getByRole('link', { name: 'Make your template' }).click();
+  await page.locator('summary[aria-label="Menu"]').click();
+  await page.getByRole('link', { name: 'For organizations' }).click();
   await expect(page.locator('h1')).toHaveText('Make a brand template');
   // The preview is the real poll page, with a sample poll, in the template's look as it's made.
   const pv = page.frameLocator('#pv-frame');

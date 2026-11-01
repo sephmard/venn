@@ -297,6 +297,38 @@ h2 em {
 .menu-panel a:hover {
   background: var(--paper-2);
 }
+/* A line between the menu's groups: the account, the website's links, then Classic mode. */
+.menu-sep {
+  margin: 6px 4px;
+  border: 0;
+  border-top: 1px solid var(--line);
+}
+.menu-who {
+  margin: 0;
+  padding: 6px 12px 2px;
+  color: var(--ink-2);
+  max-width: 240px;
+  font-size: 0.875rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.menu-panel .menu-signout {
+  display: flex;
+  align-items: center;
+  width: 100%;
+  min-height: 44px;
+  padding: 0 12px;
+  border: 0;
+  border-radius: 10px;
+  background: none;
+  color: var(--ink);
+  font: 500 1rem var(--sans);
+  cursor: pointer;
+}
+.menu-panel .menu-signout:hover {
+  background: var(--paper-2);
+}
 
 /* ---------- hero: the poll starts here ---------- */
 .hero {
