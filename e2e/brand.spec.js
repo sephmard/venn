@@ -37,10 +37,15 @@ test('brand template: make one, share it, and its polls show the organization’
   await page.goto('/');
   await page.locator('summary[aria-label="Menu"]').click();
   await page.getByRole('link', { name: 'For organizations' }).click();
-  // For organizations: a poll in a made-up organization's look, and one button.
+  // For organizations: one line, one button, and what a template changes.
   await expect(page.locator('h1')).toHaveText('Your brand on every poll');
-  await expect(page.frameLocator('#pv-frame').locator('.brand-bar')).toHaveText('Northwind');
+  // A still picture of one poll in three organizations' looks: nothing to tap, and the page doesn't
+  // scroll inside itself.
+  await expect(page.getByRole('img', { name: 'The same poll in three organizations’ own looks' })).toBeVisible();
+  await expect(page.locator('.fan-card')).toHaveCount(3);
+  await expect(page.locator('#pv-frame')).toHaveCount(0);
   await noSideways(page);
+  await audit(page, 'For organizations');
   await page.getByRole('link', { name: 'Make your template' }).click();
   await expect(page).toHaveURL(/\/brand\/new$/);
   await expect(page.locator('h1')).toHaveText('Make a brand template');

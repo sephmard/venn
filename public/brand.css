@@ -607,7 +607,8 @@
   min-height: 44px;
 }
 
-/* For organizations (/brand): the line, the button, and a poll in a made-up organization's look. */
+/* For organizations (/brand): the line, the button, and one poll in three organizations' looks,
+   fanned like cards. A still picture: nothing in it to tap or scroll. */
 .brand-intro .lede {
   margin: 0 0 18px;
   font-size: 1.15rem;
@@ -616,18 +617,108 @@
   margin: 24px 0 4px;
   font-size: 1rem;
 }
-.brand-intro .preview-box {
-  margin-top: 20px;
+.fan {
+  --spread: 44%;
+  display: grid;
+  justify-items: center;
+  margin: 28px 0 8px;
+  padding: 30px 0 34px;
+  overflow: hidden;
 }
-.brand-intro #pv-frame {
-  height: 62svh;
+.fan-card {
+  position: relative; /* each over the one before */
+  grid-area: 1 / 1;
+  display: grid;
+  gap: 8px;
+  width: min(184px, 47vw);
+  padding: 14px;
+  border-radius: calc(var(--fr) + 4px);
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--fx);
+  font-size: 0.8rem;
+  text-align: left;
+  box-shadow: 0 18px 40px rgba(0, 0, 0, 0.35);
+}
+.fan-card:nth-child(1) {
+  transform: translate(calc(var(--spread) * -1), -22px) rotate(-5deg);
+}
+.fan-card:nth-child(3) {
+  transform: translate(var(--spread), 22px) rotate(5deg);
+}
+.fan-brand {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  font-weight: 700;
+}
+.fan-logo {
+  display: grid;
+  place-items: center;
+  width: 24px;
+  height: 24px;
+  border-radius: min(var(--fr), 8px);
+  background: var(--accent);
+  color: var(--accent-ink);
+  font-family: var(--fh);
+  font-weight: 800;
+}
+.fan-title {
+  margin: 2px 0;
+  font-family: var(--fh);
+  font-size: 1.45rem;
+  line-height: 1.1;
+}
+.fan-row {
+  display: grid;
+  gap: 4px;
+  padding: 8px;
+  border-radius: var(--fr);
+  background: var(--surface);
+  font-weight: 600;
+}
+.fan-bar {
+  display: flex;
+  height: 5px;
+  overflow: hidden;
+  border-radius: 3px;
+}
+/* Answers keep their colours in every look: available, if needed, unavailable. */
+.fan-bar i:nth-child(1) {
+  background: #0b7a5c;
+}
+.fan-bar i:nth-child(2) {
+  background: #e0a12e;
+}
+.fan-bar i:nth-child(3) {
+  background: #f0b2a6;
+}
+.fan-btn {
+  justify-self: start;
+  margin-top: 2px;
+  padding: 7px 14px;
+  border-radius: var(--fbr);
+  background: var(--accent);
+  color: var(--accent-ink);
+  font-weight: 700;
 }
 @media (min-width: 960px) {
   .brand-intro {
-    align-items: start;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    align-items: center;
+    gap: 40px;
+    max-width: 1080px;
+    min-height: 60svh;
   }
-  .brand-intro .preview-box {
-    margin-top: 0;
+  .fan {
+    --spread: 58%;
+    margin: 0;
+    padding: 50px 0;
+  }
+  .fan-card {
+    width: 220px;
+    font-size: 0.9rem;
   }
 }
 .brand-signin {

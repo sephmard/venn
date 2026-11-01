@@ -4,7 +4,7 @@
 // server has sign-in (src/auth.js), saving a new one needs an account, and it's kept there (My polls);
 // the draft waits in this tab while its maker signs in. See src/brands.js. Loaded only on these pages.
 
-import { BUTTONS, CORNERS, FONTS, LOGO_SIZES, brandLook, mainColours } from './brand-look.js';
+import { BUTTONS, CORNERS, FONTS, LOGO_SIZES, brandLook, mainColours, scheme } from './brand-look.js';
 import { $, $$, api, app, esc, forget, getConfig, save, saved, toast } from './ui.js';
 import { accountHint, refreshAccountMenu } from './account-menu.js';
 import { signInAgree, signInButtons } from './account-data.js';
@@ -176,31 +176,54 @@ export async function renderBrand(id) {
   return showForm(brand, token);
 }
 
-// The sample on For organizations: a made-up organization's template, with a logo of its own.
-const SAMPLE_LOGO = `data:image/svg+xml,${encodeURIComponent(
-  '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64"><rect width="64" height="64" rx="16" fill="#8a2b0e"/><path d="M20 46V18h5l14 19V18h5v28h-5L25 27v19z" fill="#fbf7f0"/></svg>',
-)}`;
-const sample = () => ({ ...LOOKS.editorial[1], name: 'Northwind', logo: SAMPLE_LOGO, logoSize: 'medium' });
+// For organizations shows one poll in three organizations' own looks: what a template changes.
+const FAN = [
+  ['N', 'Northwind', 'editorial'],
+  ['O', 'Orbit', 'midnight'],
+  ['B', 'Bloom', 'playful'],
+];
+/** A poll in a look: its logo and name, the poll's title, its best days and its button. */
+const fanCard = ([mark, name, look]) => {
+  const l = LOOKS[look][1];
+  const r = CORNERS[l.corners || 'soft'][1];
+  // Its colours as on its polls (made readable), then its corners and fonts.
+  const vars = [
+    scheme(l).vars.replace(/;$/, ''),
+    `--fr:${r}px`,
+    `--fbr:${l.buttons === 'corners' ? `${r}px` : '999px'}`,
+    `--fh:${FONTS[l.font]?.[1] || 'inherit'}`,
+    `--fx:${FONTS[l.bodyFont]?.[1] || 'inherit'}`,
+  ].join(';');
+  const day = (d, yes, maybe) =>
+    `<span class="fan-row"><span>${d}</span><span class="fan-bar"><i style="flex:${yes}"></i><i style="flex:${maybe}"></i><i style="flex:${4 - yes - maybe}"></i></span></span>`;
+  return `<div class="fan-card" style="${esc(vars)}">
+    <span class="fan-brand"><span class="fan-logo">${mark}</span>${name}</span>
+    <span class="fan-title">Team lunch</span>
+    ${day('Thu, Nov 5', 3, 1)}${day('Fri, Nov 6', 2, 1)}
+    <span class="fan-btn">Pick this date</span>
+  </div>`;
+};
 
-/** For organizations: a poll in an organization's own look, and the button to make one. */
+/** For organizations: what a template is (the same poll in three looks), and the button to make one. */
 function showIntro(signedOut) {
   document.title = 'For organizations · Venn';
   const yours = mine();
   app.innerHTML = `
-    <div class="create brand-page brand-intro">
-      <h1>Your brand on every poll</h1>
-      <p class="lede">Your logo, colours and fonts on every poll your team makes.</p>
-      <p><a class="btn btn-primary btn-lg" href="/brand/new" data-link>${signedOut ? 'Sign in to make yours' : 'Make your template'}</a></p>
-      ${
-        yours.length
-          ? `<h2 id="mine-h">Your templates</h2><ul class="brand-list" aria-labelledby="mine-h">${yours
-              .map((x) => `<li><a href="/brand/${esc(x.id)}" data-link>${esc(x.name)}</a></li>`)
-              .join('')}</ul>`
-          : ''
-      }
-      ${previewBox(false)}
+    <div class="create brand-intro">
+      <div class="intro-text">
+        <h1>Your brand on every poll</h1>
+        <p class="lede">Your logo, colours, fonts and buttons on every poll your team makes.</p>
+        <p><a class="btn btn-primary btn-lg" href="/brand/new" data-link>${signedOut ? 'Sign in to make yours' : 'Make your template'}</a></p>
+        ${
+          yours.length
+            ? `<h2 id="mine-h">Your templates</h2><ul class="brand-list" aria-labelledby="mine-h">${yours
+                .map((x) => `<li><a href="/brand/${esc(x.id)}" data-link>${esc(x.name)}</a></li>`)
+                .join('')}</ul>`
+            : ''
+        }
+      </div>
+      <div class="fan" role="img" aria-label="The same poll in three organizations’ own looks">${FAN.map(fanCard).join('')}</div>
     </div>`;
-  livePreview(() => ({ brand: sample(), view: 'guest' }))();
 }
 
 /** Signing in (or making an account) to make a template: the ways in, and back here after. */
