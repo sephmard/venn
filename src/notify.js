@@ -173,7 +173,7 @@ export const MASCOT_PATH = '/img/venn-dog.png';
 const mascotUrl = (pageUrl) => `${new URL(MASCOT_PATH, pageUrl).href}?v=2`;
 
 /** `signed`: end with "Planned with Venn… make your own", for guests. Organizers already use Venn. */
-function emailLayout(bodyHtml, footerHtml, pageUrl, { signed = true } = {}) {
+export function emailLayout(bodyHtml, footerHtml, pageUrl, { signed = true } = {}) {
   return `<!doctype html><html><body style="margin:0;padding:24px;background:#f7f7f5;font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;color:#1c1d1f">
 <div style="max-width:520px;margin:0 auto;background:#fff;border:1px solid #e2e2dc;border-radius:10px;padding:24px">
 <div style="text-align:center;margin-bottom:12px"><img src="${escHtml(mascotUrl(pageUrl))}" width="80" height="174" alt="Finn, the Venn dog" style="display:inline-block;border:0"></div>
@@ -226,13 +226,13 @@ export function signature(pageUrl, html = false) {
     : `Planned with Venn. No sign-up needed: make your own at ${make}`;
 }
 
-const button = (href, label) =>
+export const button = (href, label) =>
   `<p style="margin:20px 0"><a href="${escHtml(href)}" style="display:inline-block;background:#0b7a5c;color:#fff;text-decoration:none;font-weight:600;padding:12px 20px;border-radius:999px">${escHtml(label)}</a></p>`;
 
-const heading = (html) => `<p style="margin:0 0 8px;font-size:22px;font-weight:700;line-height:1.3">${html}</p>`;
-const para = (html) => `<p style="margin:0 0 12px;line-height:1.5">${html}</p>`;
+export const heading = (html) => `<p style="margin:0 0 8px;font-size:22px;font-weight:700;line-height:1.3">${html}</p>`;
+export const para = (html) => `<p style="margin:0 0 12px;line-height:1.5">${html}</p>`;
 /** The link itself, under its button, for anyone who wants to copy or forward it. */
-const linkLine = (href) =>
+export const linkLine = (href) =>
   `<p style="margin:-8px 0 16px;font-size:13px;line-height:1.5;word-break:break-all"><a href="${escHtml(href)}" style="color:#0b7a5c">${escHtml(href)}</a></p>`;
 const smsBody = (title, pollUrl) => `When works for you? “${title}”: ${pollUrl}`;
 

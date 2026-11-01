@@ -396,6 +396,8 @@ export async function handleApi(
         readJson,
         headers: SECURITY_HEADERS,
         tokenMatches,
+        waitUntil,
+        clientIp,
       });
       if (res) return res;
     }
