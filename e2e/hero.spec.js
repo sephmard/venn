@@ -9,6 +9,18 @@ test('the messages find their friends, the circles meet, and Saturday pops out',
   await expect(venn.locator('.venn-chip').first()).toContainText('Ana');
   await expect(venn).toHaveAttribute('data-settled', 'true', { timeout: 18000 });
   await expect(venn.locator('.venn-hit')).not.toHaveClass(/\boff\b/);
+  // Then the messages float out again, faint, with the day still showing.
+  await expect
+    .poll(
+      () =>
+        venn
+          .locator('.venn-chip')
+          .first()
+          .evaluate((el) => +getComputedStyle(el).opacity),
+      { timeout: 6000 },
+    )
+    .toBeGreaterThan(0.3);
+  await expect(venn.locator('.venn-hit')).not.toHaveClass(/\boff\b/);
 });
 
 test('pull a friend away and the day goes; let go and it comes back', { tag: '@site' }, async ({ page, context, isMobile }) => {
