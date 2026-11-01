@@ -487,3 +487,162 @@ html.retro .btn-signin {
   border-color: #ffffff;
   box-shadow: 0 0 18px -6px rgb(45 226 230 / 0.8);
 }
+/* Email and password (email-signin.js), under the sign-in buttons. */
+.em-or {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin: 20px 0 12px;
+  color: var(--muted);
+  font-size: 0.9rem;
+}
+.em-or::before,
+.em-or::after {
+  flex: 1;
+  height: 1px;
+  background: var(--border);
+  content: '';
+}
+.em-form {
+  display: grid;
+  gap: 14px;
+}
+.em-field label {
+  margin-bottom: 6px;
+}
+.em-pw {
+  position: relative;
+}
+.em-pw input {
+  padding-right: 72px;
+}
+.em-show {
+  position: absolute;
+  top: 50%;
+  right: 4px;
+  min-width: 60px;
+  min-height: 40px;
+  transform: translateY(-50%);
+  border: 0;
+  border-radius: 10px;
+  background: transparent;
+  color: var(--accent);
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+}
+.em-hint {
+  margin: 6px 0 0;
+  color: var(--muted);
+  font-size: 0.9rem;
+}
+.em-lede,
+.em-note {
+  margin: 0;
+}
+.em-note {
+  padding: 10px 14px;
+  border-radius: 12px;
+  background: var(--accent-soft);
+}
+.em-error {
+  margin: 0;
+  color: var(--danger);
+  font-weight: 600;
+}
+.em-submit {
+  width: 100%;
+  min-height: 50px;
+}
+.em-links {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 4px 16px;
+}
+.em-links .link-btn {
+  min-height: 44px;
+}
+.em-sent {
+  display: grid;
+  justify-items: center;
+  gap: 8px;
+  padding: 20px 16px;
+  border: 1.5px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface);
+  text-align: center;
+}
+.em-sent h2 {
+  margin: 0;
+  font-size: 1.2rem;
+}
+.em-sent p {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+.em-sent-icon {
+  font-size: 2rem;
+}
+.em-sent .link-btn {
+  min-height: 44px;
+}
+.em-page .btn-primary {
+  margin-top: 4px;
+}
+/* Account settings (account-settings.js). */
+.set-back {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+  color: var(--accent);
+  font-weight: 600;
+  text-decoration: none;
+}
+.set-section {
+  display: grid;
+  gap: 4px;
+  margin: 0 0 16px;
+  padding: 16px;
+}
+.set-section h2 {
+  margin: 0 0 4px;
+  font-size: 1.05rem;
+}
+.set-section > .muted {
+  margin: 0 0 8px;
+}
+.set-section .acct-actions {
+  margin-top: 8px;
+}
+.set-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  min-height: 56px;
+  border-bottom: 1px solid var(--border);
+}
+.set-row:last-of-type {
+  border-bottom: 0;
+}
+.set-row .btn,
+.set-row .link-btn {
+  flex: none;
+  min-height: 44px;
+}
+.set-form {
+  display: grid;
+  gap: 12px;
+  padding: 8px 0 12px;
+}
+.set-form .acct-actions {
+  margin-top: 0;
+}
+.set-connect {
+  margin-top: 12px;
+}
+.em-page .lede,
+.set-row .acct-text {
+  overflow-wrap: anywhere;
+}

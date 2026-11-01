@@ -68,6 +68,8 @@ test('sign in, and the polls this browser organizes are in My polls, on any devi
   await page.fill('#organizer', 'Robin');
   await page.fill('#title', 'Board games');
   await pickDays(page, 2);
+  // This Venn sends email (for email sign-in), so a new poll asks for the organizer's.
+  await page.fill('#notify', 'robin@example.com');
   await page.click('#submit');
   await expect(page.locator('.party [role=status]')).toContainText('Your Venn is ready!');
   await expect(page.locator('.party')).toHaveCount(0, { timeout: 10_000 });
@@ -109,9 +111,10 @@ test('sign in, and the polls this browser organizes are in My polls, on any devi
   await page.getByRole('button', { name: 'Add', exact: true }).click();
   await expect(page.locator('.acct-row')).toHaveCount(3);
 
-  // Deleting the account asks first, in the page; the polls stay, with their links.
+  // Deleting the account is in Account settings, and asks twice; the polls stay, with their links.
+  await page.getByRole('link', { name: 'Account settings' }).click();
   await page.getByRole('button', { name: 'Delete account' }).click();
-  await page.locator('#acct-delete-yes').click();
+  await page.getByRole('button', { name: 'Yes, delete my account' }).click();
   await expect(page.getByRole('link', { name: 'Continue with Google' })).toBeVisible();
   await page.goto(`/e/${made.id}`);
   await expect(page.locator('h1')).toContainText('Supper club');
