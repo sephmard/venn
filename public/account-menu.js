@@ -1,5 +1,6 @@
-// The account's place in the top bar (app pages) and in the website's menu: "Sign in", or the
-// signed-in person's initial with My polls and Sign out. Only when the server has sign-in set up
+// The account's place in the top bar (app pages) and on the website: "Sign in" beside Create a
+// Venn, or (signed in) the person's initial, or the website menu, with My polls, Account settings
+// and Sign out. Only when the server has sign-in set up
 // (/api/config), and never "Sign in" on a poll's page, which is for answering. Who's signed in is
 // remembered in this browser (just a name and an initial), so it shows without asking the server.
 
@@ -96,19 +97,26 @@ async function drawBar(bar, me) {
 
 function drawSiteMenu(panel, me) {
   panel.querySelector('.acct-group')?.remove();
+  panel.closest('.nav-links')?.querySelector('.site-signin')?.remove();
   if (!me && !configured) return;
-  // The account first, set apart from the website's own links by a line: "Sign in", or who's
-  // signed in with My polls, Account settings and Sign out.
+  // Signed out: "Sign in" in the bar, quieter than Create a Venn, which stays the main way in.
+  if (!me) {
+    // On phones, where the bar is full, a person icon says it.
+    const a = Object.assign(document.createElement('a'), { href: '/me', className: 'site-signin' });
+    a.innerHTML =
+      '<svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><circle cx="12" cy="8" r="4" fill="none" stroke="currentColor" stroke-width="2" /><path d="M4 20c1.5-4 4.5-6 8-6s6.5 2 8 6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" /></svg><span>Sign in</span>';
+    panel.closest('details').before(a);
+    return;
+  }
+  // Signed in: the account first in the menu, set apart from the website's links by a line.
   const group = document.createElement('div');
   group.className = 'acct-group';
-  group.innerHTML = me
-    ? `${me.name ? `<p class="menu-who">${esc(me.name)}</p>` : ''}
-       <a href="/me">My polls</a>
-       <a href="/me/settings">Account settings</a>
-       <button type="button" class="menu-signout">Sign out</button>
-       <hr class="menu-sep" />`
-    : '<a href="/me">Sign in</a><hr class="menu-sep" />';
-  group.querySelector('.menu-signout')?.addEventListener('click', async () => {
+  group.innerHTML = `${me.name ? `<p class="menu-who">${esc(me.name)}</p>` : ''}
+     <a href="/me">My polls</a>
+     <a href="/me/settings">Account settings</a>
+     <button type="button" class="menu-signout">Sign out</button>
+     <hr class="menu-sep" />`;
+  group.querySelector('.menu-signout').addEventListener('click', async () => {
     panel.closest('details').open = false;
     const { signOut } = await import('./account.js');
     await signOut();
