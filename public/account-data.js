@@ -58,13 +58,19 @@ export function whenShort(t, now = Date.now()) {
   return new Date(t).toDateString() === new Date(now).toDateString() ? 'Today' : short(t, now);
 }
 
+/** Whether a My polls row is a topic poll (deciding what or where), not a date poll. */
+export const isVote = (p) => p.mode === 'topic';
+
 /**
  * Everything a made poll's row says under its name, so polls with the same name can be told apart:
- * the picked date (or that it's waiting), how many answered, and where.
+ * what kind it is (a vote, when it isn't finding a date), the pick (or that it's waiting), how many
+ * answered, and where.
  */
 export function madeMeta(p, now = Date.now()) {
   const n = p.answers ? `${p.answers} ${p.answers === 1 ? 'answer' : 'answers'}` : 'No answers yet';
-  return [p.finalStart != null || p.decided ? pollMeta(p, now) : null, n, p.location].filter(Boolean).join(' · ');
+  return [isVote(p) && 'Vote', p.finalStart != null || p.decided ? pollMeta(p, now) : null, n, p.location]
+    .filter(Boolean)
+    .join(' · ');
 }
 
 /** A nudge for the group, ready to paste or share: "Still need your answer for …". */
@@ -74,20 +80,26 @@ export const nudgeText = (p, url) => `Still need your answer for “${p.title}�
 export function answeredMeta(p, now = Date.now()) {
   const first =
     p.finalStart == null && !p.decided
-      ? `Waiting on ${p.decided === null ? 'a pick' : 'a date'} · ${p.answers} ${p.answers === 1 ? 'answer' : 'answers'}`
+      ? `Waiting on ${isVote(p) ? 'a pick' : 'a date'} · ${p.answers} ${p.answers === 1 ? 'answer' : 'answers'}`
       : pollMeta(p, now);
-  return [first, p.organizer, p.location].filter(Boolean).join(' · ');
+  return [isVote(p) && 'Vote', first, p.organizer, p.location].filter(Boolean).join(' · ');
 }
 
-/** Whether they can make the picked date, as the key says it: [class, words], or null. */
+/** Whether they can make the picked date (or went with the pick), as the key says it: [class, words], or null. */
 export const canMake = (p) =>
   p.can == null
     ? null
-    : [
-        ['v-no', 'Can’t make it'],
-        ['v-maybe', 'If needed'],
-        ['v-yes', 'You’re in'],
-      ][p.can] || null;
+    : (isVote(p)
+        ? [
+            ['v-no', 'Not your pick'],
+            ['v-maybe', 'If needed'],
+            ['v-yes', 'Your pick'],
+          ]
+        : [
+            ['v-no', 'Can’t make it'],
+            ['v-maybe', 'If needed'],
+            ['v-yes', 'You’re in'],
+          ])[p.can] || null;
 
 // My polls' sorts and groupings, by key, with their labels. `when` is the time that matters for a
 // row: when the poll was made, or when they answered it.
@@ -95,23 +107,31 @@ export const SORTS = { new: 'Newest', old: 'Oldest', date: 'Date picked', name: 
 /** What each sort says in full, in the sort sheet. */
 export const SORT_HINTS = { new: 'Newest first', old: 'Oldest first', date: 'Soonest picked date first', name: 'A to Z' };
 export const GROUPS = { status: 'Status', month: 'Month', none: 'None' };
+/** Which polls to show: all of them, only the ones finding a date, or only the votes. */
+export const KINDS = { all: 'All', date: 'Dates', topic: 'Votes' };
+/** Whether a list has both kinds of poll, so showing one kind is worth offering. */
+export const mixedKinds = (items) => items.some(isVote) && items.some((p) => !isVote(p));
 const STATUS = [
   ['soon', 'Coming up'],
   ['open', 'Waiting on a date'],
+  ['pick', 'Waiting on a pick'],
   ['past', 'Past'],
 ];
 const when = (p) => p.answeredAt ?? p.createdAt ?? 0;
 // A decided topic poll is done: with the past ones.
-const statusOf = (p, now) => (p.decided ? 'past' : p.finalStart == null ? 'open' : p.finalStart >= now ? 'soon' : 'past');
+const statusOf = (p, now) =>
+  p.decided ? 'past' : isVote(p) ? 'pick' : p.finalStart == null ? 'open' : p.finalStart >= now ? 'soon' : 'past';
 
 /**
- * The rows to show, filtered by `q` (its name, or who made it), sorted and grouped:
- * [{ key, label, items }]. With group 'none', one group with no label.
+ * The rows to show, filtered by `q` (its name, or who made it) and `kind` (KINDS), sorted and
+ * grouped: [{ key, label, items }]. With group 'none', one group with no label.
  */
-export function arrange(items, { q = '', sort = 'new', group = 'status' } = {}, now = Date.now()) {
+export function arrange(items, { q = '', sort = 'new', group = 'status', kind = 'all' } = {}, now = Date.now()) {
   const words = q.trim().toLocaleLowerCase().split(/\s+/).filter(Boolean);
   const hay = (p) => `${p.title || p.name || ''} ${p.organizer || ''}`.toLocaleLowerCase();
-  const list = items.filter((p) => words.every((w) => hay(p).includes(w)));
+  const list = items.filter(
+    (p) => words.every((w) => hay(p).includes(w)) && (kind === 'all' || (kind === 'topic') === isVote(p)),
+  );
   const name = (p) => p.title || p.name || '';
   const by = {
     new: (a, b) => when(b) - when(a),
@@ -119,7 +139,7 @@ export function arrange(items, { q = '', sort = 'new', group = 'status' } = {}, 
     name: (a, b) => name(a).localeCompare(name(b), undefined, { sensitivity: 'base', numeric: true }),
     // Picked dates first, the nearest coming one first, then past ones, latest first; then the rest, newest.
     date: (a, b) => {
-      const rank = (p) => ({ soon: 0, past: 1, open: 2 })[statusOf(p, now)];
+      const rank = (p) => ({ soon: 0, past: 1, open: 2, pick: 2 })[statusOf(p, now)];
       const d = rank(a) - rank(b);
       if (d) return d;
       if (rank(a) === 0) return a.finalStart - b.finalStart;

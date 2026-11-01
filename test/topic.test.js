@@ -8,7 +8,9 @@ import { buildSummary, summaryText } from '../src/notify.js';
 import { pollPreview } from '../src/preview.js';
 import { pollKind, cleanUsage } from '../src/usage.js';
 import { inviteText } from '../public/invite.js';
-import { answeredMeta, madeMeta, pollMeta } from '../public/account-data.js';
+import { answeredMeta, arrange, canMake, madeMeta, mixedKinds, pollMeta } from '../public/account-data.js';
+import { DatabaseSync } from 'node:sqlite';
+import { createStore, sqliteAdapter } from '../src/store.js';
 
 let server, baseUrl;
 before(async () => {
@@ -137,6 +139,61 @@ test('topic polls in webhooks, link previews, invites, usage and My polls', () =
   assert.ok(cleanUsage('poll.created', { kind: 'topic', detail: 'yesno' }));
 
   assert.equal(pollMeta({ decided: "Rosa's", answers: 3 }), "Decided: Rosa's");
-  assert.equal(madeMeta({ decided: "Rosa's", finalStart: null, answers: 3 }), "Decided: Rosa's · 3 answers");
-  assert.match(answeredMeta({ decided: null, finalStart: null, answers: 2 }), /^Waiting on a pick/);
+  assert.equal(
+    madeMeta({ mode: 'topic', decided: "Rosa's", finalStart: null, answers: 3 }),
+    "Vote · Decided: Rosa's · 3 answers",
+  );
+  assert.match(answeredMeta({ mode: 'topic', decided: null, finalStart: null, answers: 2 }), /^Vote · Waiting on a pick/);
+});
+
+test('My polls: votes are labelled, grouped on their own while open, and can be shown alone', () => {
+  const now = Date.UTC(2026, 10, 1);
+  const polls = [
+    { id: 'a', title: 'Dinner', createdAt: 3, finalStart: null, answers: 1 },
+    { id: 'b', title: 'Where to eat', mode: 'topic', decided: null, createdAt: 2, finalStart: null, answers: 2 },
+    { id: 'c', title: 'Which book', mode: 'topic', decided: 'Dune', createdAt: 1, finalStart: null, answers: 4 },
+  ];
+  assert.equal(madeMeta(polls[0]), '1 answer');
+  assert.equal(madeMeta(polls[1]), 'Vote · 2 answers');
+  assert.ok(mixedKinds(polls));
+  assert.ok(!mixedKinds(polls.slice(1)));
+  const groups = arrange(polls, {}, now);
+  assert.deepEqual(
+    groups.map((g) => [g.label, g.items.map((p) => p.id)]),
+    [
+      ['Waiting on a date', ['a']],
+      ['Waiting on a pick', ['b']],
+      ['Past', ['c']],
+    ],
+  );
+  const ids = (kind) => arrange(polls, { kind, group: 'none' }, now).flatMap((g) => g.items.map((p) => p.id));
+  assert.deepEqual(ids('topic'), ['b', 'c']);
+  assert.deepEqual(ids('date'), ['a']);
+  assert.deepEqual(ids('all'), ['a', 'b', 'c']);
+  assert.deepEqual(canMake({ mode: 'topic', can: 2 }), ['v-yes', 'Your pick']);
+  assert.deepEqual(canMake({ can: 2 }), ['v-yes', 'You’re in']);
+});
+
+test('My polls rows say a poll is a vote, what was picked, and whether it was your pick', async () => {
+  const store = createStore(sqliteAdapter(new DatabaseSync(':memory:')));
+  const event = {
+    title: 'Where to eat',
+    mode: 'topic',
+    options: [
+      { id: 1, label: "Rosa's" },
+      { id: 2, label: 'Taco Loco' },
+    ],
+    picked: 2,
+  };
+  await store.createEvent({ id: 'topic1', event, adminHash: 'x', now: 1 });
+  await store.insertParticipant({ id: 'p1', eventId: 'topic1', name: 'Mia', availability: { 2: YES }, editHash: 'y', now: 2 });
+  const user = await store.upsertUser({ provider: 'google', subject: 's1', email: 'm@example.com', name: 'Mia', now: 1 });
+  await store.addOwner('poll', 'topic1', user.id, 3);
+  await store.addOwner('answer', 'p1', user.id, 3);
+  const [made] = await store.listOwnedPolls(user.id);
+  assert.equal(made.mode, 'topic');
+  assert.equal(made.decided, 'Taco Loco');
+  const [answered] = await store.listAnsweredPolls(user.id);
+  assert.equal(answered.mode, 'topic');
+  assert.equal(answered.can, YES);
 });

@@ -250,6 +250,11 @@ the same PR** (and CLAUDE.md if it's a rule that matters in review).
   organizer picks with the same in-page "Go with …?" check; the banner says **Decided**, with **Find
   a date for it**: a date poll named after the pick (its Where too, for "Where…" questions) that
   follows on from the topic poll, so "Bring the group back" invites the same people.
+- In **My polls** (the owner asked, 2026-11) a topic poll is a **Vote**: a 🗳️ mark (unless its
+  occasion has an emoji), "Vote · …" under its name, and open ones group as **Waiting on a pick**
+  (decided ones go to Past, "Decided: …"). Answered rows say **Your pick** / **Not your pick**. When
+  a list has both kinds, the sort sheet becomes **Show and sort** with All · Dates · Votes on top
+  (remembered); the sort button then names the kind, "Votes", not a truncated sort.
 - Not yet: guests suggesting options, ranked choice, AI features, deadlines.
 
 **Never**
