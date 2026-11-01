@@ -7,6 +7,7 @@ import {
   createBar,
   explainNotReady,
   fillCommon,
+  kindSwitch,
   loadSource,
   nameAndEmail,
   planFields,
@@ -25,10 +26,6 @@ import { $, $$, app, esc, getConfig, plural, track } from './ui.js';
 const YES_NO = ['Yes', 'No'];
 // What the question box suggests: something to choose between, or something to say yes or no to.
 const ASK = { options: 'Where should we eat?', yesno: 'Should we do a book swap?' };
-const LEDE = {
-  options: "List the options. Everyone taps the ones they'd go with, and Venn finds the favourite.",
-  yesno: 'Ask one question. Everyone taps Yes or No, and Venn shows where the group stands.',
-};
 
 const row = (value = '', n = 1) => `
   <li class="topic-opt">
@@ -45,9 +42,9 @@ export function renderTopic() {
 
   app.innerHTML = `
     <form id="create" class="create topic-create" novalidate>
-      <a class="back" href="/new" data-link>‹ Pick a date instead</a>
+      <a class="back" href="/" hidden>‹ Back</a>
       <h1>Create a Venn</h1>
-      <p class="lede create-lede" id="topic-lede">${LEDE.options}</p>
+      ${src ? '' : kindSwitch('topic')}
       ${planFields('topic')}
       <section class="sheet" aria-labelledby="opts-h" id="opts-sheet">
         <h2 id="opts-h">What are the options?</h2>
@@ -144,7 +141,6 @@ export function renderTopic() {
     $('#opts-sheet').hidden = k === 'yesno';
     $('#yesno').hidden = k !== 'yesno';
     $('#title').placeholder = ASK[k];
-    $('#topic-lede').textContent = LEDE[k];
     update();
   }
   $('.topic-kind').addEventListener('click', (e) => {

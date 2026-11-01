@@ -114,6 +114,17 @@ const SEED = 'Get-together';
 /** The poll still has the name Venn gave it (data-seed). */
 const seeded = () => $('#title').value === $('#title').dataset.seed;
 
+/**
+ * Which kind of Venn: find a date (/new) or vote on what or where (/new/topic). The same switch on
+ * both forms, in the same place, so going between them feels like one page. A brand template stays.
+ */
+export function kindSwitch(on) {
+  const brand = new URLSearchParams(location.search).get('brand');
+  const q = brand ? `?brand=${encodeURIComponent(brand)}` : '';
+  const link = (k, href, label) => `<a href="${href}${q}" data-link${k === on ? ' aria-current="page"' : ''}>${label}</a>`;
+  return `<nav class="seg kind-switch" aria-label="Kind of Venn">${link('date', '/new', '📅 Date')}${link('topic', '/new/topic', '🗳️ Vote')}</nav>`;
+}
+
 export function planFields(kind) {
   // Templates as a row of cards to scroll: what's in season first (see templates.js).
   return `

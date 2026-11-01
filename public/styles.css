@@ -389,8 +389,19 @@ a.link-btn {
   justify-content: center;
   gap: 6px;
 }
+.seg a {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 44px;
+  border-radius: 999px;
+  font-weight: 600;
+  text-decoration: none;
+  color: inherit;
+}
 .seg [aria-checked='true'],
-.seg [aria-pressed='true'] {
+.seg [aria-pressed='true'],
+.seg [aria-current='page'] {
   background: var(--surface);
   box-shadow: var(--lift);
   outline: 1.5px solid var(--accent);
