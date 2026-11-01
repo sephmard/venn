@@ -4,7 +4,7 @@ Venn is a free polling app for finding a date for dinners, book clubs, trips and
 
 ## Design preferences
 
-Before designing, building or reviewing anything users see, read [`.claude/skills/venn-design/SKILL.md`](.claude/skills/venn-design/SKILL.md): the owner's standing preferences (phones first, the UI explains itself instead of words, one consistent way everywhere) and the specific decisions behind today's screens. When the owner states a new preference or reverses one, update that file in the same PR.
+Before designing, building or reviewing anything users see, read [`BRAND.md`](BRAND.md): the brand guidelines and the owner's standing rules (Create a Venn is the primary action everywhere, keep the website simple, phones first, accounts are optional, every UI PR shows phone and desktop screenshots), voice, logo and the two looks. It points to [`DESIGN.md`](DESIGN.md) for tokens and components and to [`.claude/skills/venn-design/SKILL.md`](.claude/skills/venn-design/SKILL.md) for the specific decisions behind today's screens. When the owner states a new preference or reverses one, update the right one of those files in the same PR.
 
 ## Rules that matter in review
 
@@ -16,6 +16,8 @@ Before designing, building or reviewing anything users see, read [`.claude/skill
 - **Optional features stay optional.** Email, calendars, AI and sign-in switch on only when their settings exist, and `/api/config` reports them. The app must work fully without them.
 - **Accounts gate one thing.** Signing in (`src/auth.js`) adds My polls (polls made, polls answered, templates), and where sign-in is set up, saving a _new_ brand template needs it. Nothing else: making and answering polls never needs an account, and every poll and template keeps working by its link. Accounts are matched by the provider's id, never by email; sessions are stored as hashes like tokens. Email and password sign-in (`src/email-auth.js`) confirms every address by link first, never says which emails have accounts, and joins Google to an account only when connected from Account settings while signed in.
 - **Phones first.** Everything must work at 375px wide with no sideways scrolling, 44px tap targets and 16px inputs.
+- **Create a Venn stays the primary action.** Nothing new (sign-in, promos, templates) competes with it, and the home page stays simple: no feature promo sections.
+- **Screenshots in every UI PR.** Phone (390px) and desktop (1200px) screenshots of each changed screen go in the PR description.
 - **Accessibility.** Interactive elements need accessible names and keyboard access; colours must meet WCAG AA contrast in light and dark mode. The axe tests in `e2e/a11y.spec.js` enforce the basics.
 - **Tests.** Logic changes need a test in `test/`; user-facing flows need one in `e2e/`. Coverage must stay above the floor in `npm run test:coverage`.
 

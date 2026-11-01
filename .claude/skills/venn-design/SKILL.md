@@ -6,12 +6,17 @@ description: How Venn should look, read and behave, and how changes to it are ma
 # Venn: design preferences and how we work
 
 These are the owner's standing preferences, learned over many rounds of review. They outrank
-defaults and habits. **When the owner states a new preference or reverses one, update this file in
+defaults and habits. Start with [BRAND.md](../../../BRAND.md) (the brand guidelines and standing
+rules); this file holds the screen-by-screen decisions, and [DESIGN.md](../../../DESIGN.md) the tokens. **When the owner states a new preference or reverses one, update this file in
 the same PR** (and CLAUDE.md if it's a rule that matters in review).
 
 ## The first principles
 
 - **Phones first.** Design for a 375px phone, then check desktop. Desktop is secondary.
+- **Create a Venn is the primary action everywhere.** Every page leads to making a poll; nothing
+  else competes with it.
+- **Accounts are optional.** They add a better experience for people who sign up, never a step in
+  front of creating or answering.
 - **The UI explains itself; words don't.** If something needs a sentence to be understood, change the
   UI instead. Cut helper text, hints and labels that restate what the screen already shows. Every
   word must earn its place. ("Webhooks for Slack…", "what your guests will mark" and "long enough"
@@ -160,7 +165,8 @@ the same PR** (and CLAUDE.md if it's a rule that matters in review).
 
 **Website (venn.day)**
 
-- Simple and sexy. Four values, framed as benefits (what people get), not features.
+- Simple and sexy. Four values, framed as benefits (what people get), not features. No feature
+  promo sections on the home page (the brand-template section was taken off for this).
 - **Retro is the default, for the website and for new polls.** The site's menu has **Classic mode**
   (a switch, off) for the classic look, remembered in the browser. The home page's address says
   which: `venn.day` for retro, `venn.day/classic` for classic, so a copied link previews the look
@@ -207,6 +213,7 @@ the same PR** (and CLAUDE.md if it's a rule that matters in review).
   tests that describe old behaviour rather than working around them.
 - Run `npm run check` and the browser tests before pushing. Page-weight budgets in
   `test/budget.test.js`: trim first (comments count, as there's no build step); raise only with a note.
-- Look at it: screenshot at 375–390px, light and dark, before saying it's done.
+- Look at it: screenshot at 375–390px, light and dark, before saying it's done. **Every UI PR's
+  description shows phone (390px) and desktop (1200px) screenshots** of each changed screen.
 - Keep the repo clean: screenshots and scratch scripts go outside it; never commit them.
 - Report plainly: what changed for users, what was tested, what's still open and needs a decision.

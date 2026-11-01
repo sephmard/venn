@@ -1,5 +1,7 @@
 # Venn design system
 
+Start with [BRAND.md](BRAND.md): the brand guidelines and standing rules. This file is the detail: tokens, type, spacing and components.
+
 The marketing pages (`public/index.html`, `privacy.html`, `404.html`, styled by `public/site.css`) follow this file, in their usual look or in **retro mode** (below). The app itself (`public/styles.css`) shares the same green and neutrals.
 
 **Direction: warm editorial.** Warm paper, an elegant serif for big headlines, a plain sans for everything else, and one idea carried through: overlapping circles, like the logo. Calm and confident; never busy.
@@ -62,12 +64,12 @@ Lines stay under 65 characters. Italic serif is the only emphasis inside headlin
 - **Primary button:** green pill, `--green-ink` text, 48px tall (44px minimum tap target). Hover darkens slightly; focus shows a 3px `--green` ring with 3px offset; no disabled state on these pages.
 - **Secondary button:** text link style with an arrow, `--ink`, underline on hover.
 - **Links:** `--green`, underlined in prose, plain in navigation.
-- **Nav bar:** sticky, `--paper` at 96% with a light blur and a `--line` bottom border. Logo left; For groups, For developers, Docs, Privacy, a bordered **GitHub** pill (mark + label) and the primary **Create a poll** button right, on every page including the home page, so it is one tap away however far down people scroll. Under 900px the text links move into a menu (a `<details>` panel, no script); under 640px the GitHub pill becomes a 44px icon button, but it is always visible.
-- **Poll cards:** the hero's centrepiece and the main way into the app. Two equal `--card` panels (28px radius, `--card-shadow`), one per kind of poll, each a plain link: **Vote on a few dates** (`/new/pick`, with Fri · Sat · Sun chips) and **Ask when people are free** (`/new/free`, with the logo's three circles). Each has a serif title, one line on how it works, who it's for in `--green`, and a gradient **Create →** pill. Hover lifts the card and outlines it in `--green`. They stack on phones.
+- **Nav bar:** sticky, `--paper` at 96% with a light blur and a `--line` bottom border. The logo and "Venn" left; the primary **Create a Venn** button and the menu right, on every page including the home page, so it is one tap away however far down people scroll. The menu (a `<details>` panel) is short: the account group (Sign in, or the person's name with My polls, Account settings and Sign out), For organizations, Contact, and the **Classic mode** switch. GitHub, Docs, Privacy and Terms are in the footer, not the bar.
+- **Hero:** the headline ("Find the day that works for everyone."), one line on how it works, and a big gradient **Create a Venn →** pill, the main way into the app (`/new`), beside the hero's group-chat Venn. The page closes with the same button under "Stop the back-and-forth. Just Venn it."
 - **Ghost button (on the dark band):** transparent with a light inset border. Used for **View on GitHub** next to **Read the API docs**.
 - **Code card:** near-black on the dark band, 20px radius, monospace at 14px (12px on phones, wrapping), `$` prompts in `--band-accent`. It shows a real API request that works against venn.day.
-- **Footer:** one row of small links on `--line` top border: Templates, Privacy, Docs, GitHub, Contact (the home page's form).
-- **Template pages** (`/templates`, `/templates/friendsgiving`, `holiday-party`, `secret-santa`): a breadcrumb, a serif H1 with a big gradient button that opens the app with that template chosen, and a poll drawn in HTML (dates with bars for how many can make each, the best one in green). Then how-to steps, tips with the logo bullets, a sample timeline and questions (with FAQPage JSON-LD). The home page links to them in a "Planning for the holidays?" section of cards.
+- **Footer:** "© Venn · Free and open source" and one row of small links on a `--line` top border: Privacy, Terms, Docs, GitHub, Contact (the home page's form).
+- **Template pages** (`/templates`, `/templates/friendsgiving`, `holiday-party`, `secret-santa`): a breadcrumb, a serif H1 with a big gradient button that opens the app with that template chosen, and a poll drawn in HTML (dates with bars for how many can make each, the best one in green). Then how-to steps, tips with the logo bullets, a sample timeline and questions (with FAQPage JSON-LD). The home page has no section for them (it stays simple); they are reached from search and the sitemap.
 - **Focus:** every interactive element shows the green ring with `:focus-visible`.
 
 ## Imagery and motion
