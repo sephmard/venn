@@ -14,6 +14,8 @@
 
 import { ValidationError } from '../public/core.js';
 import { BRAND_ID_RE } from './brands.js';
+import { emailSignInEnabled, handleEmailAuth } from './email-auth.js';
+import { verifyPassword } from './password.js';
 
 export const SESSION_DAYS = 30;
 const SESSION_COOKIE = 'venn_session';
@@ -69,10 +71,15 @@ function endpoint(env, name, which) {
 }
 
 /** The providers people can sign in with on this server, in the order they're shown. */
-export const signInProviders = (env) =>
-  Object.keys(PROVIDERS).filter((n) => PROVIDERS[n].clientId(env) && PROVIDERS[n].secret(env));
+export const signInProviders = (env) => [
+  ...Object.keys(PROVIDERS).filter((n) => PROVIDERS[n].clientId(env) && PROVIDERS[n].secret(env)),
+  // An email and a password (src/email-auth.js), when the server sends email to confirm addresses.
+  ...(emailSignInEnabled(env) ? ['email'] : []),
+];
 
-export const providerLabel = (name) => PROVIDERS[name]?.label || name;
+const oauthProviders = (env) => signInProviders(env).filter((n) => n !== 'email');
+
+export const providerLabel = (name) => (name === 'email' ? 'email' : PROVIDERS[name]?.label || name);
 
 // ---------- small helpers ----------
 
@@ -125,6 +132,20 @@ function redirect(location, headers, setCookies = []) {
 
 // ---------- who is signed in ----------
 
+/** The SHA-256 hash of this browser's session cookie, or null: how the server knows "this" session. */
+export async function sessionHashOf(request) {
+  const token = cookies(request)[SESSION_COOKIE];
+  return token ? sha256(token) : null;
+}
+
+/** Sign this browser in as `userId`: a new session, in a fresh cookie on `res`. */
+async function addSession(res, userId, { store, url, now }) {
+  const token = randomToken(32);
+  await store.createSession({ hash: await sha256(token), userId, now, expiresAt: now + SESSION_DAYS * 86_400_000 });
+  res.headers.append('set-cookie', cookie(SESSION_COOKIE, token, { url, maxAge: SESSION_DAYS * 86_400 }));
+  return res;
+}
+
 /**
  * The signed-in person for this request ({ id, name, email, provider }), or null. A request that
  * changes something and comes from another site is treated as signed out: the cookie is SameSite
@@ -152,6 +173,8 @@ async function startSignIn(name, { url, env, headers }) {
     nonce: randomToken(16),
     verifier: randomToken(32),
     next: safeNext(url.searchParams.get('next')),
+    // Connecting this sign-in to the account that's signed in (Account settings), not signing in.
+    ...(url.searchParams.get('connect') === '1' && { connect: true }),
   };
   const q = new URLSearchParams({
     client_id: p.clientId(env),
@@ -230,16 +253,28 @@ async function finishSignIn(name, { request, url, env, store, fetchImpl, now, he
     console.error('sign-in failed', name, e.message);
     return back(safeNext(flow.next), true);
   }
-  const user = await store.upsertUser({
-    provider: name,
-    subject: who.subject,
-    email: who.email,
-    name: who.name.slice(0, 100),
-    now,
-  });
-  const token = randomToken(32);
-  await store.createSession({ hash: await sha256(token), userId: user.id, now, expiresAt: now + SESSION_DAYS * 86_400_000 });
-  return redirect(safeNext(flow.next), headers, [clear, cookie(SESSION_COOKIE, token, { url, maxAge: SESSION_DAYS * 86_400 })]);
+  // Connecting it to the signed-in account, from Account settings: only if it isn't already
+  // someone's (its own account, or connected to another).
+  if (flow.connect) {
+    const me = await store.getSessionUser((await sessionHashOf(request)) || '', now);
+    const next = safeNext(flow.next);
+    if (!me) return redirect(`${next}#connect-failed`, headers, [clear]);
+    const owner = await store.signInOwner(name, who.subject);
+    if (owner && owner !== me.id) return redirect(`${next}#connect-taken`, headers, [clear]);
+    if (!owner) await store.addIdentity({ provider: name, subject: who.subject, userId: me.id, email: who.email, now });
+    return redirect(`${next}#connected`, headers, [clear]);
+  }
+  // A sign-in connected to an account signs in to that account; any other is its own account.
+  const user =
+    (await store.identityUser(name, who.subject)) ||
+    (await store.upsertUser({
+      provider: name,
+      subject: who.subject,
+      email: who.email,
+      name: who.name.slice(0, 100),
+      now,
+    }));
+  return addSession(redirect(safeNext(flow.next), headers, [clear]), user.id, { store, url, now });
 }
 
 // ---------- the account API ----------
@@ -279,7 +314,29 @@ export async function handleAccount({
   readJson,
   headers,
   tokenMatches,
+  waitUntil = (p) => p,
+  clientIp = '',
 }) {
+  // Email and password (src/email-auth.js): signing up, in, and the links it emails.
+  const emailCtx = async () => ({
+    request,
+    url,
+    parts,
+    method,
+    store,
+    env,
+    now,
+    fetchImpl,
+    json,
+    error,
+    readJson,
+    waitUntil,
+    clientIp,
+    sha256,
+    providerLabel,
+    startSession: (userId, body) => addSession(json(body), userId, { store, url, now }),
+  });
+  if (parts[0] === 'auth' && parts[1] === 'email') return handleEmailAuth(await emailCtx());
   if (parts[0] === 'auth') {
     const name = parts[1];
     if (name === 'logout' && parts.length === 2) {
@@ -290,7 +347,7 @@ export async function handleAccount({
       res.headers.append('set-cookie', cookie(SESSION_COOKIE, '', { url, maxAge: 0 }));
       return res;
     }
-    if (!Object.hasOwn(PROVIDERS, name) || !signInProviders(env).includes(name))
+    if (!Object.hasOwn(PROVIDERS, name) || !oauthProviders(env).includes(name))
       return error(404, "That sign-in isn't set up on this server");
     if (method !== 'GET') return error(405, 'Method not allowed');
     if (parts.length === 2) return startSignIn(name, { url, env, headers });
@@ -315,8 +372,55 @@ export async function handleAccount({
   }
   if (!user) return error(401, 'Sign in first');
 
-  // DELETE /api/me: forget the account. Its polls and templates stay, with their own links.
+  // Changing the password or email, and signing out other browsers (src/email-auth.js).
+  const sessionHash = await sessionHashOf(request);
+  const own = await handleEmailAuth({ ...(await emailCtx()), user, sessionHash });
+  if (own) return own;
+
+  // GET /api/me/settings: what Account settings shows: how this account signs in.
+  if (parts.length === 2 && parts[1] === 'settings' && method === 'GET') {
+    const [login, identities, sessions] = await Promise.all([
+      store.getPassword({ userId: user.id }),
+      store.listIdentities(user.id),
+      store.countSessions(user.id, now),
+    ]);
+    const connected = [
+      ...(user.provider !== 'email' ? [{ provider: user.provider, email: user.email, primary: true }] : []),
+      ...identities,
+    ];
+    return json({
+      user: publicUser(user),
+      // The address the account signs in with by password, or null when it has no password.
+      login: login ? login.email : null,
+      emailSignIn: emailSignInEnabled(env),
+      connected: connected.map((c) => ({
+        provider: c.provider,
+        label: providerLabel(c.provider),
+        email: c.email || null,
+        primary: !!c.primary,
+      })),
+      // Sign-ins that could be connected: set up here, and not connected yet.
+      connectable: oauthProviders(env).filter((p) => !connected.some((c) => c.provider === p)),
+      otherSessions: Math.max(0, sessions - 1),
+    });
+  }
+
+  // DELETE /api/me/identities/:provider: disconnect a sign-in connected in Account settings. The
+  // one the account was made with stays, so there's always a way in.
+  if (parts.length === 3 && parts[1] === 'identities' && method === 'DELETE') {
+    await store.removeIdentity(user.id, parts[2]);
+    return json({ ok: true });
+  }
+
+  // DELETE /api/me { password }: forget the account. Its polls and templates stay, with their own
+  // links. An account with a password asks for it first, so a borrowed phone can't delete it.
   if (parts.length === 1 && method === 'DELETE') {
+    const login = await store.getPassword({ userId: user.id });
+    if (login) {
+      const body = await readJson(request, 10_000).catch(() => ({}));
+      if (!(typeof body?.password === 'string' && (await verifyPassword(body.password, login.hash))))
+        return error(403, 'That’s not your password');
+    }
     await store.deleteUser(user.id);
     const res = json({ ok: true });
     res.headers.append('set-cookie', cookie(SESSION_COOKIE, '', { url, maxAge: 0 }));
