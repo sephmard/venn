@@ -53,7 +53,7 @@ import {
   track,
   isPhone,
 } from './ui.js';
-import { fmtTimeRange, fmtWhen } from './when.js';
+import { closesLine, fmtTimeRange, fmtWhen } from './when.js';
 
 const VOTES = [
   [YES, 'v-yes', 'Yes', '✓'],
@@ -94,6 +94,8 @@ export async function renderEvent(id, navigate) {
   };
   // `#organizer`: opened from My polls (account.js), where the account stands in for the link.
   const viaOrganizerLink = !!hash.get('admin') || hash.has('organizer') || !!saved(id).justCreated;
+  // `#organizer&deadline`: My polls' "Deadline and reminders", straight to that panel.
+  let openDeadline = hash.has('deadline');
   if (viaOrganizerLink) organizerView.set();
   const asOrganizer = () => viaOrganizerLink || organizerView.on();
   // Links in notification emails: stop the emails.
@@ -261,7 +263,8 @@ export async function renderEvent(id, navigate) {
       }
       <div id="banners"></div>
       <div id="notify-box"></div>
-      <div id="privacy-box"></div>
+      <div id="deadline-box"></div>
+        <div id="privacy-box"></div>
       <div id="writer-box"></div>
       <div class="tabs" role="tablist" aria-label="Poll">
         <button type="button" role="tab" id="tab-mine" aria-controls="panel-mine" data-tab="mine">Your answer</button>
@@ -1463,18 +1466,7 @@ export async function renderEvent(id, navigate) {
         ? `<p class="hint">Looking for ${daysMode ? `${lengthLabel(ev().durationMinutes)} in a row` : `${lengthLabel(ev().durationMinutes)}`}.</p>`
         : '';
     // When answers close (src/deadline.js), until the date is picked; on this device's clock.
-    const closes =
-      ev().deadline != null && ev().finalStart == null
-        ? `<p class="deadline-line"><span aria-hidden="true">⏳</span> Answers ${Date.now() >= ev().deadline ? 'closed' : 'close'} ${esc(
-            new Intl.DateTimeFormat(undefined, {
-              weekday: 'short',
-              month: 'short',
-              day: 'numeric',
-              hour: 'numeric',
-              minute: '2-digit',
-            }).format(ev().deadline),
-          )}</p>`
-        : '';
+    const closes = ev().deadline != null && ev().finalStart == null ? closesLine(ev().deadline) : '';
     $('#ev-details').innerHTML = where + (ev().description ? `<p class="note">${esc(ev().description)}</p>` : '') + what + closes;
     renderClosed();
   }
@@ -1591,6 +1583,11 @@ export async function renderEvent(id, navigate) {
         navigate('/new');
       },
     });
+    if (org && openDeadline) {
+      openDeadline = false;
+      $('details.organizer').open = st.orgOpen = true;
+      panel('deadline', true);
+    }
     // Finn, the Venn dog, has something to say at a few moments: finn.js, loaded after the page.
     if (!whiteLabel)
       import('./finn.js')

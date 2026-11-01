@@ -172,9 +172,12 @@ export function youFields() {
       <details class="reveal" id="privacy-opts">
         <summary>Privacy options</summary>
         <label class="switch"><input type="checkbox" role="switch" id="p-email"> Ask guests for their email</label>
-        <div id="deadline-box" hidden></div>
         <label class="switch"><input type="checkbox" role="switch" id="p-names"> Hide names from guests</label>
         <label class="switch"><input type="checkbox" role="switch" id="p-results"> Hide answers from guests</label>
+      </details>
+      <details class="reveal" id="deadline-opts" hidden>
+        <summary>Deadline</summary>
+        <div id="deadline-box"></div>
       </details>
     </section>`;
 }
@@ -272,7 +275,7 @@ export async function submit(body, occasion, answer = null) {
   for (const [key, el] of PRIVACY) body[key] = $(el).checked;
   // The look the page is in (an edit keeps the poll's own; a brand template's replaces it).
   if (!editing && !brand) body.retro = document.documentElement.classList.contains('retro');
-  if (deadline && !$('#deadline-box').hidden) Object.assign(body, deadline.values());
+  if (deadline && !$('#deadline-opts').hidden) Object.assign(body, deadline.values());
   const notifyEmail = !$('#notify-field') || $('#notify-field').hidden ? '' : $('#notify').value.trim();
   if (notifyEmail) body.notifyEmail = notifyEmail;
   if (body.organizer) rememberName(body.organizer);
@@ -338,7 +341,7 @@ export async function submit(body, occasion, answer = null) {
   }
 }
 
-let deadline = null; // deadline-fields.js, once asking everyone's email is switched on
+let deadline = null; // deadline-fields.js, for organizers who are signed in
 
 /** Show the email field when this server sends email; the organizer's email is then required. */
 export function showConfig(update) {
@@ -355,21 +358,22 @@ export function showConfig(update) {
     import('./create-look.js')
       .then((m) => m.createLook({ current: () => brandId, preview: () => icon?.preview() }))
       .catch(() => {});
-  // Asking everyone's email allows a deadline, and reminders (deadline-fields.js). An edited poll's
-  // deadline is changed in its organizer tools.
-  const askEmail = $('#p-email');
-  askEmail?.addEventListener('change', async () => {
-    const box = $('#deadline-box');
-    if (source()?.edit) return;
-    if (askEmail.checked && !deadline) {
-      const [m, c] = await Promise.all([import('./deadline-fields.js'), getConfig()]).catch(() => []);
-      if (!m || deadline) return;
+  // A deadline, and reminders to who hasn't answered (deadline-fields.js): with an account, where
+  // the server has sign-in. Signed out, the form stays as it is. An edited poll's deadline is
+  // changed in its organizer tools.
+  const opts = $('#deadline-opts');
+  if (opts && !source()?.edit)
+    getConfig().then(async (c) => {
+      if ((c.accounts || []).length && !(await import('./account-menu.js')).accountHint()) return;
+      const m = await import('./deadline-fields.js').catch(() => null);
+      // Only into this form, still on the page (not a poll opened since).
+      if (!m || deadline || !opts.isConnected) return;
       deadline = m;
-      box.innerHTML = m.fields({}, { email: !!c.email });
-      m.wire();
-    }
-    box.hidden = !askEmail.checked || !deadline;
-  });
+      $('#deadline-box', opts).innerHTML = m.fields({}, { email: !!c.email });
+      // Reminders go to who hasn't answered, told apart by the email they answer with.
+      m.wire({ onInvitees: (some) => some && ($('#p-email').checked = true) });
+      opts.hidden = false;
+    });
   getConfig().then((c) => {
     if (!$('#notify-field')) return;
     $('#notify-field').hidden = !c.email;

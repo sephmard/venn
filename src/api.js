@@ -196,7 +196,8 @@ function guestToken(settings, participantId) {
 /** The settings with emails stopped for whoever this unsubscribe token belongs to, or null if it's no one's. */
 function stopEmails(settings, token) {
   if (typeof token !== 'string' || !token) return null;
-  if (settings.unsubscribeToken && timingSafeEqual(token, settings.unsubscribeToken)) return { ...settings, email: null };
+  if (settings.unsubscribeToken && timingSafeEqual(token, settings.unsubscribeToken))
+    return { ...settings, email: null, accountEmailStopped: true }; // nor to the account's email (src/deadline.js)
   // Someone the organizer invited, stopping their reminders (src/deadline.js).
   const invitee = stopReminders(settings, token, timingSafeEqual);
   if (invitee) return invitee;
@@ -207,13 +208,14 @@ function stopEmails(settings, token) {
 }
 
 /**
- * The deadline an edited poll gets: what the edit sent, or the one it had (with its reminders),
- * as long as the poll still asks everyone for their email.
+ * The deadline an edited poll gets: what the edit sent, or the one it had. Its reminders stay as
+ * long as the poll still asks everyone for their email (that's how Venn knows who answered).
  */
 function keptDeadline(body, next, ev, settings, at) {
   if ('deadline' in body) return normalizeDeadline(body, next, at);
-  if (!next.requireEmail || ev.deadline == null) return { deadline: null, remindEvery: null, invitees: [] };
+  if (ev.deadline == null) return { deadline: null, remindEvery: null, invitees: [] };
   const r = settings.remind || {};
+  if (!next.requireEmail) return { deadline: ev.deadline, remindEvery: null, invitees: [] };
   return { deadline: ev.deadline, remindEvery: r.every ?? null, invitees: (r.invitees || []).map((i) => i.email) };
 }
 
@@ -287,6 +289,19 @@ export async function handleApi(
     const user = await currentUser();
     return user ? store.answerIn(user.id, eventId) : null;
   }
+  /**
+   * Deadlines and reminders come with an account, where the server has sign-in (src/deadline.js);
+   * an app with a key (APP_KEYS) sets them for its own users. Without sign-in, anyone can.
+   */
+  async function mayUseDeadlines() {
+    return (
+      !signInProviders(env).length ||
+      !!(await currentUser()) ||
+      (await appKeyMatches(request.headers.get('authorization'), env.APP_KEYS))
+    );
+  }
+  const SIGN_IN_FOR_DEADLINE = 'Sign in to add a deadline and reminders';
+
   /** Keep what was just made with the signed-in person's account. */
   async function keepWithAccount(kind, id) {
     const user = await currentUser();
@@ -598,6 +613,7 @@ export async function handleApi(
       const notifyEmail = body.notifyEmail ? normalizeEmail(body.notifyEmail) : null;
       if (notifyEmail && !emailEnabled(env)) throw new ValidationError("Email notifications aren't set up on this server");
       // A deadline for answers, and who to remind (src/deadline.js): checked before anything is saved.
+      if (body.deadline != null && !(await mayUseDeadlines())) return error(401, SIGN_IN_FOR_DEADLINE);
       const remind = {};
       const due = applyDeadline(event, remind, normalizeDeadline(body, event, now()), { now: now(), origin });
       const id = randomId(10);
@@ -760,7 +776,9 @@ export async function handleApi(
         // The edit form doesn't send them, so a poll keeps the one it follows on from, and its brand.
         if (ev.seriesOf) next.seriesOf = ev.seriesOf;
         if (ev.brand) next.brand = ev.brand;
-        // Its deadline: as sent, or as it was when not sent; never without everyone's email.
+        // Its deadline: as sent, or as it was when not sent; a new one needs an account.
+        if (body.deadline != null && body.deadline !== ev.deadline && !(await mayUseDeadlines()))
+          return error(401, SIGN_IN_FOR_DEADLINE);
         const settings = (await store.getNotify(ev.id)) || {};
         const due = applyDeadline(next, settings, keptDeadline(body, next, ev, settings, now()), { now: now(), origin });
         // The organizer's own answer follows the new times: what they sent, or what they'd already
@@ -954,12 +972,12 @@ export async function handleApi(
       const body = await readJson(request);
       const next = applyPrivacy(data, body);
       delete next.repeat; // plans that repeated were taken out; a poll that had one drops it here
-      // No emails, no deadline: Venn couldn't tell who's answered.
+      // No emails, no reminders: Venn couldn't tell who's answered. The deadline itself stays.
       if (!next.requireEmail && next.deadline != null) {
         const s = (await store.getNotify(ev.id)) || {};
-        applyDeadline(next, s, { deadline: null }, { now: now(), origin });
+        const due = applyDeadline(next, s, { deadline: next.deadline, remindEvery: null, invitees: [] }, { now: now(), origin });
         await store.setNotify(ev.id, s);
-        await store.setReminderDue(ev.id, null);
+        await store.setReminderDue(ev.id, due);
       }
       await store.updateEvent(ev.id, next);
       return json(Object.fromEntries(PRIVACY.map((k) => [k, !!next[k]])));
@@ -973,7 +991,10 @@ export async function handleApi(
       const settings = (await store.getNotify(ev.id)) || {};
       const { id: _id, adminHash, finalStart, createdAt, ...data } = ev;
       if (method === 'PUT') {
-        const due = applyDeadline(data, settings, normalizeDeadline(await readJson(request), data, now()), {
+        const asked = normalizeDeadline(await readJson(request), data, now());
+        // Taking a deadline off never needs an account; setting or changing one does.
+        if (asked.deadline != null && !(await mayUseDeadlines())) return error(401, SIGN_IN_FOR_DEADLINE);
+        const due = applyDeadline(data, settings, asked, {
           now: now(),
           origin,
         });
@@ -988,6 +1009,7 @@ export async function handleApi(
     if (parts.length === 3 && parts[2] === 'remind') {
       if (method !== 'POST') return error(405, 'Method not allowed');
       if (!isAdmin) return error(403, 'Only the organizer can send reminders');
+      if (!(await mayUseDeadlines())) return error(401, 'Sign in to send reminders');
       const res = await remindNow({ store, env, ev, now: now(), fetchImpl, origin });
       if (res.error) return error(400, res.error);
       return json(res);

@@ -115,9 +115,16 @@ export const isVote = (p) => p.mode === 'topic';
  */
 export function madeMeta(p, now = Date.now()) {
   const n = p.answers ? `${p.answers} ${p.answers === 1 ? 'answer' : 'answers'}` : 'No answers yet';
-  return [isVote(p) && 'Vote', p.finalStart != null || p.decided ? pollMeta(p, now) : null, n, p.location]
+  return [isVote(p) && 'Vote', p.finalStart != null || p.decided ? pollMeta(p, now) : closesMeta(p, now), n, p.location]
     .filter(Boolean)
     .join(' · ');
+}
+
+/** While a poll is open, when its answers close (src/deadline.js): "Closes Fri, Nov 6", or "Closed". */
+export function closesMeta(p, now = Date.now()) {
+  if (p.deadline == null) return null;
+  if (p.deadline <= now) return 'Closed';
+  return `Closes ${new Date(p.deadline).toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' })}`;
 }
 
 /** A nudge for the group, ready to paste or share: "Still need your answer for …". */
