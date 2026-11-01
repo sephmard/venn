@@ -19,6 +19,7 @@
   <a href="https://venn.day/?retro=1"><strong>Use it at venn.day</strong></a> ·
   <a href="https://docs.venn.day">Docs</a> ·
   <a href="https://docs.venn.day/api.html">API</a> ·
+  <a href="https://docs.venn.day/embed.html">Embed</a> ·
   <a href="#deploy-your-own">Deploy your own</a> ·
   <a href="CONTRIBUTING.md">Contribute</a>
 </p>
@@ -37,18 +38,29 @@ Pick the days, parts of the day or hours that could work and share the link. Eve
 - **Private by design.** No account needed; signing in is optional. Edit links carry secrets the server stores only as SHA-256 hashes.
 - **Optional extras.** Email, calendar free-busy, address search and AI help switch on only when configured.
 
-## Make a poll with one request
+## Build with Venn
+
+Venn is free to build on: no API key, no sign-up, no paid tier.
+
+- **Make polls from your app.** One `POST` makes a poll; a signed webhook tells you each time someone answers. [API reference](docs/API.md)
+- **Put polls on your website.** An `<iframe>` in your organization's look, with or without Venn's name. [Embedding guide](docs/EMBED.md)
+- **Run your own.** One Cloudflare Worker or any Node server, with SQLite. [Self-hosting guide](docs/SELF-HOSTING.md)
 
 ```sh
 curl https://venn.day/api/events \
   -H 'content-type: application/json' \
   -d '{"title": "Book club", "timezone": "Europe/London", "mode": "options",
-       "options": [{"start": 1794337200000, "end": 1794344400000}]}'
+       "options": [{"start": 1799953200000, "end": 1799960400000}]}'
 
 # {"id": "cXar7oEEBo", "adminToken": "…"}  →  share https://venn.day/e/cXar7oEEBo
 ```
 
-Every answer can post a signed webhook (`X-Venn-Signature`). See the [API reference](docs/API.md) and [webhook guide](docs/NOTIFICATIONS.md#webhooks).
+```html
+<iframe src="https://venn.day/embed/cXar7oEEBo" title="Book club" style="width: 100%; height: 640px; border: 0"></iframe>
+<script src="https://venn.day/embed.js" async></script>
+```
+
+The [developer docs](https://docs.venn.day) have a quickstart, every endpoint and field, webhooks and [how to check their signature](docs/NOTIFICATIONS.md#verifying-requests). Building something with Venn? [Tell us about it](https://github.com/sephmard/venn/issues/new/choose); we'd love to see it.
 
 ## Deploy your own
 
@@ -84,7 +96,7 @@ npm run test:e2e   # browser and accessibility tests, desktop and phone
 
 ## Contributing
 
-Pull requests are welcome, from typo fixes to features: start with [CONTRIBUTING.md](CONTRIBUTING.md). Security issues go to [SECURITY.md](SECURITY.md). Ideas? [Open an issue](https://github.com/sephmard/venn/issues/new/choose).
+If Venn is useful to you, a ⭐ helps other people find it. Pull requests are welcome, from typo fixes to features: start with [CONTRIBUTING.md](CONTRIBUTING.md). Security issues go to [SECURITY.md](SECURITY.md). Ideas? [Open an issue](https://github.com/sephmard/venn/issues/new/choose).
 
 ## License
 

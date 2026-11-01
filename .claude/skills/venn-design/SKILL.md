@@ -181,7 +181,7 @@ the same PR** (and CLAUDE.md if it's a rule that matters in review).
   (`img/stickers/retro/`; Finn stays smooth, never chunky pixels). Off, the usual look (the logo stays neon).
   DESIGN.md has both.
 - The **README and the developer docs** (docs.venn.day, `site-src/site.css`) are always retro and
-  short: the retro link-preview banner, retro screenshots (`npm run screenshots`), then only what a
+  short: the README opens on the retro link-preview banner and the docs on their quickstart, retro screenshots (`npm run screenshots`), then only what a
   developer needs, longer detail folded away or left to the docs.
 - A poll can have the **Retro look** too (the organizer's switch, off by default; on the create page,
   and on top of the poll): its page in neon
@@ -201,6 +201,13 @@ the same PR** (and CLAUDE.md if it's a rule that matters in review).
   tools → Privacy, which also shows each invitee: Answered, Waiting, or Stopped reminders.
 - The same top bar on every page: logo, Create a Venn, (Sign in,) menu. GitHub lives in the footer,
   not the bar or the menu. No floating buttons.
+- **Developers** (Seph, 2026-11-01: highlight the GitHub repo and dev docs more, encourage developers
+  to use Venn). Menu: **For developers** → docs.venn.day, after For organizations. Every website
+  footer opens with a "Build on Venn." row: **Developer docs** and **GitHub** pill buttons. The home
+  page's open-source benefit links "read the code" and "build on it"; no developer section on the home
+  page. docs.venn.day opens on "Build with Venn": three cards (API, embedding, self-hosting) and a
+  three-step quickstart; its bar shows GitHub as a button with the mark. The README has a "Build with
+  Venn" section right after "What it does".
 
 **Never**
 
