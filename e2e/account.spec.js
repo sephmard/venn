@@ -130,35 +130,64 @@ test('sign in, and the polls this browser organizes are in My polls, on any devi
   await context.close();
 });
 
-test('the website: Sign in beside Create a Venn, then My polls, Account settings and Sign out in the menu', async ({
+test('the website: Sign in after Create a Venn (in the menu on phones), then the account in the menu', async ({
   browser,
 }, info) => {
   const context = await browser.newContext({ extraHTTPHeaders: { 'x-test-user': `site-${info.project.name}-${Date.now()}` } });
   const page = await context.newPage();
   await page.goto('/');
+  const phone = page.viewportSize().width < 480;
   const nav = page.getByRole('navigation', { name: 'Main' });
-  const signIn = nav.getByRole('link', { name: 'Sign in' });
-  await expect(signIn).toBeVisible();
+  const panel = page.locator('.menu-panel');
+  const menu = page.locator('details.menu summary');
   // Create a Venn stays the main button, first in the bar; the whole bar fits on a phone.
   await expect(nav.locator(':scope > *').first()).toHaveText('Create a Venn');
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
-  const box = await signIn.boundingBox();
-  expect(Math.min(box.width, box.height)).toBeGreaterThanOrEqual(44);
-  await signIn.click();
+  // Sign in: plain text in the bar on wider screens; on phones, nothing more in the bar, and first
+  // in the menu.
+  const inBar = nav.locator(':scope > a', { hasText: 'Sign in' });
+  if (phone) {
+    await expect(inBar).toBeHidden();
+    await menu.click();
+    await expect(panel.locator('a').first()).toHaveText('Sign in');
+    await panel.getByRole('link', { name: 'Sign in' }).click();
+  } else {
+    await expect(inBar).toBeVisible();
+    const box = await inBar.boundingBox();
+    expect(box.height).toBeGreaterThanOrEqual(44);
+    await menu.click();
+    await expect(panel.getByRole('link', { name: 'Sign in' })).toBeHidden();
+    await menu.click();
+    await inBar.click();
+  }
   await page.getByRole('link', { name: 'Continue with Google' }).click();
   await expect(page.locator('.acct-who')).toBeVisible();
   await page.goto('/');
-  await expect(nav.getByRole('link', { name: 'Sign in' })).toHaveCount(0);
-  await page.locator('details.menu summary').click();
-  const panel = page.locator('.menu-panel');
+  await expect(nav.locator('.site-signin')).toHaveCount(0);
+  await menu.click();
+  await expect(panel.getByRole('link', { name: 'Sign in' })).toHaveCount(0);
   await expect(panel.getByRole('link', { name: 'My polls' })).toBeVisible();
   await expect(panel.getByRole('link', { name: 'Account settings' })).toHaveAttribute('href', '/me/settings');
   await panel.getByRole('button', { name: 'Sign out' }).click();
   await expect(panel).toBeHidden();
-  await expect(signIn).toBeVisible();
-  await page.locator('details.menu summary').click();
+  await menu.click();
   await expect(panel.getByRole('link', { name: 'My polls' })).toHaveCount(0);
+  await expect(panel.getByRole('link', { name: 'Sign in' })).toBeVisible({ visible: phone });
   await context.close();
+});
+
+test('the sign-in page shows at once on a second visit, with no stand-in first', async ({ page }) => {
+  await page.goto('/me');
+  await expect(page.getByRole('link', { name: 'Continue with Google' })).toBeVisible();
+  // Again, with the server slow to answer: the page is there before it does.
+  await page.route('**/api/me', async (r) => {
+    await new Promise((done) => setTimeout(done, 1500));
+    await r.continue();
+  });
+  await page.goto('/me');
+  await expect(page.getByRole('link', { name: 'Continue with Google' })).toBeVisible({ timeout: 1000 });
+  await expect(page.locator('h1')).toHaveText('Sign in to Venn');
+  await expect(page.locator('.acct-skeleton')).toHaveCount(0);
 });
 
 test('a sign-in that doesn’t finish says so', async ({ page }) => {
