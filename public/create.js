@@ -334,7 +334,7 @@ export function showConfig(update) {
   const retro = $('#p-retro');
   if (retro)
     import('./retro-look.js').then(({ retroLook, wantsRetro }) => {
-      if (!source() && !brandId) retroLook((retro.checked = wantsRetro()));
+      if (!source()) retroLook((retro.checked = wantsRetro()));
       retro.onchange = () => {
         retroLook(retro.checked);
         icon?.preview(); // the link preview, in the new look

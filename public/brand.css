@@ -62,3 +62,24 @@
   min-height: 44px;
   line-height: 44px;
 }
+
+/* The preview: a poll in the brand's look (its colours and font come from brand-look.js). */
+.brand-preview {
+  font-family: var(--display);
+}
+.brand-preview .preview-title {
+  font-family: var(--serif);
+  font-size: 1.9rem;
+  line-height: 1.15;
+  margin: 0 0 14px;
+}
+.preview-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  align-items: center;
+  margin: 0;
+}
+.preview-row > * {
+  pointer-events: none;
+}

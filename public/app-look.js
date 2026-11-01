@@ -4,7 +4,7 @@
 (() => {
   const q = new URLSearchParams(location.search);
   const create = /^\/new(\/free)?\/?$/.test(location.pathname);
-  let on = create && !q.has('edit') && !q.has('copy') && !q.has('brand') && q.get('retro') !== '0';
+  let on = (create || /^\/brand(\/|$)/.test(location.pathname)) && !q.has('edit') && !q.has('copy') && q.get('retro') !== '0';
   if (on && !q.has('retro'))
     try {
       on = localStorage.getItem('venn:retro') !== '0';

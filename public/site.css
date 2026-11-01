@@ -552,6 +552,9 @@ h2 em {
   font-size: 1.125rem;
   color: var(--ink-2);
 }
+.section-lede + .btn {
+  margin-top: 24px;
+}
 
 /* For groups */
 .groups {

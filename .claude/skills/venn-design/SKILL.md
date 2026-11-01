@@ -122,9 +122,12 @@ the same PR** (and CLAUDE.md if it's a rule that matters in review).
 - An organization's own template: its name, logo, one colour and one of four system fonts (Sans,
   Serif, Rounded, Mono), and what its polls start with (name, where, note). **No accounts**: a share
   link for the team (`/new?brand=…`) and a private manage link, like a poll's organizer link.
-- The page shows the look as it's chosen; there's no separate preview.
+- **Only polls are branded.** The website, /brand and the create page keep Venn's own look (retro
+  by default); /brand shows the brand in a preview card, and the create page shows whose template
+  it is (logo and name). The home page has a "Your brand, on every poll." section, and the menu
+  has "For organizations".
 - The colour is made readable (WCAG AA, light and dark) rather than refused. It replaces Venn's
-  accent only: picks stay green, amber and pink. A brand's look replaces the retro look.
+  accent only: picks stay green, amber and pink. On a branded poll the brand's look replaces retro.
 - Its polls show the logo and name above the poll for everyone. Deleted, they're plain Venn again.
 
 **Website (venn.day)**

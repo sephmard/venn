@@ -10,7 +10,8 @@ const LOGO = Buffer.from(
   'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==',
   'base64',
 );
-const accent = (page) => page.evaluate(() => getComputedStyle(document.documentElement).getPropertyValue('--accent').trim());
+const accent = (page, sel = 'html') =>
+  page.locator(sel).evaluate((el) => getComputedStyle(el).getPropertyValue('--accent').trim());
 const noSideways = async (page) =>
   expect(await page.evaluate(() => document.documentElement.scrollWidth - innerWidth)).toBeLessThanOrEqual(0);
 
@@ -25,16 +26,21 @@ async function audit(page, label) {
 }
 
 test('brand template: make one, share it, and its polls show the organization’s look', async ({ page, browser }) => {
-  await page.goto('/brand');
+  // From the home page.
+  await page.goto('/');
+  await page.getByRole('link', { name: 'Make your template' }).click();
   await expect(page.locator('h1')).toHaveText('Make a brand template');
   // The page shows the look as it's chosen: the colour (made readable), the font, the logo and name.
-  const venn = await accent(page);
+  const venn = await accent(page, '#brand-preview');
   await page.fill('#b-name', 'Acme Inc.');
   await page.locator('#b-accent').evaluate((el) => {
     el.value = '#6d28d9';
     el.dispatchEvent(new Event('input'));
   });
-  expect(await accent(page)).not.toBe(venn);
+  // The preview shows it; the page keeps Venn's own look (retro, by default).
+  expect(await accent(page, '#brand-preview')).not.toBe(venn);
+  await expect(page.locator('html')).toHaveClass(/retro/);
+  await expect(page.locator('html')).not.toHaveClass(/branded/);
   await page.getByRole('radio', { name: 'Serif' }).click();
   await expect(page.getByRole('radio', { name: 'Serif' })).toHaveAttribute('aria-checked', 'true');
   await page.setInputFiles('#logo-file', { name: 'logo.png', mimeType: 'image/png', buffer: LOGO });
@@ -63,8 +69,9 @@ test('brand template: make one, share it, and its polls show the organization’
   await expect(team.locator('.brand-bar')).toHaveText('Acme Inc.');
   await expect(team.locator('#title')).toHaveValue('Team lunch');
   await expect(team.locator('#location')).toHaveValue('The office');
-  await expect(team.locator('html')).toHaveClass(/branded/);
-  await expect(team.locator('html')).not.toHaveClass(/retro/);
+  // Only the poll is branded: the create page keeps Venn's own look.
+  await expect(team.locator('html')).toHaveClass(/retro/);
+  await expect(team.locator('html')).not.toHaveClass(/branded/);
   await expect(team.locator('#p-retro')).toBeHidden();
   await pickDays(team, 2);
   await team.fill('#organizer', 'Sam');
@@ -78,7 +85,7 @@ test('brand template: make one, share it, and its polls show the organization’
   await guest.goto(poll);
   await expect(guest.locator('.brand-bar')).toHaveText('Acme Inc.');
   await expect(guest.locator('.brand-bar img')).toBeVisible();
-  expect(await accent(guest)).toBe(await accent(page));
+  expect(await accent(guest)).not.toBe(venn);
   await noSideways(guest);
   await audit(guest, 'a branded poll');
 

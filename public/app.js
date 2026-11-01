@@ -13,7 +13,7 @@ async function route() {
   // The look carries on until the page says, so moving between pages never flashes the other one:
   // a new poll's is set below, before it's drawn; a poll's once it loads (event.js), and an edited or
   // copied one's once its poll does (create.js).
-  const look = !poll && !brand && !/[?&](edit|copy)=/.test(location.search) && import('./retro-look.js');
+  const look = !poll && !/[?&](edit|copy)=/.test(location.search) && import('./retro-look.js');
   // Poll pages get their own tab icon.
   for (const l of document.querySelectorAll('link[rel=icon]'))
     l.href = l.href.replace(/favicon[^.]*/, poll ? 'favicon-poll' : 'favicon');

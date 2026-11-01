@@ -3,7 +3,7 @@
 // private manage link (/brand/<id>#admin=<token>), kept in this browser too, like a poll's organizer
 // link. See src/brands.js. Loaded only on these pages.
 
-import { FONTS, brandBar, brandLook } from './brand-look.js';
+import { FONTS, brandBar, brandLook, brandPreview } from './brand-look.js';
 import { $, $$, api, app, esc, forget, save, saved, toast } from './ui.js';
 
 // The create pages' styles (forms, the sticky bar), and this page's own.
@@ -73,6 +73,7 @@ export async function shrinkLogo(file) {
 
 /** /brand (a new template) or /brand/<id> (managing one, or seeing it from its link). */
 export async function renderBrand(id) {
+  brandLook(null); // this page keeps Venn's own look (retro by default); the preview shows the brand's
   // The manage link's token, from the fragment: kept here, and out of the address bar.
   const m = id && location.hash.match(/^#admin=([A-Za-z0-9]+)$/);
   if (m) {
@@ -87,7 +88,6 @@ export async function renderBrand(id) {
       brand = await api(`brands/${id}`, { headers: token ? { 'x-admin-token': token } : {} });
     } catch (e) {
       document.title = 'Brand template not found · Venn';
-      brandLook(null);
       if (e.status === 404) unremember(id);
       app.innerHTML = `<div class="sheet empty"><h1>${e.status === 404 ? 'Brand template not found' : "Can't open this template"}</h1><p class="muted">${esc(e.status === 404 ? 'It may have been deleted, or the link wasn’t copied in full.' : e.message)}</p><a class="btn btn-primary" href="/brand" data-link>Make a brand template</a></div>`;
       return;
@@ -102,16 +102,13 @@ export async function renderBrand(id) {
 /** Someone with the share link, not the manage link: the template, and one button to use it. */
 function showPublic(b) {
   document.title = `${b.name} · Venn`;
-  brandLook(b);
   app.innerHTML = `
     <div class="create brand-page">
-      ${brandBar(b, esc)}
-      <section class="sheet">
-        <h1>${esc(b.name)}’s template</h1>
-        <p class="muted">Polls made from it show ${esc(b.name)}’s logo, colour and font to everyone they’re sent to.</p>
-        <a class="btn btn-primary btn-lg" href="/new?brand=${esc(b.id)}" data-link>Make a poll with it</a>
-      </section>
+      <h1>${esc(b.name)}’s template</h1>
+      ${preview(b)}
+      <a class="btn btn-primary btn-lg" href="/new?brand=${esc(b.id)}" data-link>Make a poll with it</a>
     </div>`;
+  brandPreview(b, '#brand-preview');
 }
 
 /** Making a template, or (with `b`) changing one. */
@@ -124,10 +121,10 @@ function showForm(b, token) {
   let logoChanged = false;
   app.innerHTML = `
     <form id="brand-form" class="create brand-page" novalidate>
-      <div id="brand-bar"></div>
       <h1>${b ? 'Your brand template' : 'Make a brand template'}</h1>
       <p class="lede create-lede">Polls your team makes from it show your logo, colour and font to everyone.</p>
       ${b ? links(b.id, token) : ''}
+      <div id="preview-box"></div>
       <section class="sheet" aria-labelledby="org-h">
         <h2 id="org-h">Your organization</h2>
         <div class="title-row">
@@ -189,17 +186,17 @@ function showForm(b, token) {
     where: $('#b-where').value.trim(),
     note: $('#b-note').value.trim(),
   });
-  // The page itself shows the look as it's chosen.
+  // The preview shows the look as it's chosen; the page keeps Venn's own.
   const show = () => {
     const f = fields();
-    brandLook({ ...f, logo });
-    $('#brand-bar').innerHTML = f.name || logo ? brandBar({ name: f.name, logo }, esc) : '';
+    $('#preview-box').innerHTML = preview({ ...f, logo });
+    brandPreview(f, '#brand-preview');
     $('#logo-tile').innerHTML = logo ? `<img src="${esc(logo)}" alt="">` : '<span aria-hidden="true">+</span>';
     $('#logo-tile').setAttribute('aria-label', logo ? 'Change the logo' : 'Add a logo');
     $('#logo-row').hidden = !logo;
   };
   show();
-  for (const el of ['#b-name', '#b-accent']) $(el).addEventListener('input', show);
+  for (const el of ['#b-name', '#b-accent', '#b-title']) $(el).addEventListener('input', show);
   $('.font-seg').onclick = (e) => {
     const btn = e.target.closest('[data-font]');
     if (!btn) return;
@@ -284,6 +281,14 @@ function showForm(b, token) {
   };
   if (!b) $('#b-name').focus();
 }
+
+/** What a poll from it looks like: the bar, its name in the font, a pick and Create in the colour. */
+const preview = (b) => `
+  <section class="sheet brand-preview" id="brand-preview" aria-label="How your polls look">
+    ${b.name || b.logo ? brandBar(b, esc) : ''}
+    <p class="preview-title">${esc(b.title || 'Team lunch')}</p>
+    <p class="preview-row" aria-hidden="true"><span class="pill" aria-pressed="true">Dinner</span><span class="btn btn-primary">Create Venn</span></p>
+  </section>`;
 
 /** The template's two links: one for the team, one to keep. */
 const links = (id, token) => `

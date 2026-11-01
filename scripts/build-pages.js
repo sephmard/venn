@@ -64,6 +64,7 @@ ${jsonLd.map((d) => `<script type="application/ld+json">${JSON.stringify(d).repl
 <details class="menu">
 <summary aria-label="Menu"><svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16" stroke="currentColor" stroke-width="2" stroke-linecap="round" /></svg></summary>
 <div class="menu-panel">
+<a href="/brand">For organizations</a>
 <a href="/#contact">Contact</a>
 <a href="/privacy">Privacy</a>
 <a href="https://docs.venn.day">Docs</a>
