@@ -23,8 +23,9 @@ test(
     await toggle.click();
     await expect(toggle).toHaveAttribute('aria-checked', 'true');
     await expect(html).not.toHaveClass(/\bretro\b/);
-    await expect(page.locator('.brand .logo-classic')).toBeVisible();
-    await expect(page.locator('.brand .logo-retro')).toBeHidden();
+    // The neon logo stays, in either look.
+    await expect(page.locator('.brand .logo-retro')).toBeVisible();
+    await expect(page.locator('.brand .logo-classic')).toBeHidden();
     await expect(sticker).toHaveAttribute('src', /\/stickers\/finn-/);
     await expect(page).toHaveURL(/\/classic$/); // the address to copy shares the classic look
 

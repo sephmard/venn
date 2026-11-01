@@ -64,7 +64,9 @@ export const USAGE_EVENTS = {
     email: YN, // the organizer gave an email for notifications
     copy: YN, // started from an existing poll
     from: FROM, // where the organizer came from, when it's known
+    brand: YN, // made from an organization's brand template
   },
+  'brand.created': {},
   'poll.edited': { kind: KINDS },
   'poll.deleted': { kind: KINDS },
   'poll.finalized': { kind: KINDS },

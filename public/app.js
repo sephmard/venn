@@ -9,6 +9,7 @@ async function route() {
   document.getElementById('toast').hidden = true;
   const path = location.pathname.replace(/\/$/, '');
   const poll = path.match(/^\/e\/([A-Za-z0-9]+)$/);
+  const brand = path.match(/^\/brand(?:\/([A-Za-z0-9]+))?$/);
   // The look carries on until the page says, so moving between pages never flashes the other one:
   // a new poll's is set below, before it's drawn; a poll's once it loads (event.js), and an edited or
   // copied one's once its poll does (create.js).
@@ -18,6 +19,8 @@ async function route() {
     l.href = l.href.replace(/favicon[^.]*/, poll ? 'favicon-poll' : 'favicon');
   let off;
   if (poll) off = await (await import('./event.js')).renderEvent(poll[1], navigate);
+  // An organization's brand template (brand.js): made, managed or seen from its link.
+  else if (brand) off = await (await import('./brand.js')).renderBrand(brand[1] || null);
   else {
     // Every new poll is a Venn (create-free.js). /new/pick is the older "vote on a few dates" page,
     // still used to edit or copy polls made with it; nothing links to it otherwise.
