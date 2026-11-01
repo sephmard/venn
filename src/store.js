@@ -503,6 +503,8 @@ export function createStore(db) {
           ...(d.emoji && { emoji: d.emoji }),
           createdAt: r.created_at,
           finalStart: r.final_start ?? null,
+          // A topic poll: what was decided, or null while it's open.
+          ...(d.mode === 'topic' && { decided: d.options.find((o) => o.id === d.picked)?.label ?? null }),
           ...(d.deadline != null && { deadline: d.deadline }),
           answers: Number(r.answers),
           ...(d.location && { location: d.location }),
@@ -546,6 +548,8 @@ export function createStore(db) {
           createdAt: r.created_at,
           answeredAt: r.answered_at,
           finalStart: r.final_start ?? null,
+          // A topic poll: what was decided, or null while it's open.
+          ...(d.mode === 'topic' && { decided: d.options.find((o) => o.id === d.picked)?.label ?? null }),
           ...(can !== undefined && { can }),
           answers: Number(r.answers),
         };

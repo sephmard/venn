@@ -39,6 +39,7 @@ export function parseOrganizerLink(text) {
 
 /** What a poll's row says under its name: its picked date, or how many have answered. */
 export function pollMeta(p, now = Date.now()) {
+  if (p.decided) return `Decided: ${p.decided}`;
   if (p.finalStart != null)
     return `${p.finalStart < now ? 'Was' : 'Picked:'} ${new Date(p.finalStart).toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' })}`;
   return p.answers ? `${p.answers} ${p.answers === 1 ? 'answer' : 'answers'}` : 'No answers yet';
@@ -63,7 +64,7 @@ export function whenShort(t, now = Date.now()) {
  */
 export function madeMeta(p, now = Date.now()) {
   const n = p.answers ? `${p.answers} ${p.answers === 1 ? 'answer' : 'answers'}` : 'No answers yet';
-  return [p.finalStart != null ? pollMeta(p, now) : null, n, p.location].filter(Boolean).join(' · ');
+  return [p.finalStart != null || p.decided ? pollMeta(p, now) : null, n, p.location].filter(Boolean).join(' · ');
 }
 
 /** A nudge for the group, ready to paste or share: "Still need your answer for …". */
@@ -72,7 +73,9 @@ export const nudgeText = (p, url) => `Still need your answer for “${p.title}�
 /** What an answered poll's row says: the picked date and whether they're in, or that it's waiting. */
 export function answeredMeta(p, now = Date.now()) {
   const first =
-    p.finalStart == null ? `Waiting on a date · ${p.answers} ${p.answers === 1 ? 'answer' : 'answers'}` : pollMeta(p, now);
+    p.finalStart == null && !p.decided
+      ? `Waiting on ${p.decided === null ? 'a pick' : 'a date'} · ${p.answers} ${p.answers === 1 ? 'answer' : 'answers'}`
+      : pollMeta(p, now);
   return [first, p.organizer, p.location].filter(Boolean).join(' · ');
 }
 
@@ -98,7 +101,8 @@ const STATUS = [
   ['past', 'Past'],
 ];
 const when = (p) => p.answeredAt ?? p.createdAt ?? 0;
-const statusOf = (p, now) => (p.finalStart == null ? 'open' : p.finalStart >= now ? 'soon' : 'past');
+// A decided topic poll is done: with the past ones.
+const statusOf = (p, now) => (p.decided ? 'past' : p.finalStart == null ? 'open' : p.finalStart >= now ? 'soon' : 'past');
 
 /**
  * The rows to show, filtered by `q` (its name, or who made it), sorted and grouped:
@@ -119,7 +123,7 @@ export function arrange(items, { q = '', sort = 'new', group = 'status' } = {}, 
       const d = rank(a) - rank(b);
       if (d) return d;
       if (rank(a) === 0) return a.finalStart - b.finalStart;
-      if (rank(a) === 1) return b.finalStart - a.finalStart;
+      if (rank(a) === 1) return (b.finalStart ?? when(b)) - (a.finalStart ?? when(a));
       return when(b) - when(a);
     },
   };

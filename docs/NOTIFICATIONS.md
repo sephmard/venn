@@ -157,7 +157,9 @@ Paste any `https://` URL. Venn sends a `POST` with a JSON body each time someone
 }
 ```
 
-`event` is one of `response.created`, `response.updated`, `response.deleted`, or `test` (from the **Send test** button).
+`event` is one of `response.created`, `response.updated`, `response.deleted`, `poll.picked` (the organizer picked the date or option; sent to webhooks only), or `test` (from the **Send test** button).
+
+A [topic poll](API.md#topic-polls) sends `poll.mode: "topic"`, `poll.picked: { id, label }` (or `null`), and `bestOption: { id, label, yes, ifNeeded }` in place of `bestTime`.
 
 **Slack** (`hooks.slack.com`) and **Discord** (`discord.com/api/webhooks/…`) URLs are recognized and receive a readable message instead, with Venn's dog beside it, such as:
 
