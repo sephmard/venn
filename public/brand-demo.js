@@ -1,5 +1,5 @@
 // The live preview on /brand: the real poll page, with a sample poll in the template's look, shown in
-// a frame beside the form (brand.js). The form sends the template as it changes, and which view to
+// a frame beside the form (brand.js). The form hands it the template as it changes, and which view to
 // show (a guest's or the organizer's); the poll's requests are answered here, so answering, the tabs
 // and picking a date all work, and nothing is saved or counted. The form also says which part of the
 // poll the step being edited changes (`focus`): the preview goes there and rings it, and rings it
@@ -7,7 +7,7 @@
 
 import { brandLook } from './brand-look.js';
 import { zonedToUtc } from './core.js';
-import { app, forget, save, toast, useStandIn } from './ui.js';
+import { app, esc, forget, save, toast, useStandIn } from './ui.js';
 
 const ID = 'preview';
 const tz = Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC';
@@ -58,7 +58,9 @@ const SPOTS = {
 const RING =
   '.pv-spot{outline:2.5px dashed #d61f8c!important;outline-offset:3px;box-shadow:0 0 0 7px rgba(214,31,140,.14)!important;animation:pv-ring .7s ease-out}' +
   '@keyframes pv-ring{from{outline-offset:12px;outline-color:transparent}}' +
-  '@media (prefers-reduced-motion:reduce){.pv-spot{animation:none}}';
+  '@media (prefers-reduced-motion:reduce){.pv-spot{animation:none}}' +
+  // A poll's page shows no Sign in (account-menu.js), so the preview doesn't either.
+  '.acct-slot{display:none!important}';
 
 /** Ring what `focus` changes (at most two of each), and with `go`, bring the first into view. */
 function spotlight(focus, go) {
@@ -156,14 +158,10 @@ export async function renderDemo() {
   // part to show, and (held) Venn's own look to compare.
   let last = '';
   let comparing = false; // held: Venn's own look, whatever changes meanwhile
-  const onMessage = async (e) => {
-    if (e.origin !== location.origin || e.source !== parent) return;
-    if (typeof e.data?.compare === 'boolean') {
-      comparing = e.data.compare;
-      return brandLook(comparing ? null : brand);
-    }
-    if (!e.data?.brand) return;
-    const { brand: b, view: v } = e.data;
+  let queue = Promise.resolve();
+  const onState = async (data) => {
+    if (!data?.brand) return;
+    const { brand: b, view: v } = data;
     const content = JSON.stringify([b.name, b.logo, b.hideName, b.title, b.where, b.note, b.emoji, v]);
     const look = JSON.stringify(b);
     brand = b;
@@ -176,15 +174,35 @@ export async function renderDemo() {
     } else brandLook(b);
     if (comparing) brandLook(null);
     // A change rings its part again; a new step brings its part into view.
-    if (look !== lastLook || e.data.focus !== focus) ring(e.data.focus || '');
+    if (look !== lastLook || data.focus !== focus) ring(data.focus || '');
     lastLook = look;
   };
-  addEventListener('message', onMessage);
+  // The form (brand.js, this site's own page around this frame) calls these directly. Each update
+  // waits for the last, and a failure says so in the frame instead of leaving it on "Loading…".
+  const show = (json) =>
+    (queue = queue
+      .then(() => onState(JSON.parse(json)))
+      .catch((e) => {
+        console.error(e);
+        app.innerHTML = `<div class="empty muted">The preview couldn’t load. ${esc(e?.message || '')}</div>`;
+        off = null;
+      }));
+  window.vennPreview = {
+    show,
+    compare: (on) => {
+      comparing = !!on;
+      brandLook(comparing ? null : brand);
+    },
+  };
   document.head.append(Object.assign(document.createElement('style'), { textContent: RING }));
   app.innerHTML = '<div class="empty muted">Loading…</div>';
-  parent.postMessage({ previewReady: true }, location.origin);
+  // Ready: the template as the form has it now.
+  try {
+    const now = parent !== window && parent.vennPreviewState?.();
+    if (now) show(now);
+  } catch {}
   return () => {
-    removeEventListener('message', onMessage);
+    delete window.vennPreview;
     off?.();
     useStandIn(null);
   };
