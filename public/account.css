@@ -1,0 +1,180 @@
+/* My polls (/me, account.js): signing in, and the account's polls. Loaded only there. */
+.account {
+  max-width: 560px;
+  margin: 0 auto;
+  padding: 8px 16px 24px;
+}
+.account h1 {
+  margin-bottom: 8px;
+}
+.account .lede {
+  margin: 0 0 20px;
+  color: var(--muted);
+}
+.account .hint {
+  color: var(--muted);
+  font-size: 0.9rem;
+}
+/* Sign-in buttons: white, with each provider's own mark, as their guidelines ask. */
+.signin {
+  display: grid;
+  gap: 12px;
+}
+.btn-signin {
+  justify-content: flex-start;
+  gap: 12px;
+  min-height: 52px;
+  padding-inline: 18px;
+  border: 1.5px solid #c7c3bb;
+  border-radius: 999px;
+  background: #ffffff;
+  color: #1f1f1f;
+  font-size: 1rem;
+  font-weight: 600;
+  text-decoration: none;
+}
+.btn-signin svg {
+  flex: none;
+}
+.btn-signin:hover {
+  background: #f4f4f5;
+}
+/* Who's signed in. */
+.acct-who {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin: 4px 0 20px;
+}
+.acct-who .acct-avatar {
+  width: 44px;
+  height: 44px;
+  font-size: 1.2rem;
+}
+.acct-text {
+  display: grid;
+  min-width: 0;
+}
+.acct-text b,
+.acct-text span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.acct-text .muted {
+  font-size: 0.9rem;
+}
+/* The polls: one row each, a tap opens it as its organizer. */
+.acct-h {
+  margin: 28px 0 10px;
+  font-size: 1.1rem;
+}
+.acct-list {
+  display: grid;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.acct-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-height: 64px;
+  padding: 10px 14px;
+  background: var(--surface);
+  border: 1.5px solid var(--border);
+  border-radius: var(--radius);
+  color: var(--text);
+  text-decoration: none;
+}
+.acct-row:hover {
+  border-color: var(--accent);
+}
+.acct-icon {
+  display: grid;
+  flex: none;
+  place-items: center;
+  width: 40px;
+  height: 40px;
+  border-radius: 12px;
+  background: var(--surface-2);
+  font-size: 1.3rem;
+}
+.acct-logo {
+  object-fit: contain;
+  padding: 4px;
+  background: #ffffff;
+}
+.acct-empty {
+  display: grid;
+  justify-items: center;
+  gap: 12px;
+}
+.acct-empty p {
+  margin: 0;
+}
+/* Adding a poll from a link, folded away. */
+.acct-add {
+  margin-top: 20px;
+}
+.acct-add summary {
+  display: flex;
+  align-items: center;
+  min-height: 44px;
+  color: var(--accent);
+  font-weight: 600;
+  cursor: pointer;
+}
+.acct-add-row {
+  display: flex;
+  gap: 8px;
+}
+.acct-add-row input {
+  flex: 1;
+  min-width: 0;
+  min-height: 44px;
+  padding: 8px 12px;
+  border: 1.5px solid var(--border);
+  border-radius: 12px;
+  background: var(--surface);
+  color: var(--text);
+  font-size: 16px;
+}
+.acct-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 16px;
+  margin-top: 24px;
+}
+.acct-delete {
+  color: var(--danger);
+}
+.acct-confirm {
+  margin-top: 16px;
+}
+.acct-confirm .acct-actions {
+  margin-top: 12px;
+}
+.btn-danger {
+  background: var(--danger);
+  border-color: var(--danger);
+  color: #ffffff;
+}
+html.retro .btn-danger {
+  color: #0d0221;
+}
+/* Retro: neon edges on the rows, like the cards. */
+html.retro .acct-row {
+  border-color: rgb(45 226 230 / 0.4);
+  box-shadow: var(--lift);
+}
+html.retro .acct-row:hover {
+  border-color: #2de2e6;
+  box-shadow: 0 0 18px -4px rgb(45 226 230 / 0.8);
+}
+html.retro .btn-signin {
+  border-color: #ffffff;
+  box-shadow: 0 0 18px -6px rgb(45 226 230 / 0.8);
+}

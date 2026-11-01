@@ -5,7 +5,7 @@
 <p align="center">
   <strong>Less group chat. More plans.</strong><br>
   Free, open-source polls for finding the day that works for everyone.<br>
-  No accounts. No ads. No tracking. No build step.
+  No sign-up. No ads. No tracking. No build step.
 </p>
 
 <p align="center">
@@ -34,7 +34,7 @@ Pick the days, parts of the day or hours that could work and share the link. Eve
 - **No framework, no build.** Plain HTML, CSS and ES modules in `public/`, served as-is.
 - **One API, two hosts.** Web-standard `Request` → `Response` (`src/api.js`), run as a Cloudflare Worker with D1 or a Node server with SQLite.
 - **Small on purpose.** A poll opens in 46 KB gzipped or less; a test fails the build if it grows.
-- **Private by design.** No accounts or cookies. Edit links carry secrets the server stores only as SHA-256 hashes.
+- **Private by design.** No account needed; signing in is optional. Edit links carry secrets the server stores only as SHA-256 hashes.
 - **Optional extras.** Email, calendar free-busy, address search and AI help switch on only when configured.
 
 ## Make a poll with one request

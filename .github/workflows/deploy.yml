@@ -6,6 +6,8 @@
 #                               a secret works too>
 #   secrets:   CLOUDFLARE_API_TOKEN (Workers + D1 edit), CLOUDFLARE_ACCOUNT_ID
 #              VAPID_PUBLIC_KEY, VAPID_PRIVATE_KEY <optional: phone notifications; make them with `npm run vapid`>
+#              GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET <optional: Sign in with Google, docs/ACCOUNTS.md; likewise
+#              MICROSOFT_CLIENT_ID + MICROSOFT_CLIENT_SECRET, GH_OAUTH_CLIENT_ID + GH_OAUTH_CLIENT_SECRET>
 name: Deploy
 
 on:
@@ -68,6 +70,13 @@ jobs:
           RAW_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
           VAPID_PUBLIC_KEY: ${{ secrets.VAPID_PUBLIC_KEY }}
           VAPID_PRIVATE_KEY: ${{ secrets.VAPID_PRIVATE_KEY }}
+          GOOGLE_CLIENT_ID: ${{ secrets.GOOGLE_CLIENT_ID }}
+          GOOGLE_CLIENT_SECRET: ${{ secrets.GOOGLE_CLIENT_SECRET }}
+          MICROSOFT_CLIENT_ID: ${{ secrets.MICROSOFT_CLIENT_ID }}
+          MICROSOFT_CLIENT_SECRET: ${{ secrets.MICROSOFT_CLIENT_SECRET }}
+          # GitHub doesn't allow secret names that start with GITHUB_.
+          GH_OAUTH_CLIENT_ID: ${{ secrets.GH_OAUTH_CLIENT_ID }}
+          GH_OAUTH_CLIENT_SECRET: ${{ secrets.GH_OAUTH_CLIENT_SECRET }}
         run: |
           # Forgive copy-paste slips (spaces, line breaks, a "Bearer " prefix), and say what's
           # wrong without ever printing the secrets.
@@ -100,3 +109,20 @@ jobs:
           else
             echo "VAPID_PUBLIC_KEY and VAPID_PRIVATE_KEY aren't both set, so phone notifications stay off."
           fi
+          # Sign-in (docs/ACCOUNTS.md): each provider's client ID and secret, from the repository's secrets,
+          # onto the Worker as secrets (a deploy would replace dashboard variables). Only pairs that are both set.
+          node -e '
+            const out = {};
+            for (const [p, from] of [["GOOGLE", "GOOGLE"], ["MICROSOFT", "MICROSOFT"], ["GITHUB", "GH_OAUTH"]]) {
+              const id = (process.env[from + "_CLIENT_ID"] || "").trim(), secret = (process.env[from + "_CLIENT_SECRET"] || "").trim();
+              if (id && secret) Object.assign(out, { [p + "_CLIENT_ID"]: id, [p + "_CLIENT_SECRET"]: secret });
+            }
+            process.stdout.write(JSON.stringify(out));
+          ' > "$RUNNER_TEMP/signin.json"
+          if [ "$(cat "$RUNNER_TEMP/signin.json")" != "{}" ]; then
+            CLOUDFLARE_API_TOKEN=$token CLOUDFLARE_ACCOUNT_ID=$account npx wrangler secret bulk "$RUNNER_TEMP/signin.json"
+            echo "Sign-in: on."
+          else
+            echo "No sign-in client ID and secret pairs are set, so sign-in stays off (unless set on the Worker directly)."
+          fi
+          rm -f "$RUNNER_TEMP/signin.json"

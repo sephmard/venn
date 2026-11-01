@@ -86,7 +86,7 @@ scripts/           screenshots, link-preview images, the docs site build, link c
 
 ## How data is protected
 
-- **No accounts, cookies or analytics.** The server stores only what people type into a poll, plus the organizer's notification settings.
+- **No account needed, no analytics.** The server stores only what people type into a poll, plus the organizer's notification settings. Signing in is optional (see [Accounts](ACCOUNTS.md)); only then is there a cookie, for the session.
 - **Organizers can keep things private.** Hidden names, hidden answers and collected emails are enforced by the server and never sent to guests. Link previews leave them out too.
 - **Links are the keys.** Organizer and edit links carry a secret after the `#`, which browsers never send. The server keeps only a SHA-256 hash, so a database leak can't be used to edit polls.
 - **Calendars stay in the browser.** Only free/busy times are read, and the sign-in token never reaches the server. See [Calendars](CALENDARS.md).
@@ -98,5 +98,5 @@ Found a security issue? Please report it privately: see [Security](../SECURITY.m
 
 - [Self-hosting](SELF-HOSTING.md): deploy to Cloudflare or any Node server.
 - [API](API.md): every endpoint, with request and response shapes.
-- [Notifications](NOTIFICATIONS.md), [Calendars](CALENDARS.md), [AI features](AI.md) and [Usage stats](USAGE-STATS.md): setting up each optional feature.
+- [Notifications](NOTIFICATIONS.md), [Calendars](CALENDARS.md), [Accounts](ACCOUNTS.md), [AI features](AI.md) and [Usage stats](USAGE-STATS.md): setting up each optional feature.
 - [Contributing](../CONTRIBUTING.md): setup, tests and how pull requests are reviewed.

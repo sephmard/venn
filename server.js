@@ -77,7 +77,11 @@ export function createApp({
           aiWindows,
           places,
         });
-        res.writeHead(response.status, Object.fromEntries(response.headers));
+        // Each cookie stays its own Set-Cookie header (a plain object would keep only the last).
+        const headers = Object.fromEntries(response.headers);
+        const cookies = response.headers.getSetCookie();
+        if (cookies.length) headers['set-cookie'] = cookies;
+        res.writeHead(response.status, headers);
         res.end(Buffer.from(await response.arrayBuffer()));
         return;
       }
