@@ -6,7 +6,7 @@ import { ValidationError } from '../public/core.js';
 import { SECURITY_HEADERS } from './security-headers.js';
 
 /** The most each picture may weigh, in bytes. The browser aims well under these. */
-export const IMAGE_LIMITS = { icon: 200_000, card: 300_000 };
+export const IMAGE_LIMITS = { icon: 200_000, card: 300_000, logo: 100_000 };
 
 /** The JSON body of an upload: both pictures in base64, plus a little room. */
 export const MAX_IMAGE_BODY = Math.ceil(((IMAGE_LIMITS.icon + IMAGE_LIMITS.card) * 4) / 3) + 1000;
@@ -32,7 +32,7 @@ const BASE64 = /^[A-Za-z0-9+/]+={0,2}$/;
  * anything that isn't a JPEG, PNG or WebP by its bytes (whatever it says it is), and anything too big.
  */
 export function parseImage(value, which) {
-  const name = which === 'icon' ? 'The picture' : 'The preview picture';
+  const name = { icon: 'The picture', logo: 'The logo' }[which] || 'The preview picture';
   if (typeof value !== 'string' || !value) throw new ValidationError(`${name} is missing`);
   const data = value.replace(/^data:image\/[a-z+.-]+;base64,/i, '');
   // Checked before decoding, so a huge upload isn't decoded just to be refused.

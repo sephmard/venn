@@ -5,9 +5,11 @@
 export const retroLook = (on) => document.documentElement.classList.toggle('retro', !!on);
 
 /** Whether a new poll starts in the retro look: yes, like the website, unless the link says
- * ?retro=0 or this browser chose the website's Classic mode (app-look.js decides the same). */
+ * ?retro=0 or ?brand= (an organization's template), or this browser chose the website's Classic mode (app-look.js decides the same). */
 export function wantsRetro() {
-  const asked = new URLSearchParams(location.search).get('retro');
+  const q = new URLSearchParams(location.search);
+  if (q.has('brand')) return false; // an organization's own look instead
+  const asked = q.get('retro');
   if (asked) return asked !== '0';
   try {
     return localStorage.getItem('venn:retro') !== '0';

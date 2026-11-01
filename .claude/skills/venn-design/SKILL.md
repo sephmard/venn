@@ -117,6 +117,16 @@ the same PR** (and CLAUDE.md if it's a rule that matters in review).
   before and after a date is picked (a note like "Check your inbox" goes under it). Sharing comes first: **Copy link** is the main button (after creating
   and on the poll), with **Share** (the phone's share sheet) beside it.
 
+**Brand templates (/brand)**
+
+- An organization's own template: its name, logo, one colour and one of four system fonts (Sans,
+  Serif, Rounded, Mono), and what its polls start with (name, where, note). **No accounts**: a share
+  link for the team (`/new?brand=…`) and a private manage link, like a poll's organizer link.
+- The page shows the look as it's chosen; there's no separate preview.
+- The colour is made readable (WCAG AA, light and dark) rather than refused. It replaces Venn's
+  accent only: picks stay green, amber and pink. A brand's look replaces the retro look.
+- Its polls show the logo and name above the poll for everyone. Deleted, they're plain Venn again.
+
 **Website (venn.day)**
 
 - Simple and sexy. Four values, framed as benefits (what people get), not features.

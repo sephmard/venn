@@ -6,7 +6,8 @@ import { setLabel } from './preview.js';
 import { applyDeadline, closesLabel, deadlineView, isClosed, normalizeDeadline, stopReminders } from './deadline.js';
 import { normalizeAvailability, normalizeEventInput, normalizeName } from './validate.js';
 import { SECURITY_HEADERS } from './security-headers.js';
-import { IMAGE_FILES, MAX_IMAGE_BODY, imagePath, imageResponse, parseImage } from './images.js';
+import { IMAGE_FILES, IMAGE_LIMITS, MAX_IMAGE_BODY, imagePath, imageResponse, parseImage } from './images.js';
+import { BRAND_ID_RE, normalizeBrand, publicBrand } from './brands.js';
 import {
   MAX_COPIES_PER_ANSWER,
   MAX_COPIES_PER_POLL,
@@ -428,6 +429,13 @@ export async function handleApi(
       // The next one of a plan: the poll it follows on from must still be there.
       const previous = event.seriesOf && (await store.getEvent(event.seriesOf));
       if (!previous) delete event.seriesOf;
+      // Made from a brand template: the poll shows the organization's look, while the template lasts.
+      if (body.brand != null) {
+        if (typeof body.brand !== 'string' || !BRAND_ID_RE.test(body.brand) || !(await store.getBrand(body.brand)))
+          throw new ValidationError('This brand template does not exist or was deleted');
+        event.brand = body.brand;
+        delete event.retro; // the organization's look replaces the retro one
+      }
       const notifyEmail = body.notifyEmail ? normalizeEmail(body.notifyEmail) : null;
       if (notifyEmail && !emailEnabled(env)) throw new ValidationError("Email notifications aren't set up on this server");
       // A deadline for answers, and who to remind (src/deadline.js): checked before anything is saved.
@@ -475,8 +483,59 @@ export async function handleApi(
         email: notifyEmail ? 'yes' : 'no',
         copy: body.copied === true ? 'yes' : 'no',
         ...(typeof body.from === 'string' && { from: body.from }),
+        ...(event.brand && { brand: 'yes' }),
       });
       return json({ id, adminToken, ...(host && { participant: host }) }, 201);
+    }
+
+    // POST /api/brands  { name, accent?, font?, title?, note?, where?, emoji? }: a brand template
+    if (parts.length === 1 && parts[0] === 'brands' && method === 'POST') {
+      const brand = normalizeBrand(await readJson(request, 10_000));
+      const id = randomId(10);
+      const adminToken = randomId(24);
+      await store.createBrand({ id, brand, adminHash: await sha256(adminToken), now: now() });
+      count('brand.created', {});
+      return json({ id, adminToken }, 201);
+    }
+
+    if (parts[0] === 'brands' && parts[1]) {
+      if (!BRAND_ID_RE.test(parts[1])) return error(404, 'This brand template does not exist or was deleted');
+      // GET /api/brands/:id/logo?v=: the logo, for anyone with a link to the template or its polls.
+      if (parts.length === 3 && parts[2] === 'logo' && (method === 'GET' || method === 'HEAD')) {
+        const logo = await store.getBrandLogo(parts[1]);
+        if (!logo) return error(404, 'This brand template has no logo');
+        return imageResponse(logo, { versioned: url.searchParams.get('v') === String(logo.v), head: method === 'HEAD' });
+      }
+      const brand = await store.getBrand(parts[1]);
+      if (!brand) return error(404, 'This brand template does not exist or was deleted');
+      const brandAdmin = await tokenMatches(request.headers.get('x-admin-token'), brand.adminHash);
+      // GET|PUT|DELETE /api/brands/:id
+      if (parts.length === 2) {
+        if (method === 'GET') return json({ ...publicBrand(brand), isAdmin: brandAdmin });
+        if (!brandAdmin) return error(403, 'Only whoever has the manage link can change this template');
+        if (method === 'PUT') {
+          const next = normalizeBrand(await readJson(request, 10_000));
+          await store.updateBrand(brand.id, next);
+          return json({ ...publicBrand({ ...next, id: brand.id, logoV: brand.logoV }), isAdmin: true });
+        }
+        if (method === 'DELETE') {
+          await store.deleteBrand(brand.id);
+          return json({ ok: true });
+        }
+        return error(405, 'Method not allowed');
+      }
+      // PUT /api/brands/:id/logo  { logo }: in base64 (src/images.js). DELETE: no logo.
+      if (parts.length === 3 && parts[2] === 'logo') {
+        if (method !== 'PUT' && method !== 'DELETE') return error(405, 'Method not allowed');
+        if (!brandAdmin) return error(403, 'Only whoever has the manage link can change this template');
+        const logo =
+          method === 'PUT'
+            ? parseImage((await readJson(request, Math.ceil((IMAGE_LIMITS.logo * 4) / 3) + 1000)).logo, 'logo')
+            : null;
+        const v = await store.setBrandLogo(brand.id, logo, now());
+        return json({ logo: publicBrand({ ...brand, logoV: v }).logo });
+      }
+      return error(404, 'Not found');
     }
 
     if (parts[0] !== 'events' || !parts[1]) return error(404, 'Not found');
@@ -499,7 +558,12 @@ export async function handleApi(
         const editToken = request.headers.get('x-edit-token');
         const ownHash = editToken ? await sha256(editToken) : null;
         const emails = isAdmin || ownHash ? await store.listEmails(ev.id) : undefined;
-        return json(publicEvent(ev, await store.listParticipants(ev.id), { isAdmin, ownHash, emails }));
+        const out = publicEvent(ev, await store.listParticipants(ev.id), { isAdmin, ownHash, emails });
+        // Its brand template's look, while the template lasts (deleted, the poll is plain Venn again).
+        const brand = ev.brand && (await store.getBrand(ev.brand));
+        if (brand) out.brand = publicBrand(brand);
+        else delete out.brand;
+        return json(out);
       }
       // PUT: the organizer changes the poll, only while nobody else has answered.
       if (method === 'PUT') {
@@ -510,8 +574,9 @@ export async function handleApi(
         const body = await readJson(request);
         const next = applyPrivacy(normalizeEventInput(body), body);
         if (ev.hostId) next.hostId = ev.hostId;
-        // The edit form doesn't send it, so a poll keeps the one it follows on from.
+        // The edit form doesn't send them, so a poll keeps the one it follows on from, and its brand.
         if (ev.seriesOf) next.seriesOf = ev.seriesOf;
+        if (ev.brand) next.brand = ev.brand;
         // Its deadline: as sent, or as it was when not sent; never without everyone's email.
         const settings = (await store.getNotify(ev.id)) || {};
         const due = applyDeadline(next, settings, keptDeadline(body, next, ev, settings, now()), { now: now(), origin });

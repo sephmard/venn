@@ -1,0 +1,64 @@
+/* Brand templates (/brand, brand.js): the page that makes and manages them. Loaded only there. */
+.brand-page .sheet :is(input, textarea, .title-row, .color-row) + :is(label, div),
+.brand-page .sheet .hint + div {
+  margin-top: 14px;
+}
+.brand-page .label {
+  display: block;
+  font-weight: 650;
+  margin: 0 0 6px;
+}
+.logo-tile img {
+  object-fit: contain;
+  padding: 4px;
+}
+.logo-tile span {
+  font-size: 1.6rem;
+  color: var(--accent);
+}
+.color-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.color-row label {
+  margin: 0;
+}
+.color-row input {
+  width: 64px;
+  height: 44px;
+  padding: 4px;
+  border: 1.5px solid var(--border);
+  border-radius: 12px;
+  background: var(--surface);
+  cursor: pointer;
+}
+.font-seg {
+  grid-auto-flow: row;
+  grid-template-columns: repeat(4, 1fr);
+}
+.font-seg button {
+  font-weight: 600;
+  padding: 6px 4px;
+}
+.link-row {
+  display: flex;
+  gap: 8px;
+  margin: 0 0 14px;
+}
+.link-row input {
+  flex: 1;
+  min-width: 0;
+}
+.brand-links .hint {
+  margin: 0 0 8px;
+}
+.brand-list {
+  margin: 0;
+  padding-left: 20px;
+}
+.brand-list a {
+  display: inline-block;
+  min-height: 44px;
+  line-height: 44px;
+}
