@@ -19,6 +19,7 @@ const DOCS = [
   ['docs/API.md', 'api.html', 'API', 'Reference'],
   ['docs/NOTIFICATIONS.md', 'notifications.html', 'Notifications', 'Reference'],
   ['docs/CALENDARS.md', 'calendars.html', 'Calendars', 'Reference'],
+  ['docs/ACCOUNTS.md', 'accounts.html', 'Accounts', 'Reference'],
   ['docs/AI.md', 'ai.html', 'AI features', 'Reference'],
   ['docs/USAGE-STATS.md', 'usage-stats.html', 'Usage stats', 'Reference'],
   ['CONTRIBUTING.md', 'contributing.html', 'Contributing', 'Project'],

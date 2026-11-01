@@ -20,7 +20,7 @@ export function lastTime(prevId) {
     const token = saved(prevId).adminToken;
     previous.set(
       prevId,
-      api(`events/${prevId}`, { headers: token ? { 'x-admin-token': token } : {} }).then(
+      api(`events/${prevId}`, { headers: { 'x-organizer': '1', ...(token && { 'x-admin-token': token }) } }).then(
         (ev) => {
           const guests = ev.participants.filter((p) => p.id !== ev.hostId);
           return { title: ev.title, people: ev.responses ?? guests.length, emails: guests.map((p) => p.email).filter(Boolean) };

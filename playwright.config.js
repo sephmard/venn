@@ -2,6 +2,10 @@ import { defineConfig, devices } from '@playwright/test';
 
 const PORT = 8791;
 const FAKE_AI_PORT = 8792;
+// Accounts (e2e/account.spec.js): a second Venn with sign-in switched on, and a stand-in for Google.
+const ACCOUNTS_PORT = 8794;
+const FAKE_OAUTH_PORT = 8793;
+export const ACCOUNTS_URL = `http://localhost:${ACCOUNTS_PORT}`;
 
 export default defineConfig({
   testDir: './e2e',
@@ -34,6 +38,24 @@ export default defineConfig({
         STATS_TOKEN: 'test-stats',
       },
       url: `http://localhost:${PORT}`,
+      reuseExistingServer: !process.env.CI,
+    },
+    {
+      command: 'node server.js',
+      env: {
+        PORT: String(ACCOUNTS_PORT),
+        DB_PATH: ':memory:',
+        GOOGLE_CLIENT_ID: 'test-google-client',
+        GOOGLE_CLIENT_SECRET: 'test-google-secret',
+        OAUTH_TEST_BASE: `http://localhost:${FAKE_OAUTH_PORT}`,
+      },
+      url: ACCOUNTS_URL,
+      reuseExistingServer: !process.env.CI,
+    },
+    {
+      command: 'node e2e/fake-oauth.js',
+      env: { PORT: String(FAKE_OAUTH_PORT) },
+      port: FAKE_OAUTH_PORT,
       reuseExistingServer: !process.env.CI,
     },
     {

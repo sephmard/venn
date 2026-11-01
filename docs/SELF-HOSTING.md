@@ -50,6 +50,7 @@ Each one switches on when its settings exist, and `GET /api/config` reports whic
 | Webhook notifications     | Always on. Organizers add a URL from their poll.                                     | [Notifications](NOTIFICATIONS.md)                     |
 | Phone notifications       | `VAPID_PUBLIC_KEY` and `VAPID_PRIVATE_KEY` (from `npm run vapid`)                    | [Notifications](NOTIFICATIONS.md#phone-notifications) |
 | Google Calendar / Outlook | `GOOGLE_CLIENT_ID` and/or `MICROSOFT_CLIENT_ID`                                      | [Calendars](CALENDARS.md)                             |
+| Sign-in and My polls      | `GOOGLE_CLIENT_ID` + `GOOGLE_CLIENT_SECRET` (or Microsoft, GitHub)                   | [Accounts](ACCOUNTS.md)                               |
 | AI features (Claude)      | `ANTHROPIC_API_KEY`                                                                  | [AI features](AI.md)                                  |
 | Address search in "Where" | `PLACES_PROVIDER=photon`, or `GOOGLE_PLACES_API_KEY`                                 | [Address search](#address-search)                     |
 | Usage stats               | `STATS_TOKEN`                                                                        | [Usage stats](USAGE-STATS.md)                         |

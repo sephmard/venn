@@ -1,5 +1,5 @@
 // Brand templates: an organization's own template, with its name, logo, accent colour and font, and
-// what its polls start with (a name, a note, a place, an emoji). No accounts: like a poll, it has a
+// what its polls start with (a name, a note, a place, an emoji). No account needed: like a poll, it has a
 // share link (/new?brand=<id>) for the team and a secret manage link (/brand/<id>#admin=<token>);
 // the server keeps only a hash of the token. Polls made from it show its look to their guests.
 

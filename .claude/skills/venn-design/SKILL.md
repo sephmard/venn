@@ -123,7 +123,7 @@ the same PR** (and CLAUDE.md if it's a rule that matters in review).
   logo button, three sizes, and the name beside it or not); colours (buttons and links, optionally
   its own page: background, cards, text, and its own answer colours); a font for headings and one
   for text (Venn's own or eight system fonts); corners (square, soft, round) and buttons (pills or
-  the corners); and what its polls start with (name, where, note). **No accounts**: a share
+  the corners); and what its polls start with (name, where, note). **No account needed**: a share
   link for the team (`/new?brand=…`) and a private manage link, like a poll's organizer link.
 - **Only polls are branded.** The website, /brand and the create page keep Venn's own look (retro
   by default); /brand shows a **live preview** (Seph, 2026-11-01: he wants to see the template change while he makes it): the real poll page with a sample poll in a frame, as a Guest or the Organizer, updated with every edit, clickable, nothing saved; beside the form on desktop, pinned over it on phones, and the create page shows whose template
@@ -143,6 +143,12 @@ the same PR** (and CLAUDE.md if it's a rule that matters in review).
 - Colours are made readable (WCAG AA) rather than refused. Answers are green, amber and pink unless the template picks its own. On a branded poll the brand's look replaces retro.
 - **Always the Venn retro logo** (Seph, 2026-11-01): the header shows the retro logo in every look, classic included; the organization's logo sits beside the poll, never in place of Venn's.
 - Its polls show the logo and name above the poll for everyone. Deleted, they're plain Venn again.
+
+**Accounts (My polls, /me)**
+
+- **Optional, always** (Seph, 2026-11-01): sign in with Google (Microsoft, GitHub when set up) to see and manage your polls on any device. Nothing needs an account; every poll and template keeps its links.
+- The app's top bar: **Sign in** (not on poll pages, which are for answering), or the person's **initial** with My polls and Sign out. The website's menu: Sign in, or My polls.
+- My polls: one row per poll (its emoji, name, and the picked date or how many answered), opened as its organizer; brand templates below. Organizer links this browser remembers join the account on their own; another can be pasted in. Delete account asks first, in the page; polls stay.
 
 **Website (venn.day)**
 

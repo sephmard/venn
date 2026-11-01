@@ -18,11 +18,17 @@ async function route() {
   for (const l of document.querySelectorAll('link[rel=icon]'))
     l.href = l.href.replace(/favicon[^.]*/, poll ? 'favicon-poll' : 'favicon');
   let off;
+  // The account's place in the top bar (account-menu.js), drawn for each page.
+  import('./account-menu.js').then(async (m) => m.accountMenu((await import('./ui.js')).getConfig)).catch(() => {});
   if (poll) off = await (await import('./event.js')).renderEvent(poll[1], navigate);
   // An organization's brand template (brand.js): made, managed or seen from its link.
   else if (path === '/brand/preview') off = await (await import('./brand-demo.js')).renderDemo();
   else if (brand) off = await (await import('./brand.js')).renderBrand(brand[1] || null);
-  else {
+  // My polls (account.js): signing in, and the account's polls and templates.
+  else if (path === '/me') {
+    if (look) (await look).retroLook((await look).wantsRetro());
+    off = await (await import('./account.js')).renderAccount();
+  } else {
     // Every new poll is a Venn (create-free.js). /new/pick is the older "vote on a few dates" page,
     // still used to edit or copy polls made with it; nothing links to it otherwise.
     const pick = path === '/new/pick';

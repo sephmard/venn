@@ -100,18 +100,31 @@ An organization's own template, so every poll its team sends shows its look. It'
 | `title`, `note`, `where` | What a new poll from it starts with: its name, note for everyone and place.                                                                                                                                                                                                                                                                                                              |
 | `emoji`                  | The poll's emoji, when the organizer doesn't choose one.                                                                                                                                                                                                                                                                                                                                 |
 
-There are no accounts. Like a poll, a template has two links: the **share link**, `/new?brand=<id>`, for the team (anyone with it can make polls from it, but not change it), and the **manage link**, `/brand/<id>#admin=<adminToken>`, kept private. The app also keeps the token in the browser's local storage.
+No account is needed. Like a poll, a template has two links: the **share link**, `/new?brand=<id>`, for the team (anyone with it can make polls from it, but not change it), and the **manage link**, `/brand/<id>#admin=<adminToken>`, kept private. The app also keeps the token in the browser's local storage.
 
 A poll made with `brand` returns `brand: { id, name, logo, … }` (the fields above that are set) from `GET /api/events/:id`, and its page shows that look (the retro look gives way to it). Editing the poll keeps its brand. Delete the template and its polls go back to Venn's look.
 
 ## Authentication
 
-There are no accounts. Two secrets, both returned once when they're created, prove who you are:
+No account is needed. Two secrets, both returned once when they're created, prove who you are:
 
 - **`adminToken`** (from `POST /api/events`): send it as `x-admin-token` for organizer-only calls.
 - **`editToken`** (from `POST /api/events/:id/participants`): send it as `x-edit-token` to change or remove that response.
 
 The server stores only SHA-256 hashes of these tokens. In the web app they live in the URL fragment and the browser's local storage.
+
+### Accounts (optional)
+
+When the server has sign-in set up ([Accounts](ACCOUNTS.md)), a signed-in browser carries a session cookie, and polls and templates kept with that account need no `x-admin-token`: organizer calls work with the session (from this site only). `GET /api/events/:id` and `GET /api/brands/:id` give the organizer's view only with `x-organizer: 1`.
+
+| Method   | Path                                      | What it does                                                                                                                                                                         |
+| -------- | ----------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `GET`    | `/api/auth/:provider?next=/me`            | Starts signing in (`google`, `microsoft` or `github`, as listed in `GET /api/config` → `accounts`). Comes back to `next` (a path on this site).                                      |
+| `POST`   | `/api/auth/logout`                        | Signs out.                                                                                                                                                                           |
+| `GET`    | `/api/me`                                 | `{ user: { name, email, provider, providerLabel }, polls: [{ id, title, emoji?, createdAt, finalStart, answers }], brands: [{ id, name, logoV }] }`, or `{ user: null, providers }`. |
+| `POST`   | `/api/me/claim`                           | `{ polls: [{ id, token }], brands: [{ id, token }] }`: keep these with the account (each token is checked) → `{ added: { polls, brands } }`.                                         |
+| `DELETE` | `/api/me/polls/:id`, `/api/me/brands/:id` | Takes it off the list; it stays, with its link.                                                                                                                                      |
+| `DELETE` | `/api/me`                                 | Deletes the account. Its polls and templates stay.                                                                                                                                   |
 
 ## Errors
 
