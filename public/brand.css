@@ -133,9 +133,8 @@
   top: 0;
   z-index: 5;
   margin: 0 -16px 16px;
-  padding: 8px 16px 10px;
+  padding: 8px 16px 0;
   background: var(--bg);
-  border-bottom: 1.5px solid var(--border);
 }
 .pv-top {
   display: flex;
@@ -150,12 +149,14 @@
 .pv-top .link-btn {
   min-height: 44px;
 }
+/* On a phone the frame is the screen's full width, so the poll inside lays out as it does on the phone. */
 #pv-frame {
   display: block;
-  width: 100%;
+  width: calc(100% + 32px);
   height: 46svh;
-  border: 1.5px solid var(--border);
-  border-radius: var(--radius-lg);
+  margin: 0 -16px;
+  border: 0;
+  border-block: 1.5px solid var(--border);
   background: #ffffff;
 }
 @media (min-width: 960px) {
@@ -179,7 +180,11 @@
     background: none;
   }
   .brand-page #pv-frame {
+    width: 100%;
     height: calc(100svh - 90px);
+    margin: 0;
+    border: 1.5px solid var(--border);
+    border-radius: var(--radius-lg);
   }
   .brand-page #pv-toggle {
     display: none;
