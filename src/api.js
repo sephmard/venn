@@ -103,14 +103,14 @@ function applyPrivacy(event, body) {
  * else sees their own answer in full; other people's names are swapped for "Guest 1, 2…" when the
  * organizer hides names, and other people's answers are left out when the organizer hides them.
  */
-function publicEvent(ev, participants, { isAdmin, ownHash = null, emails = new Map() }) {
+function publicEvent(ev, participants, { isAdmin, ownHash = null, ownId = null, emails = new Map() }) {
   // `repeat`: how often a plan repeated, on polls from before that was taken out.
   const { adminHash, hostId, repeat, ...rest } = ev;
-  const own = (p) => ownHash !== null && p.editHash === ownHash;
+  const own = (p) => (ownHash !== null && p.editHash === ownHash) || (ownId !== null && p.id === ownId);
   const visible = isAdmin || !ev.hideResults ? participants : participants.filter(own);
   let guest = 0;
   const list = visible.map(({ editHash, ...p }) => {
-    if (isAdmin || own({ editHash })) return emails.has(p.id) ? { ...p, email: emails.get(p.id) } : p;
+    if (isAdmin || own({ editHash, id: p.id })) return emails.has(p.id) ? { ...p, email: emails.get(p.id) } : p;
     guest += 1;
     return ev.hideNames ? { ...p, name: `Guest ${guest}` } : p;
   });
@@ -121,6 +121,7 @@ function publicEvent(ev, participants, { isAdmin, ownHash = null, emails = new M
     ...(isAdmin && hostId && { hostId }),
     participants: list,
     ...(visible !== participants && { responses: participants.length }),
+    ...(ownId && { yourAnswer: ownId }),
   };
 }
 
@@ -254,6 +255,11 @@ export async function handleApi(
     if (viewing && request.headers.get('x-organizer') !== '1') return false;
     const user = await currentUser();
     return !!user && (await store.ownerOf(kind, id)) === user.id;
+  }
+  /** The answer the signed-in person gave on this poll (its participant id), or null. */
+  async function answerByAccount(eventId) {
+    const user = await currentUser();
+    return user ? store.answerIn(user.id, eventId) : null;
   }
   /** Keep what was just made with the signed-in person's account. */
   async function keepWithAccount(kind, id) {
@@ -608,8 +614,10 @@ export async function handleApi(
         // Sending your edit token gets your own answer back, even when the organizer hides answers.
         const editToken = request.headers.get('x-edit-token');
         const ownHash = editToken ? await sha256(editToken) : null;
-        const emails = isAdmin || ownHash ? await store.listEmails(ev.id) : undefined;
-        const out = publicEvent(ev, await store.listParticipants(ev.id), { isAdmin, ownHash, emails });
+        // Signed in, an answer given with the account is theirs on any device, as its edit link is.
+        const ownId = await answerByAccount(ev.id);
+        const emails = isAdmin || ownHash || ownId ? await store.listEmails(ev.id) : undefined;
+        const out = publicEvent(ev, await store.listParticipants(ev.id), { isAdmin, ownHash, ownId, emails });
         // Its brand template's look, while the template lasts (deleted, the poll is plain Venn again).
         const brand = ev.brand && (await store.getBrand(ev.brand));
         if (brand) out.brand = publicBrand(brand);
@@ -959,6 +967,8 @@ export async function handleApi(
       } else {
         notify(ev, 'response.created', id, name);
         count('answer.created', { ...kindOf(ev), copy: copyTo ? 'yes' : 'no' });
+        // Signed in, it's kept with the account: My polls lists it under Answered.
+        if (!isAdmin) await keepWithAccount('answer', id);
       }
       return json({ id, editToken }, 201);
     }
@@ -969,7 +979,8 @@ export async function handleApi(
       if (!p) return error(404, 'Response not found');
       const isHost = p.id === ev.hostId;
       // The organizer link also covers the organizer's own answer, so it can be changed from any device.
-      const isOwner = (await tokenMatches(request.headers.get('x-edit-token'), p.editHash)) || (isAdmin && isHost);
+      const byLink = await tokenMatches(request.headers.get('x-edit-token'), p.editHash);
+      const isOwner = byLink || (isAdmin && isHost) || (!isHost && (await answerByAccount(ev.id)) === p.id);
       if (method === 'PUT') {
         if (!isOwner) return error(403, 'You can only edit your own response');
         const body = await readJson(request);
@@ -978,6 +989,8 @@ export async function handleApi(
         const copyTo = normalizeEmail(body.copyTo);
         const email = isHost ? null : participantEmail(ev, body);
         await store.updateParticipant({ id: p.id, eventId: ev.id, name, availability, now: now() });
+        // Changed with its link while signed in: from now on it's with the account too.
+        if (byLink && !isHost) await keepWithAccount('answer', p.id);
         // An answer sent with an email field sets it, or takes it away when left empty.
         if (!isHost && 'email' in body) await store.setParticipantEmail(ev.id, p.id, email);
         const editToken = request.headers.get('x-edit-token');

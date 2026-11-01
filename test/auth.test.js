@@ -211,7 +211,7 @@ test('my polls: made signed in, or claimed with the organizer link; the owner is
       ],
     },
   });
-  assert.deepEqual(claim.data.added, { polls: 1, brands: 0 });
+  assert.deepEqual(claim.data.added, { polls: 1, brands: 0, answers: 0 });
   const listed = (await call('/api/me', { cookie: session })).data.polls;
   assert.deepEqual(listed.map((p) => p.id).sort(), [made.id, before.id].sort());
   assert.equal(listed[0].answers, 0);
@@ -268,7 +268,7 @@ test('my polls: made signed in, or claimed with the organizer link; the owner is
     cookie: other,
     body: { polls: [{ id: before.id, token: before.adminToken }] },
   });
-  assert.deepEqual(steal.data.added, { polls: 0, brands: 0 });
+  assert.deepEqual(steal.data.added, { polls: 0, brands: 0, answers: 0 });
 
   // Taken off the list, the poll stays (its link still works); deleted, it leaves the list.
   assert.equal((await call(`/api/me/polls/${made.id}`, { method: 'DELETE', cookie: session })).status, 200);
@@ -307,7 +307,7 @@ test('my brand templates: made signed in or claimed, and managed with the accoun
     cookie: session,
     body: { brands: [{ id: earlier.id, token: earlier.adminToken }] },
   });
-  assert.deepEqual(claim.data.added, { polls: 0, brands: 1 });
+  assert.deepEqual(claim.data.added, { polls: 0, brands: 1, answers: 0 });
   const me = (await call('/api/me', { cookie: session })).data;
   assert.deepEqual(me.brands.map((b) => b.name).sort(), ['Acme', 'Beta Co']);
   assert.equal((await call(`/api/brands/${made.id}`, { cookie: session })).data.isAdmin, false);
@@ -354,6 +354,117 @@ test('/me is a page of the app', () => {
   assert.ok(isAppRoute('/me'));
 });
 
+test('polls answered signed in are in My polls, and the answer is theirs on any device', async () => {
+  const { session } = await signIn('g-answers');
+  const { session: other } = await signIn('g-answers-other');
+  const ev = (await call('/api/events', { method: 'POST', body: { ...poll, title: 'Pub quiz', hideResults: true } })).data;
+  const day = (await call(`/api/events/${ev.id}`)).data.slots[0];
+  // Answered signed in: kept with the account.
+  const mine = (
+    await call(`/api/events/${ev.id}/participants`, {
+      method: 'POST',
+      cookie: session,
+      body: { name: 'Robin', availability: { [day]: 2 } },
+    })
+  ).data;
+  await call(`/api/events/${ev.id}/participants`, { method: 'POST', body: { name: 'Kit', availability: { [day]: 1 } } });
+  let me = (await call('/api/me', { cookie: session })).data;
+  assert.deepEqual(
+    me.answered.map((p) => [p.id, p.title, p.organizer, p.answers, p.finalStart]),
+    [[ev.id, 'Pub quiz', 'Sam', 2, null]],
+  );
+  assert.equal(me.polls.length, 0);
+  // On another device, signed in: their own answer comes back, even with answers hidden, and can be changed.
+  const seen = (await call(`/api/events/${ev.id}`, { cookie: session })).data;
+  assert.equal(seen.yourAnswer, mine.id);
+  assert.deepEqual(
+    seen.participants.map((p) => p.name),
+    ['Robin'],
+  );
+  const put = { name: 'Robin P', availability: { [day]: 1 } };
+  assert.equal(
+    (await call(`/api/events/${ev.id}/participants/${mine.id}`, { method: 'PUT', cookie: session, body: put })).status,
+    200,
+  );
+  // Nobody else's account, and nobody signed out, can.
+  assert.equal(
+    (await call(`/api/events/${ev.id}/participants/${mine.id}`, { method: 'PUT', cookie: other, body: put })).status,
+    403,
+  );
+  assert.equal((await call(`/api/events/${ev.id}/participants/${mine.id}`, { method: 'PUT', body: put })).status, 403);
+  assert.equal((await call(`/api/events/${ev.id}`, { cookie: other })).data.yourAnswer, undefined);
+  // Once picked, the row says whether they can make it.
+  await call(`/api/events/${ev.id}/finalize`, {
+    method: 'POST',
+    headers: { 'x-admin-token': ev.adminToken },
+    body: { start: day },
+  });
+  me = (await call('/api/me', { cookie: session })).data;
+  assert.equal(me.answered[0].finalStart, day);
+  assert.equal(me.answered[0].can, 1);
+
+  // An answer given signed out joins with its edit link (a wrong one, or someone else's, doesn't).
+  const ev2 = (await call('/api/events', { method: 'POST', body: { ...poll, title: 'Hike' } })).data;
+  const day2 = (await call(`/api/events/${ev2.id}`)).data.slots[0];
+  const earlier = (
+    await call(`/api/events/${ev2.id}/participants`, { method: 'POST', body: { name: 'Robin', availability: { [day2]: 2 } } })
+  ).data;
+  const claim = await call('/api/me/claim', {
+    method: 'POST',
+    cookie: other,
+    body: {
+      answers: [
+        { id: ev2.id, pid: earlier.id, token: 'wrong' },
+        { id: ev2.id, pid: '../x', token: earlier.editToken },
+        { id: ev.id, pid: earlier.id, token: earlier.editToken },
+        { id: ev2.id, pid: earlier.id, token: earlier.editToken },
+      ],
+    },
+  });
+  assert.deepEqual(claim.data.added, { polls: 0, brands: 0, answers: 1 });
+  assert.deepEqual(
+    (await call('/api/me', { cookie: other })).data.answered.map((p) => p.title),
+    ['Hike'],
+  );
+  // Taken off the list: the answer stays; removed from the poll: gone from the list too.
+  assert.equal((await call(`/api/me/answers/${earlier.id}`, { method: 'DELETE', cookie: other })).status, 200);
+  assert.equal((await call('/api/me', { cookie: other })).data.answered.length, 0);
+  assert.equal((await call(`/api/events/${ev2.id}`)).data.participants.length, 1);
+  assert.equal((await call(`/api/events/${ev.id}/participants/${mine.id}`, { method: 'DELETE', cookie: session })).status, 200);
+  assert.equal((await call('/api/me', { cookie: session })).data.answered.length, 0);
+});
+
+test('My polls: search, sort and group', async () => {
+  const { arrange, answeredMeta, canMake } = await import('../public/account-data.js');
+  const now = Date.UTC(2030, 5, 15);
+  const day = 86_400_000;
+  const items = [
+    { id: 'a', title: 'Book club', createdAt: now - 3 * day, finalStart: now + 2 * day },
+    { id: 'b', title: 'Cabin trip', organizer: 'Kit', createdAt: now - 1 * day, finalStart: null },
+    { id: 'c', title: 'apple picking', createdAt: now - 40 * day, finalStart: now - 20 * day },
+    { id: 'd', title: 'Board games', createdAt: now - 2 * day, finalStart: now + 9 * day },
+  ];
+  const ids = (groups) => groups.map((g) => [g.key, g.items.map((p) => p.id).join('')]);
+  assert.deepEqual(ids(arrange(items, {}, now)), [
+    ['soon', 'da'],
+    ['open', 'b'],
+    ['past', 'c'],
+  ]);
+  assert.deepEqual(ids(arrange(items, { group: 'none', sort: 'old' }, now)), [['all', 'cadb']]);
+  assert.deepEqual(ids(arrange(items, { group: 'none', sort: 'name' }, now)), [['all', 'cdab']]);
+  assert.deepEqual(ids(arrange(items, { group: 'none', sort: 'date' }, now)), [['all', 'adcb']]);
+  assert.equal(arrange(items, { group: 'month' }, now).length, 2);
+  // Search matches the name or who made it, every word, any case.
+  assert.deepEqual(ids(arrange(items, { q: ' bo ', group: 'none' }, now)), [['all', 'da']]);
+  assert.deepEqual(ids(arrange(items, { q: 'kit', group: 'none' }, now)), [['all', 'b']]);
+  assert.deepEqual(arrange(items, { q: 'nothing here' }, now), []);
+  // Answered rows: whether they're in, in the key's words.
+  assert.equal(answeredMeta({ finalStart: null, answers: 3 }), 'Waiting on a date · 3 answers');
+  assert.deepEqual(canMake({ can: 2 }), ['v-yes', 'You’re in']);
+  assert.deepEqual(canMake({ can: 0 }), ['v-no', 'Can’t make it']);
+  assert.equal(canMake({}), null);
+});
+
 test('My polls: the organizer links this browser remembers, and pasted ones', async () => {
   const { rememberedLinks, parseOrganizerLink, pollMeta, signInButtons } = await import('../public/account-data.js');
   const buttons = signInButtons(['google', 'evil"><script>', 'github'], '/brand');
@@ -374,6 +485,7 @@ test('My polls: the organizer links this browser remembers, and pasted ones', as
   assert.deepEqual(rememberedLinks(storage), {
     polls: [{ id: 'abc123', token: 'tok1' }],
     brands: [{ id: 'br1', token: 'tok2' }],
+    answers: [{ id: 'guestonly', pid: 'p', token: 'e' }],
   });
   assert.deepEqual(parseOrganizerLink(' https://venn.day/e/abc123#admin=XYZ9 '), { kind: 'polls', id: 'abc123', token: 'XYZ9' });
   assert.deepEqual(parseOrganizerLink('venn.day/brand/br1#admin=t'), { kind: 'brands', id: 'br1', token: 't' });

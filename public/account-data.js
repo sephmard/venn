@@ -1,9 +1,12 @@
 // What My polls (account.js) works out on its own: the links this browser remembers, a pasted
 // organizer link, and what each poll's row says. Kept apart so it can be tested without a page.
 
-/** The organizer and manage links this browser remembers: { polls: [{ id, token }], brands: [...] }. */
+/**
+ * The organizer, manage and edit links this browser remembers:
+ * { polls: [{ id, token }], brands: [{ id, token }], answers: [{ id, pid, token }] }.
+ */
 export function rememberedLinks(storage = globalThis.localStorage) {
-  const out = { polls: [], brands: [] };
+  const out = { polls: [], brands: [], answers: [] };
   try {
     for (let i = 0; i < storage.length; i++) {
       const m = storage.key(i).match(/^venn:(brand:)?([A-Za-z0-9]{1,32})$/);
@@ -16,10 +19,13 @@ export function rememberedLinks(storage = globalThis.localStorage) {
       }
       if (typeof v?.adminToken === 'string' && v.adminToken)
         (m[1] ? out.brands : out.polls).push({ id: m[2], token: v.adminToken });
+      if (!m[1] && typeof v?.editToken === 'string' && v.editToken && typeof v.participantId === 'string')
+        out.answers.push({ id: m[2], pid: v.participantId, token: v.editToken });
     }
   } catch {}
   out.polls = out.polls.slice(0, 200);
   out.brands = out.brands.slice(0, 200);
+  out.answers = out.answers.slice(0, 200);
   return out;
 }
 
@@ -37,6 +43,79 @@ export function pollMeta(p, now = Date.now()) {
     return `${p.finalStart < now ? 'Was' : 'Picked:'} ${new Date(p.finalStart).toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' })}`;
   return p.answers ? `${p.answers} ${p.answers === 1 ? 'answer' : 'answers'}` : 'No answers yet';
 }
+
+/** What an answered poll's row says: the picked date and whether they're in, or that it's waiting. */
+export function answeredMeta(p, now = Date.now()) {
+  if (p.finalStart == null) return `Waiting on a date · ${p.answers} ${p.answers === 1 ? 'answer' : 'answers'}`;
+  return pollMeta(p, now);
+}
+
+/** Whether they can make the picked date, as the key says it: [class, words], or null. */
+export const canMake = (p) =>
+  p.can == null
+    ? null
+    : [
+        ['v-no', 'Can’t make it'],
+        ['v-maybe', 'If needed'],
+        ['v-yes', 'You’re in'],
+      ][p.can] || null;
+
+// My polls' sorts and groupings, by key, with their labels. `when` is the time that matters for a
+// row: when the poll was made, or when they answered it.
+export const SORTS = { new: 'Newest', old: 'Oldest', date: 'Date', name: 'Name' };
+export const GROUPS = { status: 'Status', month: 'Month', none: 'None' };
+const STATUS = [
+  ['soon', 'Coming up'],
+  ['open', 'Waiting on a date'],
+  ['past', 'Past'],
+];
+const when = (p) => p.answeredAt ?? p.createdAt ?? 0;
+const statusOf = (p, now) => (p.finalStart == null ? 'open' : p.finalStart >= now ? 'soon' : 'past');
+
+/**
+ * The rows to show, filtered by `q` (its name, or who made it), sorted and grouped:
+ * [{ key, label, items }]. With group 'none', one group with no label.
+ */
+export function arrange(items, { q = '', sort = 'new', group = 'status' } = {}, now = Date.now()) {
+  const words = q.trim().toLocaleLowerCase().split(/\s+/).filter(Boolean);
+  const hay = (p) => `${p.title || p.name || ''} ${p.organizer || ''}`.toLocaleLowerCase();
+  const list = items.filter((p) => words.every((w) => hay(p).includes(w)));
+  const name = (p) => p.title || p.name || '';
+  const by = {
+    new: (a, b) => when(b) - when(a),
+    old: (a, b) => when(a) - when(b),
+    name: (a, b) => name(a).localeCompare(name(b), undefined, { sensitivity: 'base', numeric: true }),
+    // Picked dates first, the nearest coming one first, then past ones, latest first; then the rest, newest.
+    date: (a, b) => {
+      const rank = (p) => ({ soon: 0, past: 1, open: 2 })[statusOf(p, now)];
+      const d = rank(a) - rank(b);
+      if (d) return d;
+      if (rank(a) === 0) return a.finalStart - b.finalStart;
+      if (rank(a) === 1) return b.finalStart - a.finalStart;
+      return when(b) - when(a);
+    },
+  };
+  list.sort(by[sort] || by.new);
+  if (group === 'none' || !list.length) return list.length ? [{ key: 'all', label: '', items: list }] : [];
+  if (group === 'month') {
+    const out = new Map();
+    for (const p of list) {
+      const d = new Date(when(p));
+      const key = `${d.getFullYear()}-${d.getMonth()}`;
+      if (!out.has(key))
+        out.set(key, { key, label: d.toLocaleDateString(undefined, { month: 'long', year: 'numeric' }), items: [] });
+      out.get(key).items.push(p);
+    }
+    return [...out.values()];
+  }
+  return STATUS.map(([key, label]) => ({ key, label, items: list.filter((p) => statusOf(p, now) === key) })).filter(
+    (g) => g.items.length,
+  );
+}
+
+/** The line under the sign-in buttons: what signing in agrees to. */
+export const signInAgree = () =>
+  '<p class="acct-agree">By continuing, you agree to Venn’s <a href="/terms">Terms</a> and <a href="/privacy">Privacy policy</a>.</p>';
 
 // Each provider's own mark, as their sign-in guidelines ask.
 const MARKS = {

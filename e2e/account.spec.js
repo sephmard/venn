@@ -1,7 +1,7 @@
 import { test, expect } from '@playwright/test';
 import AxeBuilder from '@axe-core/playwright';
 import { ACCOUNTS_URL } from '../playwright.config.js';
-import { pickDays } from './helpers.js';
+import { pickDays, submit } from './helpers.js';
 
 // Accounts, for whoever wants one: sign in with Google (a stand-in, e2e/fake-oauth.js) and every poll
 // you organize is in My polls, on any device. On a Venn with sign-in switched on (ACCOUNTS_URL).
@@ -47,7 +47,8 @@ test('sign in, and the polls this browser organizes are in My polls, on any devi
   await page.goto('/new');
   await page.locator('.topbar .acct-signin').click();
   await expect(page).toHaveURL(/\/me$/);
-  await expect(page.locator('h1')).toHaveText('My polls');
+  await expect(page.locator('h1')).toHaveText('Sign in to Venn');
+  await expect(page.locator('.acct-agree').getByRole('link', { name: 'Terms' })).toHaveAttribute('href', '/terms');
   await expect(page.locator('html')).toHaveClass(/retro/);
   await noSideways(page);
   await audit(page, 'signed out');
@@ -134,7 +135,8 @@ test('the website’s menu has Sign in, and My polls once signed in', async ({ b
 test('a sign-in that doesn’t finish says so', async ({ page }) => {
   await page.goto('/api/auth/google/callback?code=x&state=forged');
   await expect(page).toHaveURL(/\/me$/);
-  await expect(page.locator('#toast')).toHaveText('Sign-in didn’t finish. Try again.');
+  await expect(page.locator('.acct-alert')).toHaveText('Sign-in didn’t finish. Try again.');
+  await expect(page.getByRole('link', { name: 'Continue with Google' })).toBeVisible();
 });
 
 test('saving a brand template needs an account: sign in at Save, and the draft is saved on the way back', async ({
@@ -166,7 +168,12 @@ test('saving a brand template needs an account: sign in at Save, and the draft i
   await expect(page.locator('#b-title')).toHaveValue('Team lunch');
   await expect(page.locator('.topbar .acct-avatar')).toBeVisible();
   await page.goto('/me');
-  await expect(page.locator('.acct-list[aria-label="Brand templates"] .acct-row')).toContainText('Acme Inc.');
+  await page.getByRole('tab', { name: /Templates/ }).click();
+  await expect(page.locator('.acct-brand .acct-row')).toContainText('Acme Inc.');
+  await expect(page.locator('.acct-brand').getByRole('link', { name: 'New poll with Acme Inc.' })).toHaveAttribute(
+    'href',
+    /\/new\?brand=/,
+  );
   // A second one, signed in now, saves straight away.
   await page.goto('/brand');
   await page.fill('#b-name', 'Beta Co');
@@ -174,5 +181,62 @@ test('saving a brand template needs an account: sign in at Save, and the draft i
   await expect(page.locator('#submit')).toHaveText('Save template');
   await page.click('#submit');
   await expect(page.locator('[data-panel="share"]')).toBeVisible();
+  await context.close();
+});
+
+test('polls answered signed in are in My polls, to search, sort and group, and the answer is yours on any device', async ({
+  browser,
+}, info) => {
+  const who = `kit-${info.project.name}-${Date.now()}`;
+  const context = await browser.newContext({ extraHTTPHeaders: { 'x-test-user': who } });
+  const page = await context.newPage();
+  await page.goto('/me');
+  await page.getByRole('link', { name: 'Continue with Google' }).click();
+  await expect(page.locator('.acct-who')).toBeVisible();
+  // Nothing answered yet: it says how it fills up.
+  await page.getByRole('tab', { name: 'Answered' }).click();
+  await expect(page.locator('.acct-empty')).toContainText('Polls you answer while signed in show up here.');
+
+  // Two polls someone else made, answered here while signed in.
+  for (const title of ['Supper club', 'Cabin trip']) {
+    const ev = await (await page.request.post('/api/events', { data: poll(title) })).json();
+    await page.goto(`/e/${ev.id}`);
+    await page.locator('#mine .row [data-vote="2"]').first().click();
+    await page.fill('#name', 'Kit');
+    await submit(page);
+    await expect(page.locator('#save-err')).toBeEmpty();
+  }
+  await page.goto('/me');
+  // The tab you were on is remembered.
+  await expect(page.getByRole('tab', { name: /Answered/ })).toHaveAttribute('aria-selected', 'true');
+  await expect(page.getByRole('tab', { name: /Answered/ })).toContainText('2');
+  await expect(page.locator('.acct-h').first()).toContainText('Waiting on a date');
+  await expect(page.locator('.acct-row')).toHaveText([/Cabin trip/, /Supper club/]);
+  await expect(page.locator('.acct-row').first()).toContainText('Robin');
+  await noSideways(page);
+  await audit(page, 'answered');
+  // Search, sort and group.
+  await page.fill('#acct-q', 'supp');
+  await expect(page.locator('.acct-row')).toHaveText([/Supper club/]);
+  await page.fill('#acct-q', 'zzz');
+  await expect(page.locator('.acct-none')).toContainText('Nothing matches');
+  await page.getByRole('button', { name: 'Clear search' }).click();
+  await page.selectOption('#acct-sort', 'name');
+  await expect(page.locator('.acct-row')).toHaveText([/Cabin trip/, /Supper club/]);
+  await page.selectOption('#acct-sort', 'old');
+  await expect(page.locator('.acct-row')).toHaveText([/Supper club/, /Cabin trip/]);
+  await page.selectOption('#acct-group', 'none');
+  await expect(page.locator('.acct-h')).toHaveCount(0);
+
+  // Another device, signed in: the answer is theirs there too, and can be changed.
+  const phone = await browser.newContext({ extraHTTPHeaders: { 'x-test-user': who } });
+  const other = await phone.newPage();
+  await other.goto('/me');
+  await other.getByRole('link', { name: 'Continue with Google' }).click();
+  await other.getByRole('tab', { name: /Answered/ }).click();
+  await other.locator('.acct-row', { hasText: 'Supper club' }).click();
+  await expect(other.locator('h1')).toContainText('Supper club');
+  await expect(other.locator('#name')).toHaveValue('Kit');
+  await phone.close();
   await context.close();
 });

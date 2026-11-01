@@ -90,8 +90,8 @@ const SCHEMA = [
    )`,
   `CREATE INDEX IF NOT EXISTS sessions_user ON sessions(user_id)`,
   `CREATE INDEX IF NOT EXISTS sessions_expires ON sessions(expires_at)`,
-  // Whose account a poll or brand template is kept with ('poll' or 'brand'): at most one each. Its
-  // organizer or manage link works as before, with or without it.
+  // Whose account a poll or brand template is kept with ('poll' or 'brand'), or an answer someone gave
+  // while signed in ('answer', by participant id): at most one each. Links work as before, with or without it.
   `CREATE TABLE IF NOT EXISTS owners (
      kind TEXT NOT NULL,
      item_id TEXT NOT NULL,
@@ -167,12 +167,15 @@ export function createStore(db) {
 
     async deleteEvent(id) {
       await init();
-      await db.run('DELETE FROM participants WHERE event_id = ?', [id]);
       await db.run('DELETE FROM participant_emails WHERE event_id = ?', [id]);
       await db.run('DELETE FROM notifications WHERE event_id = ?', [id]);
       await db.run('DELETE FROM event_images WHERE event_id = ?', [id]);
       await db.run('DELETE FROM reminders WHERE event_id = ?', [id]);
       await db.run("DELETE FROM owners WHERE kind = 'poll' AND item_id = ?", [id]);
+      await db.run("DELETE FROM owners WHERE kind = 'answer' AND item_id IN (SELECT id FROM participants WHERE event_id = ?)", [
+        id,
+      ]);
+      await db.run('DELETE FROM participants WHERE event_id = ?', [id]);
       await db.run('DELETE FROM events WHERE id = ?', [id]);
     },
 
@@ -377,6 +380,45 @@ export function createStore(db) {
       });
     },
 
+    /** The answer this account gave on a poll (its participant id), or null. */
+    async answerIn(userId, eventId) {
+      await init();
+      const r = await db.first(
+        `SELECT p.id FROM owners o JOIN participants p ON p.id = o.item_id
+         WHERE o.user_id = ? AND o.kind = 'answer' AND p.event_id = ? LIMIT 1`,
+        [userId, eventId],
+      );
+      return r?.id ?? null;
+    },
+
+    /** The polls an account has answered, latest answer first: My polls' "Answered". */
+    async listAnsweredPolls(userId) {
+      await init();
+      const rows = await db.all(
+        `SELECT e.id, e.data, e.final_start, e.created_at, p.updated_at AS answered_at, p.availability,
+           (SELECT COUNT(*) FROM participants q WHERE q.event_id = e.id AND q.id IS NOT COALESCE(json_extract(e.data, '$.hostId'), '')) AS answers
+         FROM owners o JOIN participants p ON p.id = o.item_id JOIN events e ON e.id = p.event_id
+         WHERE o.user_id = ? AND o.kind = 'answer' ORDER BY p.updated_at DESC LIMIT 500`,
+        [userId],
+      );
+      return rows.map((r) => {
+        const d = JSON.parse(r.data);
+        // Whether they said they can make the picked date: 2 yes, 1 if needed, 0 no.
+        const can = r.final_start == null ? undefined : (JSON.parse(r.availability)[r.final_start] ?? 0);
+        return {
+          id: r.id,
+          title: d.title,
+          ...(d.emoji && { emoji: d.emoji }),
+          ...(d.organizer && { organizer: d.organizer }),
+          createdAt: r.created_at,
+          answeredAt: r.answered_at,
+          finalStart: r.final_start ?? null,
+          ...(can !== undefined && { can }),
+          answers: Number(r.answers),
+        };
+      });
+    },
+
     /** An account's brand templates, newest first. */
     async listOwnedBrands(userId) {
       await init();
@@ -454,6 +496,7 @@ export function createStore(db) {
       await init();
       await db.run('DELETE FROM participants WHERE event_id = ? AND id = ?', [eventId, id]);
       await db.run('DELETE FROM participant_emails WHERE participant_id = ?', [id]);
+      await db.run("DELETE FROM owners WHERE kind = 'answer' AND item_id = ?", [id]);
     },
 
     /** Save (or, with no email, forget) the email someone answered with. */

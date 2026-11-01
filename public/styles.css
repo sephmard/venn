@@ -2560,3 +2560,6 @@ pre.code {
   color: var(--muted);
   white-space: nowrap;
 }
+.nowrap {
+  white-space: nowrap;
+}

@@ -67,6 +67,7 @@ ${jsonLd.map((d) => `<script type="application/ld+json">${JSON.stringify(d).repl
 <a href="/brand">For organizations</a>
 <a href="/#contact">Contact</a>
 <a href="/privacy">Privacy</a>
+<a href="/terms">Terms</a>
 <a href="https://docs.venn.day">Docs</a>
 <a href="https://github.com/sephmard/venn">GitHub</a>
 <button type="button" class="classic-switch" role="switch" aria-checked="false">Classic mode</button>
@@ -81,6 +82,7 @@ const FOOTER = `<footer class="wrap footer">
 <span>© Venn · Free and open source</span>
 <nav aria-label="Footer">
 <a href="/privacy">Privacy</a>
+<a href="/terms">Terms</a>
 <a href="https://docs.venn.day">Docs</a>
 <a href="https://github.com/sephmard/venn">GitHub</a>
 <a href="/#contact">Contact</a>
@@ -257,7 +259,7 @@ ${FOOTER}`;
 
 const sitemap = () => `<?xml version="1.0" encoding="UTF-8"?>
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
-${['/', '/templates', ...TEMPLATE_PAGES.map((p) => `/templates/${p.slug}`), '/privacy'].map((path) => `  <url><loc>${ORIGIN}${path}</loc></url>`).join('\n')}
+${['/', '/templates', ...TEMPLATE_PAGES.map((p) => `/templates/${p.slug}`), '/privacy', '/terms'].map((path) => `  <url><loc>${ORIGIN}${path}</loc></url>`).join('\n')}
 </urlset>
 `;
 
@@ -291,6 +293,7 @@ ${TEMPLATE_PAGES.map((p) => `- [${p.name}](${ORIGIN}/templates/${p.slug}): ${p.c
 
 - [Developer docs and API](https://docs.venn.day): self-hosting, the API, notifications and calendars.
 - [Privacy](${ORIGIN}/privacy): what Venn stores, and what it doesn't.
+- [Terms](${ORIGIN}/terms): the terms for using Venn.
 `;
 
 /** Every file this writes, formatted as Prettier would: { 'public/…': text }. */
