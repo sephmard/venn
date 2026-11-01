@@ -3,17 +3,20 @@
 // it. Signing in is the server's (src/auth.js); this page lists what the account keeps and adds the
 // links this browser remembers.
 
-import { $, api, app, esc, plural, toast } from './ui.js';
+import { $, api, app, copy, esc, getConfig, plural, toast } from './ui.js';
 import { accountHint, refreshAccountMenu } from './account-menu.js';
 import { stickerStack, rotate } from './stickers.js';
 import {
   GROUPS,
   SORTS,
+  SORT_HINTS,
   answeredMeta,
   arrange,
   canMake,
+  madeMeta,
+  nudgeText,
+  whenShort,
   parseOrganizerLink,
-  pollMeta,
   rememberedLinks,
   signInAgree,
   signInButtons,
@@ -158,21 +161,25 @@ addEventListener('pageshow', (e) => {
 
 // ---------- signed in ----------
 
+const MORE =
+  '<svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><circle cx="5" cy="12" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="19" cy="12" r="2"/></svg>';
+
+// A poll's row: a tap opens it (as its organizer, for the ones they made); ⋯ manages it.
 const pollRow = (p) => `
-  <li><a class="acct-row" href="/e/${esc(p.id)}#organizer" data-link>
+  <li class="acct-item"><a class="acct-row" href="/e/${esc(p.id)}#organizer" data-link>
     <span class="acct-icon" aria-hidden="true">${esc(p.emoji || '📅')}</span>
-    <span class="acct-text"><b>${esc(p.title)}</b><span class="muted">${esc(pollMeta(p))}</span></span>
-    <span class="acct-chev" aria-hidden="true">›</span>
-  </a></li>`;
+    <span class="acct-text"><b>${esc(p.title)}</b><span class="muted">${esc(madeMeta(p))}</span></span>
+    <span class="acct-when muted">${esc(whenShort(p.createdAt))}</span>
+  </a><button type="button" class="acct-more" data-more="${esc(p.id)}" aria-label="Manage ${esc(p.title)}" aria-haspopup="dialog">${MORE}</button></li>`;
 
 const answeredRow = (p) => {
   const can = canMake(p);
   return `
-  <li><a class="acct-row" href="/e/${esc(p.id)}" data-link>
+  <li class="acct-item"><a class="acct-row" href="/e/${esc(p.id)}" data-link>
     <span class="acct-icon" aria-hidden="true">${esc(p.emoji || '📅')}</span>
-    <span class="acct-text"><b>${esc(p.title)}</b><span class="muted">${esc(answeredMeta(p))}${p.organizer ? ` · ${esc(p.organizer)}` : ''}</span></span>
-    ${can ? `<span class="acct-can ${can[0]}">${can[1]}</span>` : '<span class="acct-chev" aria-hidden="true">›</span>'}
-  </a></li>`;
+    <span class="acct-text"><b>${esc(p.title)}</b><span class="muted">${esc(answeredMeta(p))}</span></span>
+    ${can ? `<span class="acct-can ${can[0]}">${can[1]}</span>` : `<span class="acct-when muted">${esc(whenShort(p.answeredAt))}</span>`}
+  </a><button type="button" class="acct-more" data-more="${esc(p.id)}" aria-label="Manage ${esc(p.title)}" aria-haspopup="dialog">${MORE}</button></li>`;
 };
 
 const brandRow = (b) => `
@@ -190,10 +197,28 @@ const EMPTY = {
   brands: ['Your logo and colours on every poll.', '<a class="btn btn-primary" href="/brand" data-link>Make a template</a>'],
 };
 
-const options = (all, on) =>
-  Object.entries(all)
-    .map(([k, label]) => `<option value="${k}"${k === on ? ' selected' : ''}>${label}</option>`)
-    .join('');
+// A long list shows a few at a time: this many per group, then "Show more"; Past starts folded.
+const FIRST = 5;
+
+const CHECK =
+  '<svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><path d="m5 12 5 5 9-10" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+const SLIDERS =
+  '<svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path d="M4 7h10M18 7h2M4 17h4M12 17h8" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><circle cx="16" cy="7" r="2.2" fill="none" stroke="currentColor" stroke-width="2"/><circle cx="10" cy="17" r="2.2" fill="none" stroke="currentColor" stroke-width="2"/></svg>';
+
+/**
+ * A sheet over the page: from the bottom on phones, a card in the middle on wide screens. A tap
+ * outside, Escape, or anything marked data-close closes it, and focus goes back where it was.
+ */
+function openSheet(html, wire) {
+  const sheet = $('#acct-sheet');
+  sheet.innerHTML = `<div class="acct-sheet-body"><span class="acct-grip" aria-hidden="true"></span>${html}</div>`;
+  sheet.onclick = (e) => {
+    if (e.target === sheet || e.target.closest('[data-close]')) sheet.close();
+  };
+  wire?.(sheet);
+  sheet.showModal();
+  return sheet;
+}
 
 function showMine(me, view) {
   const { user } = me;
@@ -215,10 +240,7 @@ function showMine(me, view) {
             <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><circle cx="11" cy="11" r="7" fill="none" stroke="currentColor" stroke-width="2"/><path d="m20 20-3.5-3.5" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
             <input id="acct-q" type="search" enterkeyhint="search" autocomplete="off" aria-label="Search">
           </label>
-          <div class="acct-pickers">
-            <label class="acct-pick"><span>Sort</span><select id="acct-sort">${options(SORTS, view.sort)}</select></label>
-            <label class="acct-pick" id="acct-group-pick"><span>Group</span><select id="acct-group">${options(GROUPS, view.group)}</select></label>
-          </div>
+          <button type="button" class="acct-sortbtn" id="acct-sortbtn" aria-haspopup="dialog">${SLIDERS}<span id="acct-sortlabel"></span></button>
         </div>
         <div id="acct-results" aria-live="polite"></div>
       </div>
@@ -239,6 +261,7 @@ function showMine(me, view) {
           <button type="button" class="btn" id="acct-out">Sign out</button>
         </div>
       </section>
+      <dialog class="acct-sheet" id="acct-sheet" aria-label="Options"></dialog>
     </div>`;
 
   const draw = () => {
@@ -254,14 +277,15 @@ function showMine(me, view) {
     // Searching, sorting and grouping are for lists long enough to need them.
     $('.acct-tools').hidden = items.length < 2;
     $('#acct-q').placeholder = brands ? 'Search templates' : 'Search polls';
-    $('#acct-group-pick').hidden = brands;
     // Templates have no date to sort by.
     const sort = brands && view.sort === 'date' ? 'new' : view.sort;
-    $('#acct-sort').innerHTML = options(
-      brands ? Object.fromEntries(Object.entries(SORTS).filter(([k]) => k !== 'date')) : SORTS,
-      sort,
+    $('#acct-sortlabel').textContent = SORTS[sort];
+    $('#acct-sortbtn').setAttribute(
+      'aria-label',
+      `Sort: ${SORTS[sort]}${brands ? '' : `, grouped by ${GROUPS[view.group].toLowerCase()}`}. Change`,
     );
     const groups = arrange(items, { q: view.q, sort, group: brands ? 'none' : view.group });
+    const searching = !!view.q.trim();
     const row = { made: pollRow, answered: answeredRow, brands: brandRow }[view.tab];
     const out = $('#acct-results');
     if (!items.length) {
@@ -275,15 +299,181 @@ function showMine(me, view) {
         $('#acct-q').focus();
       };
     } else {
+      // A few at a time: searching shows every match; Past starts folded when there's more above it.
+      const key = (g) => `${view.tab}:${view.group}:${g.key}`;
       out.innerHTML =
         groups
-          .map(
-            (g) =>
-              `${g.label ? `<h2 class="acct-h">${esc(g.label)} <span class="muted">${g.items.length}</span></h2>` : ''}<ul class="acct-list" aria-label="${esc(g.label || TABS[view.tab])}">${g.items.map(row).join('')}</ul>`,
-          )
+          .map((g) => {
+            const folded = !searching && g.key === 'past' && groups.length > 1 && !open.has(key(g));
+            const shown = searching || open.has(key(g)) || brands ? g.items : g.items.slice(0, FIRST);
+            const head = !g.label
+              ? ''
+              : g.key === 'past' && groups.length > 1 && !searching
+                ? `<h2 class="acct-h"><button type="button" class="acct-fold" data-open="${esc(key(g))}" aria-expanded="${!folded}">${esc(g.label)} <span class="muted">${g.items.length}</span><span class="acct-fold-mark" aria-hidden="true">›</span></button></h2>`
+                : `<h2 class="acct-h">${esc(g.label)} <span class="muted">${g.items.length}</span></h2>`;
+            if (folded) return head;
+            const rest = g.items.length - shown.length;
+            return `${head}<ul class="acct-list" aria-label="${esc(g.label || TABS[view.tab])}">${shown.map(row).join('')}</ul>${
+              rest ? `<button type="button" class="acct-showmore" data-open="${esc(key(g))}">Show ${rest} more</button>` : ''
+            }`;
+          })
           .join('') + (brands ? '<a class="acct-new" href="/brand" data-link>+ New template</a>' : '');
+      for (const b of out.querySelectorAll('[data-open]'))
+        b.onclick = () => {
+          const k = b.dataset.open;
+          const more = b.classList.contains('acct-showmore');
+          const label = more && b.previousElementSibling.getAttribute('aria-label');
+          const n = more && b.previousElementSibling.children.length;
+          if (!more && open.has(k)) open.delete(k);
+          else open.add(k);
+          draw();
+          // After "Show more", focus goes to the first new row, so the list carries on from there.
+          if (more)
+            [...out.querySelectorAll('.acct-list')]
+              .find((ul) => ul.getAttribute('aria-label') === label)
+              ?.children[n]?.querySelector('a')
+              ?.focus();
+          else out.querySelector(`[data-open="${CSS.escape(k)}"]`)?.focus();
+        };
+      for (const b of out.querySelectorAll('[data-more]'))
+        b.onclick = () =>
+          manage(
+            lists[view.tab].find((p) => p.id === b.dataset.more),
+            view.tab,
+          );
     }
   };
+  const open = new Set(); // groups opened in full (or Past unfolded), by tab, grouping and group
+
+  // Sort and group: one button, one sheet with big targets, applied as they're tapped.
+  $('#acct-sortbtn').onclick = () => {
+    const brands = view.tab === 'brands';
+    const sorts = Object.keys(SORTS).filter((k) => !(brands && k === 'date'));
+    const paint = (sheet) => {
+      for (const b of sheet.querySelectorAll('[data-sort]')) b.setAttribute('aria-checked', b.dataset.sort === view.sort);
+      for (const b of sheet.querySelectorAll('[data-group]')) b.setAttribute('aria-checked', b.dataset.group === view.group);
+    };
+    openSheet(
+      `<h2 class="acct-sheet-h">Sort${brands ? '' : ' and group'}</h2>
+       <div class="acct-opts" role="radiogroup" aria-label="Sort">
+         ${sorts.map((k) => `<button type="button" role="radio" data-sort="${k}"><span><b>${SORTS[k]}</b><span class="muted">${SORT_HINTS[k]}</span></span>${CHECK}</button>`).join('')}
+       </div>
+       ${
+         brands
+           ? ''
+           : `<h3 class="acct-sheet-sub">Group by</h3>
+              <div class="seg acct-seg" role="radiogroup" aria-label="Group by">
+                ${Object.entries(GROUPS)
+                  .map(([k, label]) => `<button type="button" role="radio" data-group="${k}">${label}</button>`)
+                  .join('')}
+              </div>`
+       }
+       <button type="button" class="btn btn-primary acct-done" data-close>Done</button>`,
+      (sheet) => {
+        paint(sheet);
+        sheet.querySelector('[aria-checked="true"]')?.focus();
+        for (const b of sheet.querySelectorAll('[data-sort],[data-group]'))
+          b.addEventListener('click', () => {
+            if (b.dataset.sort) view.sort = b.dataset.sort;
+            else view.group = b.dataset.group;
+            paint(sheet);
+            draw();
+          });
+      },
+    );
+  };
+
+  // ⋯ on a poll: open it, share it, remind people, take it off the list, or delete it.
+  function manage(p, tab) {
+    if (!p) return;
+    const made = tab === 'made';
+    const url = `${location.origin}/e/${p.id}`;
+    const waiting = p.finalStart == null && !(p.deadline != null && p.deadline <= Date.now());
+    const emailable = made && waiting && p.invitees && config.email;
+    openSheet(
+      `<div class="acct-sheet-head">
+         <span class="acct-icon" aria-hidden="true">${esc(p.emoji || '📅')}</span>
+         <span class="acct-text"><b>${esc(p.title)}</b><span class="muted">${esc(made ? madeMeta(p) : answeredMeta(p))}</span></span>
+       </div>
+       <div class="acct-acts" id="acct-acts">
+         <a href="/e/${esc(p.id)}${made ? '#organizer' : ''}" data-link data-close>Open</a>
+         <button type="button" data-act="copy">Copy link</button>
+         ${made && waiting ? '<button type="button" data-act="nudge">Remind the group</button>' : ''}
+         ${emailable ? `<button type="button" data-act="email">Email invitees who haven’t answered</button>` : ''}
+         <button type="button" data-act="unlist">Remove from My polls</button>
+         ${made ? '<button type="button" data-act="delete" class="acct-danger">Delete poll</button>' : ''}
+       </div>
+       <div class="acct-sure" id="acct-sure" hidden>
+         <p><b>Delete “${esc(p.title)}”?</b> It’s gone for everyone, with its answers.</p>
+         <div class="acct-sure-row"><button type="button" class="btn btn-danger" data-act="delete-yes">Delete poll</button><button type="button" class="btn" data-act="delete-no">Keep it</button></div>
+       </div>
+       <button type="button" class="btn acct-done" data-close>Close</button>`,
+      (sheet) => {
+        const gone = (msg) => {
+          lists[tab] = lists[tab].filter((x) => x.id !== p.id);
+          sheet.close();
+          redrawCounts();
+          draw();
+          toast(msg);
+        };
+        const acts = {
+          copy: () => copy(url).then(() => sheet.close()),
+          nudge: async () => {
+            const text = nudgeText(p, url);
+            try {
+              if (navigator.share) await navigator.share({ text });
+              else await copy(text, 'Reminder copied, ready to paste');
+              sheet.close();
+            } catch {}
+          },
+          email: async () => {
+            try {
+              const { sent } = await api(`events/${p.id}/remind`, { method: 'POST', headers: { 'x-organizer': '1' } });
+              sheet.close();
+              toast(`Reminder sent to ${plural(sent, 'person', 'people')}`);
+            } catch (ex) {
+              toast(ex.message);
+            }
+          },
+          unlist: async () => {
+            try {
+              await api(`me/${made ? 'polls' : 'answers'}/${made ? p.id : p.answerId || p.id}`, { method: 'DELETE' });
+              gone('Removed from My polls');
+            } catch (ex) {
+              toast(ex.message);
+            }
+          },
+          delete: () => {
+            $('#acct-acts', sheet).hidden = true;
+            $('#acct-sure', sheet).hidden = false;
+            sheet.querySelector('[data-act="delete-no"]').focus();
+          },
+          'delete-no': () => {
+            $('#acct-sure', sheet).hidden = true;
+            $('#acct-acts', sheet).hidden = false;
+            sheet.querySelector('[data-act="delete"]').focus();
+          },
+          'delete-yes': async () => {
+            try {
+              await api(`events/${p.id}`, { method: 'DELETE' });
+              gone('Poll deleted');
+            } catch (ex) {
+              toast(ex.message);
+            }
+          },
+        };
+        for (const b of sheet.querySelectorAll('[data-act]')) b.onclick = () => acts[b.dataset.act]();
+      },
+    );
+  }
+  const redrawCounts = () => {
+    for (const b of app.querySelectorAll('[role="tab"]')) {
+      const n = lists[b.dataset.tab].length;
+      b.innerHTML = `${TABS[b.dataset.tab]}${n ? ` <span class="acct-n">${n}</span>` : ''}`;
+    }
+  };
+  let config = {};
+  getConfig().then((c) => (config = c || {}));
 
   const tabs = [...app.querySelectorAll('[role="tab"]')];
   for (const b of tabs) {
@@ -302,14 +492,6 @@ function showMine(me, view) {
   }
   $('#acct-q').oninput = (e) => {
     view.q = e.target.value;
-    draw();
-  };
-  $('#acct-sort').onchange = (e) => {
-    view.sort = e.target.value;
-    draw();
-  };
-  $('#acct-group').onchange = (e) => {
-    view.group = e.target.value;
     draw();
   };
   $('#acct-q').value = view.q;

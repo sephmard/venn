@@ -3,7 +3,7 @@
 import { LIMITS, ValidationError, YES, allDaySpan, isValidTimeZone, buildSlots, meetingEnd, overlapEnd } from '../public/core.js';
 import { buildIcs, googleCalendarUrl, outlookCalendarUrl } from '../public/calendar-export.js';
 import { setLabel } from './preview.js';
-import { applyDeadline, closesLabel, deadlineView, isClosed, normalizeDeadline, stopReminders } from './deadline.js';
+import { applyDeadline, closesLabel, deadlineView, isClosed, normalizeDeadline, remindNow, stopReminders } from './deadline.js';
 import { normalizeAvailability, normalizeEventInput, normalizeName } from './validate.js';
 import { SECURITY_HEADERS } from './security-headers.js';
 import { IMAGE_FILES, IMAGE_LIMITS, MAX_IMAGE_BODY, imagePath, imageResponse, parseImage } from './images.js';
@@ -875,6 +875,15 @@ export async function handleApi(
         await store.setReminderDue(ev.id, due);
       }
       return json(deadlineView(data, settings, await store.listEmails(ev.id)));
+    }
+
+    // POST /api/events/:id/remind: email the invitees who haven't answered, now (My polls' Remind).
+    if (parts.length === 3 && parts[2] === 'remind') {
+      if (method !== 'POST') return error(405, 'Method not allowed');
+      if (!isAdmin) return error(403, 'Only the organizer can send reminders');
+      const res = await remindNow({ store, env, ev, now: now(), fetchImpl, origin });
+      if (res.error) return error(400, res.error);
+      return json(res);
     }
 
     // PUT /api/events/:id/image  { icon, card? }: the poll's own picture, in base64 (src/images.js).

@@ -488,8 +488,16 @@ test('My polls: search, sort and group', async () => {
   assert.deepEqual(ids(arrange(items, { q: ' bo ', group: 'none' }, now)), [['all', 'da']]);
   assert.deepEqual(ids(arrange(items, { q: 'kit', group: 'none' }, now)), [['all', 'b']]);
   assert.deepEqual(arrange(items, { q: 'nothing here' }, now), []);
+  // Rows say enough to tell polls with the same name apart.
+  const { madeMeta, whenShort, nudgeText } = await import('../public/account-data.js');
+  assert.equal(madeMeta({ finalStart: null, answers: 2, location: 'Rosa’s' }), '2 answers · Rosa’s');
+  assert.match(madeMeta({ finalStart: Date.UTC(2031, 2, 3, 12), answers: 1 }, Date.UTC(2030, 0, 1)), /^Picked: .*3 · 1 answer$/);
+  assert.equal(whenShort(now, now), 'Today');
+  assert.match(whenShort(now - 40 * day, now), /^[A-Z][a-z]{2} \d+$|^\d+ [A-Z][a-z]{2}$/);
+  assert.match(whenShort(Date.UTC(2020, 0, 5), now), /2020/);
+  assert.equal(nudgeText({ title: 'Quiz' }, 'https://venn.day/e/x'), 'Still need your answer for “Quiz”: https://venn.day/e/x');
   // Answered rows: whether they're in, in the key's words.
-  assert.equal(answeredMeta({ finalStart: null, answers: 3 }), 'Waiting on a date · 3 answers');
+  assert.equal(answeredMeta({ finalStart: null, answers: 3, organizer: 'Mia' }), 'Waiting on a date · 3 answers · Mia');
   assert.deepEqual(canMake({ can: 2 }), ['v-yes', 'You’re in']);
   assert.deepEqual(canMake({ can: 0 }), ['v-no', 'Can’t make it']);
   assert.equal(canMake({}), null);
