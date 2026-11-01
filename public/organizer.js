@@ -292,9 +292,21 @@ export function privacy(ctx) {
         <div class="btn-row"><button class="btn btn-primary" type="submit">Save privacy settings</button></div>
         <div class="error" id="privacy-err" role="alert"></div>
       </form>
+      ${
+        ev.requireEmail
+          ? `<h3>Deadline</h3>
+      <form id="deadline-form" class="stack-sm" novalidate>
+        <div id="deadline-fields"><p class="hint">Loading…</p></div>
+        <div class="btn-row"><button class="btn btn-primary" type="submit">Save deadline</button></div>
+        <div class="error" id="deadline-err" role="alert"></div>
+      </form>
+      <ul class="email-list" id="invitee-list"></ul>`
+          : ''
+      }
       <h3>Emails <span class="muted">(${withEmail.length})</span></h3>
       ${emails}
     </section>`;
+  if (ev.requireEmail) deadlinePanel(ctx);
   box.scrollIntoView({ block: 'nearest' });
   $('#privacy-close').onclick = () => ctx.close();
   if ($('#copy-emails'))
@@ -315,6 +327,47 @@ export function privacy(ctx) {
       privacy({ ...ctx, ev: await ctx.reload() });
     } catch (ex) {
       $('#privacy-err').textContent = ex.message;
+      if (btn) btn.disabled = false;
+    }
+  };
+}
+
+/** When answers close, who to remind, and how each invitee is doing (deadline-fields.js). */
+async function deadlinePanel({ id, headers }) {
+  let m, d, c;
+  try {
+    [m, d, c] = await Promise.all([import('./deadline-fields.js'), api(`events/${id}/deadline`, { headers }), getConfig()]);
+  } catch (ex) {
+    return void ($('#deadline-fields').innerHTML = `<p class="error">${esc(ex.message)}</p>`);
+  }
+  const show = (d) => {
+    $('#deadline-fields').innerHTML = m.fields(d, { email: !!c.email });
+    m.wire();
+    $('#invitee-list').innerHTML = d.invitees
+      .map(
+        (i) =>
+          `<li><b>${esc(i.email)}</b> <span>${
+            i.answered
+              ? 'Answered'
+              : i.stopped
+                ? 'Stopped reminders'
+                : `Waiting${i.reminded ? ` · ${i.reminded === 1 ? '1 reminder' : `${i.reminded} reminders`} sent` : ''}`
+          }</span></li>`,
+      )
+      .join('');
+  };
+  show(d);
+  $('#deadline-form').onsubmit = async (e) => {
+    e.preventDefault();
+    const btn = e.submitter;
+    if (btn) btn.disabled = true;
+    $('#deadline-err').textContent = '';
+    try {
+      show(await api(`events/${id}/deadline`, { method: 'PUT', body: m.values(), headers }));
+      toast('Deadline saved');
+    } catch (ex) {
+      $('#deadline-err').textContent = ex.message;
+    } finally {
       if (btn) btn.disabled = false;
     }
   };

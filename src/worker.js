@@ -6,6 +6,7 @@ import { createStore, d1Adapter } from './store.js';
 import { isAppRoute } from './routes.js';
 import { SECURITY_HEADERS } from './security-headers.js';
 import { appShell, homePage } from './preview.js';
+import { sendDeadlines } from './deadline.js';
 
 let store;
 
@@ -48,5 +49,11 @@ export default {
     const res = new Response(asset.body, { status: 404, headers: asset.headers });
     for (const [k, v] of Object.entries(SECURITY_HEADERS)) res.headers.set(k, v);
     return res;
+  },
+
+  // Every hour (wrangler.toml): reminders before a poll's deadline, and "answers are in" after it.
+  async scheduled(event, env, ctx) {
+    store ??= createStore(d1Adapter(env.DB));
+    ctx.waitUntil(sendDeadlines({ store, env, now: event.scheduledTime || Date.now() }));
   },
 };

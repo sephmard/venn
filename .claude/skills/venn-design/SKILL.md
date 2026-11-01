@@ -142,6 +142,12 @@ the same PR** (and CLAUDE.md if it's a rule that matters in review).
   around, fly to the three friends, the circles drift together and the day that works pops out, then
   they keep floating, unhurried (the messages drift slowly enough to read, but only for about 3 seconds before they fly to their friends, then the circles snap together (0.7 seconds) and the day that works pops out the moment all three overlap: the payoff is fast, the noise is slow (about 24 seconds a loop)) so each step can be followed. It plays while in view. Tap replays it; press and hold a circle (a mouse just
   drags) to pull a friend away, and the ✓ follows the overlap. Still for reduced motion.
+- **A deadline, when emails are required.** Asking guests for their email (Privacy options) shows
+  "Answers close" (optional); with a deadline, the organizer can paste who they invited and choose how
+  often to remind them (every day, 2 or 3 days, or only the day before). Venn emails only invitees who
+  haven't answered, with a one-tap stop. At the deadline answers close (guests see their answer, not a
+  form) and the organizer gets one email with the best time, ready to pick. Changed later in Organizer
+  tools → Privacy, which also shows each invitee: Answered, Waiting, or Stopped reminders.
 - The same top bar on every page: logo, Create a Venn, menu. GitHub lives in the menu and footer, not
   the bar. No floating buttons.
 

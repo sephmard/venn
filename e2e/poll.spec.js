@@ -3436,3 +3436,85 @@ test('days and parts of the day mix: an evening stays an evening, and a day adde
   expect(ev.layout).toBe('parts');
   expect(ev.options).toHaveLength(4); // Monday's evening, and Wednesday's morning, afternoon and evening
 });
+
+test('a poll that asks for emails can close answers at a deadline', async ({ page, browser }) => {
+  await page.goto('/new/pick');
+  await page.fill('#title', 'Book club');
+  await page.fill('#organizer', 'Sam');
+  await addOptions(page, 3, [1140]);
+  await page.locator('#privacy-opts summary').click();
+  await expect(page.locator('#dl-at')).toHaveCount(0); // only once emails are asked for
+  await page.getByRole('switch', { name: 'Ask guests for their email' }).check();
+  const at = page.getByLabel('Answers close');
+  await expect(at).toBeVisible();
+  // This server doesn't send email, so there's no one to remind: just when answers close.
+  await expect(page.locator('#dl-invitees')).toHaveCount(0);
+  const local = await page.evaluate(() => {
+    const d = new Date(Date.now() + 2 * 86_400_000);
+    const p = (n) => String(n).padStart(2, '0');
+    return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}T17:00`;
+  });
+  await at.fill(local);
+  await page.click('#submit');
+  await openNewPoll(page);
+  const url = page.url();
+  await expect(page.locator('.deadline-line')).toContainText(/Answers close .*5:00/);
+
+  // The organizer can change it in Privacy.
+  await openTools(page);
+  await page.click('#privacy-open');
+  await expect(page.locator('#dl-at')).toHaveValue(local);
+
+  // A guest opening it after the deadline sees their way to answer closed, and why.
+  const guest = await browser.newContext();
+  const g = await guest.newPage();
+  await g.clock.setFixedTime(new Date(Date.parse(local) + 3 * 86_400_000));
+  await g.goto(url);
+  await expect(g.locator('.deadline-line')).toContainText('Answers closed');
+  await expect(g.locator('#closed-note')).toHaveText('Answers are closed. Sam is picking the date.');
+  await expect(g.locator('#save')).toBeHidden();
+  await expect(g.locator('#name')).toBeHidden();
+  await expect(g.locator('#answer-full')).toHaveJSProperty('inert', true);
+  await guest.close();
+});
+
+test('the organizer sees who they invited and whether each has answered', async ({ page, request }) => {
+  await page.route('**/api/config', async (route) => {
+    const res = await route.fetch();
+    await route.fulfill({ response: res, json: { ...(await res.json()), email: true } });
+  });
+  const options = [8, 9].map((d) => ({ start: Date.UTC(2030, 0, d, 18), end: Date.UTC(2030, 0, d, 20) }));
+  const deadline = Date.now() + 3 * 86_400_000;
+  const { id, adminToken } = await (
+    await request.post('/api/events', {
+      data: {
+        title: 'Dinner',
+        timezone: 'UTC',
+        mode: 'options',
+        options,
+        requireEmail: true,
+        deadline,
+        remindEvery: 2,
+        invitees: ['ana@example.com', 'lee@example.com'],
+      },
+    })
+  ).json();
+  await request.post(`/api/events/${id}/participants`, {
+    data: { name: 'Ana', email: 'ana@example.com', availability: { [options[0].start]: 2 } },
+  });
+  await page.goto(`/e/${id}#admin=${adminToken}`);
+  await openTools(page);
+  await page.click('#privacy-open');
+  await expect(page.locator('#invitee-list li')).toHaveText(['ana@example.com Answered', 'lee@example.com Waiting']);
+  await expect(page.getByLabel('How often')).toHaveValue('2');
+  await expect(page.getByLabel(/Remind who you invited/)).toHaveValue('ana@example.com, lee@example.com');
+  // Inviting one more, reminded only the day before.
+  await page.getByLabel(/Remind who you invited/).fill('Ana <ana@example.com>, lee@example.com\nkim@example.com');
+  await page.getByLabel('How often').selectOption({ label: 'Only the day before' });
+  await page.getByRole('button', { name: 'Save deadline' }).click();
+  await expect(page.locator('#toast')).toHaveText('Deadline saved');
+  await expect(page.locator('#invitee-list li')).toHaveCount(3);
+  const saved = await (await request.get(`/api/events/${id}/deadline`, { headers: { 'x-admin-token': adminToken } })).json();
+  expect(saved.remindEvery).toBe(0);
+  expect(saved.invitees.map((i) => i.email)).toEqual(['ana@example.com', 'lee@example.com', 'kim@example.com']);
+});

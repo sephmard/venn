@@ -9,10 +9,10 @@ directory = "./public"
 binding = "ASSETS"
 run_worker_first = ["/api/*"]
 
-# No scheduled jobs. The hourly "time to plan the next one?" emails were taken out with plans that
-# repeat; an empty list removes their cron trigger from the deployed Worker.
+# Every hour: reminders to invitees before a poll's deadline, and the organizer's "answers are in"
+# email after it (src/deadline.js). Nothing is sent unless the server sends email.
 [triggers]
-crons = []
+crons = ["0 * * * *"]
 
 # Optional features are configured with secrets, never in this file:
 #   npx wrangler secret put EMAIL_FROM       # email notifications (see docs/NOTIFICATIONS.md),
