@@ -237,6 +237,12 @@ the same PR** (and CLAUDE.md if it's a rule that matters in review).
   button, same "Create a Venn" heading.
 - **No chooser screen.** /new stays the date poll; one quiet link in its intro, "Deciding what or
   where?", opens /new/topic, which links back ("Pick a date instead").
+- **The question comes first** (the owner, 2026-11: "you can't put in the actual question"): the
+  first card, "What are you deciding?", has **Pick from options · Yes or no**, then **Your question**,
+  empty (no "Get-together" name), its example fitting the kind ("Where should we eat?" / "Should we
+  do a book swap?"). No date-poll templates (Friendsgiving…) and a 🗳️ tile instead of the calendar.
+  Yes or no shows its fixed answers as **Yes** / **No** chips ("Everyone answers"), never as boxes,
+  and hides the options card. A topic poll can't be created without its question.
 - Options are answered with the date polls' **Yes · If needed · No** rows and colours (everyone
   ticks every option they'd go with). **One pick each** is a switch; **Yes or no** is a one-pick
   poll with the options Yes and No.
