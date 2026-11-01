@@ -492,6 +492,7 @@ function showMine(me, view) {
          <button type="button" data-act="copy">Copy link</button>
          ${made && waiting ? '<button type="button" data-act="nudge">Remind the group</button>' : ''}
          ${emailable ? `<button type="button" data-act="email">Email invitees who haven’t answered</button>` : ''}
+         ${made && p.finalStart == null && !p.decided ? `<a href="/e/${esc(p.id)}#organizer&amp;deadline" data-link data-close>${p.deadline != null ? 'Change the deadline' : 'Add a deadline'}</a>` : ''}
          <button type="button" data-act="unlist">Remove from My polls</button>
          ${made ? '<button type="button" data-act="delete" class="acct-danger">Delete poll</button>' : ''}
        </div>

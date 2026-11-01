@@ -1,7 +1,8 @@
-// A deadline for answers, for polls that ask everyone for their email: guests see when answers
-// close, and after that only the organizer can answer. The organizer can list who they invited:
-// Venn emails those who haven't answered yet, as often as the organizer chose and once more the day
-// before, and when answers close it emails the organizer the best time, ready to pick. Sent by the
+// A deadline for answers, for organizers who are signed in (where the server has sign-in): guests
+// see when answers close, and after that only the organizer can answer. Date polls and votes alike.
+// The organizer can list who they invited (the poll then asks everyone's email, which is how Venn
+// knows who answered): Venn emails those who haven't answered yet, as often as the organizer chose and once more the day
+// before, and when answers close it emails the organizer the best time (or option), ready to pick. Sent by the
 // hourly run (src/worker.js's cron trigger, and a timer in server.js); only when the server sends email.
 //
 // The deadline is part of the poll (guests see it). Who was invited, and their reminders, live with
@@ -50,18 +51,19 @@ export const closesLabel = (ev) =>
  * Whether poll `ev` has stopped taking answers (from anyone but its organizer). Once the date is
  * picked, guests can still say whether they can make it.
  */
-export const isClosed = (ev, now) => ev.deadline != null && ev.finalStart == null && now >= ev.deadline;
+export const isClosed = (ev, now) => ev.deadline != null && !isDecided(ev) && now >= ev.deadline;
+
+/** Whether the organizer has picked: the date, or a vote's option. */
+export const isDecided = (ev) => ev.finalStart != null || ev.picked != null;
 
 /**
- * Check what the organizer sent: `{ deadline, remindEvery, invitees }`, each optional. A deadline
- * needs the poll to ask everyone's email (that's how Venn knows who answered); reminders and
- * invitees need a deadline. Returns the cleaned values.
+ * Check what the organizer sent: `{ deadline, remindEvery, invitees }`, each optional. Reminders and
+ * invitees need a deadline; invitees make the poll ask everyone's email (applyDeadline), since
+ * that's how Venn knows who answered. Returns the cleaned values.
  */
 export function normalizeDeadline(body, ev, now) {
   const deadline = body.deadline ?? null;
   if (deadline === null) return { deadline: null, remindEvery: null, invitees: [] };
-  if (!ev.requireEmail)
-    throw new ValidationError('A deadline needs everyone’s email: turn on “Ask guests for their email” first');
   if (!Number.isFinite(deadline) || deadline < now + MIN_AHEAD || deadline > now + MAX_AHEAD)
     throw new ValidationError('Choose when answers close: at least an hour from now, and within 30 days');
   const remindEvery = body.remindEvery ?? null;
@@ -99,6 +101,8 @@ export function applyDeadline(ev, settings, { deadline, remindEvery, invitees },
     return null;
   }
   ev.deadline = deadline;
+  // Reminders go to those who haven't answered, told apart by the email they answer with.
+  if (invitees.length) ev.requireEmail = true;
   const before = new Map((settings.remind?.invitees || []).map((i) => [i.email, i]));
   settings.remind = {
     every: remindEvery,
@@ -199,7 +203,7 @@ export async function waitingInvitees(store, ev, settings) {
  */
 export async function remindNow({ store, env = {}, ev, now = Date.now(), fetchImpl = fetch, origin }) {
   if (!emailEnabled(env)) return { error: "Emails aren't turned on for this server" };
-  if (ev.finalStart != null) return { error: 'The date is already picked' };
+  if (isDecided(ev)) return { error: ev.finalStart != null ? 'The date is already picked' : 'The vote is already decided' };
   if (isClosed(ev, now)) return { error: 'Answers have closed' };
   const settings = (await store.getNotify(ev.id)) || {};
   const r = settings.remind;
@@ -217,6 +221,12 @@ export async function remindNow({ store, env = {}, ev, now = Date.now(), fetchIm
  * time has come, and return how many emails went. Each poll's next look is booked as it goes.
  */
 export async function sendDeadlines({ store, env = {}, now = Date.now(), fetchImpl = fetch } = {}) {
+  /** Where the organizer hears that answers are in: the email they gave, or their account's. */
+  const organizerEmail = async (id, settings) => {
+    if (settings.email || settings.accountEmailStopped) return settings.email || null;
+    const owner = await store.ownerOf('poll', id);
+    return (owner && (await store.getUser(owner))?.email) || null;
+  };
   let sent = 0;
   for (const id of await store.dueReminders(now)) {
     try {
@@ -237,10 +247,13 @@ export async function sendDeadlines({ store, env = {}, now = Date.now(), fetchIm
     const mail = emailEnabled(env) && site;
     let n = 0;
     if (isClosed(ev, now)) {
-      // Answers are in: tell the organizer, once, with the best time to pick.
-      if (mail && settings.email && ev.finalStart == null) {
+      // Answers are in: tell the organizer, once, with the best time (or option) to pick.
+      const to = mail && !isDecided(ev) ? await organizerEmail(id, settings) : null;
+      if (to) {
+        if (!settings.unsubscribeToken) settings.unsubscribeToken = token();
         const people = await store.listParticipants(id);
         const [best] = people.length ? rankTimes(ev, buildSlots(ev), people, 1) : [];
+        const topic = ev.mode === 'topic';
         const emails = await store.listEmails(id);
         const answeredEmails = new Set(emails.values());
         const waiting = (r.invitees || []).filter((i) => !answeredEmails.has(i.email)).length;
@@ -250,13 +263,14 @@ export async function sendDeadlines({ store, env = {}, now = Date.now(), fetchIm
           title: ev.title,
           answered: others,
           waiting,
-          best: best && best.yes.length + best.ifNeeded.length ? setLabel(ev, best.start) : null,
+          best: best && best.yes.length + best.ifNeeded.length ? (topic ? best.label : setLabel(ev, best.start)) : null,
+          topic,
           pollUrl,
           unsubscribeUrl,
           retro: ev.retro,
         });
         const headers = unsubscribeHeaders(unsubscribeLink(site, id, settings.unsubscribeToken));
-        await sendEmail(env, { to: settings.email, ...msg, headers }, { fetchImpl });
+        await sendEmail(env, { to, ...msg, headers }, { fetchImpl });
         n++;
       }
       await store.setNotify(id, { ...settings, remind: { ...r, closedSent: true } });

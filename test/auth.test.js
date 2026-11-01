@@ -568,6 +568,10 @@ test('My polls: search, sort and group', async () => {
   const { madeMeta, whenShort, nudgeText } = await import('../public/account-data.js');
   assert.equal(madeMeta({ finalStart: null, answers: 2, location: 'Rosa’s' }), '2 answers · Rosa’s');
   assert.match(madeMeta({ finalStart: Date.UTC(2031, 2, 3, 12), answers: 1 }, Date.UTC(2030, 0, 1)), /^Picked: .*3 · 1 answer$/);
+  // A deadline, while the poll is open: when answers close, then that they have.
+  const deadline = Date.UTC(2030, 0, 4, 12);
+  assert.match(madeMeta({ finalStart: null, deadline, answers: 0 }, Date.UTC(2030, 0, 1)), /^Closes .*4 · No answers yet$/);
+  assert.equal(madeMeta({ finalStart: null, deadline, answers: 1 }, deadline), 'Closed · 1 answer');
   assert.equal(whenShort(now, now), 'Today');
   assert.match(whenShort(now - 40 * day, now), /^[A-Z][a-z]{2} \d+$|^\d+ [A-Z][a-z]{2}$/);
   assert.match(whenShort(Date.UTC(2020, 0, 5), now), /2020/);

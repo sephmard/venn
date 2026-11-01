@@ -357,15 +357,17 @@ export function deadlineReminderEmail({ title, organizer, closes, pollUrl, unsub
  * To the organizer, when answers close: who answered, and the best time so far, ready to pick.
  * `best` is that time in the poll's zone, or null when nobody's free at the same time.
  */
-export function answersClosedEmail({ title, answered, waiting, best, pollUrl, unsubscribeUrl, retro = false }) {
+export function answersClosedEmail({ title, answered, waiting, best, topic = false, pollUrl, unsubscribeUrl, retro = false }) {
   const subject = `Answers are in for “${title}”`;
   const count = `${answered} ${answered === 1 ? 'person' : 'people'} answered${waiting ? `; ${waiting} didn't` : ''}.`;
-  const pick = best ? `The best time so far: ${best}.` : 'Nobody has a time in common yet.';
-  const text = `Answers for “${title}” are closed. ${count}\n\n${pick} Pick the date here:\n\n${pollUrl}\n\nStop these emails: ${unsubscribeUrl}\n`;
+  const lead = topic ? 'The favourite so far' : 'The best time so far';
+  const pick = best ? `${lead}: ${best}.` : topic ? 'No option has a yes yet.' : 'Nobody has a time in common yet.';
+  const action = topic ? 'Pick one' : 'Pick the date';
+  const text = `Answers for “${title}” are closed. ${count}\n\n${pick} ${action} here:\n\n${pollUrl}\n\nStop these emails: ${unsubscribeUrl}\n`;
   const html = emailLayout(
     `${heading('Answers are in 🎉')}${para(`Answers for <strong>${escHtml(title)}</strong> are closed. ${escHtml(count)}`)}${para(
-      best ? `The best time so far: <strong>${escHtml(best)}</strong>.` : escHtml(pick),
-    )}${button(pollUrl, 'Pick the date')}`,
+      best ? `${lead}: <strong>${escHtml(best)}</strong>.` : escHtml(pick),
+    )}${button(pollUrl, action)}`,
     stopFooter(unsubscribeUrl),
     pollUrl,
     { signed: false },

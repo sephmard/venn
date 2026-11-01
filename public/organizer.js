@@ -1,5 +1,5 @@
-// Organizer-only panels on the poll page: notifications, and privacy (with the emails people
-// answered with). Loaded when the organizer opens one, so guests never download this code.
+// Organizer-only panels on the poll page: notifications, the deadline (with who to remind), and
+// privacy (with the emails people answered with). Loaded when the organizer opens one, so guests never download this code.
 
 import { meetingEnd } from './core.js';
 import { $, ago, api, copy, esc, getConfig, lastEmail, save, saved, toast } from './ui.js';
@@ -21,6 +21,7 @@ export function tools(box, ctx) {
     <div class="btn-row">
       <button class="btn btn-sm" id="notify-open" aria-expanded="${!!panels.notify}" aria-controls="notify-box">Notifications</button>
       ${ctx.ai ? '<button class="btn btn-sm" id="writer-open" aria-controls="writer-box">Write a message</button>' : ''}
+      <button class="btn btn-sm" id="deadline-open" aria-expanded="${!!panels.deadline}" aria-controls="deadline-box">Deadline</button>
       <button class="btn btn-sm" id="privacy-open" aria-expanded="${!!panels.privacy}" aria-controls="privacy-box">Privacy</button>
       <a class="btn btn-sm" href="/new/${ctx.kind}?${copyOnly ? 'copy' : 'edit'}=${id}${copyOnly && ev.finalStart != null ? '&amp;next' : ''}" data-link>${copyOnly ? 'Duplicate' : 'Edit'} poll</a>
     </div>
@@ -37,7 +38,7 @@ export function tools(box, ctx) {
       `${ctx.shareUrl}#admin=${ctx.adminToken}`,
       'Organizer link copied. Keep it private: anyone with it can change or delete the poll.',
     );
-  for (const name of ['notify', 'privacy', 'writer'])
+  for (const name of ['notify', 'deadline', 'privacy', 'writer'])
     if ($(`#${name}-open`)) $(`#${name}-open`).onclick = () => ctx.panel(name, !panels[name]);
   $('#delete-poll').onclick = async () => {
     if (!confirm("Delete this poll and everyone's answers? This cannot be undone.")) return;
@@ -292,21 +293,9 @@ export function privacy(ctx) {
         <div class="btn-row"><button class="btn btn-primary" type="submit">Save privacy settings</button></div>
         <div class="error" id="privacy-err" role="alert"></div>
       </form>
-      ${
-        ev.requireEmail
-          ? `<h3>Deadline</h3>
-      <form id="deadline-form" class="stack-sm" novalidate>
-        <div id="deadline-fields"><p class="hint">Loading…</p></div>
-        <div class="btn-row"><button class="btn btn-primary" type="submit">Save deadline</button></div>
-        <div class="error" id="deadline-err" role="alert"></div>
-      </form>
-      <ul class="email-list" id="invitee-list"></ul>`
-          : ''
-      }
       <h3>Emails <span class="muted">(${withEmail.length})</span></h3>
       ${emails}
     </section>`;
-  if (ev.requireEmail) deadlinePanel(ctx);
   box.scrollIntoView({ block: 'nearest' });
   $('#privacy-close').onclick = () => ctx.close();
   if ($('#copy-emails'))
@@ -332,11 +321,43 @@ export function privacy(ctx) {
   };
 }
 
-/** When answers close, who to remind, and how each invitee is doing (deadline-fields.js). */
-async function deadlinePanel({ id, headers }) {
-  let m, d, c;
+// ----- deadline -----
+
+/**
+ * When answers close, who to remind, and how each invitee is doing (deadline-fields.js). With an
+ * account, where the server has sign-in; signed out, one line saying so (a deadline set before
+ * can still be taken off). ctx: { id, ev, headers, close, reload }
+ */
+export async function deadline(ctx) {
+  const { id, ev, headers, close } = ctx;
+  const box = $('#deadline-box');
+  box.innerHTML = `
+    <section class="sheet" aria-labelledby="deadline-h">
+      <div class="sheet-head">
+        <h2 id="deadline-h">Deadline</h2>
+        <button type="button" class="link-btn" id="deadline-close">Close</button>
+      </div>
+      <div id="deadline-body"><p class="hint">Loading…</p></div>
+    </section>`;
+  box.scrollIntoView({ block: 'nearest' });
+  $('#deadline-close').onclick = () => close();
+  const c = await getConfig().catch(() => ({}));
+  const signedOut = (c.accounts || []).length && !(await import('./account-menu.js')).accountHint();
+  if (signedOut && ev.deadline == null) {
+    $('#deadline-body').innerHTML =
+      '<p class="hint"><a href="/me" data-link>Sign in</a> to close answers on a set day and remind who hasn’t answered.</p>';
+    return;
+  }
+  $('#deadline-body').innerHTML = `
+    <form id="deadline-form" class="stack-sm" novalidate>
+      <div id="deadline-fields"></div>
+      <div class="btn-row"><button class="btn btn-primary" type="submit">Save deadline</button></div>
+      <div class="error" id="deadline-err" role="alert"></div>
+    </form>
+    <ul class="email-list" id="invitee-list"></ul>`;
+  let m, d;
   try {
-    [m, d, c] = await Promise.all([import('./deadline-fields.js'), api(`events/${id}/deadline`, { headers }), getConfig()]);
+    [m, d] = await Promise.all([import('./deadline-fields.js'), api(`events/${id}/deadline`, { headers })]);
   } catch (ex) {
     return void ($('#deadline-fields').innerHTML = `<p class="error">${esc(ex.message)}</p>`);
   }
@@ -363,8 +384,10 @@ async function deadlinePanel({ id, headers }) {
     if (btn) btn.disabled = true;
     $('#deadline-err').textContent = '';
     try {
-      show(await api(`events/${id}/deadline`, { method: 'PUT', body: m.values(), headers }));
+      await api(`events/${id}/deadline`, { method: 'PUT', body: m.values(), headers });
       toast('Deadline saved');
+      // The poll shows when answers close (and may now ask for emails): drawn again, panel open.
+      return deadline({ ...ctx, ev: await ctx.reload() });
     } catch (ex) {
       $('#deadline-err').textContent = ex.message;
     } finally {

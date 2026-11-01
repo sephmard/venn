@@ -76,7 +76,6 @@ export function renderTopic() {
     'afterend',
     `<p class="topic-yesno" id="yesno" hidden><span class="muted">Everyone answers</span>${YES_NO.map((l) => `<span class="yn-chip yn-${l.toLowerCase()}">${l}</span>`).join('')}</p>`,
   );
-  $('#deadline-box')?.remove(); // a deadline lives with date polls for now
 
   const occasion = wirePlan(() => {});
   const inputs = () => $$('#opts input');

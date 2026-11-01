@@ -3448,14 +3448,13 @@ test('days and parts of the day mix: an evening stays an evening, and a day adde
   expect(ev.options).toHaveLength(4); // Monday's evening, and Wednesday's morning, afternoon and evening
 });
 
-test('a poll that asks for emails can close answers at a deadline', async ({ page, browser }) => {
+test('a poll can close answers at a deadline', async ({ page, browser }) => {
   await page.goto('/new/pick');
   await page.fill('#title', 'Book club');
   await page.fill('#organizer', 'Sam');
   await addOptions(page, 3, [1140]);
-  await page.locator('#privacy-opts summary').click();
-  await expect(page.locator('#dl-at')).toHaveCount(0); // only once emails are asked for
-  await page.getByRole('switch', { name: 'Ask guests for their email' }).check();
+  // This Venn has no sign-in, so anyone can add one; guests' emails aren't needed for it.
+  await page.locator('#deadline-opts summary').click();
   const at = page.getByLabel('Answers close');
   await expect(at).toBeVisible();
   // This server doesn't send email, so there's no one to remind: just when answers close.
@@ -3471,9 +3470,9 @@ test('a poll that asks for emails can close answers at a deadline', async ({ pag
   const url = page.url();
   await expect(page.locator('.deadline-line')).toContainText(/Answers close .*5:00/);
 
-  // The organizer can change it in Privacy.
+  // The organizer can change it in Deadline.
   await openTools(page);
-  await page.click('#privacy-open');
+  await page.click('#deadline-open');
   await expect(page.locator('#dl-at')).toHaveValue(local);
 
   // A guest opening it after the deadline sees their way to answer closed, and why.
@@ -3515,12 +3514,12 @@ test('the organizer sees who they invited and whether each has answered', async 
   });
   await page.goto(`/e/${id}#admin=${adminToken}`);
   await openTools(page);
-  await page.click('#privacy-open');
+  await page.click('#deadline-open');
   await expect(page.locator('#invitee-list li')).toHaveText(['ana@example.com Answered', 'lee@example.com Waiting']);
   await expect(page.getByLabel('How often')).toHaveValue('2');
-  await expect(page.getByLabel(/Remind who you invited/)).toHaveValue('ana@example.com, lee@example.com');
+  await expect(page.getByLabel(/Remind who hasn/)).toHaveValue('ana@example.com, lee@example.com');
   // Inviting one more, reminded only the day before.
-  await page.getByLabel(/Remind who you invited/).fill('Ana <ana@example.com>, lee@example.com\nkim@example.com');
+  await page.getByLabel(/Remind who hasn/).fill('Ana <ana@example.com>, lee@example.com\nkim@example.com');
   await page.getByLabel('How often').selectOption({ label: 'Only the day before' });
   await page.getByRole('button', { name: 'Save deadline' }).click();
   await expect(page.locator('#toast')).toHaveText('Deadline saved');
