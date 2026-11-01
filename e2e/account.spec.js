@@ -206,6 +206,8 @@ test('polls answered signed in are in My polls, to search, sort and group, and t
     await page.goto(`/e/${ev.id}`);
     await page.locator('#mine .row [data-vote="2"]').first().click();
     await page.fill('#name', 'Kit');
+    // This Venn sends email (for email sign-in), so the answer offers a copy by email.
+    await page.fill('#copy-to', 'kit@example.com');
     await submit(page);
     await expect(page.locator('#save-err')).toBeEmpty();
   }
