@@ -63,6 +63,20 @@ async function tokenMatches(token, hash) {
   return typeof token === 'string' && token.length > 0 && timingSafeEqual(await sha256(token), hash);
 }
 
+/**
+ * An app's key (`authorization: Bearer <key>`), one of the server's APP_KEYS: other apps that make
+ * brand templates for their own users from their server, where sign-in would otherwise be needed
+ * (docs/EMBED.md). Keys are compared as hashes, so the comparison doesn't leak them.
+ */
+export async function appKeyMatches(header, keys) {
+  const key = /^Bearer\s+(\S+)$/i.exec(header || '')?.[1];
+  if (!key || !keys) return false;
+  const hash = await sha256(key);
+  let ok = false;
+  for (const k of String(keys).split(',')) if (k.trim() && timingSafeEqual(await sha256(k.trim()), hash)) ok = true;
+  return ok;
+}
+
 const json = (data, status = 200) =>
   new Response(JSON.stringify(data), {
     status,
@@ -543,7 +557,13 @@ export async function handleApi(
     if (parts.length === 1 && parts[0] === 'brands' && method === 'POST') {
       // Saving a template needs an account, where the server has sign-in (src/auth.js); without it,
       // templates are kept by their manage link alone. Templates made before keep working either way.
-      if (signInProviders(env).length && !(await currentUser())) return error(401, 'Sign in to save your template');
+      // An app with a key (APP_KEYS) makes them for its own users from its server instead.
+      if (
+        signInProviders(env).length &&
+        !(await currentUser()) &&
+        !(await appKeyMatches(request.headers.get('authorization'), env.APP_KEYS))
+      )
+        return error(401, 'Sign in to save your template');
       const brand = normalizeBrand(await readJson(request, 10_000));
       const id = randomId(10);
       const adminToken = randomId(24);

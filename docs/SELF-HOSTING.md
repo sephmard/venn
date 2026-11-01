@@ -44,16 +44,17 @@ Put it behind a reverse proxy (Caddy, nginx) for HTTPS. The SQLite file is the o
 
 Each one switches on when its settings exist, and `GET /api/config` reports which are on. Keep secrets in Cloudflare secrets (`npx wrangler secret put NAME`) or environment variables, never in `wrangler.toml`.
 
-| Feature                   | Settings                                                                             | Guide                                                 |
-| ------------------------- | ------------------------------------------------------------------------------------ | ----------------------------------------------------- |
-| Email notifications       | `EMAIL_FROM`, plus Cloudflare Email Sending (an `EMAIL` binding) or `RESEND_API_KEY` | [Notifications](NOTIFICATIONS.md)                     |
-| Webhook notifications     | Always on. Organizers add a URL from their poll.                                     | [Notifications](NOTIFICATIONS.md)                     |
-| Phone notifications       | `VAPID_PUBLIC_KEY` and `VAPID_PRIVATE_KEY` (from `npm run vapid`)                    | [Notifications](NOTIFICATIONS.md#phone-notifications) |
-| Google Calendar / Outlook | `GOOGLE_CLIENT_ID` and/or `MICROSOFT_CLIENT_ID`                                      | [Calendars](CALENDARS.md)                             |
-| Sign-in and My polls      | `GOOGLE_CLIENT_ID` + `GOOGLE_CLIENT_SECRET` (or Microsoft, GitHub)                   | [Accounts](ACCOUNTS.md)                               |
-| AI features (Claude)      | `ANTHROPIC_API_KEY`                                                                  | [AI features](AI.md)                                  |
-| Address search in "Where" | `PLACES_PROVIDER=photon`, or `GOOGLE_PLACES_API_KEY`                                 | [Address search](#address-search)                     |
-| Usage stats               | `STATS_TOKEN`                                                                        | [Usage stats](USAGE-STATS.md)                         |
+| Feature                   | Settings                                                                             | Guide                                                                 |
+| ------------------------- | ------------------------------------------------------------------------------------ | --------------------------------------------------------------------- |
+| Email notifications       | `EMAIL_FROM`, plus Cloudflare Email Sending (an `EMAIL` binding) or `RESEND_API_KEY` | [Notifications](NOTIFICATIONS.md)                                     |
+| Webhook notifications     | Always on. Organizers add a URL from their poll.                                     | [Notifications](NOTIFICATIONS.md)                                     |
+| Phone notifications       | `VAPID_PUBLIC_KEY` and `VAPID_PRIVATE_KEY` (from `npm run vapid`)                    | [Notifications](NOTIFICATIONS.md#phone-notifications)                 |
+| Google Calendar / Outlook | `GOOGLE_CLIENT_ID` and/or `MICROSOFT_CLIENT_ID`                                      | [Calendars](CALENDARS.md)                                             |
+| Sign-in and My polls      | `GOOGLE_CLIENT_ID` + `GOOGLE_CLIENT_SECRET` (or Microsoft, GitHub)                   | [Accounts](ACCOUNTS.md)                                               |
+| AI features (Claude)      | `ANTHROPIC_API_KEY`                                                                  | [AI features](AI.md)                                                  |
+| Address search in "Where" | `PLACES_PROVIDER=photon`, or `GOOGLE_PLACES_API_KEY`                                 | [Address search](#address-search)                                     |
+| Apps that make templates  | `APP_KEYS`: keys, separated by commas, one for each app you trust                    | [White label and embedding](EMBED.md#make-templates-from-your-server) |
+| Usage stats               | `STATS_TOKEN`                                                                        | [Usage stats](USAGE-STATS.md)                                         |
 
 ### Address search
 
