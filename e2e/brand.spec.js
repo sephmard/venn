@@ -5,11 +5,17 @@ import { pickDays } from './helpers.js';
 // Brand templates (/brand): an organization makes its own, with a logo, colour and font; its team
 // makes polls from the share link; guests see the organization's look. No accounts: a manage link.
 
-// A tiny PNG logo.
-const LOGO = Buffer.from(
-  'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==',
-  'base64',
+// A red logo, to offer its colour.
+const RED_LOGO = Buffer.from(
+  '<svg xmlns="http://www.w3.org/2000/svg" width="40" height="20"><rect width="40" height="20" fill="#e63946"/></svg>',
 );
+/** Open a step of the editor: from the list of steps (wide screens) or the step menu (phones). */
+async function openStep(page, id) {
+  const listed = page.locator(`.steps [data-step="${id}"]`);
+  if (await listed.isVisible()) return listed.click();
+  await page.locator('#step-menu summary').click();
+  await page.locator(`#step-menu [data-step="${id}"]`).click();
+}
 const accent = (page, sel = 'html') =>
   page.locator(sel).evaluate((el) => getComputedStyle(el).getPropertyValue('--accent').trim());
 const noSideways = async (page) =>
@@ -26,6 +32,7 @@ async function audit(page, label) {
 }
 
 test('brand template: make one, share it, and its polls show the organization’s look', async ({ page, browser }) => {
+  test.setTimeout(60_000); // every step of the editor, three scans, then four browsers
   // From the home page.
   await page.goto('/');
   await page.getByRole('link', { name: 'Make your template' }).click();
@@ -35,49 +42,89 @@ test('brand template: make one, share it, and its polls show the organization’
   await expect(pv.locator('.brand-bar')).toBeVisible();
   const look = (prop) => pv.locator('html').evaluate((el, p) => getComputedStyle(el).getPropertyValue(p).trim(), prop);
   const venn = await look('--accent');
+  // A step at a time, in the poll page's order: the first is its name and logo, and the preview
+  // rings the part of the poll each step changes.
+  await expect(page.locator('[data-panel="name"]')).toBeVisible();
+  await expect(page.locator('[data-panel="colours"]')).toBeHidden();
+  await expect(page.locator('#back')).toBeDisabled();
   await page.fill('#b-name', 'Acme Inc.');
+  await expect(pv.locator('.brand-bar')).toHaveText('Acme Inc.');
+  await expect(pv.locator('.brand-bar.pv-spot')).toBeVisible();
+  // The logo: uploaded, then its size; the size and name switch only show once there's one.
+  await expect(page.getByRole('button', { name: 'Upload logo' })).toBeVisible();
+  await expect(page.getByRole('radio', { name: 'Large' })).toBeHidden();
+  await page.setInputFiles('#logo-file', { name: 'logo.svg', mimeType: 'image/svg+xml', buffer: RED_LOGO });
+  await expect(pv.locator('.brand-bar img')).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Change logo' })).toBeVisible();
+  await page.getByRole('radio', { name: 'Large' }).click();
+  await expect(pv.locator('.brand-bar img')).toHaveCSS('height', '96px');
+  // Next: a look to start from, and one in the logo's colour.
+  await page.click('#next');
+  await expect(page.locator('[data-panel="look"]')).toBeVisible();
+  await page.locator('[data-look="midnight"]').click();
+  await expect.poll(() => look('--bg')).toBe('#0e1220');
+  expect(await look('--radius')).toBe('22px');
+  await page.locator('[data-look="logo"]').click();
+  await expect.poll(() => look('--accent')).not.toBe(venn);
+  expect(await page.locator('#b-accent').inputValue()).toMatch(/^#e[0-9a-f]3[0-9a-f]4[0-9a-f]$/);
+  // Held, Compare shows Venn's own look; let go, the template's.
+  await page.locator('#pv-compare').dispatchEvent('pointerdown');
+  await expect(pv.locator('html')).not.toHaveClass(/branded/);
+  await page.locator('#pv-compare').dispatchEvent('pointerup');
+  await expect(pv.locator('html')).toHaveClass(/branded/);
+  // Colours: its own, and the buttons it changes are rung in the preview.
+  await page.click('#next');
+  await expect(page.locator('[data-panel="colours"]')).toBeVisible();
+  await expect(pv.locator('.btn-primary.pv-spot').first()).toBeVisible();
   await page.locator('#b-accent').evaluate((el) => {
     el.value = '#6d28d9';
     el.dispatchEvent(new Event('input'));
   });
-  await expect.poll(() => look('--accent')).not.toBe(venn);
-  await expect(pv.locator('.brand-bar')).toHaveText('Acme Inc.');
   // The page itself keeps Venn's own look (retro, by default).
   await expect(page.locator('html')).toHaveClass(/retro/);
   await expect(page.locator('html')).not.toHaveClass(/branded/);
   // A page of its own, its answers, fonts, corners and buttons: the preview takes them on.
   await page.locator('[data-page="own"]').click();
-  await page.locator('[data-answers="own"]').click();
   for (const [id, value] of [
     ['#b-bg', '#fff4e6'],
     ['#b-text', '#3d2c1e'],
-    ['#b-yes', '#1d4ed8'],
   ])
     await page.locator(id).evaluate((el, v) => {
       el.value = v;
       el.dispatchEvent(new Event('input'));
     }, value);
+  // Answers: the preview goes to the group's answers, where their colours show.
+  await page.click('#next');
+  await expect(pv.locator('.ov-list.pv-spot')).toBeVisible();
+  await page.locator('[data-answers="own"]').click();
+  await page.locator('#b-yes').evaluate((el) => {
+    el.value = '#1d4ed8';
+    el.dispatchEvent(new Event('input'));
+  });
+  await openStep(page, 'headings');
   await page.locator('[data-font="slab"]').click();
+  await openStep(page, 'text');
   await page.locator('[data-body-font="humanist"]').click();
+  await openStep(page, 'shape');
   await page.getByRole('radio', { name: 'Square' }).click();
   await page.getByRole('radio', { name: 'Match the corners' }).click();
   await expect.poll(() => look('--bg')).toBe('#fff4e6');
-  expect(await look('--radius')).toBe('4px');
+  await expect.poll(() => look('--radius')).toBe('4px');
   expect(await look('--serif')).toMatch(/Rockwell/);
   expect(await look('--yes')).toBe('#1d4ed8');
   await expect(pv.locator('.btn').first()).toHaveCSS('border-radius', '4px');
-  // The logo: uploaded, then its size; the size and name switch only show once there's one.
-  await expect(page.getByRole('button', { name: 'Upload logo' })).toBeVisible();
-  await expect(page.getByRole('radio', { name: 'Large' })).toBeHidden();
-  await page.setInputFiles('#logo-file', { name: 'logo.png', mimeType: 'image/png', buffer: LOGO });
-  await expect(pv.locator('.brand-bar img')).toBeVisible();
-  await expect(page.getByRole('button', { name: 'Change logo' })).toBeVisible();
-  await page.getByRole('radio', { name: 'Large' }).click();
-  await expect(pv.locator('.brand-bar img')).toHaveCSS('height', '96px');
+  // The last step: what polls start with, and Save in place of Next.
+  await expect(page.locator('#submit')).toBeHidden();
+  await page.click('#next');
+  await expect(page.locator('#next')).toBeHidden();
   await page.fill('#b-title', 'Team lunch');
   await page.fill('#b-where', 'The office');
   await expect(pv.locator('h1')).toContainText('Team lunch');
   await expect(pv.locator('#ev-details')).toContainText('The office');
+  // Back goes a step back, and the steps can be opened in any order.
+  await page.click('#back');
+  await expect(page.locator('[data-panel="shape"]')).toBeVisible();
+  await openStep(page, 'poll');
   // It can be used: an answer in the preview stays in the preview, and nothing reaches the server.
   const sent = [];
   page.on('request', (r) => r.url().includes('/api/events') && sent.push(r.url()));
@@ -91,10 +138,14 @@ test('brand template: make one, share it, and its polls show the organization’
   await expect(pv.getByRole('button', { name: 'Copy link' })).toHaveCount(0);
   expect(sent).toEqual([]);
   await noSideways(page);
+  // The preview at its top: scrolled, its sticky Submit bar half covers a row's buttons, which axe
+  // counts as too small a target in so short a frame.
+  await pv.locator('html').evaluate(() => scrollTo(0, 0));
   await audit(page, 'making a brand template');
   await page.click('#submit');
 
-  // Saved: two links, one for the team and one to keep, and it's remembered in this browser.
+  // Saved: it opens on two links, one for the team and one to keep, and it's remembered in this browser.
+  await expect(page.locator('[data-panel="share"]')).toBeVisible();
   const links = page.locator('.brand-links input');
   await expect(links).toHaveCount(2);
   await expect(page).toHaveURL(/\/brand\/[A-Za-z0-9]+$/);

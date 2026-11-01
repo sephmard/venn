@@ -1,7 +1,7 @@
 import { test, before, after } from 'node:test';
 import assert from 'node:assert/strict';
 import { createApp } from '../server.js';
-import { FONTS, brandBar, brandCss, contrast, palette, scheme } from '../public/brand-look.js';
+import { FONTS, brandBar, brandCss, contrast, mainColours, palette, scheme } from '../public/brand-look.js';
 import { normalizeBrand, publicBrand } from '../src/brands.js';
 import { isAppRoute } from '../src/routes.js';
 
@@ -233,4 +233,19 @@ test('brand templates: make, share, manage, logo, polls in its look, delete', as
   assert.equal((await call(`/api/brands/${id}`, { method: 'DELETE', headers: admin })).status, 200);
   assert.equal((await call(`/api/brands/${id}`)).status, 404);
   assert.equal((await call(`/api/events/${created.data.id}`)).data.brand, undefined);
+});
+
+test('mainColours: a logo’s most used colours, without white, black, greys or see-through', () => {
+  const px = (rgba, n) => Array.from({ length: n }, () => rgba).flat();
+  const logo = [
+    ...px([255, 255, 255, 255], 50), // white
+    ...px([20, 20, 20, 255], 40), // near black
+    ...px([128, 128, 128, 255], 30), // grey
+    ...px([230, 57, 70, 0], 60), // see-through
+    ...px([230, 57, 70, 255], 20), // red, most used
+    ...px([232, 60, 72, 255], 5), // the same red, near enough
+    ...px([29, 78, 216, 255], 10), // blue
+  ];
+  assert.deepEqual(mainColours(new Uint8ClampedArray(logo)), ['#e63a46', '#1d4ed8']);
+  assert.deepEqual(mainColours(new Uint8ClampedArray(px([255, 255, 255, 255], 10))), []);
 });

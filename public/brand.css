@@ -105,13 +105,6 @@
   border-color: var(--accent);
   box-shadow: 0 0 0 1.5px var(--accent);
 }
-.color-grid {
-  display: grid;
-  gap: 10px;
-}
-.color-grid .color-row label {
-  min-width: 110px;
-}
 .corner-swatch {
   width: 18px;
   height: 18px;
@@ -126,22 +119,259 @@
   border-radius: 999px;
 }
 
-/* The live preview (brand-demo.js in a frame): a phone-sized poll beside the form on wide screens,
-   pinned over the form on phones, so every change shows while it's made. */
+/* The editor (brand.js): a step at a time. Phones: the preview pinned on top, the open step under
+   it and Back / Next at the bottom, so a step and what it changes fit on one screen. Wide screens: the
+   steps, the open one, and the preview, side by side. */
+.brand-editor {
+  display: flex;
+  flex-direction: column;
+}
+.brand-editor > h1 {
+  margin-bottom: 8px;
+}
+@media (max-width: 959px) {
+  .brand-editor > h1 {
+    font-size: 1.6rem;
+  }
+}
+.brand-editor .steps {
+  display: none;
+}
+.steps ol,
+.step-menu ol {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+[data-step] {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  min-height: 44px;
+  padding: 6px 10px;
+  border: 0;
+  border-radius: 12px;
+  background: none;
+  color: var(--text);
+  font: inherit;
+  font-weight: 600;
+  text-align: left;
+  cursor: pointer;
+}
+.step-n {
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: 28px;
+  height: 28px;
+  border: 1.5px solid var(--border);
+  border-radius: 50%;
+  font-size: 0.85rem;
+  font-variant-numeric: tabular-nums;
+}
+[data-step].done .step-n {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+[data-step][aria-current='step'] {
+  background: var(--surface-2);
+  outline: 1.5px solid var(--accent);
+}
+[data-step][aria-current='step'] .step-n {
+  border-color: var(--accent);
+  background: var(--accent);
+  color: var(--accent-ink);
+}
+/* Phones: the step's place and name; open, every step. */
+.step-menu {
+  order: 2;
+  margin: 0 0 10px;
+}
+.step-menu summary {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 44px;
+  font-weight: 700;
+  cursor: pointer;
+}
+.step-menu summary::after {
+  content: '▾';
+  margin-left: auto;
+  color: var(--muted);
+}
+.step-menu[open] summary::after {
+  content: '▴';
+}
+.step-menu ol {
+  padding: 4px 0 8px;
+}
+.step-of {
+  display: block;
+  color: var(--muted);
+  font-size: 0.8rem;
+  font-weight: 650;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+.step-menu summary .step-of {
+  display: inline;
+}
+.step-panels {
+  order: 3;
+}
+.step h2 {
+  margin: 0 0 14px;
+}
+.step h2:focus {
+  outline: none;
+}
+/* On phones the step's name is in the menu over it; the heading stays for screen readers. */
+@media (max-width: 959px) {
+  .brand-editor .step {
+    padding-top: 16px;
+  }
+  .brand-editor .step h2 {
+    position: absolute;
+    margin: 0;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+  }
+}
+.step h3 {
+  margin: 18px 0 6px;
+  font-size: 1rem;
+}
+.delete-row {
+  margin: 18px 0 0;
+}
+.step-bar {
+  order: 4;
+  position: sticky;
+  bottom: 0;
+  z-index: 4;
+  margin: 0 -16px;
+  padding: 10px 16px calc(10px + env(safe-area-inset-bottom));
+  border-top: 1.5px solid var(--border);
+  background: var(--bg);
+}
+.step-bar .error {
+  flex: 1;
+  min-width: 0;
+}
+.step-bar #back:disabled {
+  visibility: hidden;
+}
+
+/* Starting looks: each a little page with a heading in its font and a button in its colour. */
+.look-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(140px, 40%), 1fr));
+  gap: 10px;
+}
+.look-card {
+  display: grid;
+  min-width: 0;
+  gap: 6px;
+  padding: 6px 6px 8px;
+  border: 1.5px solid var(--border);
+  border-radius: 14px;
+  background: var(--surface);
+  color: var(--text);
+  font: inherit;
+  font-weight: 650;
+  cursor: pointer;
+}
+.look-card:hover,
+.look-card:focus-visible {
+  border-color: var(--accent);
+}
+.look-sample {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  height: 52px;
+  padding: 0 10px;
+  border-radius: 9px;
+  background: var(--lb);
+  box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.08);
+}
+.look-aa {
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 40px;
+  border-radius: var(--lr);
+  background: var(--ls);
+  color: var(--lt);
+  font: 700 1.25rem/1 var(--lf);
+}
+.look-btn {
+  width: 52px;
+  height: 18px;
+  border-radius: var(--lbr);
+  background: var(--la);
+}
+
+/* Three colours side by side, each named under its swatch. */
+.color-trio {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 10px;
+  margin-top: 14px;
+}
+.trio {
+  display: grid;
+  justify-items: center;
+  gap: 4px;
+  margin: 0;
+  font-size: 0.9rem;
+  text-align: center;
+}
+.trio input {
+  width: 100%;
+  height: 48px;
+  padding: 4px;
+  border: 1.5px solid var(--border);
+  border-radius: 12px;
+  background: var(--surface);
+  cursor: pointer;
+}
+/* The logo's colours, offered beside the colour picker. */
+.from-logo {
+  display: flex;
+  gap: 6px;
+}
+.swatch {
+  width: 44px;
+  height: 44px;
+  border: 2px solid var(--surface);
+  border-radius: 50%;
+  box-shadow: 0 0 0 1.5px var(--border);
+  cursor: pointer;
+}
+
+/* The live preview (brand-demo.js in a frame): pinned over the step on phones, beside it on wide
+   screens. It shows the part of the poll the open step changes. */
 .preview-box {
+  order: 1;
   position: sticky;
   top: 0;
   z-index: 5;
-  margin: 0 -16px 16px;
-  padding: 8px 16px 0;
+  margin: 0 -16px 12px;
+  padding: 6px 16px 0;
   background: var(--bg);
 }
 .pv-top {
   display: flex;
   align-items: center;
-  justify-content: space-between;
   gap: 12px;
-  margin: 0 0 8px;
+  margin: 0 0 6px;
 }
 .pv-top .label {
   margin: 0;
@@ -149,15 +379,33 @@
 .pv-top .link-btn {
   min-height: 44px;
 }
+#pv-compare {
+  margin-left: auto;
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-touch-callout: none;
+  touch-action: none;
+}
+#pv-compare.held {
+  text-decoration: none;
+}
+.pv-top #pv-toggle:first-child,
+.pv-top .label + #pv-toggle {
+  margin-left: auto;
+}
 /* On a phone the frame is the screen's full width, so the poll inside lays out as it does on the phone. */
 #pv-frame {
   display: block;
   width: calc(100% + 32px);
-  height: 46svh;
+  height: 38svh;
   margin: 0 -16px;
   border: 0;
   border-block: 1.5px solid var(--border);
   background: #ffffff;
+}
+/* The share link's page: the preview under the button, not pinned. */
+.brand-page:not(.brand-editor) .preview-box {
+  position: static;
 }
 @media (min-width: 960px) {
   .brand-page {
@@ -169,6 +417,38 @@
   .brand-page > * {
     grid-column: 1;
   }
+  .brand-editor {
+    grid-template-columns: 220px minmax(0, 1fr) 400px;
+    grid-template-rows: auto auto 1fr;
+    align-items: start;
+  }
+  .brand-editor > h1 {
+    grid-column: 1 / 3;
+  }
+  .brand-editor .steps {
+    display: block;
+    grid-column: 1;
+    grid-row: 2 / span 2;
+    position: sticky;
+    top: 12px;
+  }
+  .brand-editor .steps li + li {
+    margin-top: 4px;
+  }
+  .brand-editor .step-menu {
+    display: none;
+  }
+  .brand-editor .step-panels,
+  .brand-editor .step-bar {
+    grid-column: 2;
+  }
+  .brand-editor .step-bar {
+    position: static;
+    margin: 0;
+    padding: 4px 0 0;
+    border: 0;
+    background: none;
+  }
   .brand-page > .preview-box {
     grid-column: 2;
     grid-row: 1 / span 20;
@@ -178,6 +458,9 @@
     padding: 0;
     border: 0;
     background: none;
+  }
+  .brand-editor > .preview-box {
+    grid-column: 3;
   }
   .brand-page #pv-frame {
     width: 100%;
