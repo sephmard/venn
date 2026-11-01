@@ -178,6 +178,7 @@ const STEPS = [
   ['headings', 'Headings', 'headings'],
   ['text', 'Text', 'text'],
   ['shape', 'Corners and buttons', 'shape'],
+  ['embed', 'White label', 'top'],
   ['poll', 'What polls start with', 'poll'],
 ];
 
@@ -390,6 +391,14 @@ function showForm(b, token, start, draft = null) {
           <label for="b-note">Note for everyone</label>
           <textarea id="b-note" maxlength="1000" placeholder="What everyone should know">${v('note')}</textarea>`,
         )}
+        ${panel(
+          'embed',
+          // White label and embedding (src/embed.js, docs/EMBED.md): no Venn, and the sites whose pages can show its polls.
+          `<label class="switch"><input type="checkbox" role="switch" id="b-hide-venn"${init?.hideVenn ? ' checked' : ''}> Hide Venn’s name and logo</label>
+          <label for="b-sites">Your websites that show its polls</label>
+          <textarea id="b-sites" rows="3" placeholder="https://example.com" autocapitalize="off" spellcheck="false" aria-describedby="sites-how">${esc((init?.embedSites || []).join('\n'))}</textarea>
+          <p class="hint" id="sites-how">One a line. <a href="https://docs.venn.day/embed.html" target="_blank" rel="noopener">How to show a poll there</a></p>`,
+        )}
         <section class="sheet save-signin" id="save-signin" aria-labelledby="save-signin-h" hidden></section>
       </div>
       <div class="create-bar step-bar">
@@ -420,6 +429,10 @@ function showForm(b, token, start, draft = null) {
     title: $('#b-title').value.trim(),
     where: $('#b-where').value.trim(),
     note: $('#b-note').value.trim(),
+    hideVenn: $('#b-hide-venn').checked,
+    embedSites: $('#b-sites')
+      .value.split(/[\s,]+/)
+      .filter(Boolean),
   });
   // The preview shows the template as it's made, at the part the open step changes; the page keeps
   // Venn's own look.
@@ -510,6 +523,7 @@ function showForm(b, token, start, draft = null) {
   ])
     $(el).addEventListener('input', show);
   $('#b-show-name').addEventListener('change', show);
+  $('#b-hide-venn').addEventListener('change', show);
   $('#back').onclick = () => go(at - 1);
   $('#next').onclick = () => go(at + 1);
   $('#brand-form').addEventListener('click', (e) => {

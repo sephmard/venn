@@ -280,7 +280,12 @@ test('Worker: poll pages carry the same link preview, without the static ETag', 
         if (path === '/') return new Response(HOME, { headers: { 'content-type': 'text/html', etag: '"home"' } });
         if (path === '/app')
           return new Response(SHELL, {
-            headers: { 'content-type': 'text/html', etag: '"static"', 'cache-control': 'public, max-age=0, must-revalidate' },
+            headers: {
+              'content-type': 'text/html',
+              etag: '"static"',
+              'cache-control': 'public, max-age=0, must-revalidate',
+              'x-frame-options': 'SAMEORIGIN', // as public/_headers adds
+            },
           });
         return new Response('Page not found', { status: 404, headers: { 'content-type': 'text/html' } });
       },
@@ -307,6 +312,20 @@ test('Worker: poll pages carry the same link preview, without the static ETag', 
   const missing = await fetchPath('/nope');
   assert.equal(missing.status, 404);
   assert.equal(missing.headers.get('x-frame-options'), 'SAMEORIGIN');
+
+  // A template's websites may frame its polls' embed pages (src/embed.js), whatever the static headers say.
+  const post = (path, body) =>
+    fetchPath(path, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) }).then((r) =>
+      r.json(),
+    );
+  const brand = await post('/api/brands', { name: 'Acme', embedSites: ['https://acme.com'] });
+  const poll = await post('/api/events', { ...dinner, dates: ['2026-11-02'], brand: brand.id });
+  const embed = await fetchPath(`/embed/${poll.id}`);
+  assert.equal(embed.status, 200);
+  assert.match(embed.headers.get('content-security-policy'), /frame-ancestors 'self' https:\/\/acme\.com$/);
+  assert.equal(embed.headers.get('x-frame-options'), null);
+  assert.match(await embed.text(), /<html class="embed"/);
+  assert.equal((await fetchPath(`/e/${poll.id}`)).headers.get('x-frame-options'), 'SAMEORIGIN');
 });
 
 test('Worker: the hourly run sends what deadlines have due, and nothing when none are', async () => {
