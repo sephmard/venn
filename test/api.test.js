@@ -399,6 +399,9 @@ test('serves the landing page, the app on its routes, and a 404 for anything els
   const privacy = await fetch(`${baseUrl}/privacy`);
   assert.equal(privacy.status, 200);
   assert.match(await privacy.text(), /<h1>Privacy<\/h1>/);
+  const terms = await fetch(`${baseUrl}/terms`);
+  assert.equal(terms.status, 200);
+  assert.match(await terms.text(), /<h1>Terms<\/h1>/);
   const missing = await fetch(`${baseUrl}/nope`);
   assert.equal(missing.status, 404);
   assert.match(await missing.text(), /Page not found/);

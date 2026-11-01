@@ -131,6 +131,9 @@ export async function renderEvent(id, navigate) {
     // With the organizer link on another device, the organizer's own answer is still theirs.
     if (st.ev.isAdmin && !saved(id).participantId && st.ev.participants.some((p) => p.id === st.ev.hostId))
       save(id, { participantId: st.ev.hostId });
+    // An answer kept with the account is theirs while signed in.
+    if (st.ev.yourAnswer && !saved(id).participantId) save(id, { participantId: st.ev.yourAnswer, viaAccount: 1 });
+    else if (saved(id).viaAccount && st.ev.yourAnswer !== saved(id).participantId) forget(id, 'participantId', 'viaAccount');
     const mine = st.ev.participants.find((p) => p.id === saved(id).participantId);
     if (!mine && saved(id).participantId) forget(id, 'participantId', 'editToken');
     return mine;

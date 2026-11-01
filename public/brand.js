@@ -7,7 +7,7 @@
 import { BUTTONS, CORNERS, FONTS, LOGO_SIZES, brandLook, mainColours } from './brand-look.js';
 import { $, $$, api, app, esc, forget, getConfig, save, saved, toast } from './ui.js';
 import { accountHint, refreshAccountMenu } from './account-menu.js';
-import { signInButtons } from './account-data.js';
+import { signInAgree, signInButtons } from './account-data.js';
 
 // The create pages' styles (forms, the sticky bar), and this page's own.
 const sheet = (href) =>
@@ -589,7 +589,8 @@ function showForm(b, token, start, draft = null) {
     $('#save-signin').innerHTML = `
       <h2 id="save-signin-h">Sign in to save your template</h2>
       <p class="muted">It’s kept in your account, with your polls, on any device.</p>
-      <div class="signin">${signInButtons(providers, '/brand')}</div>`;
+      <div class="signin">${signInButtons(providers, '/brand')}</div>
+      ${signInAgree()}`;
     $('#save-signin').hidden = false;
     $('#save-signin').scrollIntoView({ block: 'nearest' });
     $('#save-signin .btn-signin')?.focus({ preventScroll: true });

@@ -50,7 +50,7 @@ const PAGES = {
   // +0.5 for calendar days as a weekday over its number, today circled, and past days striped (shared styles).
   // +0.25 for who answered what, a line per answer, when a row in everyone's answers is open.
   // +0.25 for removing an answer from the person tapped, and the smooth timeline (shared styles).
-  'poll page': ['event.js', [], 49.5], // +0.25 for signing in: the organizer opened from My polls, and the account's place in the top bar (loaded on demand), +0.25 for a branded poll's look and bar (loaded only for those) and the /brand route, +0.5 for when answers close, and a closed poll, +0.25 for fetching its code all at once and the retro sky as its own layer
+  'poll page': ['event.js', [], 49.75], // +0.25 for answers kept with an account (yours on any device, signed in) and Terms in the footer, +0.25 for signing in: the organizer opened from My polls, and the account's place in the top bar (loaded on demand), +0.25 for a branded poll's look and bar (loaded only for those) and the /brand route, +0.5 for when answers close, and a closed poll, +0.25 for fetching its code all at once and the retro sky as its own layer
 };
 
 for (const [name, [entry, css, PAGE_KB]] of Object.entries(PAGES)) {

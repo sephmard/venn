@@ -1,6 +1,6 @@
 # Accounts (optional sign-in)
 
-Venn works fully without an account: polls have their own organizer links, and brand templates their manage links. Signing in is for people who want **My polls** (`/me`): every poll and brand template they organize in one list, on any device, opened as the organizer without the link.
+Venn works fully without an account: polls have their own organizer links, and brand templates their manage links. Signing in is for people who want **My polls** (`/me`): the polls they made, the polls they answered and their brand templates, on any device, to search, sort and group. Polls they made open as the organizer without the link; polls they answered open with their own answer, ready to change.
 
 **Saving a new brand template needs an account** when sign-in is set up: `POST /api/brands` answers 401 without a session, and the brand page asks the person to sign in at Save, keeps their draft through the sign-in and saves it on the way back. Templates that already exist keep working by their share and manage links, and can be added to an account from My polls. With no sign-in set up, anyone can save a template, as before.
 
@@ -18,6 +18,7 @@ Each sign-in switches on when its client ID **and** secret are set. With none se
 - **Sessions.** A random token in an `HttpOnly`, `SameSite=Lax` cookie on `/api` (`Secure` on https), for 30 days. The server keeps only its SHA-256 hash, in the `sessions` table.
 - **What's stored.** `users`: the provider, the provider's own id for the person, their name and email. Accounts are matched only by that id, never by email, so one person signing in with Google and then GitHub has two accounts. No picture, contacts or calendar.
 - **Owning.** `owners` says which account keeps a poll or template (at most one each). Polls and templates made while signed in are kept automatically. On My polls, the organizer links this browser remembers are added (each checked against its stored hash), and a link from elsewhere can be pasted in. One already kept with another account stays there.
+- **Answers.** An answer given while signed in is kept with the account too (`owners` kind `answer`, by participant id); so is one changed with its edit link while signed in, and the edit links this browser remembers are added on My polls. Signed in, `GET /api/events/:id` returns `yourAnswer` (and that answer, even when the organizer hides answers), and the answer can be changed or removed with the session alone. `GET /api/me` lists them as `answered`, with `can` (2 yes, 1 if needed, 0 no) for the picked date. `DELETE /api/me/answers/:pid` takes one off the list; the answer stays on the poll.
 - **The owner is the organizer.** For a poll (or template) kept with your account, organizer-only calls work with the session alone. Viewing it, you get the organizer's view only when you ask for it with `x-organizer: 1` (the app does from My polls, which opens `/e/<id>#organizer`), so the plain link still shows what guests see.
 - **Cross-site requests.** Besides `SameSite` and the API taking only JSON, a request that changes something counts as signed out when its `Origin` (or `Sec-Fetch-Site`) is another site.
 - **Leaving.** Sign out ends the session. Delete account (on My polls) removes the account, its sessions and its list; the polls and templates stay, with their links.
@@ -25,7 +26,7 @@ Each sign-in switches on when its client ID **and** secret are set. With none se
 ## Google
 
 1. In the [Google Cloud console](https://console.cloud.google.com/), pick the project used for Venn (or create one).
-2. **Google Auth Platform → Branding:** app name "Venn", support email, home page `https://your-domain`, privacy policy `https://your-domain/privacy`, and your domain under _Authorized domains_. **Audience:** _External_, then **Publish app** (the scopes below are not sensitive, so no verification review is needed).
+2. **Google Auth Platform → Branding:** app name "Venn", support email, home page `https://your-domain`, privacy policy `https://your-domain/privacy`, terms of service `https://your-domain/terms`, and your domain under _Authorized domains_. **Audience:** _External_, then **Publish app** (the scopes below are not sensitive, so no verification review is needed).
 3. **Data access:** the default `openid`, `.../auth/userinfo.email` and `.../auth/userinfo.profile` scopes are all sign-in needs.
 4. **Clients → Create client → Web application** (or open the one you made for calendars, which works too):
    - _Authorized redirect URIs:_ `https://your-domain/api/auth/google/callback` (plus `http://localhost:8787/api/auth/google/callback` for local development).

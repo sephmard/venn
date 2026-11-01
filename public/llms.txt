@@ -36,3 +36,4 @@ Facts:
 
 - [Developer docs and API](https://docs.venn.day): self-hosting, the API, notifications and calendars.
 - [Privacy](https://venn.day/privacy): what Venn stores, and what it doesn't.
+- [Terms](https://venn.day/terms): the terms for using Venn.

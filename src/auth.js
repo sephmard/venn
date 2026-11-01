@@ -302,11 +302,16 @@ export async function handleAccount({
   if (parts[0] !== 'me') return null;
   const user = await sessionUser(request, store, now);
 
-  // GET /api/me: who's signed in, with their polls and brand templates. Signed out, { user: null }.
+  // GET /api/me: who's signed in, with the polls they made, the polls they answered and their brand
+  // templates. Signed out, { user: null }.
   if (parts.length === 1 && method === 'GET') {
     if (!user) return json({ user: null, providers: signInProviders(env) });
-    const [polls, brands] = await Promise.all([store.listOwnedPolls(user.id), store.listOwnedBrands(user.id)]);
-    return json({ user: publicUser(user), polls, brands });
+    const [polls, answered, brands] = await Promise.all([
+      store.listOwnedPolls(user.id),
+      store.listAnsweredPolls(user.id),
+      store.listOwnedBrands(user.id),
+    ]);
+    return json({ user: publicUser(user), polls, answered, brands });
   }
   if (!user) return error(401, 'Sign in first');
 
@@ -318,12 +323,18 @@ export async function handleAccount({
     return res;
   }
 
-  // POST /api/me/claim { polls: [{ id, token }], brands: [{ id, token }] }: keep these with the
-  // account, for anyone holding their organizer (or manage) link. One that's already someone
-  // else's stays theirs.
+  // POST /api/me/claim { polls: [{ id, token }], brands: [{ id, token }], answers: [{ id, pid, token }] }:
+  // keep these with the account, for anyone holding their organizer, manage or edit link. One that's
+  // already someone else's stays theirs.
   if (parts.length === 2 && parts[1] === 'claim' && method === 'POST') {
-    const body = await readJson(request, 100_000);
-    const added = { polls: 0, brands: 0 };
+    const body = await readJson(request, 200_000);
+    const added = { polls: 0, brands: 0, answers: 0 };
+    for (const { id, pid, token } of claimList(body.answers, POLL_ID_RE)) {
+      if (typeof pid !== 'string' || !POLL_ID_RE.test(pid)) continue;
+      const p = await store.getParticipant(id, pid);
+      if (!p || !(await tokenMatches(token, p.editHash))) continue;
+      if (await store.addOwner('answer', pid, user.id, now)) added.answers += 1;
+    }
     const kinds = [
       ['poll', claimList(body.polls, POLL_ID_RE), (id) => store.getEvent(id), 'polls'],
       ['brand', claimList(body.brands, BRAND_ID_RE), (id) => store.getBrand(id), 'brands'],
@@ -338,9 +349,10 @@ export async function handleAccount({
     return json({ added });
   }
 
-  // DELETE /api/me/polls/:id (or brands/:id): take it off the list. The poll itself stays.
-  if (parts.length === 3 && (parts[1] === 'polls' || parts[1] === 'brands') && method === 'DELETE') {
-    await store.removeOwner(parts[1] === 'polls' ? 'poll' : 'brand', parts[2], user.id);
+  // DELETE /api/me/polls/:id (or brands/:id, answers/:pid): take it off the list. The poll itself stays.
+  const KINDS = { polls: 'poll', brands: 'brand', answers: 'answer' };
+  if (parts.length === 3 && Object.hasOwn(KINDS, parts[1]) && method === 'DELETE') {
+    await store.removeOwner(KINDS[parts[1]], parts[2], user.id);
     return json({ ok: true });
   }
   return error(404, 'Not found');
