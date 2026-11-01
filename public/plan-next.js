@@ -23,7 +23,12 @@ export function lastTime(prevId) {
       api(`events/${prevId}`, { headers: { 'x-organizer': '1', ...(token && { 'x-admin-token': token }) } }).then(
         (ev) => {
           const guests = ev.participants.filter((p) => p.id !== ev.hostId);
-          return { title: ev.title, people: ev.responses ?? guests.length, emails: guests.map((p) => p.email).filter(Boolean) };
+          return {
+            title: ev.title,
+            topic: ev.mode === 'topic', // decided on a topic poll, then a date for it
+            people: ev.responses ?? guests.length,
+            emails: guests.map((p) => p.email).filter(Boolean),
+          };
         },
         () => null,
       ),
@@ -43,7 +48,7 @@ export async function planNext({ id, ev }) {
     const mail = groupMail(last.emails, ev.title, `${location.origin}/e/${id}`);
     $('#series-box').innerHTML = `<section class="sheet series-box" aria-labelledby="series-h">
       <h2 id="series-h">Bring the group back</h2>
-      <p>${esc(plural(last.people, 'person', 'people'))} answered “${esc(last.title)}” last time. Send them this one.</p>
+      <p>${esc(plural(last.people, 'person', 'people'))} answered “${esc(last.title)}”${last.topic ? '' : ' last time'}. Send them this one.</p>
       <div class="btn-row">
         ${mail ? `<a class="btn btn-primary" id="email-group" href="${esc(mail)}">Email last time’s group</a>` : ''}
         <button type="button" class="btn${mail ? '' : ' btn-primary'}" data-share>Share the link</button>

@@ -156,6 +156,13 @@ export async function renderEvent(id, navigate) {
     return () => {};
   }
 
+  // A topic poll (options, not times) has its own page, loaded only for those (topic-poll.js).
+  const cls = document.documentElement.classList;
+  if (st.ev.mode === 'topic')
+    return (await import('./topic-poll.js')).renderTopicPoll({
+      ...{ id, navigate, authHeaders, hash, ev: st.ev, brandBar: brandJs?.brandBar },
+      ...{ load: () => load().then(() => st.ev), embedded: cls.contains('embed'), whiteLabel: cls.contains('white-label') },
+    });
   const ev = () => st.ev;
   // Organizer-only code (their tools, panels and AI summary) is in a module guests never download,
   // and "Add to your calendar" in one that loads once there's a date to add.

@@ -5,7 +5,8 @@
 Facts:
 
 - Free for everyone, every feature. No ads, no paid plan, no accounts for organizers or guests.
-- One kind of poll, a Venn: guests mark when they're available or available if needed, by whole days, mornings, afternoons and evenings, or hours, and Venn finds the overlap, including several days in a row for trips.
+- A Venn: guests mark when they're available or available if needed, by whole days, mornings, afternoons and evenings, or hours, and Venn finds the overlap, including several days in a row for trips.
+- Deciding what or where (https://venn.day/new/topic): guests say yes, if needed or no to each option (a place, a book), or answer one yes-or-no question; the organizer picks one, then finds a date for it.
 - The organizer picks the date, and everyone can add it to Google Calendar, Outlook or Apple Calendar.
 - Times show in each person's own time zone. Organizers can hide names or answers and collect emails.
 - Open source (MIT) at https://github.com/sephmard/venn. It runs on Cloudflare Workers or Node, and has a JSON API.

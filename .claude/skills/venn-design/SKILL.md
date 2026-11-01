@@ -220,6 +220,22 @@ the same PR** (and CLAUDE.md if it's a rule that matters in review).
   three-step quickstart; its bar shows GitHub as a button with the mark. The README has a "Build with
   Venn" section right after "What it does".
 
+**Topic polls (deciding what or where, /new/topic)**
+
+- The owner asked (2026-11) for a second kind of poll: voting on options that aren't times (a
+  place, the next book, yes or no), that leads into a date poll. It's still **a Venn**: same Create
+  button, same "Create a Venn" heading.
+- **No chooser screen.** /new stays the date poll; one quiet link in its intro, "Deciding what or
+  where?", opens /new/topic, which links back ("Pick a date instead").
+- Options are answered with the date polls' **Yes · If needed · No** rows and colours (everyone
+  ticks every option they'd go with). **One pick each** is a switch; **Yes or no** is a one-pick
+  poll with the options Yes and No.
+- The group sees **Favourite so far** (or **Tied**) and every option with a green and amber bar. The
+  organizer picks with the same in-page "Go with …?" check; the banner says **Decided**, with **Find
+  a date for it**: a date poll named after the pick (its Where too, for "Where…" questions) that
+  follows on from the topic poll, so "Bring the group back" invites the same people.
+- Not yet: guests suggesting options, ranked choice, AI features, deadlines.
+
 **Never**
 
 - Never put the owner's name in the product, the website or the docs.

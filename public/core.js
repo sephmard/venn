@@ -13,6 +13,7 @@ export const LIMITS = {
   slots: 2500,
   participants: 300,
   options: 100,
+  topics: 20, // a topic poll's options
   windows: 300,
 };
 
@@ -179,6 +180,8 @@ export function partOf(start, end, tz) {
 export const isPartsPoll = (ev) => isOptionsPoll(ev) && ev.layout === 'parts';
 
 export const isOptionsPoll = (ev) => ev.mode === 'options';
+/** A topic poll: people vote on options (places, books, yes or no), not times. Keyed by option id. */
+export const isTopicPoll = (ev) => ev.mode === 'topic';
 /** Polls where people mark whole days rather than times of day. */
 export const isDaysPoll = (ev) => !isOptionsPoll(ev) && ev.slotMinutes === DAY_MINUTES;
 
@@ -224,6 +227,7 @@ export const isEmail = (v) => v.length <= 254 && EMAIL_RE.test(v);
 /** All slot start instants (UTC ms), sorted, for an event. For option polls, one per option. */
 export function buildSlots(ev) {
   if (isOptionsPoll(ev)) return ev.options.map((o) => o.start);
+  if (isTopicPoll(ev)) return ev.options.map((o) => o.id);
   const set = new Set();
   // Hours that differ by day, or the same hours every day.
   const ranges = ev.windows || ev.dates.map((date) => ({ date, start: ev.startMinute, end: ev.endMinute }));
@@ -244,7 +248,7 @@ export function buildSlots(ev) {
  * Returns [{start, end, yes:[names], ifNeeded:[names], no:[names]}], best first.
  */
 export function rankTimes(ev, slots, participants, limit = 5) {
-  if (isOptionsPoll(ev)) return rankOptions(ev, participants, limit);
+  if (isOptionsPoll(ev) || isTopicPoll(ev)) return rankOptions(ev, participants, limit);
   const slotMs = ev.slotMinutes * MINUTE;
   const k = Math.max(1, Math.round(ev.durationMinutes / ev.slotMinutes));
   const days = isDaysPoll(ev);
@@ -291,16 +295,18 @@ export function overlapEnd(ev, slots, participants, start) {
 
 function rankOptions(ev, participants, limit) {
   const results = [];
-  for (const { start, end } of ev.options) {
+  // A topic poll's options rank the same way, by id: { option, label, yes, ifNeeded, no }.
+  for (const { start = null, end = null, id, label } of ev.options) {
+    const key = id ?? start;
     const yes = [],
       ifNeeded = [],
       no = [];
     for (const p of participants) {
-      const v = p.availability[start];
+      const v = p.availability[key];
       (v === YES ? yes : v === IF_NEEDED ? ifNeeded : no).push(p.name);
     }
     if (yes.length + ifNeeded.length === 0) continue;
-    results.push({ start, end, yes, ifNeeded, no });
+    results.push(id == null ? { start, end, yes, ifNeeded, no } : { option: id, label, yes, ifNeeded, no, start: id });
   }
   return sortRanked(results).slice(0, limit);
 }

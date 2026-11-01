@@ -15,8 +15,8 @@ import { PAGE_SLUGS } from '../pages/pages.js';
 const BUCKETS = ['1', '2-3', '4-7', '8-15', '16+'];
 const bucket = (n) => (n <= 1 ? '1' : n <= 3 ? '2-3' : n <= 7 ? '4-7' : n <= 15 ? '8-15' : '16+');
 const YN = ['yes', 'no'];
-const KINDS = ['pick', 'free'];
-const DETAILS = ['times', 'allday', 'trips', 'days', 'parts', 'hours'];
+const KINDS = ['pick', 'free', 'topic'];
+const DETAILS = ['times', 'allday', 'trips', 'days', 'parts', 'hours', 'choices', 'one', 'yesno'];
 const PLANS = {
   '🍝': 'dinner',
   '🍻': 'drinks',
@@ -108,6 +108,7 @@ export function cleanUsage(name, props = {}, { client = false } = {}) {
 
 /** Which kind of poll this is: { kind: 'pick' | 'free', detail }. */
 export function pollKind(ev) {
+  if (ev.mode === 'topic') return { kind: 'topic', detail: ev.options.length === 1 ? 'yesno' : ev.single ? 'one' : 'choices' };
   if (isPartsPoll(ev)) return { kind: 'free', detail: 'parts' };
   if (isOptionsPoll(ev)) {
     const spans = ev.options.map((o) => allDaySpan(o.start, o.end, ev.timezone));
@@ -122,7 +123,10 @@ export const planOf = (ev) => PLANS[ev.emoji] || 'other';
 
 /** How many options a poll offers, or days for "ask when people are free", as a bucket. */
 export function sizeOf(ev) {
-  const n = isOptionsPoll(ev) ? ev.options.length : new Set((ev.windows || []).map((w) => w.date).concat(ev.dates || [])).size;
+  const n =
+    isOptionsPoll(ev) || ev.mode === 'topic'
+      ? ev.options.length
+      : new Set((ev.windows || []).map((w) => w.date).concat(ev.dates || [])).size;
   return bucket(Math.max(1, n));
 }
 
