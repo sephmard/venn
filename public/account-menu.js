@@ -51,9 +51,13 @@ async function drawBar(bar, me) {
   const onPoll = /^\/e\//.test(location.pathname);
   if (!me && (!configured || onPoll)) return bar.querySelector('.acct-slot')?.remove();
   await styles();
+  // Already showing this person (or Sign in): left alone, so an open menu stays open.
+  const key = me ? `${me.initial}|${me.name}` : '-';
+  if (bar.querySelector('.acct-slot')?.dataset.key === key) return;
   bar.querySelector('.acct-slot')?.remove();
   const slot = document.createElement('div');
   slot.className = 'acct-slot';
+  slot.dataset.key = key;
   slot.innerHTML = me
     ? `<details class="acct-menu">
          <summary aria-label="${esc(me.name ? `Account: ${me.name}` : 'Account')}"><span class="acct-avatar" aria-hidden="true">${esc(me.initial)}</span></summary>
