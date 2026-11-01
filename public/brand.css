@@ -278,6 +278,8 @@
   }
   .brand-editor .step-bar {
     position: relative;
+    /* Over the preview, so the step menu that opens from it can be tapped. */
+    z-index: 6;
     flex: none;
     flex-wrap: wrap;
     gap: 8px;

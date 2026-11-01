@@ -127,6 +127,9 @@ test('brand template: make one, share it, and its polls show the organization’
   // The last step: what polls start with, and Save in place of Next.
   await expect(page.locator('#submit')).toBeHidden();
   await page.click('#next');
+  await expect(page.locator('#st-embed')).toBeVisible(); // white label: off unless switched on
+  await expect(page.getByRole('switch', { name: 'Hide Venn’s name and logo' })).not.toBeChecked();
+  await page.click('#next');
   await expect(page.locator('#next')).toBeHidden();
   await page.fill('#b-title', 'Team lunch');
   await page.fill('#b-where', 'The office');
@@ -134,7 +137,7 @@ test('brand template: make one, share it, and its polls show the organization’
   await expect(pv.locator('#ev-details')).toContainText('The office');
   // Back goes a step back, and the steps can be opened in any order.
   await page.click('#back');
-  await expect(page.locator('[data-panel="shape"]')).toBeVisible();
+  await expect(page.locator('[data-panel="embed"]')).toBeVisible();
   await openStep(page, 'poll');
   // It can be used: an answer in the preview stays in the preview, and nothing reaches the server.
   const sent = [];
@@ -217,4 +220,27 @@ test('brand template: make one, share it, and its polls show the organization’
   await expect(guest.locator('#ev-title')).toBeVisible();
   await expect(guest.locator('.brand-bar')).toHaveCount(0);
   await expect(guest.locator('html')).not.toHaveClass(/branded/);
+});
+
+test('brand template: white label, and the websites that may show its polls', async ({ page }) => {
+  const { id, adminToken } = await (await page.request.post('/api/brands', { data: { name: 'Acme' } })).json();
+  await page.goto(`/brand/${id}#admin=${adminToken}`);
+  await expect(page.locator('#b-name')).toHaveValue('Acme');
+  await openStep(page, 'embed');
+  const pv = page.frameLocator('#pv-frame');
+  await expect(pv.locator('.topbar')).toBeVisible();
+  await page.getByRole('switch', { name: 'Hide Venn’s name and logo' }).check();
+  // The preview shows it at once: no Venn bar.
+  await expect(pv.locator('.topbar')).toBeHidden();
+  await page.fill('#b-sites', 'https://acme.com/polls');
+  await page.click('#submit');
+  await expect(page.locator('#err')).toContainText('https://example.com');
+  await page.fill('#b-sites', 'acme.com\nhttps://intranet.acme.com');
+  await page.click('#submit');
+  await expect
+    .poll(async () => (await (await page.request.get(`/api/brands/${id}`)).json()).embedSites)
+    .toEqual(['https://acme.com', 'https://intranet.acme.com']);
+  expect((await (await page.request.get(`/api/brands/${id}`)).json()).hideVenn).toBe(true);
+  await noSideways(page);
+  await audit(page, 'white label step');
 });

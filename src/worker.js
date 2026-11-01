@@ -5,7 +5,7 @@ import { handleApi } from './api.js';
 import { createStore, d1Adapter } from './store.js';
 import { isAppRoute } from './routes.js';
 import { SECURITY_HEADERS } from './security-headers.js';
-import { appShell, homePage } from './preview.js';
+import { homePage, pollShell } from './preview.js';
 import { sendDeadlines } from './deadline.js';
 
 let store;
@@ -37,11 +37,13 @@ export default {
       // Static assets serve app.html at /app. A plain GET, so it never comes back as a bodiless 304:
       // poll pages carry the poll's own link preview (src/preview.js), so the page isn't app.html as it is.
       const asset = await env.ASSETS.fetch(new Request(new URL('/app', url)));
-      const html = await appShell(await asset.text(), { pathname: url.pathname, origin: url.origin, store });
+      // An embed page (src/embed.js) may be framed by its template's websites, so it brings its own headers.
+      const shell = await pollShell(await asset.text(), { pathname: url.pathname, origin: url.origin, store });
+      const html = shell.html;
       const headers = new Headers(asset.headers);
-      for (const k of ['content-length', 'content-encoding', 'etag', 'last-modified']) headers.delete(k);
+      for (const k of ['content-length', 'content-encoding', 'etag', 'last-modified', 'x-frame-options']) headers.delete(k);
       headers.set('content-type', 'text/html; charset=utf-8');
-      for (const [k, v] of Object.entries(SECURITY_HEADERS)) headers.set(k, v);
+      for (const [k, v] of Object.entries(shell.headers)) headers.set(k, v);
       return new Response(request.method === 'HEAD' ? null : html, { status: 200, headers });
     }
     // ...and 404.html at /404.

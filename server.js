@@ -13,7 +13,7 @@ import { handleApi } from './src/api.js';
 import { createStore, sqliteAdapter } from './src/store.js';
 import { SECURITY_HEADERS } from './src/security-headers.js';
 import { isAppRoute } from './src/routes.js';
-import { appShell, homePage } from './src/preview.js';
+import { homePage, pollShell } from './src/preview.js';
 import { sendDeadlines } from './src/deadline.js';
 import { placesState } from './src/places.js';
 
@@ -121,10 +121,12 @@ async function serveStatic(url, res, store) {
     data = await readFile(file);
   }
   // Poll pages carry the poll's own link preview (src/preview.js), as on Cloudflare.
-  if (status === 200 && isAppRoute(pathname)) data = await appShell(data.toString(), { pathname, origin: url.origin, store });
+  let headers = SECURITY_HEADERS;
+  if (status === 200 && isAppRoute(pathname))
+    ({ html: data, headers } = await pollShell(data.toString(), { pathname, origin: url.origin, store }));
   // ...and /classic, the home page in its classic look, the classic one.
   if (status === 200 && pathname === '/classic') data = homePage(data.toString(), url);
-  res.writeHead(status, { ...SECURITY_HEADERS, 'content-type': TYPES[extname(file)] || 'application/octet-stream' });
+  res.writeHead(status, { ...headers, 'content-type': TYPES[extname(file)] || 'application/octet-stream' });
   res.end(data);
 }
 

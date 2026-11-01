@@ -2563,3 +2563,11 @@ pre.code {
 .nowrap {
   white-space: nowrap;
 }
+
+/* In another website's frame (/embed/<id>, embed-frame.js), and white label: the poll alone. */
+html.embed body {
+  min-height: 0;
+}
+:is(.embed, .white-label) :is(.topbar, .footer, #grow, .final-more:has([href^='/new'])) {
+  display: none !important;
+}
