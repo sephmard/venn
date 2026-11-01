@@ -513,7 +513,7 @@ html.retro .btn-signin {
 .em-pw {
   position: relative;
 }
-.em-pw input {
+.account .em-pw input {
   padding-right: 72px;
 }
 .em-show {
@@ -645,4 +645,16 @@ html.retro .btn-signin {
 .em-page .lede,
 .set-row .acct-text {
   overflow-wrap: anywhere;
+}
+/* Like the site's other inputs (styles.css), which passwords only appear beside. */
+.account input[type='password'] {
+  width: 100%;
+  min-height: 46px;
+  padding: 11px 14px;
+  border: 1.5px solid var(--border);
+  border-radius: 12px;
+  background: var(--surface);
+  color: var(--text);
+  font: inherit;
+  font-size: 16px;
 }

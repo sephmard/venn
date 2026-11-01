@@ -24,16 +24,8 @@ async function route() {
   // An organization's brand template (brand.js): made, managed or seen from its link.
   else if (path === '/brand/preview') off = await (await import('./brand-demo.js')).renderDemo();
   else if (brand) off = await (await import('./brand.js')).renderBrand(brand[1] || null);
-  // My polls (account.js): signing in, and the account's polls and templates.
-  // Account settings, and the pages the sign-in emails open (account-settings.js).
-  else if (/^\/me\/(settings|confirm|reset|email)$/.test(path)) {
-    if (look) (await look).retroLook((await look).wantsRetro());
-    const m = await import('./account-settings.js');
-    const which = path.slice(4);
-    off = await { settings: m.renderSettings, confirm: m.renderConfirm, reset: m.renderReset, email: m.renderEmailChange }[
-      which
-    ]();
-  } else if (path === '/me') {
+  // My polls (account.js): signing in, the account's polls, and its settings.
+  else if (/^\/me(\/\w+)?$/.test(path)) {
     if (look) (await look).retroLook((await look).wantsRetro());
     off = await (await import('./account.js')).renderAccount();
   } else {

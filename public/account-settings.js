@@ -83,6 +83,10 @@ function errorLine(id = 'em-error') {
   };
 }
 
+/** /me/<which>, from My polls' renderAccount. */
+export const renderSub = (which) =>
+  ({ settings: renderSettings, confirm: renderConfirm, reset: renderReset, email: renderEmailChange })[which]();
+
 // ---------- /me/confirm: the sign-up link ----------
 
 export async function renderConfirm() {
