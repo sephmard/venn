@@ -521,6 +521,49 @@ footer a {
   }
 }
 
+/* The repository, the one link in the bar drawn as a button. */
+.top nav a.gh {
+  border: 1px solid rgb(45 226 230 / 0.6);
+  box-shadow: 0 0 14px -4px rgb(45 226 230 / 0.6);
+  gap: 8px;
+}
+/* The three ways in, on the first page: cards that glow like the code blocks. */
+.paths {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 12px;
+  margin: 28px 0 8px;
+}
+.paths a {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 18px 18px 20px;
+  border-radius: 12px;
+  background: var(--code-bg);
+  box-shadow: var(--glow-cyan);
+  color: var(--ink-2);
+  text-decoration: none;
+  line-height: 1.5;
+  font-size: 0.9375rem;
+}
+.paths a strong {
+  color: var(--cyan);
+  font-family: var(--display);
+  font-size: 0.875rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+.paths a strong::after {
+  content: ' →';
+}
+.paths a:hover {
+  box-shadow:
+    0 0 0 1px var(--magenta),
+    0 0 28px -4px rgb(255 60 172 / 0.7);
+  text-shadow: none;
+}
+
 /* ---------- small screens ---------- */
 @media (max-width: 860px) {
   .layout {
@@ -578,6 +621,16 @@ footer a {
   }
   .prose {
     padding: 24px 16px 32px;
+  }
+  .top nav {
+    gap: 2px;
+  }
+  .top nav a.gh {
+    gap: 6px;
+  }
+  .top nav a.gh svg {
+    width: 16px;
+    height: 16px;
   }
   /* The wide capitals a touch tighter, so the bar fits. */
   .brand {

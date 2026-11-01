@@ -1,8 +1,47 @@
-# Venn developer docs
+# Build with Venn
 
-<img src="../public/og-retro.png" alt="Venn: find the day that works. Free group polls, no sign-up.">
+[Venn](https://venn.day/?retro=1) finds the day that works for a group. It's free, open source (MIT) and has an open API: make polls from your app, show them on your website, or run your own copy.
 
-[Venn](https://venn.day/?retro=1) is a free, open-source poll for finding the day that works for dinners, book clubs, trips and other get-togethers. Pick the days that could work, share one link, and everyone marks when they're free; Venn shows where they overlap, best date first. These docs are for people who run, change or build on it.
+<div class="paths">
+<a href="API.md"><strong>Make polls from your app</strong><span>One request makes a poll. A webhook tells you each time someone answers.</span></a>
+<a href="EMBED.md"><strong>Put polls on your website</strong><span>A frame in your own look, with or without Venn's name on it.</span></a>
+<a href="SELF-HOSTING.md"><strong>Run your own</strong><span>One Cloudflare Worker or any Node server, with SQLite. No build step.</span></a>
+</div>
+
+## Quickstart
+
+No key and no sign-up: the API at `https://venn.day/api` is open, like the website.
+
+**1. Make a poll.** Times are UTC milliseconds; this offers two evenings.
+
+```sh
+curl https://venn.day/api/events \
+  -H 'content-type: application/json' \
+  -d '{"title": "Book club", "timezone": "Europe/London", "mode": "options",
+       "options": [{"start": 1799953200000, "end": 1799960400000},
+                   {"start": 1800039600000, "end": 1800046800000}]}'
+
+# {"id": "cXar7oEEBo", "adminToken": "…"}
+```
+
+Share `https://venn.day/e/<id>`. Keep `adminToken` on your server: it's the organizer's key.
+
+**2. Hear when people answer.** Each answer `POST`s signed JSON to your URL ([how to check the signature](NOTIFICATIONS.md#verifying-requests)).
+
+```sh
+curl -X PUT https://venn.day/api/events/<id>/notifications \
+  -H 'content-type: application/json' -H 'x-admin-token: <adminToken>' \
+  -d '{"webhookUrl": "https://example.com/venn-hook"}'
+```
+
+**3. Show it on your website.** Add your site to a [brand template](EMBED.md#1-make-a-template), make polls with its `brand` id, then:
+
+```html
+<iframe src="https://venn.day/embed/<id>" title="Book club" style="width: 100%; height: 640px; border: 0"></iframe>
+<script src="https://venn.day/embed.js" async></script>
+```
+
+The [API reference](API.md) has every endpoint and field.
 
 <img src="screenshots/results-retro.png" alt="A Venn poll for Dinner at Rosa's in the retro look: everyone's answers, and the best evening ranked with who can make it">
 
@@ -98,5 +137,10 @@ Found a security issue? Please report it privately: see [Security](../SECURITY.m
 
 - [Self-hosting](SELF-HOSTING.md): deploy to Cloudflare or any Node server.
 - [API](API.md): every endpoint, with request and response shapes.
+- [White label and embedding](EMBED.md): Venn's polls inside your app or website.
 - [Notifications](NOTIFICATIONS.md), [Calendars](CALENDARS.md), [Accounts](ACCOUNTS.md), [AI features](AI.md) and [Usage stats](USAGE-STATS.md): setting up each optional feature.
 - [Contributing](../CONTRIBUTING.md): setup, tests and how pull requests are reviewed.
+
+## Built in the open
+
+Venn's code, issues and plans are all [on GitHub](https://github.com/sephmard/venn). Star it to follow along, [open an issue](https://github.com/sephmard/venn/issues/new/choose) with an idea or a bug, or send a pull request: small fixes are as welcome as features.

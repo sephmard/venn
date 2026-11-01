@@ -921,7 +921,7 @@ test('"Or add a time" adds an option on any day ahead, and the calendar goes the
 });
 
 test(
-  'landing page: the logo, Create a Venn and a short menu (Privacy and GitHub are in the footer), and one way in',
+  'landing page: the logo, Create a Venn and a short menu (Privacy, docs and GitHub are in the footer), and one way in',
   { tag: '@site' },
   async ({ page }) => {
     await page.goto('/');
@@ -932,6 +932,15 @@ test(
     await expect(nav.getByRole('link', { name: 'GitHub' })).toBeHidden(); // not in the bar itself
     await page.locator('.menu summary').click();
     await expect(page.locator('.menu-panel').getByRole('link', { name: 'For organizations' })).toBeVisible();
+    // Developers get one way in from the menu, and the footer's row: the docs and the repository.
+    await expect(page.locator('.menu-panel').getByRole('link', { name: 'For developers' })).toHaveAttribute(
+      'href',
+      'https://docs.venn.day',
+    );
+    await expect(page.locator('footer').getByRole('link', { name: 'Developer docs' })).toHaveAttribute(
+      'href',
+      'https://docs.venn.day',
+    );
     await expect(page.locator('.menu-panel').getByRole('link', { name: 'Privacy' })).toHaveCount(0);
     await expect(page.locator('.menu-panel').getByRole('link', { name: 'GitHub' })).toHaveCount(0);
     await expect(page.locator('footer').getByRole('link', { name: 'GitHub' })).toHaveAttribute(

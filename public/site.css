@@ -788,6 +788,42 @@ h3 {
 .footer a:hover {
   color: var(--ink);
 }
+/* For developers: one line and two links above the small print, on every page of the website. */
+.footer-dev {
+  flex-basis: 100%;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px 24px;
+  padding-bottom: 20px;
+  border-bottom: 1px solid var(--line);
+}
+.footer-dev p {
+  margin: 0;
+  max-width: 36em;
+  font-size: 0.9375rem;
+}
+.footer-dev strong {
+  color: var(--ink);
+}
+.footer-dev .footer-dev-links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.footer .footer-btn {
+  gap: 8px;
+  padding: 0 18px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  color: var(--ink);
+  font-weight: 600;
+}
+.footer .footer-btn:hover {
+  border-color: var(--green);
+  color: var(--green);
+}
 
 /* ---------- Finn, the Venn dog ---------- */
 .finn-lost {
@@ -1840,6 +1876,9 @@ html.retro .section {
 }
 html.retro .footer {
   border-top-color: var(--line);
+}
+html.retro .footer .footer-btn:hover {
+  box-shadow: 0 0 18px -4px rgb(45 226 230 / 0.7);
 }
 html.retro :focus-visible {
   outline-color: #ffd319;
