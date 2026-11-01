@@ -17,6 +17,8 @@
 }
 .logo-box {
   display: grid;
+  /* One cell, the box's size, so the logo inside is fitted to it (not to itself). */
+  grid-template: 100% / 100%;
   place-items: center;
   flex: none;
   width: 160px;
@@ -186,40 +188,14 @@
   background: var(--accent);
   color: var(--accent-ink);
 }
-/* Phones: the step's place and name; open, every step. */
-.step-menu {
-  order: 2;
-  margin: 0 0 10px;
-}
-.step-menu summary {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  min-height: 44px;
-  font-weight: 700;
-  cursor: pointer;
-}
-.step-menu summary::after {
-  content: '▾';
-  margin-left: auto;
-  color: var(--muted);
-}
-.step-menu[open] summary::after {
-  content: '▴';
-}
-.step-menu ol {
-  padding: 4px 0 8px;
-}
 .step-of {
   display: block;
+  flex: none;
   color: var(--muted);
   font-size: 0.8rem;
   font-weight: 650;
   letter-spacing: 0.04em;
   text-transform: uppercase;
-}
-.step-menu summary .step-of {
-  display: inline;
 }
 .step-panels {
   order: 3;
@@ -230,8 +206,9 @@
 .step h2:focus {
   outline: none;
 }
-/* Phones (brand.js fitPhone): the editor fills the screen under the top bar, and only the step
-   scrolls, so nothing slides under the preview. */
+/* Phones (brand.js fitPhone): the editor is the screen under the top bar, and nothing slides. The
+   preview takes what the step leaves; the step is as tall as its settings (scrolling past half the
+   screen); the bar at the bottom has Back, the step's name (a menu of every step) and Next. */
 @media (max-width: 959px) {
   html.brand-app,
   html.brand-app body {
@@ -244,7 +221,8 @@
   .brand-editor {
     padding-bottom: 0;
   }
-  .brand-editor > h1 {
+  .brand-editor > h1,
+  .brand-editor .step h2 {
     position: absolute;
     width: 1px;
     height: 1px;
@@ -255,48 +233,126 @@
   }
   .brand-editor > .preview-box {
     position: relative;
-    flex: none;
-    margin-bottom: 0;
+    display: flex;
+    flex: 1;
+    flex-direction: column;
+    min-height: 160px;
+    margin: 0 -16px;
+    padding: 0;
   }
   .brand-editor #pv-frame {
-    height: 36svh;
+    flex: 1;
+    width: 100%;
+    height: auto;
+    min-height: 0;
+    margin: 0;
   }
-  .brand-editor .step-menu {
-    flex: none;
-    margin: 4px 0 6px;
-  }
-  .brand-editor .step-menu ol {
-    max-height: 40svh;
-    overflow-y: auto;
+  /* Guest / Organizer and Compare: a slim row over the preview. */
+  .brand-editor .pv-top {
+    justify-content: space-between;
+    gap: 8px;
+    margin: 0;
+    padding: 4px 16px;
   }
   .brand-editor .step-panels {
-    flex: 1;
-    min-height: 0;
+    flex: none;
+    max-height: 46%;
     margin: 0 -16px;
-    padding: 0 16px 12px;
+    padding: 0 16px;
     overflow-y: auto;
     overscroll-behavior: contain;
     -webkit-overflow-scrolling: touch;
   }
+  /* The step on the page itself, not in a card: more room for the preview. */
+  .brand-editor .step.sheet {
+    margin: 0;
+    padding: 14px 0 10px;
+    border: 0;
+    border-radius: 0;
+    background: none;
+    box-shadow: none;
+  }
+  .brand-editor .step::before,
+  .brand-editor .step::after {
+    display: none;
+  }
   .brand-editor .step-bar {
-    position: static;
+    position: relative;
+    /* Over the preview, so the step menu that opens from it can be tapped. */
+    z-index: 6;
     flex: none;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+  .brand-editor .step-bar .error {
+    order: -1;
+    flex-basis: 100%;
+  }
+  .brand-editor .step-bar .error:empty {
+    display: none;
+  }
+  /* Starting looks: one row, swiped sideways. */
+  .brand-editor .look-grid {
+    display: flex;
+    margin: 0 -16px;
+    padding: 2px 16px 6px;
+    overflow-x: auto;
+    scroll-snap-type: x mandatory;
+    scroll-padding: 0 16px;
+  }
+  .brand-editor .look-card {
+    flex: 0 0 132px;
+    scroll-snap-align: start;
+  }
+  .brand-editor .logo-box {
+    width: 120px;
+    height: 60px;
   }
 }
-/* On phones the step's name is in the menu over it; the heading stays for screen readers. */
-@media (max-width: 959px) {
-  .brand-editor .step {
-    padding: 14px 16px 16px;
-  }
-  .brand-editor .step h2 {
-    position: absolute;
-    margin: 0;
-    width: 1px;
-    height: 1px;
-    overflow: hidden;
-    clip-path: inset(50%);
-    white-space: nowrap;
-  }
+/* The step's place and name in the bar (phones): tapped, every step, over the bar. */
+.step-bar .step-menu {
+  flex: 1;
+  min-width: 0;
+}
+.step-menu summary {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 44px;
+  padding: 0 6px;
+  border-radius: 12px;
+  font-weight: 700;
+  list-style: none;
+  cursor: pointer;
+}
+.step-menu summary::-webkit-details-marker {
+  display: none;
+}
+.step-menu summary .step-name {
+  overflow: hidden;
+  font-size: 0.95rem;
+  line-height: 1.15;
+  text-align: center;
+}
+.step-menu summary::after {
+  content: '▴';
+  color: var(--muted);
+}
+.step-menu[open] summary::after {
+  content: '▾';
+}
+.step-bar .step-menu ol {
+  position: absolute;
+  right: 0;
+  bottom: 100%;
+  left: 0;
+  max-height: 60svh;
+  padding: 8px 12px;
+  overflow-y: auto;
+  border-top: 1.5px solid var(--border);
+  background: var(--bg);
+  box-shadow: 0 -12px 30px rgba(0, 0, 0, 0.3);
 }
 .step h3 {
   margin: 18px 0 6px;
@@ -437,12 +493,6 @@
   gap: 12px;
   margin: 0 0 6px;
 }
-.pv-top .label {
-  margin: 0;
-}
-.pv-top .link-btn {
-  min-height: 44px;
-}
 #pv-compare {
   margin-left: auto;
   user-select: none;
@@ -451,11 +501,9 @@
   touch-action: none;
 }
 #pv-compare.held {
-  text-decoration: none;
-}
-.pv-top #pv-toggle:first-child,
-.pv-top .label + #pv-toggle {
-  margin-left: auto;
+  border-color: var(--accent);
+  background: var(--accent);
+  color: var(--accent-ink);
 }
 /* On a phone the frame is the screen's full width, so the poll inside lays out as it does on the phone. */
 #pv-frame {
@@ -533,9 +581,6 @@
     border: 1.5px solid var(--border);
     border-radius: var(--radius-lg);
   }
-  .brand-page #pv-toggle {
-    display: none;
-  }
 }
 /* Signing in to save a new template (where the server has sign-in): the ways to sign in, by Save. */
 .save-signin h2 {
@@ -544,4 +589,52 @@
 }
 .save-signin .muted {
   margin: 0 0 14px;
+}
+/* Phones: signing in is the screen, over the editor, with a way back to it. */
+@media (max-width: 959px) {
+  html.brand-app .save-signin:not([hidden]) {
+    position: fixed;
+    inset: 0;
+    z-index: 60;
+    margin: 0;
+    padding: 28px 20px calc(24px + env(safe-area-inset-bottom));
+    overflow-y: auto;
+    border: 0;
+    border-radius: 0;
+  }
+}
+#signin-back {
+  min-height: 44px;
+}
+
+/* For organizations (/brand): the line, the button, and a poll in a made-up organization's look. */
+.brand-intro .lede {
+  margin: 0 0 18px;
+  font-size: 1.15rem;
+}
+.brand-intro h2 {
+  margin: 24px 0 4px;
+  font-size: 1rem;
+}
+.brand-intro .preview-box {
+  margin-top: 20px;
+}
+.brand-intro #pv-frame {
+  height: 62svh;
+}
+@media (min-width: 960px) {
+  .brand-intro {
+    align-items: start;
+  }
+  .brand-intro .preview-box {
+    margin-top: 0;
+  }
+}
+.brand-signin {
+  max-width: 440px;
+  margin: 24px auto;
+}
+.brand-signin h1 {
+  margin: 0 0 6px;
+  font-size: 1.5rem;
 }

@@ -230,7 +230,7 @@ const brandRow = (b) => `
 const EMPTY = {
   made: ['No polls yet.', '<a class="btn btn-primary" href="/new" data-link>Create a Venn</a>'],
   answered: ['Polls you answer while signed in show up here.', ''],
-  brands: ['Your logo and colours on every poll.', '<a class="btn btn-primary" href="/brand" data-link>Make a template</a>'],
+  brands: ['Your logo and colours on every poll.', '<a class="btn btn-primary" href="/brand/new" data-link>Make a template</a>'],
 };
 
 // A long list shows a few at a time: this many per group, then "Show more"; Past starts folded.
@@ -353,7 +353,7 @@ function showMine(me, view) {
               rest ? `<button type="button" class="acct-showmore" data-open="${esc(key(g))}">Show ${rest} more</button>` : ''
             }`;
           })
-          .join('') + (brands ? '<a class="acct-new" href="/brand" data-link>+ New template</a>' : '');
+          .join('') + (brands ? '<a class="acct-new" href="/brand/new" data-link>+ New template</a>' : '');
       for (const b of out.querySelectorAll('[data-open]'))
         b.onclick = () => {
           const k = b.dataset.open;

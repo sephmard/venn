@@ -105,8 +105,13 @@ const dropDraft = () => {
   } catch {}
 };
 
-/** /brand (a new template) or /brand/<id> (managing one, or seeing it from its link). */
+/**
+ * /brand (For organizations: what a template is, and a button to make one), /brand/new (making
+ * one) or /brand/<id> (managing one, or seeing it from its link).
+ */
 export async function renderBrand(id) {
+  const making = id === 'new';
+  if (making) id = null;
   brandLook(null); // this page keeps Venn's own look (retro by default); the preview shows the brand's
   // The manage link's token, from the fragment: kept here, and out of the address bar.
   const m = id && location.hash.match(/^#admin=([A-Za-z0-9]+)$/);
@@ -136,11 +141,18 @@ export async function renderBrand(id) {
   if (brand && !brand.isAdmin) return showPublic(brand);
   if (brand) remember(id, brand.name);
   // Back from signing in to save: the draft as it was, saved straight away once signed in.
-  const draft = !id && takeDraft();
-  if (draft) {
-    const failed = location.hash === '#signin-failed';
-    if (location.hash) history.replaceState(null, '', location.pathname);
-    const me = await api('me').catch(() => ({}));
+  // Making a template needs an account, where the server has sign-in (src/auth.js); the templates
+  // that exist keep working by their links. Signed out, the page asks first and comes back here.
+  if (!id) {
+    const [providers, me] = await Promise.all([
+      getConfig().then(
+        (c) => c.accounts || [],
+        () => [],
+      ),
+      api('me').catch(() => ({})),
+    ]);
+    const signedOut = providers.length > 0 && !me.user;
+    // Signed in (perhaps just now): the top bar and Save know it.
     if (me.user) {
       accountHint({
         initial: (me.user.name || me.user.email || '?').trim().charAt(0).toUpperCase(),
@@ -148,12 +160,74 @@ export async function renderBrand(id) {
       });
       refreshAccountMenu();
     }
+    if (!making) return showIntro(signedOut);
+    if (signedOut && !takeDraft()) return showSignIn(providers);
+  }
+  const draft = !id && takeDraft();
+  if (draft) {
+    const failed = location.hash === '#signin-failed';
+    if (location.hash) history.replaceState(null, '', location.pathname);
+    const me = await api('me').catch(() => ({}));
     const off = showForm(null, null, draft.step, { ...draft.fields, logo: draft.logo || null });
     if (me.user) $('#brand-form').requestSubmit();
     else if (failed) toast('Sign-in didn’t finish. Try again.');
     return off;
   }
   return showForm(brand, token);
+}
+
+// The sample on For organizations: a made-up organization's template, with a logo of its own.
+const SAMPLE_LOGO = `data:image/svg+xml,${encodeURIComponent(
+  '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64"><rect width="64" height="64" rx="16" fill="#8a2b0e"/><path d="M20 46V18h5l14 19V18h5v28h-5L25 27v19z" fill="#fbf7f0"/></svg>',
+)}`;
+const sample = () => ({ ...LOOKS.editorial[1], name: 'Northwind', logo: SAMPLE_LOGO, logoSize: 'medium' });
+
+/** For organizations: a poll in an organization's own look, and the button to make one. */
+function showIntro(signedOut) {
+  document.title = 'For organizations · Venn';
+  const yours = mine();
+  app.innerHTML = `
+    <div class="create brand-page brand-intro">
+      <h1>Your brand on every poll</h1>
+      <p class="lede">Your logo, colours and fonts on every poll your team makes.</p>
+      <p><a class="btn btn-primary btn-lg" href="/brand/new" data-link>${signedOut ? 'Sign in to make yours' : 'Make your template'}</a></p>
+      ${
+        yours.length
+          ? `<h2 id="mine-h">Your templates</h2><ul class="brand-list" aria-labelledby="mine-h">${yours
+              .map((x) => `<li><a href="/brand/${esc(x.id)}" data-link>${esc(x.name)}</a></li>`)
+              .join('')}</ul>`
+          : ''
+      }
+      ${previewBox(false)}
+    </div>`;
+  livePreview(() => ({ brand: sample(), view: 'guest' }))();
+}
+
+/** Signing in (or making an account) to make a template: the ways in, and back here after. */
+function signInPanel(providers, heading) {
+  const html = `
+    <h2 id="save-signin-h">${heading}</h2>
+    <p class="muted">Your templates are kept in your account, on any device.</p>
+    <div class="signin">${signInButtons(providers, '/brand/new')}</div>
+    ${providers.includes('email') ? '<div id="save-email"></div>' : ''}
+    ${signInAgree()}`;
+  const wire = () => {
+    // Or with an email and password (email-signin.js).
+    if (providers.includes('email'))
+      import('./email-signin.js').then(({ emailSignInForm, wireEmailSignIn }) => {
+        $('#save-email').innerHTML = emailSignInForm({ alone: providers.length === 1 });
+        wireEmailSignIn({ onSignedIn: () => location.assign('/brand/new') });
+      });
+  };
+  return [html, wire];
+}
+
+/** Signed out, on the way to making a template: sign in first. */
+function showSignIn(providers) {
+  document.title = 'Sign in · For organizations · Venn';
+  const [html, wire] = signInPanel(providers, 'Sign in to make your template');
+  app.innerHTML = `<div class="sheet brand-signin save-signin">${html.replace(/<(\/?)h2/g, '<$1h1')}</div>`;
+  wire();
 }
 
 /** Someone with the share link, not the manage link: the template, and one button to use it. */
@@ -181,7 +255,7 @@ const STEPS = [
   ['text', 'Text', 'text'],
   ['shape', 'Corners and buttons', 'shape'],
   ['embed', 'White label', 'top'],
-  ['poll', 'What polls start with', 'poll'],
+  ['poll', 'Poll details', 'poll'],
 ];
 
 /**
@@ -269,10 +343,6 @@ function showForm(b, token, start, draft = null) {
     <form id="brand-form" class="create brand-page brand-editor" novalidate>
       <h1>${b ? 'Your brand template' : 'Make a brand template'}</h1>
       <nav class="steps" aria-label="Steps"><ol>${stepList}</ol></nav>
-      <details class="step-menu" id="step-menu">
-        <summary><span class="step-of" id="menu-of"></span><span id="menu-name"></span></summary>
-        <ol>${stepList}</ol>
-      </details>
       ${previewBox(true)}
       <div class="step-panels">
         ${b ? panel('share', links(b.id, token, others)) : ''}
@@ -426,8 +496,12 @@ function showForm(b, token, start, draft = null) {
       </div>
       <div class="create-bar step-bar">
         <button type="button" class="btn" id="back">Back</button>
+        <details class="step-menu" id="step-menu">
+          <summary><span class="step-of" id="menu-of"></span><span class="step-name" id="menu-name"></span></summary>
+          <ol>${stepList}</ol>
+        </details>
         <span class="error" id="err" role="alert"></span>
-        <button type="submit" class="btn" id="submit">${b ? 'Save changes' : 'Save template'}</button>
+        <button type="submit" class="btn" id="submit">${b ? 'Save' : 'Save template'}</button>
         <button type="button" class="btn btn-primary" id="next">Next</button>
       </div>
     </form>`;
@@ -522,14 +596,14 @@ function showForm(b, token, start, draft = null) {
       else s.removeAttribute('aria-current');
       s.classList.toggle('done', n < at);
     }
-    $('#menu-of').textContent = `${at + 1} of ${ids.length}`;
+    $('#menu-of').textContent = `${at + 1}/${ids.length}`;
     $('#menu-name').textContent = steps[at][1];
     $('#step-menu').open = false;
     const last = at === ids.length - 1;
     $('#back').disabled = at === 0;
     $('#next').hidden = last;
     // The last step saves; a saved template can be saved from any step.
-    $('#submit').hidden = !b && !last;
+    $('#submit').hidden = b ? ids[at] === 'share' : !last;
     $('#submit').classList.toggle('btn-primary', last);
     $('#err').textContent = '';
     send();
@@ -637,19 +711,15 @@ function showForm(b, token, start, draft = null) {
   /** Signing in to save: the draft waits in this tab, and the page comes back to it. */
   const askToSignIn = () => {
     keepDraft({ fields: fields(), logo: logoChanged ? logo : null, step: ids[at] });
-    $('#save-signin').innerHTML = `
-      <h2 id="save-signin-h">Sign in to save your template</h2>
-      <p class="muted">It’s kept in your account, with your polls, on any device.</p>
-      <div class="signin">${signInButtons(providers, '/brand')}</div>
-      ${providers.includes('email') ? '<div id="save-email"></div>' : ''}
-      ${signInAgree()}`;
+    const [html, wire] = signInPanel(providers, 'Sign in to save your template');
+    $('#save-signin').innerHTML = `${html}
+      <p><button type="button" class="link-btn" id="signin-back">Back to your template</button></p>`;
     $('#save-signin').hidden = false;
-    // Or with an email and password (email-signin.js): signed in, the page comes back to the draft.
-    if (providers.includes('email'))
-      import('./email-signin.js').then(({ emailSignInForm, wireEmailSignIn }) => {
-        $('#save-email').innerHTML = emailSignInForm({ alone: providers.length === 1 });
-        wireEmailSignIn({ onSignedIn: () => location.assign('/brand') });
-      });
+    wire();
+    $('#signin-back').onclick = () => {
+      $('#save-signin').hidden = true;
+      $('#submit').focus();
+    };
     $('#save-signin').scrollIntoView({ block: 'nearest' });
     $('#save-signin .btn-signin')?.focus({ preventScroll: true });
   };
@@ -759,7 +829,7 @@ const hasKey = (b) => !!(b?.yes || b?.maybe || b?.no);
 /** A row of fonts to choose from, each shown in itself; the first is Venn's own. */
 const fontPicker = (key, label, value = '') => `
   <div>
-    <span class="label" id="${key}-l">${label}</span>
+    <span class="sr-only" id="${key}-l">${label}</span>
     <div class="font-grid" role="radiogroup" aria-labelledby="${key}-l">
       <button type="button" role="radio" data-${key === 'font' ? 'font' : 'body-font'}="" aria-checked="${!value}">Venn</button>
       ${Object.entries(FONTS)
@@ -778,15 +848,14 @@ const fontPicker = (key, label, value = '') => `
  */
 const previewBox = (views) => `
   <div id="preview-box" class="preview-box">
-    <p class="pv-top">
-      ${
-        views
-          ? `<span class="seg" role="radiogroup" aria-label="Preview as"><button type="button" role="radio" data-view="guest" aria-checked="true">Guest</button><button type="button" role="radio" data-view="organizer" aria-checked="false">Organizer</button></span>`
-          : '<span class="label">Preview</span>'
-      }
-      ${views ? '<button type="button" class="link-btn" id="pv-compare" title="Hold to see Venn’s own look">Compare</button>' : ''}
-      <button type="button" class="link-btn" id="pv-toggle" aria-expanded="true" aria-controls="pv-frame">Hide</button>
-    </p>
+    ${
+      views
+        ? `<p class="pv-top">
+      <span class="seg" role="radiogroup" aria-label="Preview as"><button type="button" role="radio" data-view="guest" aria-checked="true">Guest</button><button type="button" role="radio" data-view="organizer" aria-checked="false">Organizer</button></span>
+      <button type="button" class="btn pv-compare" id="pv-compare" title="Hold to see Venn’s own look">Compare</button>
+    </p>`
+        : ''
+    }
     <iframe id="pv-frame" src="/brand/preview" title="Preview of a poll from this template"></iframe>
   </div>`;
 
@@ -806,13 +875,6 @@ function livePreview(get) {
   const send = () => {
     clearTimeout(timer);
     timer = setTimeout(() => call('show', state()), 120);
-  };
-  // On a phone the preview stays pinned over the form; it can be folded away.
-  $('#pv-toggle').onclick = () => {
-    const open = frame.hidden;
-    frame.hidden = !open;
-    $('#pv-toggle').setAttribute('aria-expanded', String(open));
-    $('#pv-toggle').textContent = open ? 'Hide' : 'Show';
   };
   // Held: the poll in Venn's own look, to see what the template changes.
   const compare = $('#pv-compare');
@@ -859,7 +921,7 @@ const links = (id, token, others) => `
 /** Just saved: the links, first. */
 function showReady(id, token, name) {
   renderBrand(id).then(() => {
-    toast(`${name}’s template is ready. Copy your manage link somewhere safe.`);
+    toast(`${name}’s template is ready.`);
     $('#brand-form')?.scrollIntoView({ block: 'start' });
   });
 }

@@ -37,6 +37,12 @@ test('brand template: make one, share it, and its polls show the organization’
   await page.goto('/');
   await page.locator('summary[aria-label="Menu"]').click();
   await page.getByRole('link', { name: 'For organizations' }).click();
+  // For organizations: a poll in a made-up organization's look, and one button.
+  await expect(page.locator('h1')).toHaveText('Your brand on every poll');
+  await expect(page.frameLocator('#pv-frame').locator('.brand-bar')).toHaveText('Northwind');
+  await noSideways(page);
+  await page.getByRole('link', { name: 'Make your template' }).click();
+  await expect(page).toHaveURL(/\/brand\/new$/);
   await expect(page.locator('h1')).toHaveText('Make a brand template');
   // The preview is the real poll page, with a sample poll, in the template's look as it's made.
   const pv = page.frameLocator('#pv-frame');
@@ -209,7 +215,7 @@ test('brand template: make one, share it, and its polls show the organization’
   await expect(other).toHaveURL(/\/brand\/[A-Za-z0-9]+$/); // the token leaves the address bar
   await other.click('#b-delete');
   await other.click('#b-really');
-  await expect(other.locator('h1')).toHaveText('Make a brand template');
+  await expect(other.locator('h1')).toHaveText('Your brand on every poll');
   await guest.goto(poll);
   await expect(guest.locator('#ev-title')).toBeVisible();
   await expect(guest.locator('.brand-bar')).toHaveCount(0);
