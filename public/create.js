@@ -63,18 +63,6 @@ async function useBrand(id, fill) {
   if (brandId === id && $('#create')) look.brandForm((brand = b), fill, $, esc);
 }
 
-/** The "Look" row's choice: one of the account's brand templates (its id), or Venn's own (null). */
-async function pickBrand(id) {
-  const url = new URL(location.href);
-  if (id) url.searchParams.set('brand', id);
-  else url.searchParams.delete('brand');
-  history.replaceState(history.state, '', url);
-  $('#create .brand-bar')?.remove();
-  brand = null;
-  brandId = id;
-  if (id) await useBrand(id, false);
-}
-
 // ---------- editing or duplicating a poll ----------
 
 // ?edit=<id> changes that poll (only while nobody else has answered); ?copy=<id> starts a new poll
@@ -354,7 +342,7 @@ export function showConfig(update) {
   // A new poll's look: the page's, or a brand template's (create-look.js). An edit or copy keeps its own.
   if (!source())
     import('./create-look.js')
-      .then((m) => m.createLook({ pick: pickBrand, current: () => brandId, preview: () => icon?.preview() }))
+      .then((m) => m.createLook({ current: () => brandId, preview: () => icon?.preview() }))
       .catch(() => {});
   // Asking everyone's email allows a deadline, and reminders (deadline-fields.js). An edited poll's
   // deadline is changed in its organizer tools.

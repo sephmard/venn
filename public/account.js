@@ -236,18 +236,19 @@ const brandRow = (b) => `
     <a class="btn acct-use" href="/new?brand=${esc(b.id)}" data-link aria-label="New poll with ${esc(b.name)}">New poll</a>
   </li>`;
 
-// Venn's own two looks, always at the top of Templates: a new poll in either, whoever's signed in.
+// Venn's own two looks, always at the top of Templates: starting points to duplicate into a
+// template of your own, then change it and make polls with it (brand.js LOOKS).
 const BUILT_IN = [
-  ['retro', 'Retro', 'Venn’s look', '/new?retro=1'],
-  ['classic', 'Classic', 'Venn’s plain look', '/new?retro=0'],
+  ['retro', 'Retro', 'Venn’s look, to make yours'],
+  ['classic', 'Classic', 'Venn’s plain look, to make yours'],
 ];
-const builtInRow = ([k, name, meta, href]) => `
+const builtInRow = ([k, name, meta]) => `
   <li class="acct-brand">
-    <a class="acct-row" href="${href}" data-link>
+    <a class="acct-row" href="/brand/new?look=${k}" data-link>
       <span class="acct-icon acct-look acct-look-${k}" aria-hidden="true">Aa</span>
       <span class="acct-text"><b>${name}</b><span class="muted">${meta}</span></span>
     </a>
-    <a class="btn acct-use" href="${href}" data-link aria-label="New poll in ${name}">New poll</a>
+    <a class="btn acct-use" href="/brand/new?look=${k}" data-link aria-label="Duplicate ${name}">Duplicate</a>
   </li>`;
 /** The built-in looks that match the search, under their own heading; the account's follow. */
 const builtIns = (q) => {
