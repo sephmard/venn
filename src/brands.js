@@ -10,6 +10,13 @@ import { normalizeSites } from './embed.js';
 
 export const BRAND_LIMITS = { name: 60, title: 120, note: 1000, where: 200 };
 export const BRAND_ID_RE = /^[A-Za-z0-9]{1,32}$/;
+/**
+ * What a template can be shared as, by invite link: an 'admin' changes it like its owner (but
+ * can't delete or share it), a 'user' has it in their templates to make polls with.
+ */
+export const BRAND_ROLES = ['admin', 'user'];
+/** Invite links that work at once, per template. */
+export const MAX_BRAND_INVITES = 20;
 
 function text(v, max, field, required = false) {
   if (v == null) v = '';

@@ -198,8 +198,16 @@ the same PR** (and CLAUDE.md if it's a rule that matters in review).
 - **No look switch on the create form** (Seph, 2026-11-01: "Is it needed here?"). It sat in About you,
   which is about the organizer, and it repeated the site's own choice. A new poll takes the page's look;
   the create page's footer has **Classic mode** like the website's (hidden for a brand template's poll).
-  Signed in with brand templates of your own, a **Look** row under the lede picks **Venn** or one of them
-  (`public/create-look.js`). Retro and classic are never account-gated: accounts add, never remove.
+  Signed in, a **Look** row under the lede picks **Retro**, **Classic** or one of the account's templates
+  (`public/create-look.js`); Retro and Classic there are this poll's look only, the footer's switch is the
+  website's. Retro and classic are never account-gated: accounts add, never remove. Seph, 2026-11-01:
+  Retro and Classic are always in the templates: also at the top of My polls' Templates ("Built in").
+- **Sharing a template** (Seph, 2026-11-01: "admin rights or user rights"): its owner's Share step has
+  **Copy admin invite** and **Copy user invite** (links `/brand/<id>#join=…`; the same link again until
+  turned off), who has it with an Admin / User picker and Remove, and "N invite links work · Turn them
+  off". **Admins** change the template (no delete, no sharing, a Leave instead); **users** have it in
+  their templates and Look row, see the template page with "In your templates" and can leave. Opening an
+  invite signed out asks to sign in first, then comes back. Templates rows say "Shared with you · Admin/User".
 - The hero Venn tells the story in motion, **from noise to a plan**: a group chat's messages bounce
   around, fly to the three friends, the circles drift together and the day that works pops out, then
   they keep floating, unhurried (the messages drift slowly enough to read, but only for about 3 seconds before they fly to their friends, then the circles snap together (0.7 seconds) and the day that works pops out the moment all three overlap: the payoff is fast, the noise is slow (about 24 seconds a loop); once the day has popped, the messages float out of the friends again, faint so the day still reads, and grow loud again as the next round's noise begins) so each step can be followed. It plays while in view. Tap replays it; press and hold a circle (a mouse just

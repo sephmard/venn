@@ -453,10 +453,12 @@ export async function handleAccount({
     return json({ added });
   }
 
-  // DELETE /api/me/polls/:id (or brands/:id, answers/:pid): take it off the list. The poll itself stays.
+  // DELETE /api/me/polls/:id (or brands/:id, answers/:pid): take it off the list. The poll itself
+  // stays. A template shared with them: they leave it.
   const KINDS = { polls: 'poll', brands: 'brand', answers: 'answer' };
   if (parts.length === 3 && Object.hasOwn(KINDS, parts[1]) && method === 'DELETE') {
     await store.removeOwner(KINDS[parts[1]], parts[2], user.id);
+    if (parts[1] === 'brands') await store.removeBrandMember(parts[2], user.id);
     return json({ ok: true });
   }
   return error(404, 'Not found');

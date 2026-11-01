@@ -230,16 +230,24 @@ test('For organizations needs an account: sign in first, then make a template; a
   await expect(page.locator('#b-accent')).toHaveValue('#6d28d9');
   await page.goto('/me');
   await page.getByRole('tab', { name: /Templates/ }).click();
-  await expect(page.locator('.acct-brand .acct-row')).toContainText('Acme Inc.');
+  // Venn's own Retro and Classic are always there, above the account's own.
+  await expect(page.locator('.acct-brand .acct-row b')).toHaveText(['Retro', 'Classic', 'Acme Inc.']);
+  await expect(page.getByRole('link', { name: 'New poll in Classic' })).toHaveAttribute('href', '/new?retro=0');
   await expect(page.locator('.acct-brand').getByRole('link', { name: 'New poll with Acme Inc.' })).toHaveAttribute(
     'href',
     /\/new\?brand=/,
   );
 
-  // Signed in with a template, a new poll's page has a Look row: Venn's own, or the template.
+  // Signed in, a new poll's page has a Look row: Retro, Classic, or the template.
   await page.goto('/new');
   const look = page.getByRole('radiogroup', { name: 'Look' });
-  await expect(look.getByRole('radio', { name: 'Venn' })).toHaveAttribute('aria-checked', 'true');
+  await expect(look.getByRole('radio')).toHaveText(['Retro', 'Classic', 'Acme Inc.']);
+  await expect(look.getByRole('radio', { name: 'Retro' })).toHaveAttribute('aria-checked', 'true');
+  await look.getByRole('radio', { name: 'Classic' }).click();
+  await expect(page.locator('html')).not.toHaveClass(/retro/);
+  await expect(page.locator('.footer .classic-switch')).toHaveAttribute('aria-checked', 'true');
+  await look.getByRole('radio', { name: 'Retro' }).click();
+  await expect(page.locator('html')).toHaveClass(/retro/);
   await expect(page.locator('.footer .classic-switch')).toBeVisible();
   await look.getByRole('radio', { name: 'Acme Inc.' }).click();
   await expect(page.locator('#create .brand-bar')).toHaveText('Acme Inc.');
@@ -247,7 +255,7 @@ test('For organizations needs an account: sign in first, then make a template; a
   await expect(page.locator('.footer .classic-switch')).toBeHidden();
   await noSideways(page);
   await audit(page, 'picking a look');
-  await look.getByRole('radio', { name: 'Venn' }).click();
+  await look.getByRole('radio', { name: 'Retro' }).click();
   await expect(page.locator('#create .brand-bar')).toHaveCount(0);
   await expect(page).not.toHaveURL(/[?&]brand=/);
   await look.getByRole('radio', { name: 'Acme Inc.' }).click();
@@ -277,6 +285,93 @@ test('For organizations needs an account: sign in first, then make a template; a
   await expect(page.locator('#b-name')).toHaveValue('Beta Co');
   await expect(page.locator('#b-title')).toHaveValue('Book club');
   await context.close();
+});
+
+test('sharing a template: an admin invite lets them change it, a user invite adds it to their templates', async ({
+  browser,
+}, info) => {
+  const run = `${info.project.name}-${Date.now()}`;
+  const signedIn = async (who) => {
+    const context = await browser.newContext({
+      extraHTTPHeaders: { 'x-test-user': who },
+      permissions: ['clipboard-read', 'clipboard-write'],
+    });
+    const page = await context.newPage();
+    return { context, page };
+  };
+  const signIn = async (page) => {
+    await page.goto('/me');
+    await page.getByRole('link', { name: 'Continue with Google' }).click();
+    await expect(page.locator('.acct-who')).toBeVisible();
+  };
+  // The owner makes a template, and copies a user invite from its Share step.
+  const owner = await signedIn(`owner-${run}`);
+  await signIn(owner.page);
+  const made = await (await owner.page.request.post('/api/brands', { data: { name: 'Northwind', accent: '#1d4ed8' } })).json();
+  await owner.page.goto(`/brand/${made.id}#organizer`);
+  const share = owner.page.locator('#b-sharing');
+  await expect(share.getByRole('heading', { name: 'Share it' })).toBeVisible();
+  await expect(share).toContainText('Nobody else has it yet.');
+  await share.getByRole('button', { name: 'Copy user invite' }).click();
+  await expect(owner.page.locator('#toast')).toHaveText('User invite copied. Send it to them.');
+  const invite = await owner.page.evaluate(() => navigator.clipboard.readText());
+  expect(invite).toMatch(new RegExp(`/brand/${made.id}#join=[A-Za-z0-9]+$`));
+  await expect(share).toContainText('1 invite link works');
+  // The same link again, not a new one.
+  await share.getByRole('button', { name: 'Copy user invite' }).click();
+  expect(await owner.page.evaluate(() => navigator.clipboard.readText())).toBe(invite);
+  await expect(share).toContainText('1 invite link works');
+
+  // Someone opens it signed out: sign in, and it's in their templates, to use but not change.
+  const guest = await signedIn(`member-${run}`);
+  await guest.page.goto(invite.replace(/^https?:\/\/[^/]+/, ''));
+  await expect(guest.page.locator('h1')).toHaveText('Sign in to add Northwind’s template');
+  await noSideways(guest.page);
+  await audit(guest.page, 'signing in to join a template');
+  await guest.page.getByRole('link', { name: 'Continue with Google' }).click();
+  await expect(guest.page).toHaveURL(new RegExp(`/brand/${made.id}$`));
+  await expect(guest.page.locator('#toast')).toHaveText('Added to your templates.');
+  await expect(guest.page.locator('h1')).toHaveText('Northwind’s template');
+  await expect(guest.page.getByText('In your templates. Its admins can change it.')).toBeVisible();
+  await expect(guest.page.locator('#brand-form')).toHaveCount(0);
+  await noSideways(guest.page);
+  await audit(guest.page, 'a template shared as a user');
+  await guest.page.goto('/me');
+  await guest.page.getByRole('tab', { name: /Templates/ }).click();
+  await expect(guest.page.locator('.acct-brand', { hasText: 'Northwind' })).toContainText('Shared with you · User');
+  await guest.page.goto('/new');
+  await expect(guest.page.getByRole('radiogroup', { name: 'Look' }).getByRole('radio')).toHaveText([
+    'Retro',
+    'Classic',
+    'Northwind',
+  ]);
+
+  // The owner sees them, and makes them an admin: now they can change it.
+  await owner.page.reload();
+  await expect(share.locator('.member')).toHaveCount(1);
+  await share.getByRole('combobox', { name: 'What Robin Park can do' }).selectOption('admin');
+  await expect(owner.page.locator('#toast')).toHaveText('They can change it now.');
+  await noSideways(owner.page);
+  await audit(owner.page, 'sharing a template');
+  await guest.page.goto(`/brand/${made.id}#organizer`);
+  await expect(guest.page.locator('#brand-form')).toBeVisible();
+  await expect(guest.page.locator('[data-panel="share"]')).toContainText('Shared with you as an admin');
+  await expect(guest.page.locator('#b-sharing')).toHaveCount(0);
+  await expect(guest.page.locator('#b-delete')).toHaveCount(0);
+  // They leave it: it's off their templates.
+  await guest.page.locator('#b-leave').click();
+  await expect(guest.page).toHaveURL(/\/me$/);
+  await guest.page.getByRole('tab', { name: /Templates/ }).click();
+  await expect(guest.page.locator('.acct-brand', { hasText: 'Northwind' })).toHaveCount(0);
+
+  // Turning the invite links off: the link no longer works.
+  await owner.page.reload();
+  await share.getByRole('button', { name: 'Turn them off' }).click();
+  await expect(owner.page.locator('#toast')).toHaveText('Invite links turned off. Everyone who joined keeps it.');
+  await guest.page.goto(invite.replace(/^https?:\/\/[^/]+/, ''));
+  await expect(guest.page.locator('#toast')).toHaveText('This invite link was turned off. Ask for a new one.');
+  await owner.context.close();
+  await guest.context.close();
 });
 
 test('polls answered signed in are in My polls, to search, sort and group, and the answer is yours on any device', async ({

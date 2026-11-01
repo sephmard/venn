@@ -7,7 +7,7 @@ import { applyDeadline, closesLabel, deadlineView, isClosed, normalizeDeadline, 
 import { normalizeAvailability, normalizeEventInput, normalizeName } from './validate.js';
 import { SECURITY_HEADERS } from './security-headers.js';
 import { IMAGE_FILES, IMAGE_LIMITS, MAX_IMAGE_BODY, imagePath, imageResponse, parseImage } from './images.js';
-import { BRAND_ID_RE, normalizeBrand, publicBrand } from './brands.js';
+import { BRAND_ID_RE, BRAND_ROLES, MAX_BRAND_INVITES, normalizeBrand, publicBrand } from './brands.js';
 import {
   MAX_COPIES_PER_ANSWER,
   MAX_COPIES_PER_POLL,
@@ -279,6 +279,89 @@ export async function handleApi(
   async function keepWithAccount(kind, id) {
     const user = await currentUser();
     if (user) await store.addOwner(kind, id, user.id, now());
+  }
+
+  /** The asker's role on a brand template: 'owner' | 'admin' | 'user', or null. */
+  async function brandRoleOf(brand, viewing) {
+    if (await tokenMatches(request.headers.get('x-admin-token'), brand.adminHash)) return 'owner';
+    if (viewing && request.headers.get('x-organizer') !== '1') return null;
+    const user = await currentUser();
+    if (!user) return null;
+    if ((await store.ownerOf('brand', brand.id)) === user.id) return 'owner';
+    return store.brandRole(brand.id, user.id);
+  }
+
+  /**
+   * Sharing a brand template with other accounts, by invite link: 'admin' links let people change
+   * it, 'user' links add it to their templates to make polls with. Only its owner shares it, and
+   * anyone it's shared with can leave. Returns null for other paths.
+   */
+  async function handleSharing(brand, role) {
+    const owner = role === 'owner';
+    const notOwner = () => error(403, 'Only the template’s owner can share it');
+    // GET /api/brands/:id/sharing: who has it, and how many invite links work.
+    if (parts.length === 3 && parts[2] === 'sharing' && method === 'GET') {
+      if (!owner) return notOwner();
+      const [members, invites] = await Promise.all([store.listBrandMembers(brand.id), store.countBrandInvites(brand.id)]);
+      return json({ members, invites });
+    }
+    // POST /api/brands/:id/invites { role }: a new invite link's secret. DELETE (?role=): turn them off.
+    if (parts.length === 3 && parts[2] === 'invites') {
+      if (!owner) return notOwner();
+      if (method === 'POST') {
+        const body = await readJson(request, 1000);
+        if (!BRAND_ROLES.includes(body?.role)) throw new ValidationError('Choose who the link is for: admin or user');
+        const counts = await store.countBrandInvites(brand.id);
+        if (counts.admin + counts.user >= MAX_BRAND_INVITES)
+          throw new ValidationError('This template has too many invite links. Turn them off and make a new one.');
+        const token = randomId(24);
+        await store.addBrandInvite({ hash: await sha256(token), brandId: brand.id, role: body.role, now: now() });
+        return json({ token, role: body.role }, 201);
+      }
+      if (method === 'DELETE') {
+        const which = url.searchParams.get('role');
+        await store.removeBrandInvites(brand.id, BRAND_ROLES.includes(which) ? which : null);
+        return json({ ok: true });
+      }
+      return error(405, 'Method not allowed');
+    }
+    // POST /api/brands/:id/join { token }: an invite link, opened signed in. The template goes in the
+    // account's templates with the link's role (someone who can already change it keeps that).
+    if (parts.length === 3 && parts[2] === 'join' && method === 'POST') {
+      const user = await currentUser();
+      if (!user) return error(401, 'Sign in to add this template');
+      const body = await readJson(request, 1000);
+      const hash = typeof body?.token === 'string' && /^[A-Za-z0-9]{1,64}$/.test(body.token) ? await sha256(body.token) : null;
+      const linkRole = hash && (await store.brandInviteRole(brand.id, hash));
+      if (!linkRole) return error(403, 'This invite link was turned off. Ask for a new one.');
+      if ((await store.ownerOf('brand', brand.id)) === user.id) return json({ role: 'owner' });
+      const had = await store.brandRole(brand.id, user.id);
+      const next = had === 'admin' ? 'admin' : linkRole;
+      if (next !== had) await store.setBrandMember(brand.id, user.id, next, now());
+      count('brand.joined', { role: next });
+      return json({ role: next });
+    }
+    // PUT /api/brands/:id/members/:userId { role }: change what someone can do. DELETE: take it
+    // away from them (the owner), or leave it (themselves).
+    if (parts.length === 4 && parts[2] === 'members') {
+      const memberId = parts[3];
+      if (method === 'PUT') {
+        if (!owner) return notOwner();
+        const body = await readJson(request, 1000);
+        if (!BRAND_ROLES.includes(body?.role)) throw new ValidationError('Choose admin or user');
+        if (!(await store.brandRole(brand.id, memberId))) return error(404, 'They don’t have this template');
+        await store.setBrandMember(brand.id, memberId, body.role, now());
+        return json({ ok: true });
+      }
+      if (method === 'DELETE') {
+        const user = await currentUser();
+        if (!owner && user?.id !== memberId) return notOwner();
+        await store.removeBrandMember(brand.id, memberId);
+        return json({ ok: true });
+      }
+      return error(405, 'Method not allowed');
+    }
+    return null;
   }
 
   async function sendCopy(ev, to, { participantId, editToken, name, availability }) {
@@ -583,24 +666,29 @@ export async function handleApi(
       }
       const brand = await store.getBrand(parts[1]);
       if (!brand) return error(404, 'This brand template does not exist or was deleted');
-      const brandAdmin =
-        (await tokenMatches(request.headers.get('x-admin-token'), brand.adminHash)) ||
-        (await ownsIt('brand', brand.id, method === 'GET'));
+      // Who's asking (src/brands.js ROLES): its 'owner' (the manage link, or the account that keeps
+      // it), an 'admin' or 'user' it was shared with, or nobody in particular (null). Viewing, as
+      // with polls, only when they ask to see it as theirs (`x-organizer: 1`).
+      const role = await brandRoleOf(brand, method === 'GET' && parts.length === 2);
+      const brandAdmin = role === 'owner' || role === 'admin';
       // GET|PUT|DELETE /api/brands/:id
       if (parts.length === 2) {
-        if (method === 'GET') return json({ ...publicBrand(brand), isAdmin: brandAdmin });
+        if (method === 'GET') return json({ ...publicBrand(brand), isAdmin: brandAdmin, ...(role && { role }) });
         if (!brandAdmin) return error(403, 'Only whoever has the manage link can change this template');
         if (method === 'PUT') {
           const next = normalizeBrand(await readJson(request, 10_000));
           await store.updateBrand(brand.id, next);
-          return json({ ...publicBrand({ ...next, id: brand.id, logoV: brand.logoV }), isAdmin: true });
+          return json({ ...publicBrand({ ...next, id: brand.id, logoV: brand.logoV }), isAdmin: true, role });
         }
         if (method === 'DELETE') {
+          if (role !== 'owner') return error(403, 'Only the template’s owner can delete it');
           await store.deleteBrand(brand.id);
           return json({ ok: true });
         }
         return error(405, 'Method not allowed');
       }
+      const shared = await handleSharing(brand, role);
+      if (shared) return shared;
       // PUT /api/brands/:id/logo  { logo }: in base64 (src/images.js). DELETE: no logo.
       if (parts.length === 3 && parts[2] === 'logo') {
         if (method !== 'PUT' && method !== 'DELETE') return error(405, 'Method not allowed');

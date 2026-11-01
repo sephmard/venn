@@ -75,6 +75,44 @@
 .brand-links .hint {
   margin: 0 0 8px;
 }
+/* Sharing (owner only): invite links for admins and users, then who has it. */
+.brand-sharing {
+  margin: 18px 0 0;
+  padding-top: 4px;
+  border-top: 1px solid var(--border);
+}
+.invite-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  margin: 0 0 12px;
+}
+.member-list {
+  margin: 0 0 8px;
+  padding: 0;
+  list-style: none;
+}
+.member {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 52px;
+  border-bottom: 1px solid var(--border);
+}
+.member-name {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.member-role {
+  width: auto;
+  min-height: 44px;
+}
+.member .link-btn {
+  min-height: 44px;
+}
 .brand-list {
   margin: 0;
   padding-left: 20px;
