@@ -627,6 +627,22 @@
   background: var(--surface-2);
   font-size: 1.3rem;
 }
+/* Venn's built-in looks in Templates: a swatch of each, the same in either look of the page. */
+.acct-look {
+  font-weight: 700;
+  font-size: 1rem;
+}
+.acct-look-retro {
+  background: #0d0221;
+  color: #2de2e6;
+  font-family: 'Press Start 2P', ui-monospace, monospace;
+  font-size: 0.7rem;
+}
+.acct-look-classic {
+  background: #faf8f4;
+  color: #0b7a5c;
+  border: 1px solid #ddd6c8;
+}
 .acct-logo {
   object-fit: contain;
   padding: 4px;

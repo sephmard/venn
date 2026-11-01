@@ -218,14 +218,37 @@ const answeredRow = (p) => {
   </a><button type="button" class="acct-more" data-more="${esc(p.id)}" aria-label="Manage ${esc(p.title)}" aria-haspopup="dialog">${MORE}</button></li>`;
 };
 
+// What each template row says: the account's own, or shared with it (to change, or to use).
+const ROLE_META = { owner: 'Edit and share', admin: 'Shared with you · Admin', user: 'Shared with you · User' };
 const brandRow = (b) => `
   <li class="acct-brand">
     <a class="acct-row" href="/brand/${esc(b.id)}#organizer" data-link>
       ${b.logoV != null ? `<img class="acct-icon acct-logo" src="/api/brands/${esc(b.id)}/logo?v=${esc(b.logoV)}" alt="">` : '<span class="acct-icon" aria-hidden="true">🏷️</span>'}
-      <span class="acct-text"><b>${esc(b.name)}</b><span class="muted">Edit and share</span></span>
+      <span class="acct-text"><b>${esc(b.name)}</b><span class="muted">${ROLE_META[b.role] || ROLE_META.owner}</span></span>
     </a>
     <a class="btn acct-use" href="/new?brand=${esc(b.id)}" data-link aria-label="New poll with ${esc(b.name)}">New poll</a>
   </li>`;
+
+// Venn's own two looks, always at the top of Templates: a new poll in either, whoever's signed in.
+const BUILT_IN = [
+  ['retro', 'Retro', 'Venn’s look', '/new?retro=1'],
+  ['classic', 'Classic', 'Venn’s plain look', '/new?retro=0'],
+];
+const builtInRow = ([k, name, meta, href]) => `
+  <li class="acct-brand">
+    <a class="acct-row" href="${href}" data-link>
+      <span class="acct-icon acct-look acct-look-${k}" aria-hidden="true">Aa</span>
+      <span class="acct-text"><b>${name}</b><span class="muted">${meta}</span></span>
+    </a>
+    <a class="btn acct-use" href="${href}" data-link aria-label="New poll in ${name}">New poll</a>
+  </li>`;
+/** The built-in looks that match the search, under their own heading; the account's follow. */
+const builtIns = (q) => {
+  const shown = BUILT_IN.filter(([, name]) => name.toLowerCase().includes(q.trim().toLowerCase()));
+  return shown.length
+    ? `<h2 class="acct-h">Built in</h2><ul class="acct-list" aria-label="Built in">${shown.map(builtInRow).join('')}</ul>`
+    : '';
+};
 
 const EMPTY = {
   made: ['No polls yet.', '<a class="btn btn-primary" href="/new" data-link>Create a Venn</a>'],
@@ -324,10 +347,11 @@ function showMine(me, view) {
     const searching = !!view.q.trim();
     const row = { made: pollRow, answered: answeredRow, brands: brandRow }[view.tab];
     const out = $('#acct-results');
+    const top = brands ? builtIns(view.q) : '';
     if (!items.length) {
       const [line, action] = EMPTY[view.tab];
-      out.innerHTML = `<div class="sheet acct-empty"><p>${line}</p>${action}</div>`;
-    } else if (!groups.length) {
+      out.innerHTML = `${brands ? `${top}<h2 class="acct-h">Yours</h2>` : ''}<div class="sheet acct-empty"><p>${line}</p>${action}</div>`;
+    } else if (!groups.length && !top) {
       out.innerHTML = `<div class="acct-empty acct-none"><p>Nothing matches “${esc(view.q.trim())}”.</p><button type="button" class="link-btn" id="acct-clear">Clear search</button></div>`;
       $('#acct-clear').onclick = () => {
         $('#acct-q').value = view.q = '';
@@ -338,6 +362,8 @@ function showMine(me, view) {
       // A few at a time: searching shows every match; Past starts folded when there's more above it.
       const key = (g) => `${view.tab}:${view.group}:${g.key}`;
       out.innerHTML =
+        top +
+        (top && groups.length ? '<h2 class="acct-h">Yours</h2>' : '') +
         groups
           .map((g) => {
             const folded = !searching && g.key === 'past' && groups.length > 1 && !open.has(key(g));
@@ -353,7 +379,8 @@ function showMine(me, view) {
               rest ? `<button type="button" class="acct-showmore" data-open="${esc(key(g))}">Show ${rest} more</button>` : ''
             }`;
           })
-          .join('') + (brands ? '<a class="acct-new" href="/brand/new" data-link>+ New template</a>' : '');
+          .join('') +
+        (brands ? '<a class="acct-new" href="/brand/new" data-link>+ New template</a>' : '');
       for (const b of out.querySelectorAll('[data-open]'))
         b.onclick = () => {
           const k = b.dataset.open;

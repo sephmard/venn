@@ -119,10 +119,20 @@ export async function renderBrand(id) {
     save(key(id), { adminToken: m[1] });
     history.replaceState(null, '', location.pathname);
   }
+  // An invite link (#join=<secret>): out of the address bar, and never stored. Signing in first
+  // carries it in the sign-in's way back (src/auth.js safeNext), so it isn't kept in the browser.
+  const j = id && location.hash.match(/^#join=([A-Za-z0-9]{1,64})$/);
+  if (j) history.replaceState(null, '', location.pathname);
   const token = id && saved(key(id)).adminToken;
   // From My polls (account.js): the account stands in for the manage link.
-  const viaAccount = !!id && location.hash === '#organizer';
-  if (viaAccount) history.replaceState(null, '', location.pathname);
+  // Opened that way once, this browser asks for it the same way again (after a reload, too).
+  let viaAccount = !!id && (location.hash === '#organizer' || !!saved(key(id)).viaAccount);
+  if (location.hash === '#organizer') history.replaceState(null, '', location.pathname);
+  if (j) {
+    const joined = await join(id, j[1]);
+    if (joined === 'signin') return;
+    if (joined) viaAccount = true;
+  }
   let brand = null;
   if (id) {
     app.innerHTML = '<div class="empty muted">Loading…</div>';
@@ -137,8 +147,11 @@ export async function renderBrand(id) {
       return;
     }
     if (!brand.isAdmin && token) forget(key(id), 'adminToken');
+    if (brand.role && !token) save(key(id), { viaAccount: true });
+    else if (!brand.role) forget(key(id), 'viaAccount');
   }
   if (brand && !brand.isAdmin) return showPublic(brand);
+  if (brand?.role === 'admin') forget(key(id), 'adminToken');
   if (brand) remember(id, brand.name);
   // Back from signing in to save: the draft as it was, saved straight away once signed in.
   // Making a template needs an account, where the server has sign-in (src/auth.js); the templates
@@ -227,11 +240,11 @@ function showIntro(signedOut) {
 }
 
 /** Signing in (or making an account) to make a template: the ways in, and back here after. */
-function signInPanel(providers, heading) {
+function signInPanel(providers, heading, next = '/brand/new', why = 'Your templates are kept in your account, on any device.') {
   const html = `
     <h2 id="save-signin-h">${heading}</h2>
-    <p class="muted">Your templates are kept in your account, on any device.</p>
-    <div class="signin">${signInButtons(providers, '/brand/new')}</div>
+    <p class="muted">${why}</p>
+    <div class="signin">${signInButtons(providers, next)}</div>
     ${providers.includes('email') ? '<div id="save-email"></div>' : ''}
     ${signInAgree()}`;
   const wire = () => {
@@ -239,7 +252,7 @@ function signInPanel(providers, heading) {
     if (providers.includes('email'))
       import('./email-signin.js').then(({ emailSignInForm, wireEmailSignIn }) => {
         $('#save-email').innerHTML = emailSignInForm({ alone: providers.length === 1 });
-        wireEmailSignIn({ onSignedIn: () => location.assign('/brand/new') });
+        wireEmailSignIn({ onSignedIn: () => location.assign(next) });
       });
   };
   return [html, wire];
@@ -253,16 +266,182 @@ function showSignIn(providers) {
   wire();
 }
 
-/** Someone with the share link, not the manage link: the template, and one button to use it. */
+// ---------- sharing: invite links, and who has the template ----------
+
+const inviteUrl = (id, secret) => `${location.origin}/brand/${id}#join=${secret}`;
+
+/**
+ * Opened from an invite link: the template goes in this account's templates, with what the link
+ * lets them do. Signed out, they sign in first and come back here. Returns the role, null (the link
+ * didn't work) or 'signin' (the page is asking them to).
+ */
+async function join(id, secret) {
+  try {
+    const { role } = await api(`brands/${id}/join`, { method: 'POST', body: { token: secret } });
+    // Signed in (perhaps just now): the top bar knows it.
+    const me = await api('me').catch(() => ({}));
+    if (me.user)
+      accountHint({
+        initial: (me.user.name || me.user.email || '?').trim().charAt(0).toUpperCase(),
+        name: me.user.name || me.user.email || '',
+      });
+    refreshAccountMenu();
+    toast(
+      role === 'admin'
+        ? 'Added to your templates. You can change it.'
+        : role === 'owner'
+          ? 'It’s your own template.'
+          : 'Added to your templates.',
+    );
+    return role;
+  } catch (e) {
+    const providers =
+      e.status === 401
+        ? await getConfig().then(
+            (c) => c.accounts || [],
+            () => [],
+          )
+        : [];
+    if (e.status === 401 && providers.length) {
+      const b = await api(`brands/${id}`).catch(() => null);
+      if (!b) return null;
+      document.title = `Sign in · ${b.name} · Venn`;
+      const [html, wire] = signInPanel(
+        providers,
+        `Sign in to add ${esc(b.name)}’s template`,
+        `/brand/${id}#join=${secret}`,
+        'It goes in your templates, on any device.',
+      );
+      app.innerHTML = `<div class="sheet brand-signin save-signin">${html.replace(/<(\/?)h2/g, '<$1h1')}</div>`;
+      wire();
+      return 'signin';
+    }
+    toast(e.status === 401 ? 'This Venn has no accounts, so the invite can’t be used here.' : e.message);
+    return null;
+  }
+}
+
+const ROLE_NAMES = { admin: 'Admin', user: 'User' };
+
+/** The owner's sharing: invite links for admins and users, who has it, and turning the links off. */
+async function drawSharing(b, token) {
+  const box = $('#b-sharing');
+  if (!box) return;
+  const headers = token ? { 'x-admin-token': token } : {};
+  let data;
+  try {
+    data = await api(`brands/${b.id}/sharing`, { headers });
+  } catch (e) {
+    box.innerHTML = `<p class="hint">${esc(e.message)}</p>`;
+    return;
+  }
+  const links = data.invites.admin + data.invites.user;
+  const member = (m) => `
+    <li class="member">
+      <span class="member-name">${esc(m.name)}</span>
+      <select class="member-role" data-member="${esc(m.userId)}" aria-label="What ${esc(m.name)} can do">
+        ${Object.entries(ROLE_NAMES)
+          .map(([r, label]) => `<option value="${r}"${m.role === r ? ' selected' : ''}>${label}</option>`)
+          .join('')}
+      </select>
+      <button type="button" class="link-btn danger" data-remove="${esc(m.userId)}" aria-label="Remove ${esc(m.name)}">Remove</button>
+    </li>`;
+  box.innerHTML = `
+    <h3 id="share-h">Share it</h3>
+    <p class="hint"><b>Admins</b> can change it. <b>Users</b> add it to their templates and make polls with it. They sign in to join.</p>
+    <div class="invite-row">
+      <button type="button" class="btn" data-invite="admin">Copy admin invite</button>
+      <button type="button" class="btn" data-invite="user">Copy user invite</button>
+    </div>
+    ${
+      data.members.length
+        ? `<ul class="member-list" aria-labelledby="share-h">${data.members.map(member).join('')}</ul>`
+        : '<p class="hint">Nobody else has it yet.</p>'
+    }
+    ${links ? `<p class="hint invite-off">${links === 1 ? '1 invite link works' : `${links} invite links work`}. <button type="button" class="link-btn" id="invites-off">Turn them off</button></p>` : ''}`;
+  for (const btn of box.querySelectorAll('[data-invite]'))
+    btn.onclick = async () => {
+      const role = btn.dataset.invite;
+      // The last link made here, while it still works; otherwise a new one.
+      let secret = data.invites[role] ? saved(key(b.id))[`invite-${role}`] : null;
+      try {
+        if (!secret) {
+          secret = (await api(`brands/${b.id}/invites`, { method: 'POST', body: { role }, headers })).token;
+          save(key(b.id), { [`invite-${role}`]: secret });
+        }
+      } catch (e) {
+        return toast(e.message);
+      }
+      const url = inviteUrl(b.id, secret);
+      navigator.clipboard.writeText(url).then(
+        () => toast(`${ROLE_NAMES[role]} invite copied. Send it to them.`),
+        () => prompt('Copy this:', url),
+      );
+      if (!data.invites[role]) drawSharing(b, token);
+    };
+  for (const sel of box.querySelectorAll('[data-member]'))
+    sel.onchange = async () => {
+      try {
+        await api(`brands/${b.id}/members/${sel.dataset.member}`, { method: 'PUT', body: { role: sel.value }, headers });
+        toast(sel.value === 'admin' ? 'They can change it now.' : 'They can use it, not change it.');
+      } catch (e) {
+        toast(e.message);
+        drawSharing(b, token);
+      }
+    };
+  for (const btn of box.querySelectorAll('[data-remove]'))
+    btn.onclick = async () => {
+      try {
+        await api(`brands/${b.id}/members/${btn.dataset.remove}`, { method: 'DELETE', headers });
+        toast('Removed. Their polls keep the look.');
+      } catch (e) {
+        toast(e.message);
+      }
+      drawSharing(b, token);
+    };
+  if ($('#invites-off'))
+    $('#invites-off').onclick = async () => {
+      try {
+        await api(`brands/${b.id}/invites`, { method: 'DELETE', headers });
+        forget(key(b.id), 'invite-admin', 'invite-user');
+        toast('Invite links turned off. Everyone who joined keeps it.');
+      } catch (e) {
+        toast(e.message);
+      }
+      drawSharing(b, token);
+    };
+}
+
+/** Leave a template shared with this account: it's off their templates, and they go to them. */
+async function leave(b) {
+  try {
+    await api(`me/brands/${b.id}`, { method: 'DELETE' });
+    unremember(b.id);
+    toast(`${b.name}’s template is off your templates.`);
+    history.pushState(null, '', '/me');
+    dispatchEvent(new PopStateEvent('popstate'));
+  } catch (e) {
+    toast(e.message);
+  }
+}
+
+/**
+ * Someone with the share link, not the manage link: the template, and one button to use it. Shared
+ * with them as a user: it's in their templates, and they can leave it.
+ */
 function showPublic(b) {
   document.title = `${b.name} · Venn`;
+  const user = b.role === 'user';
   app.innerHTML = `
     <div class="create brand-page">
       <h1>${esc(b.name)}’s template</h1>
+      ${user ? '<p class="hint">In your templates. Its admins can change it.</p>' : ''}
       <p><a class="btn btn-primary btn-lg" href="/new?brand=${esc(b.id)}" data-link>Make a poll with it</a></p>
       ${previewBox(false)}
+      ${user ? '<p class="delete-row"><button type="button" class="link-btn danger" id="b-leave">Leave template</button></p>' : ''}
     </div>`;
   livePreview(() => ({ brand: b, view: 'guest' }))();
+  if (user) $('#b-leave').onclick = () => leave(b);
 }
 
 /**
@@ -368,7 +547,7 @@ function showForm(b, token, start, draft = null) {
       <nav class="steps" aria-label="Steps"><ol>${stepList}</ol></nav>
       ${previewBox(true)}
       <div class="step-panels">
-        ${b ? panel('share', links(b.id, token, others)) : ''}
+        ${b ? panel('share', links(b, token, others)) : ''}
         ${panel(
           'name',
           `<label for="b-name">Organization <span class="req" aria-hidden="true">Required</span></label>
@@ -705,6 +884,8 @@ function showForm(b, token, start, draft = null) {
         () => toast('Copied.'),
         () => prompt('Copy this:', c.dataset.copy),
       );
+  if ($('#b-leave')) $('#b-leave').onclick = () => leave(b);
+  if (b) drawSharing(b, token);
   if ($('#b-delete'))
     $('#b-delete').onclick = () => {
       // Asked in the page, never with confirm() (in-app browsers block it).
@@ -923,14 +1104,25 @@ function livePreview(get) {
   return send;
 }
 
-/** The template's two links (one for the team, one to keep), its other templates, and deleting it. */
-const links = (id, token, others) => `
+/**
+ * The template's links: one for the team to make polls with and, for its owner, the private manage
+ * link, sharing it with other accounts and deleting it. An admin it's shared with can leave it.
+ */
+const links = (b, token, others) => {
+  const { id } = b;
+  const owner = b.role !== 'admin';
+  return `
   <div class="brand-links">
     <p class="hint">Anyone with this link makes polls in your look.</p>
     <p class="link-row"><input type="text" readonly value="${esc(shareUrl(id))}" aria-label="Link for your team"><button type="button" class="btn btn-primary" data-copy="${esc(shareUrl(id))}">Copy link</button></p>
-    <p class="hint">Your manage link changes this template. Keep it private, as nobody can send it to you again.</p>
-    <p class="link-row"><input type="text" readonly value="${esc(manageUrl(id, token))}" aria-label="Your manage link"><button type="button" class="btn" data-copy="${esc(manageUrl(id, token))}">Copy</button></p>
+    ${
+      owner
+        ? `<p class="hint">Your manage link changes this template. Keep it private, as nobody can send it to you again.</p>
+    <p class="link-row"><input type="text" readonly value="${esc(manageUrl(id, token))}" aria-label="Your manage link"><button type="button" class="btn" data-copy="${esc(manageUrl(id, token))}">Copy</button></p>`
+        : '<p class="hint">Shared with you as an admin: you can change it. Its owner shares it.</p>'
+    }
     <p><a class="btn" href="/new?brand=${esc(id)}" data-link>Make a poll with it</a></p>
+    ${owner && (token || b.role === 'owner') ? '<div class="brand-sharing" id="b-sharing"></div>' : ''}
     ${
       others.length
         ? `<h3 id="mine-h">Your other templates</h3><ul class="brand-list" aria-labelledby="mine-h">${others
@@ -938,8 +1130,13 @@ const links = (id, token, others) => `
             .join('')}</ul>`
         : ''
     }
-    <p class="delete-row"><button type="button" class="link-btn danger" id="b-delete">Delete template</button></p>
+    <p class="delete-row">${
+      owner
+        ? '<button type="button" class="link-btn danger" id="b-delete">Delete template</button>'
+        : '<button type="button" class="link-btn danger" id="b-leave">Leave template</button>'
+    }</p>
   </div>`;
+};
 
 /** Just saved: the links, first. */
 function showReady(id, token, name) {

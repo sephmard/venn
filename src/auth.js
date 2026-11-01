@@ -122,7 +122,10 @@ function cookie(name, value, { url, maxAge, path = '/api' }) {
 }
 
 /** Only paths on this site, so a sign-in link can't send anyone elsewhere afterwards. */
-const safeNext = (next) => (typeof next === 'string' && /^\/(?!\/)[\w\-/.]*$/.test(next) && next.length < 200 ? next : '/me');
+// A path on this site, maybe with a template invite's #join=<secret> (public/brand.js), which the
+// way back carries so the browser never has to store it.
+const safeNext = (next) =>
+  typeof next === 'string' && /^\/(?!\/)[\w\-/.]*(#join=[A-Za-z0-9]{1,64})?$/.test(next) && next.length < 200 ? next : '/me';
 
 function redirect(location, headers, setCookies = []) {
   const res = new Response(null, { status: 302, headers: { ...headers, location, 'cache-control': 'no-store' } });
@@ -242,7 +245,7 @@ async function finishSignIn(name, { request, url, env, store, fetchImpl, now, he
       new TextDecoder().decode(Uint8Array.from(atob(raw.replace(/-/g, '+').replace(/_/g, '/')), (c) => c.charCodeAt(0))),
     );
   } catch {}
-  const back = (next, failed) => redirect(`${next}${failed ? '#signin-failed' : ''}`, headers, failed ? [clear] : []);
+  const back = (next, failed) => redirect(failed ? `${next.split('#')[0]}#signin-failed` : next, headers, failed ? [clear] : []);
   const state = url.searchParams.get('state');
   const code = url.searchParams.get('code');
   if (!flow || flow.p !== name || !state || state !== flow.state || !code) return back(safeNext(flow?.next), true);
@@ -258,11 +261,11 @@ async function finishSignIn(name, { request, url, env, store, fetchImpl, now, he
   if (flow.connect) {
     const me = await store.getSessionUser((await sessionHashOf(request)) || '', now);
     const next = safeNext(flow.next);
-    if (!me) return redirect(`${next}#connect-failed`, headers, [clear]);
+    if (!me) return redirect(`${next.split('#')[0]}#connect-failed`, headers, [clear]);
     const owner = await store.signInOwner(name, who.subject);
-    if (owner && owner !== me.id) return redirect(`${next}#connect-taken`, headers, [clear]);
+    if (owner && owner !== me.id) return redirect(`${next.split('#')[0]}#connect-taken`, headers, [clear]);
     if (!owner) await store.addIdentity({ provider: name, subject: who.subject, userId: me.id, email: who.email, now });
-    return redirect(`${next}#connected`, headers, [clear]);
+    return redirect(`${next.split('#')[0]}#connected`, headers, [clear]);
   }
   // A sign-in connected to an account signs in to that account; any other is its own account.
   const user =
@@ -453,10 +456,12 @@ export async function handleAccount({
     return json({ added });
   }
 
-  // DELETE /api/me/polls/:id (or brands/:id, answers/:pid): take it off the list. The poll itself stays.
+  // DELETE /api/me/polls/:id (or brands/:id, answers/:pid): take it off the list. The poll itself
+  // stays. A template shared with them: they leave it.
   const KINDS = { polls: 'poll', brands: 'brand', answers: 'answer' };
   if (parts.length === 3 && Object.hasOwn(KINDS, parts[1]) && method === 'DELETE') {
     await store.removeOwner(KINDS[parts[1]], parts[2], user.id);
+    if (parts[1] === 'brands') await store.removeBrandMember(parts[2], user.id);
     return json({ ok: true });
   }
   return error(404, 'Not found');

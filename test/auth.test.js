@@ -353,6 +353,82 @@ test('my brand templates: made signed in or claimed, and managed with the accoun
   );
 });
 
+test('sharing a brand template: admins change it, users make polls with it, only the owner shares it', async () => {
+  const owner = (await signIn('g-share-owner')).session;
+  const ana = (await signIn('g-share-admin')).session;
+  const ben = (await signIn('g-share-user')).session;
+  const made = (await call('/api/brands', { method: 'POST', body: { name: 'Acme' }, cookie: owner })).data;
+  const as = (cookie) => ({ cookie, headers: { 'x-organizer': '1' } });
+  // Signing in from an invite link comes back to it, secret and all (the browser never stores it);
+  // anything else after the path falls back to My polls.
+  const via = (await signIn('g-share-via', { next: '/brand/abc#join=Secret123' })).back.headers.get('location');
+  assert.match(via, /\/brand\/abc#join=Secret123$/);
+  assert.match((await signIn('g-share-via', { next: '/brand/abc#evil' })).back.headers.get('location'), /\/me$/);
+  // Invite links: one for admins, one for users. Only the owner makes them.
+  const invite = async (role, cookie = owner) =>
+    call(`/api/brands/${made.id}/invites`, { method: 'POST', body: { role }, cookie });
+  const adminLink = (await invite('admin')).data.token;
+  const userLink = (await invite('user')).data.token;
+  assert.equal((await invite('owner')).status, 400);
+  // Opening one needs an account, and its secret.
+  const join = (token, cookie) => call(`/api/brands/${made.id}/join`, { method: 'POST', body: { token }, cookie });
+  assert.equal((await join(adminLink)).status, 401);
+  assert.equal((await join('nope', ana)).status, 403);
+  assert.equal((await join(adminLink, ana)).data.role, 'admin');
+  assert.equal((await join(userLink, ben)).data.role, 'user');
+  // An admin opening a user link stays an admin; the owner stays the owner.
+  assert.equal((await join(userLink, ana)).data.role, 'admin');
+  assert.equal((await join(userLink, owner)).data.role, 'owner');
+  // It's in both their templates, with what they can do.
+  const theirs = async (cookie) => (await call('/api/me', { cookie })).data.brands.map((b) => [b.name, b.role]);
+  assert.deepEqual(await theirs(ana), [['Acme', 'admin']]);
+  assert.deepEqual(await theirs(ben), [['Acme', 'user']]);
+  assert.deepEqual(await theirs(owner), [['Acme', 'owner']]);
+  // The admin changes it, and its logo; the user can't. Neither deletes it or shares it.
+  const put = (cookie) => call(`/api/brands/${made.id}`, { method: 'PUT', body: { name: 'Acme Inc' }, cookie });
+  assert.equal((await put(ana)).status, 200);
+  assert.equal((await put(ben)).status, 403);
+  assert.equal((await call(`/api/brands/${made.id}`, as(ana))).data.role, 'admin');
+  assert.equal((await call(`/api/brands/${made.id}`, as(ana))).data.isAdmin, true);
+  assert.equal((await call(`/api/brands/${made.id}`, as(ben))).data.isAdmin, false);
+  assert.equal((await call(`/api/brands/${made.id}`, as(ben))).data.role, 'user');
+  assert.equal((await call(`/api/brands/${made.id}`, { method: 'DELETE', cookie: ana })).status, 403);
+  assert.equal((await invite('user', ana)).status, 403);
+  assert.equal((await call(`/api/brands/${made.id}/sharing`, { cookie: ana })).status, 403);
+  // The owner sees who has it and how many links work.
+  const sharing = (await call(`/api/brands/${made.id}/sharing`, { cookie: owner })).data;
+  assert.deepEqual(
+    sharing.members.map((m) => m.role),
+    ['admin', 'user'],
+  );
+  assert.deepEqual(sharing.invites, { admin: 1, user: 1 });
+  const benId = sharing.members[1].userId;
+  // Makes the user an admin, and back; a stranger can't.
+  const role = (r, cookie = owner) =>
+    call(`/api/brands/${made.id}/members/${benId}`, { method: 'PUT', body: { role: r }, cookie });
+  assert.equal((await role('admin', ana)).status, 403);
+  assert.equal((await role('admin')).status, 200);
+  assert.equal((await put(ben)).status, 200);
+  assert.equal((await role('user')).status, 200);
+  assert.equal((await put(ben)).status, 403);
+  // Turning the links off: nobody new joins with them, and who has it keeps it.
+  await call(`/api/brands/${made.id}/invites`, { method: 'DELETE', cookie: owner });
+  const cy = (await signIn('g-share-late')).session;
+  assert.equal((await join(userLink, cy)).status, 403);
+  assert.deepEqual(await theirs(ben), [['Acme Inc', 'user']]);
+  // Leaving it (from My polls), and being taken off it.
+  assert.equal((await call(`/api/me/brands/${made.id}`, { method: 'DELETE', cookie: ben })).status, 200);
+  assert.deepEqual(await theirs(ben), []);
+  const anaId = sharing.members[0].userId;
+  assert.equal((await call(`/api/brands/${made.id}/members/${anaId}`, { method: 'DELETE', cookie: ben })).status, 403);
+  assert.equal((await call(`/api/brands/${made.id}/members/${anaId}`, { method: 'DELETE', cookie: owner })).status, 200);
+  assert.equal((await put(ana)).status, 403);
+  // Deleted, it's gone from everyone's templates.
+  await join((await invite('user')).data.token, ben);
+  assert.equal((await call(`/api/brands/${made.id}`, { method: 'DELETE', cookie: owner })).status, 200);
+  assert.deepEqual(await theirs(ben), []);
+});
+
 test('signing out ends the session; deleting the account forgets it and leaves its polls', async () => {
   const { session } = await signIn('g-bye');
   const made = (await call('/api/events', { method: 'POST', body: poll, cookie: session })).data;

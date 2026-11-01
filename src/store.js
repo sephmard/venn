@@ -135,6 +135,25 @@ const SCHEMA = [
      PRIMARY KEY (provider, subject)
    )`,
   `CREATE INDEX IF NOT EXISTS identities_user ON identities(user_id)`,
+  // Brand templates shared with other accounts (src/brands.js): 'admin' can change the template,
+  // 'user' has it in their templates to make polls with. Its owner is in `owners`, not here.
+  `CREATE TABLE IF NOT EXISTS brand_members (
+     brand_id TEXT NOT NULL,
+     user_id TEXT NOT NULL,
+     role TEXT NOT NULL,
+     created_at INTEGER NOT NULL,
+     PRIMARY KEY (brand_id, user_id)
+   )`,
+  `CREATE INDEX IF NOT EXISTS brand_members_user ON brand_members(user_id)`,
+  // Invite links to a template, one role each: the SHA-256 hash of each link's secret, never the
+  // secret. They work until the template's owner turns them off.
+  `CREATE TABLE IF NOT EXISTS brand_invites (
+     hash TEXT PRIMARY KEY,
+     brand_id TEXT NOT NULL,
+     role TEXT NOT NULL,
+     created_at INTEGER NOT NULL
+   )`,
+  `CREATE INDEX IF NOT EXISTS brand_invites_brand ON brand_invites(brand_id)`,
 ];
 
 /** The picture's details for a poll's JSON (or nothing, when it has none), from a joined row. */
@@ -295,7 +314,77 @@ export function createStore(db) {
     async deleteBrand(id) {
       await init();
       await db.run("DELETE FROM owners WHERE kind = 'brand' AND item_id = ?", [id]);
+      await db.run('DELETE FROM brand_members WHERE brand_id = ?', [id]);
+      await db.run('DELETE FROM brand_invites WHERE brand_id = ?', [id]);
       await db.run('DELETE FROM brands WHERE id = ?', [id]);
+    },
+
+    // ---------- sharing a brand template ----------
+
+    /** This account's role on a template it was invited to ('admin' | 'user'), or null. */
+    async brandRole(brandId, userId) {
+      await init();
+      return (
+        (await db.first('SELECT role FROM brand_members WHERE brand_id = ? AND user_id = ?', [brandId, userId]))?.role ?? null
+      );
+    },
+
+    /** Give an account a role on a template (replacing the one it had). */
+    async setBrandMember(brandId, userId, role, now) {
+      await init();
+      await db.run(
+        `INSERT INTO brand_members (brand_id, user_id, role, created_at) VALUES (?, ?, ?, ?)
+         ON CONFLICT(brand_id, user_id) DO UPDATE SET role = excluded.role`,
+        [brandId, userId, role, now],
+      );
+    },
+
+    async removeBrandMember(brandId, userId) {
+      await init();
+      await db.run('DELETE FROM brand_members WHERE brand_id = ? AND user_id = ?', [brandId, userId]);
+    },
+
+    /** Who a template is shared with, first invited first: [{ userId, name, role }]. */
+    async listBrandMembers(brandId) {
+      await init();
+      const rows = await db.all(
+        `SELECT m.user_id, m.role, u.name, u.email FROM brand_members m JOIN users u ON u.id = m.user_id
+         WHERE m.brand_id = ? ORDER BY m.created_at, m.user_id LIMIT 500`,
+        [brandId],
+      );
+      return rows.map((r) => ({ userId: r.user_id, name: r.name || r.email || 'Someone', role: r.role }));
+    },
+
+    async addBrandInvite({ hash, brandId, role, now }) {
+      await init();
+      await db.run('INSERT INTO brand_invites (hash, brand_id, role, created_at) VALUES (?, ?, ?, ?)', [
+        hash,
+        brandId,
+        role,
+        now,
+      ]);
+    },
+
+    /** The role an invite link to this template gives, or null. */
+    async brandInviteRole(brandId, hash) {
+      await init();
+      return (await db.first('SELECT role FROM brand_invites WHERE hash = ? AND brand_id = ?', [hash, brandId]))?.role ?? null;
+    },
+
+    /** How many invite links a template has, by role: { admin, user }. */
+    async countBrandInvites(brandId) {
+      await init();
+      const rows = await db.all('SELECT role, COUNT(*) AS n FROM brand_invites WHERE brand_id = ? GROUP BY role', [brandId]);
+      const out = { admin: 0, user: 0 };
+      for (const r of rows) out[r.role] = Number(r.n);
+      return out;
+    },
+
+    /** Turn off a template's invite links (of one role, or all). */
+    async removeBrandInvites(brandId, role) {
+      await init();
+      if (role) await db.run('DELETE FROM brand_invites WHERE brand_id = ? AND role = ?', [brandId, role]);
+      else await db.run('DELETE FROM brand_invites WHERE brand_id = ?', [brandId]);
     },
 
     /** Save the logo ({ data (base64), type }), or take it away with null. Returns its new version. */
@@ -365,6 +454,7 @@ export function createStore(db) {
       await db.run('DELETE FROM identities WHERE user_id = ?', [userId]);
       await db.run('DELETE FROM email_tokens WHERE user_id = ?', [userId]);
       await db.run('DELETE FROM owners WHERE user_id = ?', [userId]);
+      await db.run('DELETE FROM brand_members WHERE user_id = ?', [userId]);
       await db.run('DELETE FROM sessions WHERE user_id = ?', [userId]);
       await db.run('DELETE FROM users WHERE id = ?', [userId]);
     },
@@ -466,15 +556,28 @@ export function createStore(db) {
       });
     },
 
-    /** An account's brand templates, newest first. */
+    /**
+     * An account's brand templates, newest first: the ones it keeps (role 'owner') and the ones
+     * shared with it ('admin' can change it, 'user' makes polls with it).
+     */
     async listOwnedBrands(userId) {
       await init();
       const rows = await db.all(
-        `SELECT b.id, b.data, b.logo_v, b.created_at FROM owners o JOIN brands b ON b.id = o.item_id
-         WHERE o.user_id = ? AND o.kind = 'brand' ORDER BY b.created_at DESC LIMIT 200`,
-        [userId],
+        `SELECT b.id, b.data, b.logo_v, b.created_at AS created_at, 'owner' AS role FROM owners o JOIN brands b ON b.id = o.item_id
+           WHERE o.user_id = ? AND o.kind = 'brand'
+         UNION ALL
+         SELECT b.id, b.data, b.logo_v, b.created_at, m.role FROM brand_members m JOIN brands b ON b.id = m.brand_id
+           WHERE m.user_id = ? AND NOT EXISTS (SELECT 1 FROM owners o WHERE o.kind = 'brand' AND o.item_id = b.id AND o.user_id = ?)
+         ORDER BY created_at DESC LIMIT 200`,
+        [userId, userId, userId],
       );
-      return rows.map((r) => ({ id: r.id, name: JSON.parse(r.data).name, logoV: r.logo_v ?? null, createdAt: r.created_at }));
+      return rows.map((r) => ({
+        id: r.id,
+        name: JSON.parse(r.data).name,
+        logoV: r.logo_v ?? null,
+        createdAt: r.created_at,
+        role: r.role,
+      }));
     },
 
     // ---------- email and password sign-in (src/email-auth.js) ----------
