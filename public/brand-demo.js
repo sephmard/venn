@@ -162,7 +162,7 @@ export async function renderDemo() {
   const onState = async (data) => {
     if (!data?.brand) return;
     const { brand: b, view: v } = data;
-    const content = JSON.stringify([b.name, b.logo, b.hideName, b.title, b.where, b.note, b.emoji, v]);
+    const content = JSON.stringify([b.name, b.logo, b.hideName, b.hideVenn, b.title, b.where, b.note, b.emoji, v]);
     const look = JSON.stringify(b);
     brand = b;
     if (content !== last || !off) {

@@ -4,6 +4,7 @@
 
 import { allDaySpan, buildSlots, isOptionsPoll, meetingEnd, rankTimes } from '../public/core.js';
 import { imagePath } from './images.js';
+import { EMBED_PATH, frameHeaders } from './embed.js';
 
 // Static images, rendered by `npm run og` (scripts/og-image.js): one to ask, one once it's set,
 // and both again for polls in the retro look.
@@ -104,13 +105,25 @@ export function pollPreview(ev) {
 }
 
 /** The <head> tags for a preview. Every value is escaped; `url` and image paths are made absolute against `origin`. */
-export function previewTags({ title, description, image }, { origin, url, pageTitle = `${title} · Venn` }) {
+export function previewTags({ title, description, image }, { origin, url, pageTitle = `${title} · Venn`, siteName = 'Venn' }) {
   const meta = (attr, key, value) => `<meta ${attr}="${key}" content="${escAttr(value)}" />`;
+  // A white-label poll with no picture of its own has no image: Venn's would show Venn's name.
+  if (!image)
+    return [
+      `<title>${escAttr(pageTitle)}</title>`,
+      meta('name', 'description', description),
+      meta('property', 'og:type', 'website'),
+      meta('property', 'og:site_name', siteName),
+      meta('property', 'og:url', url),
+      meta('property', 'og:title', title),
+      meta('property', 'og:description', description),
+      meta('name', 'twitter:card', 'summary'),
+    ].join('\n    ');
   return [
     `<title>${escAttr(pageTitle)}</title>`,
     meta('name', 'description', description),
     meta('property', 'og:type', 'website'),
-    meta('property', 'og:site_name', 'Venn'),
+    meta('property', 'og:site_name', siteName),
     meta('property', 'og:url', url),
     meta('property', 'og:title', title),
     meta('property', 'og:description', description),
@@ -141,19 +154,43 @@ export function homePage(html, url) {
 /**
  * The app shell (public/app.html) to send for `pathname`: for a poll page, with that poll's
  * preview tags (or the generic ones for an unknown poll), and in its retro look from the first
- * paint when it has one. One database read. Other app routes get the shell as it is.
+ * paint when it has one. Other app routes get the shell as it is.
  */
-export async function appShell(html, { pathname, origin, store }) {
-  const m = POLL_PATH.exec(pathname);
-  if (!m) return html;
+export async function appShell(html, opts) {
+  return (await pollShell(html, opts)).html;
+}
+
+/**
+ * The app shell and its headers. A poll page reads the poll (and its brand template, if it has
+ * one): a white-label template (src/embed.js) leaves Venn's name out of the page from the first
+ * paint, and its embed page (/embed/<id>) may be framed by the template's websites.
+ */
+export async function pollShell(html, { pathname, origin, store }) {
+  const embed = EMBED_PATH.exec(pathname);
+  const m = embed || POLL_PATH.exec(pathname);
+  if (!m) return { html, headers: frameHeaders() };
   const url = `${origin}/e/${m[1]}`;
   let ev = null;
+  let brand = null;
   try {
     ev = await store.getPreview(m[1]);
+    if (ev?.brand) brand = await store.getBrand(ev.brand);
   } catch (e) {
     console.error(e); // a preview is never worth failing the page over
   }
-  if (!ev) return injectTags(html, previewTags(GENERIC, { origin, url, pageTitle: GENERIC.pageTitle }));
-  const shell = ev.retro ? html.replace(/<html\b/, '<html class="retro"') : html;
-  return injectTags(shell, previewTags(pollPreview(ev), { origin, url }));
+  if (!ev)
+    return {
+      html: injectTags(html, previewTags(GENERIC, { origin, url, pageTitle: GENERIC.pageTitle })),
+      headers: frameHeaders(),
+    };
+  const classes = [ev.retro && !brand && 'retro', embed && 'embed', brand?.hideVenn && 'white-label'].filter(Boolean);
+  const shell = classes.length ? html.replace(/<html\b/, `<html class="${classes.join(' ')}"`) : html;
+  const preview = pollPreview(ev);
+  const tags = brand?.hideVenn
+    ? previewTags(
+        { ...preview, image: ev.image?.card ? preview.image : null },
+        { origin, url, pageTitle: preview.title, siteName: brand.name },
+      )
+    : previewTags(preview, { origin, url });
+  return { html: injectTags(shell, tags), headers: frameHeaders(embed && brand?.embedSites) };
 }
