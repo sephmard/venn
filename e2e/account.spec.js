@@ -12,6 +12,15 @@ const noSideways = async (page) =>
 
 async function audit(page, label) {
   await page.evaluate(() => (document.getElementById('toast').textContent = ''));
+  // Let opening animations (the sheet fades in) finish, or axe measures half-faded text.
+  await page.evaluate(() =>
+    Promise.all(
+      document
+        .getAnimations()
+        .filter((a) => a.effect?.getTiming().iterations !== Infinity)
+        .map((a) => a.finished.catch(() => {})),
+    ),
+  );
   const results = await new AxeBuilder({ page }).withTags(['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa', 'wcag22aa']).analyze();
   const blocking = results.violations.filter((v) => v.impact === 'serious' || v.impact === 'critical');
   expect(
@@ -243,12 +252,26 @@ test('polls answered signed in are in My polls, to search, sort and group, and t
   await page.fill('#acct-q', 'zzz');
   await expect(page.locator('.acct-none')).toContainText('Nothing matches');
   await page.getByRole('button', { name: 'Clear search' }).click();
-  await page.selectOption('#acct-sort', 'name');
+  // Sort and group: one button, one sheet, applied as it's tapped.
+  await page.locator('#acct-sortbtn').click();
+  const sheet = page.locator('#acct-sheet');
+  await expect(sheet).toBeVisible();
+  await audit(page, 'sort sheet');
+  await sheet.getByRole('radio', { name: /Name/ }).click();
   await expect(page.locator('.acct-row')).toHaveText([/Cabin trip/, /Supper club/]);
-  await page.selectOption('#acct-sort', 'old');
+  await sheet.getByRole('radio', { name: /Oldest/ }).click();
   await expect(page.locator('.acct-row')).toHaveText([/Supper club/, /Cabin trip/]);
-  await page.selectOption('#acct-group', 'none');
+  await sheet.getByRole('radio', { name: 'None' }).click();
   await expect(page.locator('.acct-h')).toHaveCount(0);
+  await sheet.getByRole('button', { name: 'Done' }).click();
+  await expect(sheet).toBeHidden();
+  await expect(page.locator('#acct-sortbtn')).toHaveText('Oldest');
+  // ⋯ on an answered poll: take it off the list (the answer stays).
+  await page.getByRole('button', { name: 'Manage Cabin trip' }).click();
+  await sheet.getByRole('button', { name: 'Remove from My polls' }).click();
+  await expect(page.locator('#toast')).toHaveText('Removed from My polls');
+  await expect(page.locator('.acct-row')).toHaveText([/Supper club/]);
+  await expect(page.getByRole('tab', { name: /Answered/ })).toContainText('1');
 
   // Another device, signed in: the answer is theirs there too, and can be changed.
   const phone = await browser.newContext({ extraHTTPHeaders: { 'x-test-user': who } });
@@ -260,5 +283,64 @@ test('polls answered signed in are in My polls, to search, sort and group, and t
   await expect(other.locator('h1')).toContainText('Supper club');
   await expect(other.locator('#name')).toHaveValue('Kit');
   await phone.close();
+  await context.close();
+});
+
+test('a long list shows a few at a time, and ⋯ manages a poll: copy, remind, delete', async ({ browser }, info) => {
+  const who = `many-${info.project.name}-${Date.now()}`;
+  const context = await browser.newContext({ extraHTTPHeaders: { 'x-test-user': who } });
+  const page = await context.newPage();
+  await page.goto('/me');
+  await page.getByRole('link', { name: 'Continue with Google' }).click();
+  await expect(page.locator('.acct-who')).toBeVisible();
+  // Eight waiting on a date, and three whose date has passed, all made signed in.
+  const ids = [];
+  for (let i = 1; i <= 11; i++) {
+    const p = poll(`Poll ${i}`);
+    const ev = await (await page.request.post('/api/events', { data: i > 8 ? { ...p, dates: ['2024-03-03'] } : p })).json();
+    ids.push(ev);
+    if (i > 8) {
+      const { slots } = await (await page.request.get(`/api/events/${ev.id}`)).json();
+      await page.request.post(`/api/events/${ev.id}/finalize`, {
+        headers: { 'x-admin-token': ev.adminToken },
+        data: { start: slots[0] },
+      });
+    }
+  }
+  await page.goto('/me');
+  await page.getByRole('tab', { name: /Created/ }).click();
+  // Five of the eight, then Show more; Past folded.
+  await expect(page.locator('.acct-row')).toHaveCount(5);
+  await page.getByRole('button', { name: 'Show 3 more' }).click();
+  await expect(page.locator('.acct-row')).toHaveCount(8);
+  await expect(page.locator(':focus')).toContainText('Poll 3');
+  await page.getByRole('button', { name: /Past/ }).click();
+  await expect(page.locator('.acct-row')).toHaveCount(11);
+  // Searching shows every match.
+  await page.fill('#acct-q', 'poll 1');
+  await expect(page.locator('.acct-row')).toHaveCount(3);
+  await page.fill('#acct-q', '');
+  await noSideways(page);
+  await audit(page, 'long list');
+
+  // ⋯: delete asks first, in the sheet.
+  const sheet = page.locator('#acct-sheet');
+  await page.getByRole('button', { name: 'Manage Poll 8' }).click();
+  await expect(sheet.getByRole('button', { name: 'Remind the group' })).toBeVisible();
+  await audit(page, 'poll sheet');
+  await sheet.getByRole('button', { name: 'Delete poll' }).click();
+  await expect(sheet).toContainText('Delete “Poll 8”?');
+  await sheet.getByRole('button', { name: 'Keep it' }).click();
+  await sheet.getByRole('button', { name: 'Delete poll' }).click();
+  await sheet.locator('[data-act="delete-yes"]').click();
+  await expect(page.locator('#toast')).toHaveText('Poll deleted');
+  await expect(page.getByRole('tab', { name: /Created/ })).toContainText('10');
+  expect((await page.request.get(`/api/events/${ids[7].id}`)).status()).toBe(404);
+  // A picked poll has nobody to remind.
+  await page.getByRole('button', { name: 'Manage Poll 9' }).click();
+  await expect(sheet.getByRole('button', { name: 'Copy link' })).toBeVisible();
+  await expect(sheet.getByRole('button', { name: 'Remind the group' })).toHaveCount(0);
+  await sheet.getByRole('button', { name: 'Close' }).click();
+  await expect(sheet).toBeHidden();
   await context.close();
 });

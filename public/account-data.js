@@ -44,10 +44,36 @@ export function pollMeta(p, now = Date.now()) {
   return p.answers ? `${p.answers} ${p.answers === 1 ? 'answer' : 'answers'}` : 'No answers yet';
 }
 
+const short = (t, now) =>
+  new Date(t).toLocaleDateString(undefined, {
+    month: 'short',
+    day: 'numeric',
+    ...(new Date(t).getFullYear() !== new Date(now).getFullYear() && { year: 'numeric' }),
+  });
+
+/** When a row's poll was made (or answered), short: "Today", "Oct 30", "Oct 30, 2025". */
+export function whenShort(t, now = Date.now()) {
+  if (t == null) return '';
+  return new Date(t).toDateString() === new Date(now).toDateString() ? 'Today' : short(t, now);
+}
+
+/**
+ * Everything a made poll's row says under its name, so polls with the same name can be told apart:
+ * the picked date (or that it's waiting), how many answered, and where.
+ */
+export function madeMeta(p, now = Date.now()) {
+  const n = p.answers ? `${p.answers} ${p.answers === 1 ? 'answer' : 'answers'}` : 'No answers yet';
+  return [p.finalStart != null ? pollMeta(p, now) : null, n, p.location].filter(Boolean).join(' · ');
+}
+
+/** A nudge for the group, ready to paste or share: "Still need your answer for …". */
+export const nudgeText = (p, url) => `Still need your answer for “${p.title}”: ${url}`;
+
 /** What an answered poll's row says: the picked date and whether they're in, or that it's waiting. */
 export function answeredMeta(p, now = Date.now()) {
-  if (p.finalStart == null) return `Waiting on a date · ${p.answers} ${p.answers === 1 ? 'answer' : 'answers'}`;
-  return pollMeta(p, now);
+  const first =
+    p.finalStart == null ? `Waiting on a date · ${p.answers} ${p.answers === 1 ? 'answer' : 'answers'}` : pollMeta(p, now);
+  return [first, p.organizer, p.location].filter(Boolean).join(' · ');
 }
 
 /** Whether they can make the picked date, as the key says it: [class, words], or null. */
@@ -62,7 +88,9 @@ export const canMake = (p) =>
 
 // My polls' sorts and groupings, by key, with their labels. `when` is the time that matters for a
 // row: when the poll was made, or when they answered it.
-export const SORTS = { new: 'Newest', old: 'Oldest', date: 'Date', name: 'Name' };
+export const SORTS = { new: 'Newest', old: 'Oldest', date: 'Date picked', name: 'Name' };
+/** What each sort says in full, in the sort sheet. */
+export const SORT_HINTS = { new: 'Newest first', old: 'Oldest first', date: 'Soonest picked date first', name: 'A to Z' };
 export const GROUPS = { status: 'Status', month: 'Month', none: 'None' };
 const STATUS = [
   ['soon', 'Coming up'],
