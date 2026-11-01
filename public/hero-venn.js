@@ -1,6 +1,6 @@
 // The home page's Venn, from noise to a plan: a group chat going round in circles, its messages
 // bouncing around, then flying to the three friends, and the circles drift together until the day
-// that works for everyone pops out.
+// that works for everyone pops out. Then the messages float out again, and round it goes.
 // It plays while it's in view. Tap to play it again; press and hold a circle (with a mouse, just
 // drag) to pull a friend away and watch the ✓ follow the overlap. Still for reduced motion.
 
@@ -53,7 +53,10 @@ function start(fig) {
     JOIN = 5.4,
     MET = 6.1,
     PART = 20,
-    LOOP = 23.5;
+    LOOP = 23.5,
+    REFLOAT = MET + 0.8, // then the messages float out of the friends again, and on into the next loop
+    OUT = 2.5,
+    FAINT = 0.45; // how much they show then, so the day that works still reads through them
   let t0 = performance.now();
   let idleSince = still ? 0 : null; // after a tap or a drag, the circles just float a while
   let grab = null; // { i, x, y, from: {x, y} }
@@ -103,13 +106,22 @@ function start(fig) {
         H = fig.clientHeight;
       let x = W / 2 + (W / 2 - w / 2) * Math.sin(s * c.a + c.p);
       let y = H / 2 + (H / 2 - h / 2) * Math.sin(s * c.b + c.q);
-      let o = idleSince != null || t > JOIN ? 0 : Math.min(1, t / 1);
+      // Floating from the start (fading in the first time), gone into the friends while they meet,
+      // then out again once the day has popped, faint, and floating on (also while someone plays with
+      // it), and loud again as the next round's noise begins.
+      let o = still ? 0 : idleSince != null ? FAINT : s >= LOOP ? FAINT + (1 - FAINT) * Math.min(1, t / GATHER) : Math.min(1, t);
       if (idleSince == null && t >= GATHER && t <= JOIN) {
         const u = ease((t - GATHER) / (JOIN - GATHER));
         const to = { x: rest[c.to].x + APART[c.to][0], y: rest[c.to].y + APART[c.to][1] };
         x += (to.x - x) * u;
         y += (to.y - y) * u;
         o = 1 - u * u;
+      } else if (idleSince == null && t > JOIN) {
+        const u = t < REFLOAT ? 0 : ease(Math.min(1, (t - REFLOAT) / OUT));
+        const from = centres[c.to];
+        x = from.x + (x - from.x) * u;
+        y = from.y + (y - from.y) * u;
+        o = u * FAINT;
       }
       c.el.style.translate = `${x - w / 2}px ${y - h / 2}px`;
       c.el.style.opacity = o;
