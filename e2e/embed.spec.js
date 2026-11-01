@@ -25,9 +25,9 @@ async function brandedPoll(page, brand) {
 }
 
 /** The other website: a page with the poll in a frame, and embed.js, keeping what it hears. */
-async function hostPage(page, baseURL, id) {
+async function hostPage(page, baseURL, id, hash = '') {
   pageHtml = `<!doctype html><html><body><h1>Acme intranet</h1>
-        <iframe id="venn" src="${baseURL}/embed/${id}" title="Team lunch" allow="clipboard-write" style="width:100%;height:300px;border:0"></iframe>
+        <iframe id="venn" src="${baseURL}/embed/${id}${hash}" title="Team lunch" allow="clipboard-write" style="width:100%;height:300px;border:0"></iframe>
         <script>window.heard = []; document.addEventListener('venn', (e) => heard.push(e.detail));</script>
         <script src="${baseURL}/embed.js" async></script></body></html>`;
   await page.goto(`${HOST}/polls`);
@@ -74,6 +74,31 @@ test('white label: no Venn on the poll, in the frame or on its own link', async 
   await expect(page.locator('.topbar')).toBeHidden();
   await expect(page.locator('.footer')).toBeHidden();
   await expect(page).toHaveTitle('Team lunch');
+});
+
+test('the website fills in who’s answering and leaves out what it shows itself', async ({ page, baseURL }) => {
+  const id = await brandedPoll(page, { embedSites: [HOST] });
+  const frame = await hostPage(page, baseURL, id, '#name=Ada%20Lovelace&head=off&share=off');
+  await expect(frame.locator('#name')).toHaveValue('Ada Lovelace');
+  await expect(frame.locator('.panel-title').first()).toBeVisible();
+  await expect(frame.locator('.brand-bar')).toBeHidden();
+  await expect(frame.locator('.poll-head')).toBeHidden();
+  await expect(frame.locator('.guest-share')).toBeHidden();
+  // Without them, everything is there, and the name is the guest's own to give.
+  const plain = await hostPage(page, baseURL, id);
+  await expect(plain.locator('.poll-head')).toBeVisible();
+  await expect(plain.locator('.guest-share')).toBeVisible();
+  await expect(plain.locator('#name')).toHaveValue('');
+});
+
+test('a template with its own dark mode follows the device', async ({ page, baseURL }) => {
+  const id = await brandedPoll(page, { embedSites: [HOST], bg: '#ecede7', darkBg: '#12161d', darkSurface: '#1a2029' });
+  const bg = (frame) => frame.locator('body').evaluate((b) => getComputedStyle(b).backgroundColor);
+  await page.emulateMedia({ colorScheme: 'light' });
+  const frame = await hostPage(page, baseURL, id);
+  await expect.poll(() => bg(frame)).toBe('rgb(236, 237, 231)');
+  await page.emulateMedia({ colorScheme: 'dark' });
+  await expect.poll(() => bg(frame)).toBe('rgb(18, 22, 29)');
 });
 
 test('a website the template doesn’t list can’t show its polls', async ({ page, baseURL }) => {

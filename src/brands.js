@@ -25,15 +25,34 @@ export function normalizeBrand(input) {
   if (!input || typeof input !== 'object') throw new ValidationError('Invalid request');
   const brand = { name: text(input.name, BRAND_LIMITS.name, 'Organization name', true) };
   // Colours: the accent, and the page's own background, cards and text (the app keeps them readable).
-  for (const key of ['accent', 'bg', 'surface', 'text', 'yes', 'maybe', 'no']) {
+  for (const key of [
+    'accent',
+    'bg',
+    'surface',
+    'text',
+    'darkBg',
+    'darkSurface',
+    'darkText',
+    'darkAccent',
+    'yes',
+    'maybe',
+    'no',
+  ]) {
     if (input[key] == null || input[key] === '') continue;
     if (!isHex(input[key])) throw new ValidationError('Colours must look like #1a2b3c');
     brand[key] = input[key].toLowerCase();
   }
   // Cards and text only go with a background of its own.
+  // A dark mode of its own goes with a page of its own, and its cards, text and accent with its background.
   if (!brand.bg) {
     delete brand.surface;
     delete brand.text;
+    delete brand.darkBg;
+  }
+  if (!brand.darkBg) {
+    delete brand.darkSurface;
+    delete brand.darkText;
+    delete brand.darkAccent;
   }
   for (const [key, list] of [
     ['font', FONTS],
@@ -77,7 +96,25 @@ export const publicBrand = (b) => ({
   id: b.id,
   name: b.name,
   ...Object.fromEntries(
-    ['accent', 'bg', 'surface', 'text', 'yes', 'maybe', 'no', 'font', 'bodyFont', 'corners', 'buttons', 'logoSize', 'hideName']
+    [
+      'accent',
+      'bg',
+      'surface',
+      'text',
+      'darkBg',
+      'darkSurface',
+      'darkText',
+      'darkAccent',
+      'yes',
+      'maybe',
+      'no',
+      'font',
+      'bodyFont',
+      'corners',
+      'buttons',
+      'logoSize',
+      'hideName',
+    ]
       .filter((k) => b[k])
       .map((k) => [k, b[k]]),
   ),

@@ -1,6 +1,7 @@
 import { test, before, after } from 'node:test';
 import assert from 'node:assert/strict';
 import { createApp } from '../server.js';
+import { appKeyMatches } from '../src/api.js';
 import { isAppRoute } from '../src/routes.js';
 
 // Sign-in with stand-ins for Google's and GitHub's token endpoints: the server's own fetch is mocked.
@@ -39,6 +40,7 @@ before(async () => {
       GITHUB_CLIENT_ID: 'gh-client',
       GITHUB_CLIENT_SECRET: 'gh-secret',
       MICROSOFT_CLIENT_ID: 'ms-client', // no secret: calendars only, no sign-in
+      APP_KEYS: 'key-for-club-app, key-for-shop-app',
     },
   });
   await new Promise((r) => server.listen(0, r));
@@ -275,6 +277,34 @@ test('my polls: made signed in, or claimed with the organizer link; the owner is
   assert.equal((await call(`/api/events/${made.id}`, { headers: { 'x-admin-token': made.adminToken } })).data.isAdmin, true);
   assert.equal((await call(`/api/events/${before.id}`, { method: 'DELETE', cookie: session })).status, 200);
   assert.deepEqual((await call('/api/me', { cookie: session })).data.polls, []);
+});
+
+test('another app’s server makes templates with its key, where sign-in would be needed', async () => {
+  const post = (authorization) =>
+    call('/api/brands', { method: 'POST', body: { name: 'Book club' }, headers: authorization ? { authorization } : {} });
+  for (const key of ['key-for-club-app', 'key-for-shop-app']) {
+    const made = await post(`Bearer ${key}`);
+    assert.equal(made.status, 201);
+    // It's on no account, and its admin token manages it like any other.
+    const changed = await call(`/api/brands/${made.data.id}`, {
+      method: 'PUT',
+      body: { name: 'Book club', accent: '#24429b' },
+      headers: { 'x-admin-token': made.data.adminToken },
+    });
+    assert.equal(changed.data.accent, '#24429b');
+  }
+  for (const wrong of ['Bearer key-for-other-app', 'key-for-club-app', 'Bearer ', 'Basic key-for-club-app'])
+    assert.equal((await post(wrong)).status, 401, wrong);
+});
+
+test('appKeyMatches: only a listed key, sent as a bearer token', async () => {
+  assert.equal(await appKeyMatches('Bearer abc', 'abc'), true);
+  assert.equal(await appKeyMatches('bearer  xyz', ' abc , xyz '), true);
+  assert.equal(await appKeyMatches('Bearer abcd', 'abc'), false);
+  assert.equal(await appKeyMatches('Bearer abc', ''), false);
+  assert.equal(await appKeyMatches('Bearer abc', undefined), false);
+  assert.equal(await appKeyMatches('Bearer ', ','), false);
+  assert.equal(await appKeyMatches(null, 'abc'), false);
 });
 
 test('my brand templates: made signed in or claimed, and managed with the account', async () => {

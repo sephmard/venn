@@ -107,6 +107,41 @@ test('brandCss: the template’s own answers, buttons and logo size', () => {
   assert.doesNotMatch(brandCss({ accent: '#6d28d9' }), /--yes:|border-radius|--logo-h:/);
 });
 
+test('brandCss: a page of its own can have a dark mode of its own', () => {
+  const light = { bg: '#ecede7', surface: '#f8f8f4', text: '#17202f', accent: '#24429b' };
+  // Without darkBg, its page is the same in light and dark mode.
+  assert.doesNotMatch(brandCss(light), /prefers-color-scheme/);
+  const css = brandCss({ ...light, darkBg: '#12161d', darkSurface: '#1a2029', darkText: '#e9e7df', darkAccent: '#8da4f0' });
+  const [day, night] = css.split('@media (prefers-color-scheme: dark)');
+  assert.match(day, /--bg:#ecede7;--surface:#f8f8f4;/);
+  assert.match(night, /--bg:#12161d;--surface:#1a2029;/);
+  assert.match(night, /--text:#e9e7df;/);
+  assert.match(night, /--accent:#8da4f0;/);
+  assert.match(night, /color-scheme:dark;/);
+  // Without its own dark accent, the light one is made readable on the dark page.
+  const plain = brandCss({ ...light, darkBg: '#12161d' }).split('@media')[1];
+  assert.match(plain, /--accent:#[0-9a-f]{6};/);
+  assert.doesNotMatch(plain, /--accent:#24429b;/);
+});
+
+test('normalizeBrand: dark colours only with a page of their own', () => {
+  const dark = { darkBg: '#12161D', darkSurface: '#1a2029', darkText: '#e9e7df', darkAccent: '#8da4f0' };
+  assert.deepEqual(normalizeBrand({ name: 'Club', bg: '#ffffff', ...dark }), {
+    name: 'Club',
+    bg: '#ffffff',
+    darkBg: '#12161d',
+    darkSurface: '#1a2029',
+    darkText: '#e9e7df',
+    darkAccent: '#8da4f0',
+  });
+  // No light page of its own: Venn's light and dark, so dark colours are dropped.
+  assert.deepEqual(normalizeBrand({ name: 'Club', ...dark }), { name: 'Club' });
+  // Dark cards and text without a dark background are dropped too.
+  assert.deepEqual(normalizeBrand({ name: 'Club', bg: '#ffffff', darkText: '#ffffff' }), { name: 'Club', bg: '#ffffff' });
+  assert.throws(() => normalizeBrand({ name: 'Club', bg: '#ffffff', darkBg: 'black' }), /Colours must look like/);
+  assert.equal(publicBrand({ id: 'x', name: 'Club', bg: '#ffffff', darkBg: '#000000' }).darkBg, '#000000');
+});
+
 test('brandBar: the name can go, when the logo says it', () => {
   const esc = (s) => String(s).replace(/[<>&"]/g, '');
   assert.equal(
