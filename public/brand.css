@@ -454,6 +454,14 @@
   background: var(--surface);
   cursor: pointer;
 }
+/* A page of its own can have a dark mode of its own (brand-look.js). */
+.dark-own {
+  margin-top: 18px;
+}
+.dark-own .hint {
+  margin: 4px 0 0;
+}
+
 /* The logo's colours, offered beside the colour picker. */
 .from-logo {
   display: flex;

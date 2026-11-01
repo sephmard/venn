@@ -244,3 +244,30 @@ test('brand template: white label, and the websites that may show its polls', as
   await noSideways(page);
   await audit(page, 'white label step');
 });
+
+test('brand template: a page of its own, with its own dark mode', async ({ page }) => {
+  const { id, adminToken } = await (await page.request.post('/api/brands', { data: { name: 'Acme', bg: '#ecede7' } })).json();
+  await page.emulateMedia({ colorScheme: 'dark' });
+  await page.goto(`/brand/${id}#admin=${adminToken}`);
+  await expect(page.locator('#b-name')).toHaveValue('Acme');
+  await openStep(page, 'colours');
+  await expect(page.locator('#dark-colours')).toBeHidden();
+  const pvBg = () =>
+    page
+      .frameLocator('#pv-frame')
+      .locator('body')
+      .evaluate((b) => getComputedStyle(b).backgroundColor);
+  // Without it, the page is its own light one even on a dark device.
+  await expect.poll(pvBg).toBe('rgb(236, 237, 231)');
+  await page.getByRole('switch', { name: 'Its own dark mode' }).check();
+  await expect(page.locator('#dark-colours')).toBeVisible();
+  await page.locator('#b-darkBg').fill('#12161d');
+  await expect.poll(pvBg).toBe('rgb(18, 22, 29)');
+  await page.click('#submit');
+  await expect.poll(async () => (await (await page.request.get(`/api/brands/${id}`)).json()).darkBg).toBe('#12161d');
+  // Venn's light and dark page has no dark mode of its own to set.
+  await page.getByRole('radio', { name: 'Venn’s light and dark' }).click();
+  await expect(page.locator('#own-dark')).toBeHidden();
+  await noSideways(page);
+  await audit(page, 'colours step, dark');
+});

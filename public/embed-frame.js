@@ -1,8 +1,13 @@
 // A poll in another website's frame (/embed/<id>, docs/EMBED.md). It tells the page around it how
 // tall it is, so the frame fits it, and when someone answers or the date is picked. Messages go only
 // to the template's own websites, the ones allowed to frame it. Venn's credit unless it's white label.
+// The website can add to the frame's address, after #: `name=` (who's answering, when it knows),
+// `head=off` (it shows the poll's heading itself) and `share=off` (it invites people itself).
 
-export function connect(poll, brand) {
+export function connect(poll, brand, hash = new URLSearchParams()) {
+  const root = document.documentElement.classList;
+  root.toggle('embed-no-head', hash.get('head') === 'off');
+  root.toggle('embed-no-share', hash.get('share') === 'off');
   const sites = brand?.embedSites || [];
   const tell = (type, data = {}) => {
     if (parent === window) return;
@@ -22,5 +27,5 @@ export function connect(poll, brand) {
   watch.observe(document.body);
   tell('ready');
   size();
-  return { tell };
+  return { tell, name: (hash.get('name') || '').trim().slice(0, 80) };
 }

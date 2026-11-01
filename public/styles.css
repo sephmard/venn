@@ -2571,3 +2571,8 @@ html.embed body {
 :is(.embed, .white-label) :is(.topbar, .footer, #grow, .final-more:has([href^='/new'])) {
   display: none !important;
 }
+/* What the website around the frame shows itself (event.js). */
+.embed-no-head :is(.brand-bar, .poll-head),
+.embed-no-share .guest-share {
+  display: none !important;
+}

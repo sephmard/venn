@@ -19,6 +19,8 @@ await Promise.all([sheet('/create.css'), sheet('/brand.css'), sheet('/account.cs
 const DEFAULT_ACCENT = '#0b7a5c';
 // A page of its own starts white, with light grey cards and near-black text.
 const OWN = { bg: '#ffffff', surface: '#f4f4f5', text: '#16181a' };
+// Where a template's own dark mode starts: Venn's dark page, cards and text.
+const DARK = { darkBg: '#0f1112', darkSurface: '#171a1c', darkText: '#f1eee8', darkAccent: '#8fb0ff' };
 // Answers of its own start as Venn's: available, if needed, unavailable.
 const KEY = { yes: '#0b7a5c', maybe: '#e0a12e', no: '#f0b2a6' };
 // The logo: made small here, to fit a 320 × 160 box (the server takes at most 100 KB).
@@ -405,6 +407,27 @@ function showForm(b, token, start, draft = null) {
               init,
               OWN,
             )}
+          </div>
+          <div class="dark-own" id="own-dark"${init?.bg ? '' : ' hidden'}>
+            <label class="switch"><input type="checkbox" role="switch" id="b-dark"${init?.darkBg ? ' checked' : ''}> Its own dark mode</label>
+            <p class="hint">For people whose phone or computer is set to dark. Off, the page looks the same either way.</p>
+            <div id="dark-colours"${init?.darkBg ? '' : ' hidden'}>
+              <div class="color-trio">
+                ${colourTrio(
+                  [
+                    ['darkBg', 'Background'],
+                    ['darkSurface', 'Cards'],
+                    ['darkText', 'Text'],
+                  ],
+                  init,
+                  DARK,
+                )}
+              </div>
+              <div class="color-row">
+                <label for="b-darkAccent">Buttons and links</label>
+                <input id="b-darkAccent" type="color" value="${esc(init?.darkAccent || DARK.darkAccent)}">
+              </div>
+            </div>
           </div>`,
         )}
         ${panel(
@@ -493,6 +516,13 @@ function showForm(b, token, start, draft = null) {
     name: $('#b-name').value.trim(),
     accent: $('#b-accent').value,
     ...(own() && { bg: $('#b-bg').value, surface: $('#b-surface').value, text: $('#b-text').value }),
+    ...(own() &&
+      $('#b-dark').checked && {
+        darkBg: $('#b-darkBg').value,
+        darkSurface: $('#b-darkSurface').value,
+        darkText: $('#b-darkText').value,
+        darkAccent: $('#b-darkAccent').value,
+      }),
     font: picked('font'),
     bodyFont: picked('body-font', 'bodyFont'),
     ...(ownKey() && { yes: $('#b-yes').value, maybe: $('#b-maybe').value, no: $('#b-no').value }),
@@ -534,7 +564,8 @@ function showForm(b, token, start, draft = null) {
     $('#logo-box').innerHTML = logo ? `<img src="${esc(logo)}" alt="">` : '<span>No logo yet</span>';
     $('#logo-pick').textContent = logo ? 'Change logo' : 'Upload logo';
     $('#logo-remove').hidden = $('#logo-more').hidden = !logo;
-    $('#own-colours').hidden = !own();
+    $('#own-colours').hidden = $('#own-dark').hidden = !own();
+    $('#dark-colours').hidden = !$('#b-dark').checked;
     $('#own-answers').hidden = !ownKey();
   };
   const setColour = (id, value) => {
@@ -545,6 +576,8 @@ function showForm(b, token, start, draft = null) {
     setColour('#b-accent', l.accent);
     pick('page', l.bg ? 'own' : 'venn');
     for (const k of ['bg', 'surface', 'text']) setColour(`#b-${k}`, l[k]);
+    $('#b-dark').checked = !!l.darkBg;
+    for (const k of Object.keys(DARK)) setColour(`#b-${k}`, l[k]);
     pick('answers', l.yes ? 'own' : 'venn');
     pick('font', l.font || '');
     pick('body-font', l.bodyFont || '');
@@ -588,6 +621,10 @@ function showForm(b, token, start, draft = null) {
     '#b-bg',
     '#b-surface',
     '#b-text',
+    '#b-darkBg',
+    '#b-darkSurface',
+    '#b-darkText',
+    '#b-darkAccent',
     '#b-yes',
     '#b-maybe',
     '#b-no',
@@ -598,6 +635,7 @@ function showForm(b, token, start, draft = null) {
     $(el).addEventListener('input', show);
   $('#b-show-name').addEventListener('change', show);
   $('#b-hide-venn').addEventListener('change', show);
+  $('#b-dark').addEventListener('change', show);
   $('#back').onclick = () => go(at - 1);
   $('#next').onclick = () => go(at + 1);
   $('#brand-form').addEventListener('click', (e) => {
