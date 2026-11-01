@@ -17,9 +17,14 @@ async function createTopic(page, { title, options, yesNo = false, single = false
   await page.goto('/new');
   await page.getByRole('link', { name: 'Deciding what or where?' }).click();
   await expect(page).toHaveURL(/\/new\/topic$/);
-  await page.getByLabel('What are you deciding?').fill(title);
-  if (yesNo) await page.getByRole('radio', { name: 'Yes or no' }).click();
-  else {
+  // The kind of question first, then the question itself (its example changes to fit).
+  if (yesNo) {
+    await page.getByRole('radio', { name: 'Yes or no' }).click();
+    await expect(page.locator('#title')).toHaveAttribute('placeholder', 'Should we do a book swap?');
+    await expect(page.locator('#yesno')).toHaveText(/Everyone answers\s*Yes\s*No/);
+  }
+  await page.getByLabel('Your question').fill(title);
+  if (!yesNo) {
     for (let i = 0; i < options.length; i++) {
       if (i >= 2) await page.getByRole('button', { name: '+ Add option' }).click();
       await page.getByLabel(`Option ${i + 1}`, { exact: true }).fill(options[i]);
@@ -107,7 +112,14 @@ test('a yes or no question takes one pick each', async ({ page, browser }) => {
 
 test('the topic form says what is missing', async ({ page }) => {
   await page.goto('/new/topic');
+  // No date-poll templates, no made-up name: the question is typed in full.
+  await expect(page.locator('.occasions')).toHaveCount(0);
+  await expect(page.locator('#title')).toHaveValue('');
   await page.getByLabel(/Your name/).fill('Lee');
+  await page.getByLabel('Option 1', { exact: true }).fill('Dune');
+  await page.getByLabel('Option 2', { exact: true }).fill('Piranesi');
+  await expect(page.locator('#summary')).toContainText('Add your question');
+  await page.getByLabel('Your question').fill('Which book next?');
   await page.getByLabel('Option 1', { exact: true }).fill('Dune');
   await page.getByLabel('Option 2', { exact: true }).fill('dune');
   await expect(page.locator('#summary')).toContainText('in the list twice');

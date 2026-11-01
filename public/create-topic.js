@@ -23,6 +23,12 @@ import {
 import { $, $$, app, esc, getConfig, plural, track } from './ui.js';
 
 const YES_NO = ['Yes', 'No'];
+// What the question box suggests: something to choose between, or something to say yes or no to.
+const ASK = { options: 'Where should we eat?', yesno: 'Should we do a book swap?' };
+const LEDE = {
+  options: "List the options. Everyone taps the ones they'd go with, and Venn finds the favourite.",
+  yesno: 'Ask one question. Everyone taps Yes or No, and Venn shows where the group stands.',
+};
 
 const row = (value = '', n = 1) => `
   <li class="topic-opt">
@@ -41,28 +47,38 @@ export function renderTopic() {
     <form id="create" class="create topic-create" novalidate>
       <a class="back" href="/new" data-link>‹ Pick a date instead</a>
       <h1>Create a Venn</h1>
-      <p class="lede create-lede">List the options. Everyone taps the ones they'd go with, and Venn finds the favourite.</p>
+      <p class="lede create-lede" id="topic-lede">${LEDE.options}</p>
       ${planFields('topic')}
-      <section class="sheet" aria-labelledby="opts-h">
+      <section class="sheet" aria-labelledby="opts-h" id="opts-sheet">
         <h2 id="opts-h">What are the options?</h2>
-        <div class="seg" role="radiogroup" aria-label="Guests answer">
-          <button type="button" role="radio" data-kind="options" aria-checked="true">Options</button>
-          <button type="button" role="radio" data-kind="yesno" aria-checked="false">Yes or no</button>
-        </div>
-        <div id="opts-box">
-          <ol class="topic-opts" id="opts">${row('', 1)}${row('', 2)}</ol>
-          <button type="button" class="pill" id="add-opt">+ Add option</button>
-          <div class="topic-single"><label class="switch"><input type="checkbox" role="switch" id="single"> One pick each</label></div>
-        </div>
-        <ol class="topic-opts topic-yesno" id="yesno" hidden>${YES_NO.map((l) => `<li>${l}</li>`).join('')}</ol>
+        <ol class="topic-opts" id="opts">${row('', 1)}${row('', 2)}</ol>
+        <button type="button" class="pill" id="add-opt">+ Add option</button>
+        <div class="topic-single"><label class="switch"><input type="checkbox" role="switch" id="single"> One pick each</label></div>
       </section>
       ${youFields()}
       ${tzLine()}
       ${createBar('Create Venn')}
     </form>`;
-  // A question, not a name: "Where should we eat?"
-  $('label[for="title"]').textContent = 'What are you deciding?';
-  $('#title').placeholder = 'Where should we eat?';
+  // A question, not a name, and no date-poll templates: the question comes first, typed in full.
+  $('#plan-h').textContent = 'What are you deciding?';
+  $('.occasions').remove();
+  $('#emoji-tile').textContent = '🗳️';
+  Object.assign($('#title'), { value: '', placeholder: ASK.options });
+  $('#title').dataset.seed = '';
+  $('label[for="title"]').textContent = 'Your question';
+  // Options to choose between, or one yes-or-no question: asked before the question is typed.
+  $('.title-row').insertAdjacentHTML(
+    'beforebegin',
+    `<div class="seg topic-kind" role="radiogroup" aria-label="Kind of question">
+       <button type="button" role="radio" data-kind="options" aria-checked="true">Pick from options</button>
+       <button type="button" role="radio" data-kind="yesno" aria-checked="false">Yes or no</button>
+     </div>`,
+  );
+  // Yes or no: the answers are fixed, shown as what guests will tap, not as boxes to fill in.
+  $('.title-row').insertAdjacentHTML(
+    'afterend',
+    `<p class="topic-yesno" id="yesno" hidden><span class="muted">Everyone answers</span>${YES_NO.map((l) => `<span class="yn-chip yn-${l.toLowerCase()}">${l}</span>`).join('')}</p>`,
+  );
   $('#deadline-box')?.remove(); // a deadline lives with date polls for now
 
   const occasion = wirePlan(() => {});
@@ -110,6 +126,7 @@ export function renderTopic() {
     else if (e.target.value.trim()) addRow();
   });
   $('#opts').addEventListener('input', update);
+  $('#title').addEventListener('input', update);
   // Places as options: the address search, when this server has it, on each option as it's focused.
   getConfig().then((c) => {
     if (!c.places) return;
@@ -124,11 +141,13 @@ export function renderTopic() {
   function setKind(k) {
     kind = k;
     for (const b of $$('[data-kind]')) b.setAttribute('aria-checked', String(b.dataset.kind === k));
-    $('#opts-box').hidden = k === 'yesno';
+    $('#opts-sheet').hidden = k === 'yesno';
     $('#yesno').hidden = k !== 'yesno';
+    $('#title').placeholder = ASK[k];
+    $('#topic-lede').textContent = LEDE[k];
     update();
   }
-  $('.seg').addEventListener('click', (e) => {
+  $('.topic-kind').addEventListener('click', (e) => {
     const b = e.target.closest('[data-kind]');
     if (b) setKind(b.dataset.kind);
   });
@@ -139,6 +158,7 @@ export function renderTopic() {
     const few = kind === 'options' && n < 2;
     setReady(
       kind === 'yesno' ? 'A yes or no question' : `${plural(n, 'option')} to vote on`,
+      [!$('#title').value.trim(), 'Add your question', '#title', null, 'your question'],
       [few, 'Add at least two options to create the poll', () => inputs().find((i) => !i.value.trim()), null, 'options'],
       [
         !!twice,

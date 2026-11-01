@@ -53,7 +53,7 @@ export function inviteLast(url, title) {
  */
 export function fillCommon(ev, src, { occasions, privacy, icon }) {
   const i = occasions.findIndex((o) => o.emoji === ev.emoji);
-  if (i >= 0) $(`[data-occasion="${i}"]`).click();
+  if (i >= 0) $(`[data-occasion="${i}"]`)?.click(); // (a topic poll has no templates)
   icon?.restore(ev, src, i < 0);
   $('#title').value = ev.title;
   $('#location').value = ev.location || '';
