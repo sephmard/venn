@@ -24,6 +24,10 @@ crons = ["0 * * * *"]
 #   npx wrangler secret put GOOGLE_PLACES_API_KEY  # address search with Google (see docs/SELF-HOSTING.md)
 # Calendar client IDs are public and can go in [vars] (see docs/CALENDARS.md):
 #   GOOGLE_CLIENT_ID, MICROSOFT_CLIENT_ID, MICROSOFT_TENANT
+# Optional sign-in and My polls (see docs/ACCOUNTS.md): the client ID above plus its secret.
+#   npx wrangler secret put GOOGLE_CLIENT_SECRET      # Sign in with Google
+#   npx wrangler secret put MICROSOFT_CLIENT_SECRET   # Sign in with Microsoft
+#   GITHUB_CLIENT_ID in [vars], then: npx wrangler secret put GITHUB_CLIENT_SECRET
 
 [vars]
 # Address search in "Where" with OpenStreetMap's Photon: free and keyless. Remove it to switch the

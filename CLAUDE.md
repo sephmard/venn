@@ -13,7 +13,8 @@ Before designing, building or reviewing anything users see, read [`.claude/skill
 - **Time zones.** Store instants as UTC milliseconds; convert only for display (`utcToZoned` / `zonedToUtc` in `public/core.js`). Think about DST.
 - **Secrets stay secret.** Organizer and edit tokens live in the URL fragment and local storage; the server stores only SHA-256 hashes. Organizer-only endpoints must check `isAdmin`. Calendar tokens never reach the server.
 - **Outbound requests.** Webhook URLs must pass `validateWebhookUrl` (public https only). New outbound hosts in the browser need a Content Security Policy update in `src/security-headers.js` (then `npm run headers`).
-- **Optional features stay optional.** Email, calendars and AI switch on only when their settings exist, and `/api/config` reports them. The app must work fully without them.
+- **Optional features stay optional.** Email, calendars, AI and sign-in switch on only when their settings exist, and `/api/config` reports them. The app must work fully without them.
+- **Accounts never gate anything.** Signing in (`src/auth.js`) only adds My polls; every poll and template keeps working by its link. Accounts are matched by the provider's id, never by email; sessions are stored as hashes like tokens.
 - **Phones first.** Everything must work at 375px wide with no sideways scrolling, 44px tap targets and 16px inputs.
 - **Accessibility.** Interactive elements need accessible names and keyboard access; colours must meet WCAG AA contrast in light and dark mode. The axe tests in `e2e/a11y.spec.js` enforce the basics.
 - **Tests.** Logic changes need a test in `test/`; user-facing flows need one in `e2e/`. Coverage must stay above the floor in `npm run test:coverage`.

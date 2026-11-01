@@ -44,7 +44,8 @@ function unremember(id) {
 }
 
 const shareUrl = (id) => `${location.origin}/new?brand=${id}`;
-const manageUrl = (id, token) => `${location.origin}/brand/${id}#admin=${token}`;
+// Managed through an account (no token on this device): the link that opens it for the account.
+const manageUrl = (id, token) => `${location.origin}/brand/${id}${token ? `#admin=${token}` : '#organizer'}`;
 
 /** Make a picked file into a small logo: a PNG data URL (or WebP or JPEG, if that's too big). */
 export async function shrinkLogo(file) {
@@ -88,11 +89,16 @@ export async function renderBrand(id) {
     history.replaceState(null, '', location.pathname);
   }
   const token = id && saved(key(id)).adminToken;
+  // From My polls (account.js): the account stands in for the manage link.
+  const viaAccount = !!id && location.hash === '#organizer';
+  if (viaAccount) history.replaceState(null, '', location.pathname);
   let brand = null;
   if (id) {
     app.innerHTML = '<div class="empty muted">Loading…</div>';
     try {
-      brand = await api(`brands/${id}`, { headers: token ? { 'x-admin-token': token } : {} });
+      brand = await api(`brands/${id}`, {
+        headers: { ...(token && { 'x-admin-token': token }), ...((token || viaAccount) && { 'x-organizer': '1' }) },
+      });
     } catch (e) {
       document.title = 'Brand template not found · Venn';
       if (e.status === 404) unremember(id);

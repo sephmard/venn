@@ -90,7 +90,8 @@ export async function renderEvent(id, navigate) {
       }
     },
   };
-  const viaOrganizerLink = !!hash.get('admin') || !!saved(id).justCreated;
+  // `#organizer`: opened from My polls (account.js), where the account stands in for the link.
+  const viaOrganizerLink = !!hash.get('admin') || hash.has('organizer') || !!saved(id).justCreated;
   if (viaOrganizerLink) organizerView.set();
   const asOrganizer = () => viaOrganizerLink || organizerView.on();
   // Links in notification emails: stop the emails.
@@ -113,6 +114,8 @@ export async function renderEvent(id, navigate) {
   // The edit token also gets your own answer back when the organizer hides everyone's answers.
   const authHeaders = ({ adminToken: a, editToken: e } = saved(id)) => ({
     ...(a && asOrganizer() && { 'x-admin-token': a }),
+    // Signed in, with this poll in their account, the organizer needs no link (src/auth.js).
+    ...(asOrganizer() && { 'x-organizer': '1' }),
     ...(e && { 'x-edit-token': e }),
   });
 

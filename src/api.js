@@ -30,6 +30,7 @@ import { pollKind, planOf, recordUsage, sizeOf, usageEnabled, usageReport } from
 import { AiUnavailableError, aiEnabled, allowAiRequest, answerForMe, draftPoll, summarize, writeMessage } from './ai.js';
 import { allowContactRequest, contactEmail, contactEnabled, contactInbox, normalizeContact } from './contact.js';
 import { allowPlacesRequest, placesProvider, placesState, searchPlaces } from './places.js';
+import { handleAccount, sessionUser, signInProviders } from './auth.js';
 import { MAX_GUEST_DEVICES, MAX_PUSH_DEVICES, checkSubscription, pushEnabled, sendPush } from './push.js';
 
 const sharedPlaces = placesState();
@@ -241,6 +242,25 @@ export async function handleApi(
   const count = (name, props) => !optedOut && waitUntil(recordUsage(store, env, now(), name, props));
   const kindOf = (ev) => ({ kind: pollKind(ev).kind });
 
+  // Who's signed in (src/auth.js), looked up once and only when it matters.
+  let userPromise;
+  const currentUser = () => (userPromise ??= sessionUser(request, store, now()));
+  /**
+   * Whether the signed-in person keeps this poll or template ('poll' | 'brand') with their account,
+   * which makes them its organizer as its secret link does. Viewing it, only when they ask to see it
+   * as its organizer (`x-organizer: 1`), so on its plain link they see what guests see, as with the link.
+   */
+  async function ownsIt(kind, id, viewing) {
+    if (viewing && request.headers.get('x-organizer') !== '1') return false;
+    const user = await currentUser();
+    return !!user && (await store.ownerOf(kind, id)) === user.id;
+  }
+  /** Keep what was just made with the signed-in person's account. */
+  async function keepWithAccount(kind, id) {
+    const user = await currentUser();
+    if (user) await store.addOwner(kind, id, user.id, now());
+  }
+
   async function sendCopy(ev, to, { participantId, editToken, name, availability }) {
     if (!to || !emailEnabled(env)) return;
     const settings = (await store.getNotify(ev.id)) || {};
@@ -344,12 +364,34 @@ export async function handleApi(
         // Address search in "Where": 'photon' or 'google' (each needs its own attribution), or false.
         places: placesProvider(env) || false,
         // OAuth client IDs are public by design; they only identify the app to Google/Microsoft.
+        // Signing in (src/auth.js), optional: the providers set up on this server, or none.
+        accounts: signInProviders(env),
         calendars: {
           google: env.GOOGLE_CLIENT_ID || null,
           microsoft: env.MICROSOFT_CLIENT_ID || null,
           microsoftTenant: env.MICROSOFT_TENANT || 'common',
         },
       });
+    }
+
+    // Signing in, and the signed-in person's polls (src/auth.js).
+    if (parts[0] === 'auth' || parts[0] === 'me') {
+      const res = await handleAccount({
+        request,
+        url,
+        parts,
+        method,
+        store,
+        env,
+        now: now(),
+        fetchImpl,
+        json,
+        error,
+        readJson,
+        headers: SECURITY_HEADERS,
+        tokenMatches,
+      });
+      if (res) return res;
     }
 
     // POST /api/contact  { kind: 'feature' | 'contact', message, email?, website? }: email it to EMAIL_REPLY_TO
@@ -449,6 +491,7 @@ export async function handleApi(
       // Checked before anything is saved, so a bad answer doesn't leave a poll behind.
       const hostAnswer = host && hostAvailability(event, body.hostAvailability);
       await store.createEvent({ id, event, adminHash: await sha256(adminToken), now: now() });
+      await keepWithAccount('poll', id);
       if (host)
         await store.insertParticipant({
           id: host.id,
@@ -494,6 +537,7 @@ export async function handleApi(
       const id = randomId(10);
       const adminToken = randomId(24);
       await store.createBrand({ id, brand, adminHash: await sha256(adminToken), now: now() });
+      await keepWithAccount('brand', id);
       count('brand.created', {});
       return json({ id, adminToken }, 201);
     }
@@ -508,7 +552,9 @@ export async function handleApi(
       }
       const brand = await store.getBrand(parts[1]);
       if (!brand) return error(404, 'This brand template does not exist or was deleted');
-      const brandAdmin = await tokenMatches(request.headers.get('x-admin-token'), brand.adminHash);
+      const brandAdmin =
+        (await tokenMatches(request.headers.get('x-admin-token'), brand.adminHash)) ||
+        (await ownsIt('brand', brand.id, method === 'GET'));
       // GET|PUT|DELETE /api/brands/:id
       if (parts.length === 2) {
         if (method === 'GET') return json({ ...publicBrand(brand), isAdmin: brandAdmin });
@@ -549,7 +595,9 @@ export async function handleApi(
 
     const ev = await store.getEvent(parts[1]);
     if (!ev) return error(404, 'This poll does not exist or was deleted');
-    const isAdmin = await tokenMatches(request.headers.get('x-admin-token'), ev.adminHash);
+    const isAdmin =
+      (await tokenMatches(request.headers.get('x-admin-token'), ev.adminHash)) ||
+      (await ownsIt('poll', ev.id, parts.length === 2 && method === 'GET'));
 
     // GET|DELETE /api/events/:id
     if (parts.length === 2) {

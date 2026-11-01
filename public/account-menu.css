@@ -1,0 +1,70 @@
+/* The account in the app's top bar (account-menu.js), and its avatar on My polls. Loaded by
+   account-menu.js only when there's something to show, so the app's first download stays small. */
+.acct-slot {
+  position: relative;
+  margin-left: -6px;
+}
+.topbar:has(.acct-slot) .brand {
+  margin-right: auto;
+}
+.acct-signin {
+  padding-inline: 10px;
+}
+.acct-menu summary {
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  list-style: none;
+  cursor: pointer;
+}
+.acct-menu summary::-webkit-details-marker {
+  display: none;
+}
+.acct-avatar {
+  display: grid;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  background: var(--accent);
+  color: var(--accent-ink);
+  font-weight: 800;
+}
+.acct-panel {
+  position: absolute;
+  right: 0;
+  top: calc(100% + 6px);
+  z-index: 30;
+  min-width: 180px;
+  padding: 6px;
+  background: var(--surface);
+  border: 1.5px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: var(--lift);
+}
+.acct-panel :is(a, button) {
+  display: flex;
+  align-items: center;
+  width: 100%;
+  min-height: 44px;
+  padding: 0 12px;
+  border: 0;
+  border-radius: 10px;
+  background: none;
+  color: var(--text);
+  font: inherit;
+  text-decoration: none;
+  cursor: pointer;
+}
+.acct-panel :is(a, button):hover {
+  background: var(--surface-2);
+}
+
+html.retro .acct-avatar {
+  background: #150a35;
+  color: #2de2e6;
+  box-shadow:
+    0 0 0 2px #2de2e6,
+    0 0 14px -2px #ff3cac;
+}

@@ -16,7 +16,8 @@ export async function loadSource(src) {
   const token = saved(src.id).adminToken;
   let ev;
   try {
-    ev = await api(`events/${src.id}`, { headers: token ? { 'x-admin-token': token } : {} });
+    // `x-organizer`: with this poll kept in their account (src/auth.js), the organizer needs no link.
+    ev = await api(`events/${src.id}`, { headers: { 'x-organizer': '1', ...(token && { 'x-admin-token': token }) } });
   } catch (ex) {
     toast(ex.message);
     return null;

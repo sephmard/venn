@@ -5,7 +5,7 @@
   const q = new URLSearchParams(location.search);
   const create = /^\/new(\/free)?\/?$/.test(location.pathname);
   let on =
-    (create || /^\/brand(\/(?!preview$)|$)/.test(location.pathname)) &&
+    (create || /^\/(brand(\/(?!preview$)|$)|me\/?$)/.test(location.pathname)) &&
     !q.has('edit') &&
     !q.has('copy') &&
     q.get('retro') !== '0';

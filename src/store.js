@@ -70,6 +70,36 @@ const SCHEMA = [
      logo_v INTEGER,
      created_at INTEGER NOT NULL
    )`,
+  // Accounts (src/auth.js), for people who choose to sign in: who they are at Google, Microsoft or
+  // GitHub (the provider's own id, never matched by email), their name and email.
+  `CREATE TABLE IF NOT EXISTS users (
+     id TEXT PRIMARY KEY,
+     provider TEXT NOT NULL,
+     subject TEXT NOT NULL,
+     email TEXT,
+     name TEXT NOT NULL,
+     created_at INTEGER NOT NULL,
+     UNIQUE (provider, subject)
+   )`,
+  // Signed-in browsers: the SHA-256 hash of each session cookie, never the cookie itself.
+  `CREATE TABLE IF NOT EXISTS sessions (
+     hash TEXT PRIMARY KEY,
+     user_id TEXT NOT NULL,
+     created_at INTEGER NOT NULL,
+     expires_at INTEGER NOT NULL
+   )`,
+  `CREATE INDEX IF NOT EXISTS sessions_user ON sessions(user_id)`,
+  `CREATE INDEX IF NOT EXISTS sessions_expires ON sessions(expires_at)`,
+  // Whose account a poll or brand template is kept with ('poll' or 'brand'): at most one each. Its
+  // organizer or manage link works as before, with or without it.
+  `CREATE TABLE IF NOT EXISTS owners (
+     kind TEXT NOT NULL,
+     item_id TEXT NOT NULL,
+     user_id TEXT NOT NULL,
+     created_at INTEGER NOT NULL,
+     PRIMARY KEY (kind, item_id)
+   )`,
+  `CREATE INDEX IF NOT EXISTS owners_user ON owners(user_id, kind)`,
 ];
 
 /** The picture's details for a poll's JSON (or nothing, when it has none), from a joined row. */
@@ -142,6 +172,7 @@ export function createStore(db) {
       await db.run('DELETE FROM notifications WHERE event_id = ?', [id]);
       await db.run('DELETE FROM event_images WHERE event_id = ?', [id]);
       await db.run('DELETE FROM reminders WHERE event_id = ?', [id]);
+      await db.run("DELETE FROM owners WHERE kind = 'poll' AND item_id = ?", [id]);
       await db.run('DELETE FROM events WHERE id = ?', [id]);
     },
 
@@ -225,6 +256,7 @@ export function createStore(db) {
 
     async deleteBrand(id) {
       await init();
+      await db.run("DELETE FROM owners WHERE kind = 'brand' AND item_id = ?", [id]);
       await db.run('DELETE FROM brands WHERE id = ?', [id]);
     },
 
@@ -247,6 +279,113 @@ export function createStore(db) {
       await init();
       const row = await db.first('SELECT logo, logo_type, logo_v FROM brands WHERE id = ?', [id]);
       return row?.logo ? { data: row.logo, type: row.logo_type, v: row.logo_v } : null;
+    },
+
+    // ---------- accounts (src/auth.js) ----------
+
+    /** The account for this sign-in, made the first time; its name and email follow the provider's. */
+    async upsertUser({ provider, subject, email, name, now }) {
+      await init();
+      await db.run(
+        `INSERT INTO users (id, provider, subject, email, name, created_at) VALUES (?, ?, ?, ?, ?, ?)
+         ON CONFLICT(provider, subject) DO UPDATE SET email = excluded.email, name = excluded.name`,
+        [crypto.randomUUID(), provider, subject, email, name, now],
+      );
+      return db.first('SELECT id, provider, email, name FROM users WHERE provider = ? AND subject = ?', [provider, subject]);
+    },
+
+    async createSession({ hash, userId, now, expiresAt }) {
+      await init();
+      await db.run('DELETE FROM sessions WHERE expires_at <= ?', [now]);
+      await db.run('INSERT INTO sessions (hash, user_id, created_at, expires_at) VALUES (?, ?, ?, ?)', [
+        hash,
+        userId,
+        now,
+        expiresAt,
+      ]);
+    },
+
+    /** The account signed in with this session, while it lasts: { id, provider, email, name }, or null. */
+    async getSessionUser(hash, now) {
+      await init();
+      return db.first(
+        `SELECT u.id, u.provider, u.email, u.name FROM sessions s JOIN users u ON u.id = s.user_id
+         WHERE s.hash = ? AND s.expires_at > ?`,
+        [hash, now],
+      );
+    },
+
+    async deleteSession(hash) {
+      await init();
+      await db.run('DELETE FROM sessions WHERE hash = ?', [hash]);
+    },
+
+    /** Forget an account: its sessions and its list. Its polls and templates stay. */
+    async deleteUser(userId) {
+      await init();
+      await db.run('DELETE FROM owners WHERE user_id = ?', [userId]);
+      await db.run('DELETE FROM sessions WHERE user_id = ?', [userId]);
+      await db.run('DELETE FROM users WHERE id = ?', [userId]);
+    },
+
+    /** Keep a poll or template ('poll' | 'brand') with an account. True if it's newly theirs. */
+    async addOwner(kind, itemId, userId, now) {
+      await init();
+      const prev = await db.first('SELECT user_id FROM owners WHERE kind = ? AND item_id = ?', [kind, itemId]);
+      if (prev) return false;
+      await db.run('INSERT INTO owners (kind, item_id, user_id, created_at) VALUES (?, ?, ?, ?) ON CONFLICT DO NOTHING', [
+        kind,
+        itemId,
+        userId,
+        now,
+      ]);
+      return true;
+    },
+
+    /** The id of the account a poll or template is kept with, or null. */
+    async ownerOf(kind, itemId) {
+      await init();
+      return (await db.first('SELECT user_id FROM owners WHERE kind = ? AND item_id = ?', [kind, itemId]))?.user_id ?? null;
+    },
+
+    async removeOwner(kind, itemId, userId) {
+      await init();
+      await db.run('DELETE FROM owners WHERE kind = ? AND item_id = ? AND user_id = ?', [kind, itemId, userId]);
+    },
+
+    /** An account's polls, newest first: what "My polls" lists. */
+    async listOwnedPolls(userId) {
+      await init();
+      const rows = await db.all(
+        `SELECT e.id, e.data, e.final_start, e.created_at,
+           (SELECT COUNT(*) FROM participants p WHERE p.event_id = e.id AND p.id IS NOT COALESCE(json_extract(e.data, '$.hostId'), '')) AS answers
+         FROM owners o JOIN events e ON e.id = o.item_id
+         WHERE o.user_id = ? AND o.kind = 'poll' ORDER BY e.created_at DESC LIMIT 500`,
+        [userId],
+      );
+      return rows.map((r) => {
+        const d = JSON.parse(r.data);
+        return {
+          id: r.id,
+          title: d.title,
+          ...(d.emoji && { emoji: d.emoji }),
+          createdAt: r.created_at,
+          finalStart: r.final_start ?? null,
+          ...(d.deadline != null && { deadline: d.deadline }),
+          answers: Number(r.answers),
+        };
+      });
+    },
+
+    /** An account's brand templates, newest first. */
+    async listOwnedBrands(userId) {
+      await init();
+      const rows = await db.all(
+        `SELECT b.id, b.data, b.logo_v, b.created_at FROM owners o JOIN brands b ON b.id = o.item_id
+         WHERE o.user_id = ? AND o.kind = 'brand' ORDER BY b.created_at DESC LIMIT 200`,
+        [userId],
+      );
+      return rows.map((r) => ({ id: r.id, name: JSON.parse(r.data).name, logoV: r.logo_v ?? null, createdAt: r.created_at }));
     },
 
     async setFinal(id, finalStart) {
