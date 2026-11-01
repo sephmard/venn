@@ -116,9 +116,13 @@ export async function renderEvent(id, navigate) {
     ...(e && { 'x-edit-token': e }),
   });
 
+  let brandJs = null;
   async function load() {
     st.ev = await api(`events/${id}`, { headers: authHeaders() });
-    if (st.ev.retro) import('./retro-look.js').then((m) => m.retroLook(st.ev.retro));
+    // An organization's look (brand-look.js) replaces Venn's, retro or not.
+    if (st.ev.brand || document.documentElement.classList.contains('branded'))
+      brandJs = await import('./brand-look.js').then((m) => (m.brandLook(st.ev.brand || null), m)).catch(() => null);
+    if (st.ev.retro && !st.ev.brand) import('./retro-look.js').then((m) => m.retroLook(st.ev.retro));
     else document.documentElement.classList.remove('retro');
     if (!st.ev.isAdmin && saved(id).adminToken && asOrganizer()) forget(id, 'adminToken');
     // With the organizer link on another device, the organizer's own answer is still theirs.
@@ -220,7 +224,8 @@ export async function renderEvent(id, navigate) {
     <button type="button" class="pill pill-quiet" id="none">Clear</button>`;
   app.innerHTML = `
     <article id="event-root" class="poll">
-      ${guest ? '' : `<p class="retro-top"><label class="switch"><input type="checkbox" role="switch" id="retro-top"${ev().retro ? ' checked' : ''}> Retro look</label></p>`}
+      ${ev().brand && brandJs ? brandJs.brandBar(ev().brand, esc) : ''}
+      ${guest || ev().brand ? '' : `<p class="retro-top"><label class="switch"><input type="checkbox" role="switch" id="retro-top"${ev().retro ? ' checked' : ''}> Retro look</label></p>`}
       <header class="poll-head">
         <span class="emoji-tile big" aria-hidden="true">${picture ? `<img src="${esc(picture)}" alt="">` : esc(ev().emoji || '🗓️')}</span>
         <div class="poll-head-text">

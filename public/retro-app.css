@@ -99,9 +99,6 @@ html.retro .topbar {
     0 1px 0 0 rgb(255 60 172 / 0.6),
     0 6px 24px -10px rgb(255 60 172 / 0.6);
 }
-html.retro .brand img {
-  content: url('/logo-retro.svg?v=1');
-}
 html.retro .btn-primary {
   box-shadow: 0 0 18px -2px rgb(45 226 230 / 0.7);
 }

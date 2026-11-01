@@ -35,7 +35,26 @@ export function prefillTitle() {
   if (t >= 0) $(`[data-occasion="${t}"]`).click();
   if (title) $('#title').value = title;
   const from = fromUrl();
-  if (title || t >= 0) history.replaceState(null, '', location.pathname + (from ? `?from=${encodeURIComponent(from)}` : ''));
+  const keep = new URLSearchParams([...(from ? [['from', from]] : []), ...(brandId ? [['brand', brandId]] : [])]);
+  if (title || t >= 0) history.replaceState(null, '', location.pathname + (keep.size ? `?${keep}` : ''));
+  if (brandId) useBrand(brandId, true);
+}
+
+// ---------- an organization's brand template (/brand) ----------
+
+// ?brand=<id>: the poll is made from an organization's template, in its look, with what it starts
+// with filled in. A copy of a branded poll keeps its brand too.
+let brandId = null;
+let brand = null;
+const brandFromUrl = () => {
+  const id = new URLSearchParams(location.search).get('brand');
+  return /^[A-Za-z0-9]{1,32}$/.test(id ?? '') ? id : null;
+};
+/** Show the brand's look (brand-look.js), and for a new poll fill in what it starts with. */
+async function useBrand(id, fill) {
+  const [b, look] = await Promise.all([api(`brands/${id}`).catch(() => null), import('./brand-look.js')]);
+  if (!b) return ((brandId = null), toast("That brand template doesn't exist any more. This poll is plain Venn."));
+  if (brandId === id && $('#create')) look.brandForm((brand = b), fill, $, esc);
 }
 
 // ---------- editing or duplicating a poll ----------
@@ -44,7 +63,14 @@ export function prefillTitle() {
 // from it. The organizer tools on the poll page link here.
 let editing = null; // the poll being changed, or null when creating one
 /** A create page starts a new form: not editing anything yet. */
-export const startForm = () => (editing = null);
+export function startForm() {
+  editing = null;
+  brand = null;
+  brandId = brandFromUrl();
+  // Coming from a branded poll, the page goes back to Venn's own look.
+  if (!brandId && document.documentElement.classList.contains('branded'))
+    import('./brand-look.js').then((m) => !brandId && m.brandLook(null));
+}
 
 export function source() {
   const q = new URLSearchParams(location.search);
@@ -64,7 +90,8 @@ export async function loadSource(src) {
 /** Fill in everything both kinds of poll share: the plan, the organizer and the privacy options. */
 export function fillCommon(ev, src) {
   editPoll.fillCommon(ev, src, { occasions: OCCASIONS, privacy: PRIVACY, icon });
-  import('./retro-look.js').then((m) => m.retroLook(ev.retro));
+  if (ev.brand) useBrand((brandId = ev.brand.id), false);
+  else import('./retro-look.js').then((m) => m.retroLook(ev.retro));
   if (src.edit) editing = src.id;
 }
 
@@ -223,7 +250,7 @@ export async function submit(body, occasion, answer = null) {
     organizer: $('#organizer').value.trim(),
     timezone: $('#tz').value,
   });
-  const emoji = icon?.emoji() || occasion()?.emoji;
+  const emoji = icon?.emoji() || occasion()?.emoji || brand?.emoji;
   if (emoji) body.emoji = emoji;
   for (const [key, el] of PRIVACY) body[key] = $(el).checked;
   if (deadline && !$('#deadline-box').hidden) Object.assign(body, deadline.values());
@@ -239,6 +266,7 @@ export async function submit(body, occasion, answer = null) {
   // A copy; the next one of a plan also says which poll it follows on from.
   if (source()) Object.assign(body, { copied: true }, editPoll?.seriesFields());
   if (fromUrl()) body.from = fromUrl();
+  if (brand) body.brand = brand.id;
   // The celebration (and its picture) load while the poll is saved.
   const celebration = import('./celebrate.js').catch(() => null);
   const invite = import('./invite.js').catch(() => null);

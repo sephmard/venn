@@ -59,6 +59,17 @@ const SCHEMA = [
      next_at INTEGER NOT NULL
    )`,
   `CREATE INDEX IF NOT EXISTS reminders_next ON reminders(next_at)`,
+  // Brand templates (src/brands.js): an organization's look and defaults, and its logo in base64.
+  // `logo_v` is the logo's version, for the URL that serves it.
+  `CREATE TABLE IF NOT EXISTS brands (
+     id TEXT PRIMARY KEY,
+     data TEXT NOT NULL,
+     admin_hash TEXT NOT NULL,
+     logo TEXT,
+     logo_type TEXT,
+     logo_v INTEGER,
+     created_at INTEGER NOT NULL
+   )`,
 ];
 
 /** The picture's details for a poll's JSON (or nothing, when it has none), from a joined row. */
@@ -188,6 +199,54 @@ export function createStore(db) {
     async deleteImage(eventId) {
       await init();
       await db.run('DELETE FROM event_images WHERE event_id = ?', [eventId]);
+    },
+
+    async createBrand({ id, brand, adminHash, now }) {
+      await init();
+      await db.run('INSERT INTO brands (id, data, admin_hash, created_at) VALUES (?, ?, ?, ?)', [
+        id,
+        JSON.stringify(brand),
+        adminHash,
+        now,
+      ]);
+    },
+
+    /** A brand template: its settings, adminHash and logoV (null without a logo), or null. */
+    async getBrand(id) {
+      await init();
+      const row = await db.first('SELECT id, data, admin_hash, logo_v FROM brands WHERE id = ?', [id]);
+      return row && { id: row.id, ...JSON.parse(row.data), adminHash: row.admin_hash, logoV: row.logo_v ?? null };
+    },
+
+    async updateBrand(id, brand) {
+      await init();
+      await db.run('UPDATE brands SET data = ? WHERE id = ?', [JSON.stringify(brand), id]);
+    },
+
+    async deleteBrand(id) {
+      await init();
+      await db.run('DELETE FROM brands WHERE id = ?', [id]);
+    },
+
+    /** Save the logo ({ data (base64), type }), or take it away with null. Returns its new version. */
+    async setBrandLogo(id, logo, now) {
+      await init();
+      const prev = await db.first('SELECT logo_v FROM brands WHERE id = ?', [id]);
+      const v = logo ? Math.max(now, (prev?.logo_v ?? 0) + 1) : null;
+      await db.run('UPDATE brands SET logo = ?, logo_type = ?, logo_v = ? WHERE id = ?', [
+        logo?.data ?? null,
+        logo?.type ?? null,
+        v,
+        id,
+      ]);
+      return v;
+    },
+
+    /** A brand's logo: { data, type, v }, or null. */
+    async getBrandLogo(id) {
+      await init();
+      const row = await db.first('SELECT logo, logo_type, logo_v FROM brands WHERE id = ?', [id]);
+      return row?.logo ? { data: row.logo, type: row.logo_type, v: row.logo_v } : null;
     },
 
     async setFinal(id, finalStart) {
