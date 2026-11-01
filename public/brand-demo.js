@@ -1,7 +1,9 @@
 // The live preview on /brand: the real poll page, with a sample poll in the template's look, shown in
 // a frame beside the form (brand.js). The form sends the template as it changes, and which view to
 // show (a guest's or the organizer's); the poll's requests are answered here, so answering, the tabs
-// and picking a date all work, and nothing is saved or counted.
+// and picking a date all work, and nothing is saved or counted. The form also says which part of the
+// poll the step being edited changes (`focus`): the preview goes there and rings it, and rings it
+// again with every change, so it's plain what each setting does.
 
 import { brandLook } from './brand-look.js';
 import { zonedToUtc } from './core.js';
@@ -40,6 +42,37 @@ function sample() {
       { id: 'chloe', name: 'Chloe', availability: answers(1, 2, 0, 2) },
     ].map((p) => ({ ...p, updatedAt: Date.now() })),
   };
+}
+
+/** What each step of the form changes on the poll page: rung in the preview while it's edited. */
+const SPOTS = {
+  logo: ['.brand-bar'],
+  colours: ['.btn-primary', '.tabs [aria-selected="true"]', '#ev-details a'],
+  answers: ['.ov-list', '.best-hero'],
+  headings: ['#ev-title', '.panel-title'],
+  text: ['#ev-meta', '.row-main', '.ov-summary'],
+  shape: ['.row', '.btn-primary'],
+  poll: ['#ev-title', '#ev-details'],
+};
+// The ring: the same in every look, on light and dark pages alike.
+const RING =
+  '.pv-spot{outline:2.5px dashed #d61f8c!important;outline-offset:3px;box-shadow:0 0 0 7px rgba(214,31,140,.14)!important;animation:pv-ring .7s ease-out}' +
+  '@keyframes pv-ring{from{outline-offset:12px;outline-color:transparent}}' +
+  '@media (prefers-reduced-motion:reduce){.pv-spot{animation:none}}';
+
+/** Ring what `focus` changes (at most two of each), and with `go`, bring the first into view. */
+function spotlight(focus, go) {
+  for (const el of document.querySelectorAll('.pv-spot')) el.classList.remove('pv-spot');
+  const shown = (el) => el.getClientRects().length > 0 && !el.closest('[hidden]');
+  const els = (SPOTS[focus] || []).flatMap((sel) => [...document.querySelectorAll(sel)].filter(shown).slice(0, 2));
+  // Rung afresh, so a change shows even when the same parts are rung.
+  void document.body.offsetWidth;
+  for (const el of els) el.classList.add('pv-spot');
+  if (!go) return;
+  // Scrolled here, in the frame only (scrollIntoView would scroll the form's page too).
+  const r = els[0] && focus !== 'logo' ? els[0].getBoundingClientRect() : null;
+  const top = r ? scrollY + r.top - Math.max(16, (innerHeight - r.height) / 2) : 0;
+  scrollTo({ top: Math.max(0, top), behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth' });
 }
 
 export async function renderDemo() {
@@ -101,19 +134,53 @@ export async function renderDemo() {
     scrollTo(0, y);
   }
 
-  // What the form sends: the look (drawn straight away) and what's in the poll (drawn again).
+  // Answers show on the group's tab: the answers step opens it (and its end goes back).
+  let opened = false;
+  const tab = (name) => document.querySelector(`[data-tab="${name}"]`)?.click();
+  let focus = '';
+  let lastLook = '';
+  const ring = (f) => {
+    const go = f !== focus;
+    if (f === 'answers' && view === 'guest' && !opened) {
+      opened = true;
+      tab('group');
+    } else if (f !== 'answers' && opened) {
+      opened = false;
+      tab('mine');
+    }
+    focus = f;
+    spotlight(f, go);
+  };
+
+  // What the form sends: the look (drawn straight away) and what's in the poll (drawn again), which
+  // part to show, and (held) Venn's own look to compare.
   let last = '';
+  let comparing = false; // held: Venn's own look, whatever changes meanwhile
   const onMessage = async (e) => {
-    if (e.origin !== location.origin || e.source !== parent || !e.data?.brand) return;
+    if (e.origin !== location.origin || e.source !== parent) return;
+    if (typeof e.data?.compare === 'boolean') {
+      comparing = e.data.compare;
+      return brandLook(comparing ? null : brand);
+    }
+    if (!e.data?.brand) return;
     const { brand: b, view: v } = e.data;
     const content = JSON.stringify([b.name, b.logo, b.hideName, b.title, b.where, b.note, b.emoji, v]);
+    const look = JSON.stringify(b);
     brand = b;
-    if (content === last && off) return brandLook(b);
-    last = content;
-    view = v === 'organizer' ? 'organizer' : 'guest';
-    await draw();
+    if (content !== last || !off) {
+      last = content;
+      if (view !== v) opened = false;
+      view = v === 'organizer' ? 'organizer' : 'guest';
+      await draw();
+      if (opened) tab('group');
+    } else brandLook(b);
+    if (comparing) brandLook(null);
+    // A change rings its part again; a new step brings its part into view.
+    if (look !== lastLook || e.data.focus !== focus) ring(e.data.focus || '');
+    lastLook = look;
   };
   addEventListener('message', onMessage);
+  document.head.append(Object.assign(document.createElement('style'), { textContent: RING }));
   app.innerHTML = '<div class="empty muted">Loading…</div>';
   parent.postMessage({ previewReady: true }, location.origin);
   return () => {

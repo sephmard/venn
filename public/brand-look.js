@@ -202,3 +202,23 @@ export function brandForm(b, fill, $, esc) {
   if (b.emoji) $('#emoji-tile').textContent = b.emoji;
   title.dispatchEvent(new Event('input'));
 }
+
+/** From RGBA pixels: the most used colourful colours, each far enough from the others to tell apart. */
+export function mainColours(px, n = 3) {
+  const bins = new Map();
+  for (let i = 0; i < px.length; i += 4) {
+    const [r, g, bl, a] = [px[i], px[i + 1], px[i + 2], px[i + 3]];
+    if (a < 128 || Math.max(r, g, bl) - Math.min(r, g, bl) < 40) continue;
+    const k = ((r >> 4) << 8) | ((g >> 4) << 4) | (bl >> 4);
+    const s = bins.get(k) || [0, 0, 0, 0];
+    bins.set(k, [s[0] + r, s[1] + g, s[2] + bl, s[3] + 1]);
+  }
+  const out = [];
+  for (const [r, g, bl, count] of [...bins.values()].sort((x, y) => y[3] - x[3])) {
+    const c = [r, g, bl].map((x) => Math.round(x / count));
+    if (out.some((o) => Math.hypot(...o.map((x, i) => x - c[i])) < 80)) continue;
+    out.push(c);
+    if (out.length === n) break;
+  }
+  return out.map((c) => `#${c.map((x) => x.toString(16).padStart(2, '0')).join('')}`);
+}

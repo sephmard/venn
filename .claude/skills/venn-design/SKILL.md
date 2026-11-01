@@ -129,6 +129,17 @@ the same PR** (and CLAUDE.md if it's a rule that matters in review).
   by default); /brand shows a **live preview** (Seph, 2026-11-01: he wants to see the template change while he makes it): the real poll page with a sample poll in a frame, as a Guest or the Organizer, updated with every edit, clickable, nothing saved; beside the form on desktop, pinned over it on phones, and the create page shows whose template
   it is (logo and name). The home page has a "Your brand, on every poll." section, and the menu
   has "For organizations".
+- **The editor is a click-through, not a scroll** (Seph, 2026-11-01: only the top of the preview
+  changed, so he couldn't tell what a setting did). Eight steps in the poll page's order: Name and
+  logo, Starting look, Colours, Answers, Headings, Text, Corners and buttons, What polls start with
+  (a saved template opens on Share first). One step shows at a time with Back / Next; the steps are a
+  list beside it on desktop and a menu over it on phones, and any step can be opened. While a step is
+  open the preview goes to the part of the poll it changes and rings it (dashed magenta), and rings
+  it again with every change; Answers opens the group's results. **Starting looks** (Venn,
+  Editorial, Midnight, Playful, Tech, Forest, and the logo's own colour once there's a logo) set
+  everything in one tap. The logo's colours are offered beside the accent picker. **Compare**, held,
+  shows Venn's own look. Phones: the preview pinned on top, the step under it, Back / Next at the
+  bottom, all on one screen.
 - Colours are made readable (WCAG AA) rather than refused. Answers are green, amber and pink unless the template picks its own. On a branded poll the brand's look replaces retro.
 - **Always the Venn retro logo** (Seph, 2026-11-01): the header shows the retro logo in every look, classic included; the organization's logo sits beside the poll, never in place of Venn's.
 - Its polls show the logo and name above the poll for everyone. Deleted, they're plain Venn again.
