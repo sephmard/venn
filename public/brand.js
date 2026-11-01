@@ -119,19 +119,17 @@ export async function renderBrand(id) {
     save(key(id), { adminToken: m[1] });
     history.replaceState(null, '', location.pathname);
   }
-  // An invite link (#join=<secret>): kept in this tab through signing in, and out of the address bar.
-  const j = id && location.hash.match(/^#join=([A-Za-z0-9]+)$/);
-  if (j) {
-    keepJoin(id, j[1]);
-    history.replaceState(null, '', location.pathname);
-  }
+  // An invite link (#join=<secret>): out of the address bar, and never stored. Signing in first
+  // carries it in the sign-in's way back (src/auth.js safeNext), so it isn't kept in the browser.
+  const j = id && location.hash.match(/^#join=([A-Za-z0-9]{1,64})$/);
+  if (j) history.replaceState(null, '', location.pathname);
   const token = id && saved(key(id)).adminToken;
   // From My polls (account.js): the account stands in for the manage link.
   // Opened that way once, this browser asks for it the same way again (after a reload, too).
   let viaAccount = !!id && (location.hash === '#organizer' || !!saved(key(id)).viaAccount);
   if (location.hash === '#organizer') history.replaceState(null, '', location.pathname);
-  if (id && joinOf(id)) {
-    const joined = await join(id);
+  if (j) {
+    const joined = await join(id, j[1]);
     if (joined === 'signin') return;
     if (joined) viaAccount = true;
   }
@@ -270,24 +268,6 @@ function showSignIn(providers) {
 
 // ---------- sharing: invite links, and who has the template ----------
 
-const joinKey = (id) => `venn:brand-join:${id}`;
-function keepJoin(id, secret) {
-  try {
-    sessionStorage.setItem(joinKey(id), secret);
-  } catch {}
-}
-function joinOf(id) {
-  try {
-    return sessionStorage.getItem(joinKey(id));
-  } catch {
-    return null;
-  }
-}
-function dropJoin(id) {
-  try {
-    sessionStorage.removeItem(joinKey(id));
-  } catch {}
-}
 const inviteUrl = (id, secret) => `${location.origin}/brand/${id}#join=${secret}`;
 
 /**
@@ -295,10 +275,9 @@ const inviteUrl = (id, secret) => `${location.origin}/brand/${id}#join=${secret}
  * lets them do. Signed out, they sign in first and come back here. Returns the role, null (the link
  * didn't work) or 'signin' (the page is asking them to).
  */
-async function join(id) {
+async function join(id, secret) {
   try {
-    const { role } = await api(`brands/${id}/join`, { method: 'POST', body: { token: joinOf(id) } });
-    dropJoin(id);
+    const { role } = await api(`brands/${id}/join`, { method: 'POST', body: { token: secret } });
     // Signed in (perhaps just now): the top bar knows it.
     const me = await api('me').catch(() => ({}));
     if (me.user)
@@ -325,19 +304,18 @@ async function join(id) {
         : [];
     if (e.status === 401 && providers.length) {
       const b = await api(`brands/${id}`).catch(() => null);
-      if (!b) return (dropJoin(id), null);
+      if (!b) return null;
       document.title = `Sign in · ${b.name} · Venn`;
       const [html, wire] = signInPanel(
         providers,
         `Sign in to add ${esc(b.name)}’s template`,
-        `/brand/${id}`,
+        `/brand/${id}#join=${secret}`,
         'It goes in your templates, on any device.',
       );
       app.innerHTML = `<div class="sheet brand-signin save-signin">${html.replace(/<(\/?)h2/g, '<$1h1')}</div>`;
       wire();
       return 'signin';
     }
-    dropJoin(id);
     toast(e.status === 401 ? 'This Venn has no accounts, so the invite can’t be used here.' : e.message);
     return null;
   }

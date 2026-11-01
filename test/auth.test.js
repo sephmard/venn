@@ -359,6 +359,11 @@ test('sharing a brand template: admins change it, users make polls with it, only
   const ben = (await signIn('g-share-user')).session;
   const made = (await call('/api/brands', { method: 'POST', body: { name: 'Acme' }, cookie: owner })).data;
   const as = (cookie) => ({ cookie, headers: { 'x-organizer': '1' } });
+  // Signing in from an invite link comes back to it, secret and all (the browser never stores it);
+  // anything else after the path falls back to My polls.
+  const via = (await signIn('g-share-via', { next: '/brand/abc#join=Secret123' })).back.headers.get('location');
+  assert.match(via, /\/brand\/abc#join=Secret123$/);
+  assert.match((await signIn('g-share-via', { next: '/brand/abc#evil' })).back.headers.get('location'), /\/me$/);
   // Invite links: one for admins, one for users. Only the owner makes them.
   const invite = async (role, cookie = owner) =>
     call(`/api/brands/${made.id}/invites`, { method: 'POST', body: { role }, cookie });
