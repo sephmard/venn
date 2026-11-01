@@ -21,10 +21,6 @@ main:has(> .create) {
 .create > h1 {
   margin-bottom: 20px;
 }
-.create-lede {
-  margin: -4px 0 20px;
-  font-size: 1rem;
-}
 .back {
   display: inline-flex;
   align-items: center;
@@ -983,4 +979,9 @@ button.emoji-tile:focus-visible {
 }
 .topic-single {
   margin-top: 12px;
+}
+/* Date or Vote: the same small switch at the top of both forms. */
+.kind-switch {
+  max-width: 280px;
+  margin: -8px 0 20px;
 }

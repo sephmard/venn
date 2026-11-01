@@ -235,8 +235,11 @@ the same PR** (and CLAUDE.md if it's a rule that matters in review).
 - The owner asked (2026-11) for a second kind of poll: voting on options that aren't times (a
   place, the next book, yes or no), that leads into a date poll. It's still **a Venn**: same Create
   button, same "Create a Venn" heading.
-- **No chooser screen.** /new stays the date poll; one quiet link in its intro, "Deciding what or
-  where?", opens /new/topic, which links back ("Pick a date instead").
+- **No chooser screen.** /new stays the date poll. Under "Create a Venn", both forms have the same
+  small **📅 Date · 🗳️ Vote** switch (links, so Back goes between them; a brand template's ?brand=
+  stays), in the same place, and nothing else: no intro paragraph, no "Deciding what or where?" or
+  "Pick a date instead" links (the owner, 2026-11: "the same between polls, and elegant. Not
+  verbose"). The switch is hidden when editing or copying a poll.
 - **The question comes first** (the owner, 2026-11: "you can't put in the actual question"): the
   first card, "What are you deciding?", has **Pick from options · Yes or no**, then **Your question**,
   empty (no "Get-together" name), its example fitting the kind ("Where should we eat?" / "Should we
