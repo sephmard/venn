@@ -25,8 +25,10 @@ const MODES = {
       field({ id: 'em-email', label: 'Email', autocomplete: 'username', value: email }),
       field({ id: 'em-password', label: 'Password', type: 'password', autocomplete: 'current-password' }),
     ],
-    links:
-      '<button type="button" class="link-btn" data-mode="forgot">Forgot password?</button><button type="button" class="link-btn" data-mode="signup">Create an account</button>',
+    links: [
+      ['forgot', 'Forgot password?'],
+      ['signup', 'Create an account'],
+    ],
   },
   signup: {
     button: 'Create account',
@@ -40,12 +42,12 @@ const MODES = {
         hint: `At least ${MIN} characters`,
       }),
     ],
-    links: '<button type="button" class="link-btn" data-mode="signin">I have an account</button>',
+    links: [['signin', 'I have an account']],
   },
   forgot: {
     button: 'Email me a link',
     fields: (email) => [field({ id: 'em-email', label: 'Email', autocomplete: 'username', value: email })],
-    links: '<button type="button" class="link-btn" data-mode="signin">Back to sign in</button>',
+    links: [['signin', 'Back to sign in', true]],
   },
 };
 
@@ -54,16 +56,19 @@ export const emailSignInForm = ({ alone = false } = {}) =>
   `<div class="em-signin" id="em-signin">${alone ? '' : '<p class="em-or"><span>or</span></p>'}<div id="em-body"></div></div>`;
 
 /**
- * Make the form work. `onSignedIn` runs once the password signs in. `mode` and `email` start it
+ * Make the form work. `onSignedIn` runs once the password signs in; `onMode` hears every switch
+ * between signing in, creating an account and a forgotten password. `switcher`: the page has its
+ * own Sign in / Create account switch, so the form doesn't link between the two. `mode` and `email` start it
  * somewhere else than "Sign in" (after a reset: signing in, with the email filled in).
  */
-export function wireEmailSignIn({ onSignedIn, mode = 'signin', email = '', note = '' } = {}) {
+export function wireEmailSignIn({ onSignedIn, onMode, switcher = false, mode = 'signin', email = '', note = '' } = {}) {
   const body = $('#em-body');
   if (!body) return;
 
   const draw = (m, { keep = true, message = '' } = {}) => {
     const typed = keep ? $('#em-email')?.value.trim() || email : email;
     const spec = MODES[m];
+    onMode?.(m);
     body.innerHTML = `
       <form class="em-form" novalidate data-mode="${m}">
         ${m === 'forgot' ? '<p class="em-lede">We’ll email you a link to choose a new password.</p>' : ''}
@@ -71,7 +76,10 @@ export function wireEmailSignIn({ onSignedIn, mode = 'signin', email = '', note 
         ${spec.fields(typed).join('')}
         <p class="em-error" id="em-error" role="alert" hidden></p>
         <button type="submit" class="btn btn-primary em-submit">${spec.button}</button>
-        <div class="em-links">${spec.links}</div>
+        <div class="em-links">${spec.links
+          .filter(([to, , always]) => always || to === 'forgot' || !switcher)
+          .map(([to, label]) => `<button type="button" class="link-btn" data-mode="${to}">${label}</button>`)
+          .join('')}</div>
       </form>`;
     const form = body.querySelector('form');
     form.querySelectorAll('[data-mode]').forEach(
@@ -153,4 +161,10 @@ export function wireEmailSignIn({ onSignedIn, mode = 'signin', email = '', note 
   }
 
   draw(mode, { keep: false, message: note });
+  /** Switch the form to another mode (the sign-in page's Sign in / Create account switch). */
+  return {
+    show(m) {
+      draw(m, { keep: true });
+    },
+  };
 }
