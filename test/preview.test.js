@@ -240,7 +240,7 @@ async function checkServer(fetchPath, origin, { home: servesHome = true } = {}) 
   const unknown = await page('doesnotexist');
   assert.equal(titleOf(unknown), 'Venn: find a time that works');
   assert.equal(meta(unknown, 'og:image'), `${origin}/og.png`);
-  assert.equal(meta(unknown, 'og:title'), 'Venn: find the day that works for everyone');
+  assert.equal(meta(unknown, 'og:title'), 'Venn: find the day that works');
 }
 
 let server, baseUrl;
