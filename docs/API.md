@@ -84,7 +84,7 @@ An organizer can give a poll any emoji (`emoji` when creating or changing it: on
 
 ## Brand templates
 
-An organization's own template, so every poll its team sends shows its look. It's made at `/brand` in the web app ([`public/brand.js`](../public/brand.js), [`src/brands.js`](../src/brands.js)).
+An organization's own template, so every poll its team sends shows its look. It's made at `/brand` in the web app ([`public/brand.js`](../public/brand.js), [`src/brands.js`](../src/brands.js)). While it's made, `/brand/preview` shows the real poll page with a sample poll in its look, in a frame; [`public/brand-demo.js`](../public/brand-demo.js) answers that page's requests in the browser, so nothing is saved.
 
 | Field                    | What it does                                                                                                                                                                                                                                                                                                                                                                             |
 | ------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |

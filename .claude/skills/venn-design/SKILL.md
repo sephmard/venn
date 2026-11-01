@@ -126,7 +126,7 @@ the same PR** (and CLAUDE.md if it's a rule that matters in review).
   the corners); and what its polls start with (name, where, note). **No accounts**: a share
   link for the team (`/new?brand=…`) and a private manage link, like a poll's organizer link.
 - **Only polls are branded.** The website, /brand and the create page keep Venn's own look (retro
-  by default); /brand shows the brand in a preview card, and the create page shows whose template
+  by default); /brand shows a **live preview** (Seph, 2026-11-01: he wants to see the template change while he makes it): the real poll page with a sample poll in a frame, as a Guest or the Organizer, updated with every edit, clickable, nothing saved; beside the form on desktop, pinned over it on phones, and the create page shows whose template
   it is (logo and name). The home page has a "Your brand, on every poll." section, and the menu
   has "For organizations".
 - Colours are made readable (WCAG AA) rather than refused. Answers are green, amber and pink unless the template picks its own. On a branded poll the brand's look replaces retro.

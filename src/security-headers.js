@@ -6,11 +6,12 @@ export const SECURITY_HEADERS = {
     // img-src blob: shows pictures drawn in the page (Finn stickers), so they can be pressed and held to copy.
     "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; " +
     // Calendar free/busy lookups happen in the browser, straight to Google and Microsoft.
-    "connect-src 'self' https://www.googleapis.com https://login.microsoftonline.com https://graph.microsoft.com; font-src 'self'; object-src 'none'; base-uri 'none'; form-action 'self'; frame-ancestors 'none'",
+    "connect-src 'self' https://www.googleapis.com https://login.microsoftonline.com https://graph.microsoft.com; font-src 'self'; object-src 'none'; base-uri 'none'; form-action 'self'; frame-ancestors 'self'",
   // Poll links are shared secrets of a sort: never leak them to sites people click through to.
   'referrer-policy': 'no-referrer',
   'x-content-type-options': 'nosniff',
-  'x-frame-options': 'DENY',
+  // Only Venn frames Venn: the live preview on /brand shows a sample poll in a frame.
+  'x-frame-options': 'SAMEORIGIN',
   'cross-origin-opener-policy': 'same-origin',
   'permissions-policy': 'camera=(), microphone=(), geolocation=(), payment=(), usb=()',
 };
