@@ -2,18 +2,15 @@ import { test, expect } from '@playwright/test';
 import AxeBuilder from '@axe-core/playwright';
 import { addOptions } from './helpers.js';
 
-// A poll in its organizer's "Retro look": everyone sees it in neon; the rest of the app doesn't change.
+// A poll in the retro look (a new poll's, like the site's, unless Classic mode is on): everyone sees
+// it in neon; the rest of the app doesn't change.
 
-test('the organizer picks the retro look: the poll opens in neon for everyone, and the app stays itself', async ({
-  page,
-  browser,
-}) => {
+test('a new poll is retro like the site: it opens in neon for everyone, and the app stays itself', async ({ page, browser }) => {
   await page.goto('/new/pick');
   await page.fill('#title', 'Game night');
   await page.fill('#organizer', 'Sam');
   await addOptions(page, 3, [1140]);
-  await page.getByRole('switch', { name: 'Retro look' }).check();
-  await expect(page.locator('html')).toHaveClass(/\bretro\b/); // shown as soon as it's picked
+  await expect(page.locator('html')).toHaveClass(/\bretro\b/);
   await page.click('#submit');
   // "Your Venn is ready!" is retro too: chrome capitals.
   await expect(page.locator('.party h2')).toHaveCSS('text-transform', 'uppercase');
@@ -29,7 +26,22 @@ test('the organizer picks the retro look: the poll opens in neon for everyone, a
   // Leaving the poll leaves the look behind: a new poll that asks for the classic look shows it.
   await page.goto('/new?retro=0');
   await expect(html).not.toHaveClass(/\bretro\b/);
-  await expect(page.getByRole('switch', { name: 'Retro look' })).not.toBeChecked();
+  await expect(page.locator('.footer').getByRole('switch', { name: 'Classic mode' })).toHaveAttribute('aria-checked', 'true');
+});
+
+test('in Classic mode, a new poll is classic for everyone', async ({ page, browser }) => {
+  await page.goto('/new/pick');
+  await page.locator('.footer').getByRole('switch', { name: 'Classic mode' }).click();
+  await page.fill('#title', 'Game night');
+  await page.fill('#organizer', 'Sam');
+  await addOptions(page, 2, [1140]);
+  await page.click('#submit');
+  await page.getByRole('button', { name: 'View poll' }).click();
+  await expect(page).toHaveURL(/\/e\/[A-Za-z0-9]+/);
+  const g = await (await browser.newContext()).newPage();
+  await g.goto(page.url().split('#')[0]);
+  await expect(g.locator('h1')).toContainText('Game night');
+  await expect(g.locator('html')).not.toHaveClass(/\bretro\b/);
 });
 
 test('the organizer can switch the retro look on later, from the top of the poll', async ({ page, request }) => {
@@ -141,7 +153,7 @@ test('no flash of the other look: a new poll and a retro poll are retro from the
     .getByRole('link', { name: /Create a Venn/ })
     .click();
   await expect(page).toHaveURL(/\/new/);
-  await expect(page.getByRole('switch', { name: 'Retro look' })).toBeChecked();
+  await expect(page.locator('.footer .classic-switch')).toHaveAttribute('aria-checked', 'false');
   expect(await page.evaluate(() => window.firstFrame)).toEqual({ retro: true, bg: retroBg });
   // A poll in the retro look, opened by a guest.
   const start = Date.UTC(2030, 0, 10, 19);

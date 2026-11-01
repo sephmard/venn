@@ -14,12 +14,12 @@ await new Promise((done) =>
   ),
 );
 
-// The organizer's on/off choices, and their switches: "Privacy options", and the retro look.
+// The organizer's on/off choices, and their switches in "Privacy options". The poll's look isn't
+// one of them: a new poll takes the look the page is in (see pollLook below).
 const PRIVACY = [
   ['requireEmail', '#p-email'],
   ['hideNames', '#p-names'],
   ['hideResults', '#p-results'],
-  ['retro', '#p-retro'],
 ];
 
 // Kinds of plans (templates), with sensible defaults: see templates.js.
@@ -55,6 +55,18 @@ async function useBrand(id, fill) {
   const [b, look] = await Promise.all([api(`brands/${id}`).catch(() => null), import('./brand-look.js')]);
   if (!b) return ((brandId = null), toast("That brand template doesn't exist any more. This poll is plain Venn."));
   if (brandId === id && $('#create')) look.brandForm((brand = b), fill, $, esc);
+}
+
+/** The "Look" row's choice: one of the account's brand templates (its id), or Venn's own (null). */
+async function pickBrand(id) {
+  const url = new URL(location.href);
+  if (id) url.searchParams.set('brand', id);
+  else url.searchParams.delete('brand');
+  history.replaceState(history.state, '', url);
+  $('#create .brand-bar')?.remove();
+  brand = null;
+  brandId = id;
+  if (id) await useBrand(id, false);
 }
 
 // ---------- editing or duplicating a poll ----------
@@ -151,7 +163,6 @@ export function youFields() {
         <p class="hint" id="notify-hint">We'll email you the link and each answer.</p>
       </div>
       <p class="hint" id="notify-off" hidden>Email isn't switched on for this Venn server.</p>
-      <label class="switch"><input type="checkbox" role="switch" id="p-retro"> Retro look</label>
       <details class="reveal" id="privacy-opts">
         <summary>Privacy options</summary>
         <label class="switch"><input type="checkbox" role="switch" id="p-email"> Ask guests for their email</label>
@@ -253,6 +264,8 @@ export async function submit(body, occasion, answer = null) {
   const emoji = icon?.emoji() || occasion()?.emoji || brand?.emoji;
   if (emoji) body.emoji = emoji;
   for (const [key, el] of PRIVACY) body[key] = $(el).checked;
+  // The look the page is in (an edit keeps the poll's own; a brand template's replaces it).
+  if (!editing && !brand) body.retro = document.documentElement.classList.contains('retro');
   if (deadline && !$('#deadline-box').hidden) Object.assign(body, deadline.values());
   const notifyEmail = !$('#notify-field') || $('#notify-field').hidden ? '' : $('#notify').value.trim();
   if (notifyEmail) body.notifyEmail = notifyEmail;
@@ -330,16 +343,11 @@ export function showConfig(update) {
     if (b && notReady) go(notReady.bad[b.dataset.need][2]);
   };
   $('#organizer').addEventListener('input', update);
-  // The retro look: on for a new poll, like the site (an edit or copy keeps its own), shown at once.
-  const retro = $('#p-retro');
-  if (retro)
-    import('./retro-look.js').then(({ retroLook, wantsRetro }) => {
-      if (!source()) retroLook((retro.checked = wantsRetro()));
-      retro.onchange = () => {
-        retroLook(retro.checked);
-        icon?.preview(); // the link preview, in the new look
-      };
-    });
+  // A new poll's look: the page's, or a brand template's (create-look.js). An edit or copy keeps its own.
+  if (!source())
+    import('./create-look.js')
+      .then((m) => m.createLook({ pick: pickBrand, current: () => brandId, preview: () => icon?.preview() }))
+      .catch(() => {});
   // Asking everyone's email allows a deadline, and reminders (deadline-fields.js). An edited poll's
   // deadline is changed in its organizer tools.
   const askEmail = $('#p-email');

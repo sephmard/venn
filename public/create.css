@@ -905,3 +905,49 @@ button.emoji-tile:focus-visible {
 .len-after {
   margin-top: 16px;
 }
+
+/* The "Look" row (create-look.js): signed in with brand templates, Venn's look or one of them. */
+.look-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 12px;
+  margin: 0 0 16px;
+}
+.look-label {
+  font-weight: 700;
+}
+.look-row .pill[aria-checked='true'] {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--accent-ink);
+}
+
+/* Classic mode, at the end of a new poll's page's footer as on the website (create.js); only there, so its styles load with the create pages. */
+.footer .classic-switch:not([hidden]) {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 44px;
+  margin: 4px auto 0;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--muted);
+  font: inherit;
+  cursor: pointer;
+}
+.footer .classic-switch:hover {
+  color: var(--text);
+}
+.footer .classic-switch::after {
+  content: '';
+  flex: none;
+  width: 36px;
+  height: 20px;
+  border-radius: 999px;
+  background: radial-gradient(circle at 10px 50%, #fff 6px, transparent 6.5px) var(--muted);
+}
+.footer .classic-switch[aria-checked='true']::after {
+  background: radial-gradient(circle at 26px 50%, #fff 6px, transparent 6.5px) var(--accent);
+}

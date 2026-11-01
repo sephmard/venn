@@ -229,7 +229,6 @@ button.final:focus-visible {
   font-size: 0.875rem;
   padding: 12px 16px calc(16px + env(safe-area-inset-bottom));
 }
-
 /* ---------- buttons ---------- */
 .btn {
   display: inline-flex;
