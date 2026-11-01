@@ -5,7 +5,7 @@
 //   public/og/<section>-<slug>.png  the landing pages in pages/pages.js
 // Needs Playwright's Chromium (`npx playwright install chromium`, or set CHROMIUM_PATH). Matches
 // DESIGN.md: warm paper, the serif, the Venn circles, and Finn the dog. Chat apps show these small,
-// so the words are big and few.
+// so the words are big and few: the site's own two are just the logo and one headline.
 
 import { execFileSync } from 'node:child_process';
 import { mkdirSync, readFileSync, statSync } from 'node:fs';
@@ -114,8 +114,8 @@ const confetti = [
 const IMAGES = {
   // The site's own preview: just the circles, no Finn.
   'og.png': page({
-    headline: 'Find the day that works for <em>everyone.</em>',
-    line: '<p>Free group polls. No sign-up.</p>',
+    headline: 'Find the day that <em>works.</em>',
+    line: '',
     finn: false,
   }),
   'og-set.png': page({
@@ -126,7 +126,7 @@ const IMAGES = {
   }),
   'og-retro.png': retroPage({
     headline: 'Find the day that works',
-    line: '<p>Free group polls. No sign-up.</p>',
+    line: '',
     finn: false,
   }),
   'og-set-retro.png': retroPage({

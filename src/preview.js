@@ -8,17 +8,17 @@ import { imagePath } from './images.js';
 // Static images, rendered by `npm run og` (scripts/og-image.js): one to ask, one once it's set,
 // and both again for polls in the retro look.
 export const OG_IMAGES = {
-  vote: { path: '/og.png', alt: 'Venn: find the day that works for everyone' },
+  vote: { path: '/og.png', alt: 'Venn: find the day that works' },
   set: { path: '/og-set.png', alt: "Venn: it's set" },
-  retroVote: { path: '/og-retro.png', alt: 'Venn: find the day that works for everyone' },
+  retroVote: { path: '/og-retro.png', alt: 'Venn: find the day that works' },
   retroSet: { path: '/og-set-retro.png', alt: "Venn: it's set" },
 };
 
 // For a poll that doesn't exist (any more): the same as the home page's.
 const GENERIC = {
   pageTitle: 'Venn: find a time that works',
-  title: 'Venn: find the day that works for everyone',
-  description: 'Free polls for dinners, book clubs and trips. Share one link and see which day works for everyone.',
+  title: 'Venn: find the day that works',
+  description: 'Free group polls. No sign-up.',
   image: OG_IMAGES.vote,
 };
 
