@@ -169,7 +169,7 @@ export async function renderEvent(id, navigate) {
   const [embedded, whiteLabel] = [plain.contains('embed'), plain.contains('white-label')];
   document.title = whiteLabel ? ev().title : `${ev().title} · Venn`;
   // In a frame (/embed): it fits the poll, and tells the website what happens.
-  const host = embedded ? await import('./embed-frame.js').then((m) => m.connect(id, ev().brand)).catch(() => null) : null;
+  const host = embedded ? await import('./embed-frame.js').then((m) => m.connect(id, ev().brand, hash)).catch(() => null) : null;
   track('view', { page: 'poll', as: ev().isAdmin ? 'organizer' : saved(id).participantId ? 'answered' : 'guest' });
   const shareUrl = `${location.origin}/e/${id}`;
   const optionsMode = isOptionsPoll(ev());
@@ -393,7 +393,7 @@ export async function renderEvent(id, navigate) {
     copy(shareUrl, 'Link copied');
   };
   if ($('#share-sheet')) $('#share-sheet').onclick = shareSheet;
-  $('#name').value = me()?.name || lastName();
+  $('#name').value = me()?.name || host?.name || lastName();
   $('#name').oninput = () => setDirty(true);
 
   // ----- tabs (phones) -----
