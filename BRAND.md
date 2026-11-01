@@ -35,7 +35,7 @@ These come from the owner and outrank habits and defaults. Check every change ag
 
 ## Name and wording
 
-- The product is **Venn** (capital V). A poll is also "a Venn": the button is **Create a Venn**, the celebration is "Your Venn is ready!". The tagline: **"Find the day that works."** The sign-off: "Stop the back-and-forth. Just Venn it."
+- The product is **Venn** (capital V). A poll is also "a Venn", whether it finds a date or decides what or where (a topic poll, whose banner says **Decided**): the button is **Create a Venn**, the celebration is "Your Venn is ready!". The tagline: **"Find the day that works."** The sign-off: "Stop the back-and-forth. Just Venn it."
 - The website is **venn.day**; the developer docs are **docs.venn.day**.
 - Say **available**, not "free", for time (free means no cost). Answers are **Available · If needed · Unavailable**.
 - Say **poll**, **organizer** and **guests**. Not "event", "host", "admin" or "users" in the interface.

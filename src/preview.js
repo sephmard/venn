@@ -83,6 +83,16 @@ export function pollPreview(ev) {
   // A poll's own picture is its icon: then its emoji isn't shown as well.
   const title = [ev.image ? '' : ev.emoji, ev.title].filter(Boolean).join(' ');
   const own = ev.id && ev.image?.card && { path: imagePath(ev.id, ev.image, 'card'), alt: ev.title };
+  // A topic poll: its options, and once decided, the one picked.
+  if (ev.mode === 'topic') {
+    const picked = ev.options.find((o) => o.id === ev.picked);
+    if (picked)
+      return { title, description: `Decided: ${picked.label}`, image: own || (ev.retro ? OG_IMAGES.retroSet : OG_IMAGES.set) };
+    const who = !ev.hideNames && ev.organizer ? `${ev.organizer} wants the group's pick.` : 'What do you think?';
+    const n = ev.options.length;
+    const ask = n === 1 ? 'Yes or no?' : `${n} options. Tap the ones you'd go with.`;
+    return { title, description: `${who} ${ask} No sign-up.`, image: own || (ev.retro ? OG_IMAGES.retroVote : OG_IMAGES.vote) };
+  }
   if (ev.finalStart == null) {
     const who = !ev.hideNames && ev.organizer ? `${ev.organizer} wants to find a time for ${ev.title}.` : 'When works for you?';
     const slots = ev.options || ev.dates || ev.windows ? buildSlots(ev) : [];

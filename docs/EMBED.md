@@ -25,6 +25,8 @@ curl -X POST https://venn.day/api/events \
   -d '{"title":"Team lunch","organizer":"Sam","timezone":"Europe/London","dates":["2026-11-02","2026-11-03"],"startMinute":0,"endMinute":1440,"slotMinutes":1440,"durationMinutes":1440,"brand":"<template id>"}'
 ```
 
+Polls that decide what rather than when (a club's next book, a place) are [topic polls](API.md#topic-polls): send `"mode":"topic"` and `"options":[{"label":"Piranesi"},{"label":"Dune"}]` instead of dates. Once its organizer picks one, the frame says `picked` with the option's `option` id, and you can make the date poll for it with `"seriesOf":"<topic poll id>"`.
+
 It answers `{ id, adminToken }`. Keep `adminToken` secret, on your server: it's the organizer's key (picking the date, changing or deleting the poll). The [API](API.md) has every field and call.
 
 ## 3. Show the poll
@@ -59,7 +61,7 @@ If your website has a dark mode, give the template one too (`darkBg`, `darkSurfa
 
 ```js
 document.addEventListener('venn', (e) => {
-  const { type, poll } = e.detail; // type: 'ready', 'height', 'answered' (with `updated`) or 'picked' (with `start`, UTC ms)
+  const { type, poll } = e.detail; // type: 'ready', 'height', 'answered' (with `updated`) or 'picked' (with `start`, UTC ms, or `option` for a topic poll)
 });
 ```
 

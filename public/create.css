@@ -951,3 +951,34 @@ button.emoji-tile:focus-visible {
 .footer .classic-switch[aria-checked='true']::after {
   background: radial-gradient(circle at 26px 50%, #fff 6px, transparent 6.5px) var(--accent);
 }
+
+/* /new/topic: the options to vote on, one per line (create-topic.js). */
+.topic-opts {
+  list-style: none;
+  margin: 14px 0 10px;
+  padding: 0;
+  display: grid;
+  gap: 8px;
+}
+.topic-opt {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 44px;
+  gap: 6px;
+  align-items: center;
+}
+.topic-opt .icon-btn {
+  width: 44px;
+  height: 44px;
+}
+.topic-yesno li {
+  padding: 12px 14px;
+  border-radius: var(--radius);
+  background: var(--surface-2);
+  font-weight: 700;
+}
+.topic-create .seg {
+  margin-top: 4px;
+}
+.topic-single {
+  margin-top: 12px;
+}

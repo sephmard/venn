@@ -37,13 +37,15 @@ async function route() {
   } else {
     // Every new poll is a Venn (create-free.js). /new/pick is the older "vote on a few dates" page,
     // still used to edit or copy polls made with it; nothing links to it otherwise.
+    // /new/topic: a Venn about what, not when (create-topic.js).
     const pick = path === '/new/pick';
-    const page = pick ? import('./create-pick.js') : import('./create-free.js'); // fetched alongside the look
+    const topic = path === '/new/topic';
+    const page = import(pick ? './create-pick.js' : topic ? './create-topic.js' : './create-free.js'); // fetched alongside the look
     if (look) {
       const { retroLook, wantsRetro } = await look;
       retroLook(wantsRetro());
     }
-    off = pick ? (await page).renderPick() : (await page).renderFree();
+    off = pick ? (await page).renderPick() : topic ? (await page).renderTopic() : (await page).renderFree();
   }
   if (typeof off === 'function') cleanup = off;
 }
