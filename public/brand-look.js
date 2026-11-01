@@ -137,6 +137,7 @@ const fontVar = (k) => Object.hasOwn(FONTS, k ?? '') && FONTS[k][1];
  * The CSS that gives the page (or, with `scope`, one element: the preview on /brand) the brand's
  * look: only colours made here, fonts from FONTS and corners from CORNERS. Without its own
  * background it follows Venn's light and dark (the retro look is dark, so it takes the dark ones).
+ * With its own background it looks the same in both, unless it has a dark one too (`darkBg`).
  */
 export function brandCss(brand, scope = ':root') {
   const head = fontVar(brand.font);
@@ -156,7 +157,16 @@ export function brandCss(brand, scope = ':root') {
       : '';
   if (isHex(brand.bg)) {
     const own = scheme(brand);
-    return `${BAR}${buttons}${scope}{${base}${own.vars}${keyVars(brand, own.card, own.dark)}}`;
+    const page = `${BAR}${buttons}${scope}{${base}${own.vars}${keyVars(brand, own.card, own.dark)}}`;
+    if (!isHex(brand.darkBg)) return page;
+    // Its own dark mode, for people whose device is set to dark: the same rules on its dark colours.
+    const night = scheme({
+      bg: brand.darkBg,
+      surface: brand.darkSurface,
+      text: brand.darkText,
+      accent: brand.darkAccent || brand.accent,
+    });
+    return `${page}@media (prefers-color-scheme: dark){${scope}{${night.vars}${keyVars(brand, night.card, night.dark)}}}`;
   }
   const p = isHex(brand.accent) ? palette(brand.accent) : null;
   const vars = (m) => (p ? `--accent:${m.accent};--accent-ink:${m.ink};--accent-soft:${m.soft};` : '');

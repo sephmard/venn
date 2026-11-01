@@ -11,6 +11,10 @@ Make one at `/brand` (or `POST /api/brands`). On its **White label** step:
 
 Keep the template's manage link (or its `adminToken`): it's what changes the template later, with `PUT /api/brands/:id` and `x-admin-token`.
 
+### Make templates from your server
+
+An app that gives each of its own users a template (each club, team or shop in its own look) can make them with the API instead: `POST /api/brands` with the same fields, from its server. Where the Venn it uses has sign-in set up, as venn.day does, that needs a key from whoever runs it, sent as `authorization: Bearer <key>`. A Venn's keys are its `APP_KEYS` setting ([Self-hosting](SELF-HOSTING.md#optional-features)); keep yours on your server, like a poll's `adminToken`. A template made this way belongs to no account and is managed with its `adminToken`, like any other.
+
 ## 2. Make polls with the API
 
 From your server, make each poll with the template's `brand` id:
@@ -36,6 +40,20 @@ It answers `{ id, adminToken }`. Keep `adminToken` secret, on your server: it's 
 ```
 
 `/embed/<poll id>` is the poll page alone: no Venn top bar or footer, links to other pages open in a new tab, and (unless the template hides Venn) one small "Made with Venn" link at the end. For the organizer's view, give the organizer `/embed/<poll id>#admin=<adminToken>`; show it only to them.
+
+### Fit it into your page
+
+Add these to the end of the frame's address, after `#`, joined with `&`. They're read in the browser and never sent to a server.
+
+| Option         | What it does                                                                                                                  |
+| -------------- | ----------------------------------------------------------------------------------------------------------------------------- |
+| `name=Ada%20L` | Fills in the name of the person answering, when your website already knows it. They can still change it. URL-encode it.       |
+| `head=off`     | Leaves out the template's logo bar and the poll's heading (its emoji, name, host and details), for a page that shows its own. |
+| `share=off`    | Leaves out "Copy the link" under the poll, for a website that invites people itself.                                          |
+
+For example `/embed/<poll id>#name=Ada%20Lovelace&head=off&share=off`, or `#admin=<adminToken>&head=off` for the organizer.
+
+If your website has a dark mode, give the template one too (`darkBg`, `darkSurface`, `darkText`, `darkAccent` in the [API](API.md#brand-templates), or **Its own dark mode** on the Colours step), so the frame follows the device's setting as your page does.
 
 `embed.js` is optional. With it, each Venn frame on the page grows to fit its poll, and fires a `venn` event when something happens:
 
