@@ -63,6 +63,7 @@ async function drawBar(bar, me) {
          <summary aria-label="${esc(me.name ? `Account: ${me.name}` : 'Account')}"><span class="acct-avatar" aria-hidden="true">${esc(me.initial)}</span></summary>
          <div class="acct-panel">
            <a href="/me" data-link>My polls</a>
+           <a href="/me/settings" data-link>Account settings</a>
            <button type="button" data-signout>Sign out</button>
          </div>
        </details>`
@@ -94,12 +95,23 @@ async function drawBar(bar, me) {
 }
 
 function drawSiteMenu(panel, me) {
-  panel.querySelector('.acct-item')?.remove();
+  panel.querySelector('.acct-group')?.remove();
   if (!me && !configured) return;
-  const a = Object.assign(document.createElement('a'), {
-    href: '/me',
-    className: 'acct-item',
-    textContent: me ? 'My polls' : 'Sign in',
+  // The account first, set apart from the website's own links by a line: "Sign in", or who's
+  // signed in with My polls, Account settings and Sign out.
+  const group = document.createElement('div');
+  group.className = 'acct-group';
+  group.innerHTML = me
+    ? `${me.name ? `<p class="menu-who">${esc(me.name)}</p>` : ''}
+       <a href="/me">My polls</a>
+       <a href="/me/settings">Account settings</a>
+       <button type="button" class="menu-signout">Sign out</button>
+       <hr class="menu-sep" />`
+    : '<a href="/me">Sign in</a><hr class="menu-sep" />';
+  group.querySelector('.menu-signout')?.addEventListener('click', async () => {
+    panel.closest('details').open = false;
+    const { signOut } = await import('./account.js');
+    await signOut();
   });
-  panel.prepend(a);
+  panel.prepend(group);
 }

@@ -121,7 +121,7 @@ test('sign in, and the polls this browser organizes are in My polls, on any devi
   await context.close();
 });
 
-test('the website’s menu has Sign in, and My polls once signed in', async ({ browser }, info) => {
+test('the website’s menu has Sign in, and My polls, Account settings and Sign out once signed in', async ({ browser }, info) => {
   const context = await browser.newContext({ extraHTTPHeaders: { 'x-test-user': `site-${info.project.name}-${Date.now()}` } });
   const page = await context.newPage();
   await page.goto('/');
@@ -131,7 +131,15 @@ test('the website’s menu has Sign in, and My polls once signed in', async ({ b
   await expect(page.locator('.acct-who')).toBeVisible();
   await page.goto('/');
   await page.locator('details.menu summary').click();
-  await expect(page.locator('.menu-panel').getByRole('link', { name: 'My polls' })).toBeVisible();
+  const panel = page.locator('.menu-panel');
+  await expect(panel.getByRole('link', { name: 'My polls' })).toBeVisible();
+  await expect(panel.getByRole('link', { name: 'Account settings' })).toHaveAttribute('href', '/me/settings');
+  await expect(panel.getByRole('link', { name: 'Sign in' })).toHaveCount(0);
+  await panel.getByRole('button', { name: 'Sign out' }).click();
+  await expect(panel).toBeHidden();
+  await page.locator('details.menu summary').click();
+  await expect(panel.getByRole('link', { name: 'Sign in' })).toBeVisible();
+  await expect(panel.getByRole('link', { name: 'My polls' })).toHaveCount(0);
   await context.close();
 });
 

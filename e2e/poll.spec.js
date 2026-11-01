@@ -921,7 +921,7 @@ test('"Or add a time" adds an option on any day ahead, and the calendar goes the
 });
 
 test(
-  'landing page: the logo, Create a Venn and the menu (GitHub is in it), and one way in',
+  'landing page: the logo, Create a Venn and a short menu (Privacy and GitHub are in the footer), and one way in',
   { tag: '@site' },
   async ({ page }) => {
     await page.goto('/');
@@ -931,8 +931,10 @@ test(
     const nav = page.getByRole('navigation', { name: 'Main' });
     await expect(nav.getByRole('link', { name: 'GitHub' })).toBeHidden(); // not in the bar itself
     await page.locator('.menu summary').click();
-    await expect(page.locator('.menu-panel').getByRole('link', { name: 'Privacy' })).toBeVisible();
-    await expect(page.locator('.menu-panel').getByRole('link', { name: 'GitHub' })).toHaveAttribute(
+    await expect(page.locator('.menu-panel').getByRole('link', { name: 'For organizations' })).toBeVisible();
+    await expect(page.locator('.menu-panel').getByRole('link', { name: 'Privacy' })).toHaveCount(0);
+    await expect(page.locator('.menu-panel').getByRole('link', { name: 'GitHub' })).toHaveCount(0);
+    await expect(page.locator('footer').getByRole('link', { name: 'GitHub' })).toHaveAttribute(
       'href',
       'https://github.com/sephmard/venn',
     );
