@@ -39,7 +39,9 @@ npm run test:e2e     # browser tests on desktop and mobile (first run: npx playw
 npm run format       # auto-fix formatting
 ```
 
-If you change how the app looks, regenerate the README images and the home page's phone screens (`public/img/shots/`) with `npm run screenshots` (needs ffmpeg) and include them in your pull request.
+If you change anything people see, follow [BRAND.md](BRAND.md) (the brand guidelines and standing rules) and [DESIGN.md](DESIGN.md) (the design system).
+
+**Screenshots are required for UI changes.** Put a phone (390px) and a desktop (1200px) screenshot of each changed screen in the pull request description, in a Phone / Desktop table, in the retro look (the default) and the classic look if both changed. If you change how the app looks, also regenerate the README images and the home page's phone screens (`public/img/shots/`) with `npm run screenshots` (needs ffmpeg) and include them in your pull request.
 
 CI runs all of these on every pull request, plus a check that the Cloudflare Worker still builds.
 
@@ -70,7 +72,7 @@ CI runs all of these on every pull request, plus a check that the Cloudflare Wor
 - **Keep dependencies out.** The browser code has none and ships without a build step, and that's a feature. The server's only runtime dependency is the Anthropic SDK, for AI. Please discuss any new one in an issue first. Dev tools are fine.
 - **Add tests.** Logic changes need a unit test in `test/`. User-facing flows should have an e2e test in `e2e/`.
 - **Think about time zones.** Store instants as UTC milliseconds and convert only for display. Test across DST changes.
-- **Check it on a phone.** Every screen needs to work at 390px wide without sideways scrolling.
+- **Check it on a phone.** Design for the phone first; every screen needs to work at 390px wide without sideways scrolling.
 - **Escape user content.** Anything typed by a user goes through `esc()` before it's put into HTML.
 - **Keep pull requests focused.** One change per pull request is easier to review and revert.
 
