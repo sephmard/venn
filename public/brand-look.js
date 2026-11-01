@@ -126,7 +126,8 @@ function keyVars(b, card, dark) {
   let v = '';
   if (isHex(b.yes)) v += `--yes:${b.yes};--yes-ink:${inkOn(b.yes)};--yes-soft:${soft(b.yes)};--heat:${rgb(b.yes).join(', ')};`;
   if (isHex(b.maybe)) v += `--maybe:${b.maybe};--maybe-ink:${inkOn(b.maybe)};--maybe-soft:${soft(b.maybe)};`;
-  if (isHex(b.no)) v += `--no-cell:${b.no};--no-soft:${soft(b.no)};--no-bg:${b.no};--no-ink:${inkOn(b.no)};`;
+  if (isHex(b.no))
+    v += `--no-cell:${b.no};--no-cell-ink:${inkOn(b.no)};--no-soft:${soft(b.no)};--no-bg:${b.no};--no-ink:${inkOn(b.no)};`;
   return v;
 }
 
@@ -151,7 +152,7 @@ export function brandCss(brand, scope = ':root') {
   const inside = scope === ':root' ? '' : `${scope} `;
   const buttons =
     brand.buttons === 'corners'
-      ? `${[`.btn`, `.pill`, `.seg`, `.seg button`, `.tabs`, `.tabs [role=tab]`, `.pv-pill`, `.pv-btn`].map((x) => inside + x).join(',')}{border-radius:${corners[1]}px}`
+      ? `${[`.btn`, `.pill`, `.seg`, `.seg button`, `.tabs`, `.tabs [role=tab]`].map((x) => inside + x).join(',')}{border-radius:${corners[1]}px}`
       : '';
   if (isHex(brand.bg)) {
     const own = scheme(brand);
@@ -166,13 +167,6 @@ export function brandCss(brand, scope = ':root') {
     `${scope}{${base}${p ? vars(p.light) : ''}${keyVars(brand, BACKS.light[1], false)}}` +
     (dark ? `@media (prefers-color-scheme: dark){${scope}{${dark}}}html.retro ${scope}{${dark}}` : '')
   );
-}
-
-/** Show a brand's look on one element only (the preview on /brand), leaving the page's own. */
-export function brandPreview(brand, scope) {
-  let el = document.getElementById('brand-preview-look');
-  if (!el) document.head.append((el = Object.assign(document.createElement('style'), { id: 'brand-preview-look' })));
-  el.textContent = brandCss(brand, scope);
 }
 
 /** Show the brand's look on this page, or (with null) take it off. */

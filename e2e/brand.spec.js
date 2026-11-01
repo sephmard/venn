@@ -30,20 +30,23 @@ test('brand template: make one, share it, and its polls show the organization’
   await page.goto('/');
   await page.getByRole('link', { name: 'Make your template' }).click();
   await expect(page.locator('h1')).toHaveText('Make a brand template');
-  // The page shows the look as it's chosen: the colour (made readable), the font, the logo and name.
-  const venn = await accent(page, '#brand-preview');
+  // The preview is the real poll page, with a sample poll, in the template's look as it's made.
+  const pv = page.frameLocator('#pv-frame');
+  await expect(pv.locator('.brand-bar')).toBeVisible();
+  const look = (prop) => pv.locator('html').evaluate((el, p) => getComputedStyle(el).getPropertyValue(p).trim(), prop);
+  const venn = await look('--accent');
   await page.fill('#b-name', 'Acme Inc.');
   await page.locator('#b-accent').evaluate((el) => {
     el.value = '#6d28d9';
     el.dispatchEvent(new Event('input'));
   });
-  // The preview shows it; the page keeps Venn's own look (retro, by default).
-  expect(await accent(page, '#brand-preview')).not.toBe(venn);
+  await expect.poll(() => look('--accent')).not.toBe(venn);
+  await expect(pv.locator('.brand-bar')).toHaveText('Acme Inc.');
+  // The page itself keeps Venn's own look (retro, by default).
   await expect(page.locator('html')).toHaveClass(/retro/);
   await expect(page.locator('html')).not.toHaveClass(/branded/);
-  // A page of its own, its fonts and corners: the preview takes them on.
+  // A page of its own, its answers, fonts, corners and buttons: the preview takes them on.
   await page.locator('[data-page="own"]').click();
-  // Its own answer colours, and buttons with its corners.
   await page.locator('[data-answers="own"]').click();
   for (const [id, value] of [
     ['#b-bg', '#fff4e6'],
@@ -58,23 +61,35 @@ test('brand template: make one, share it, and its polls show the organization’
   await page.locator('[data-body-font="humanist"]').click();
   await page.getByRole('radio', { name: 'Square' }).click();
   await page.getByRole('radio', { name: 'Match the corners' }).click();
-  const look = (prop) =>
-    page.locator('#brand-preview').evaluate((el, p) => getComputedStyle(el).getPropertyValue(p).trim(), prop);
-  expect(await look('--bg')).toBe('#fff4e6');
+  await expect.poll(() => look('--bg')).toBe('#fff4e6');
   expect(await look('--radius')).toBe('4px');
   expect(await look('--serif')).toMatch(/Rockwell/);
   expect(await look('--yes')).toBe('#1d4ed8');
+  await expect(pv.locator('.btn').first()).toHaveCSS('border-radius', '4px');
   // The logo: uploaded, then its size; the size and name switch only show once there's one.
   await expect(page.getByRole('button', { name: 'Upload logo' })).toBeVisible();
   await expect(page.getByRole('radio', { name: 'Large' })).toBeHidden();
   await page.setInputFiles('#logo-file', { name: 'logo.png', mimeType: 'image/png', buffer: LOGO });
-  await expect(page.locator('.brand-bar img')).toBeVisible();
-  await expect(page.locator('.brand-bar')).toHaveText('Acme Inc.');
+  await expect(pv.locator('.brand-bar img')).toBeVisible();
   await expect(page.getByRole('button', { name: 'Change logo' })).toBeVisible();
   await page.getByRole('radio', { name: 'Large' }).click();
-  await expect(page.locator('#brand-preview .brand-bar img')).toHaveCSS('height', '96px');
+  await expect(pv.locator('.brand-bar img')).toHaveCSS('height', '96px');
   await page.fill('#b-title', 'Team lunch');
   await page.fill('#b-where', 'The office');
+  await expect(pv.locator('h1')).toContainText('Team lunch');
+  await expect(pv.locator('#ev-details')).toContainText('The office');
+  // It can be used: an answer in the preview stays in the preview, and nothing reaches the server.
+  const sent = [];
+  page.on('request', (r) => r.url().includes('/api/events') && sent.push(r.url()));
+  await pv.locator('.vote .v-yes').first().click();
+  await expect(pv.locator('.vote .v-yes').first()).toHaveAttribute('aria-checked', 'true');
+  // And as the organizer: their tools, in the same look.
+  await page.getByRole('radio', { name: 'Organizer' }).click();
+  await expect(pv.getByRole('button', { name: 'Copy link' })).toBeVisible();
+  expect(await look('--bg')).toBe('#fff4e6');
+  await page.getByRole('radio', { name: 'Guest' }).click();
+  await expect(pv.getByRole('button', { name: 'Copy link' })).toHaveCount(0);
+  expect(sent).toEqual([]);
   await noSideways(page);
   await audit(page, 'making a brand template');
   await page.click('#submit');

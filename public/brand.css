@@ -126,72 +126,67 @@
   border-radius: 999px;
 }
 
-/* The preview: a poll in the brand's look (its colours, fonts and corners come from brand-look.js),
-   drawn with its own classes so the page's look (retro) doesn't reach into it. */
-.brand-preview {
-  margin-bottom: 16px;
-  padding: 20px;
-  border: 1.5px solid var(--border);
-  border-radius: var(--radius-lg);
+/* The live preview (brand-demo.js in a frame): a phone-sized poll beside the form on wide screens,
+   pinned over the form on phones, so every change shows while it's made. */
+.preview-box {
+  position: sticky;
+  top: 0;
+  z-index: 5;
+  margin: 0 -16px 16px;
+  padding: 8px 16px 0;
   background: var(--bg);
-  color: var(--text);
-  font-family: var(--display);
 }
-.pv-title {
-  font-family: var(--serif);
-  font-size: 1.9rem;
-  line-height: 1.15;
-  margin: 0 0 14px;
-  color: var(--text);
-}
-.pv-card {
-  padding: 14px;
-  margin-bottom: 14px;
-  border: 1.5px solid var(--border);
-  border-radius: var(--radius);
-  background: var(--surface);
-}
-.pv-card p {
+.pv-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
   margin: 0 0 8px;
 }
-.pv-day {
-  font-weight: 700;
-}
-.pv-muted {
-  color: var(--muted);
-}
-.pv-row {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
+.pv-top .label {
   margin: 0;
 }
-.pv-pill,
-.pv-btn {
-  display: inline-block;
-  padding: 8px 14px;
-  border-radius: 999px;
-  border: 1.5px solid var(--border);
-  background: var(--surface);
-  color: var(--text);
-  font-weight: 600;
+.pv-top .link-btn {
+  min-height: 44px;
 }
-.pv-yes {
-  background: var(--yes);
-  border-color: var(--yes);
-  color: var(--yes-ink);
+/* On a phone the frame is the screen's full width, so the poll inside lays out as it does on the phone. */
+#pv-frame {
+  display: block;
+  width: calc(100% + 32px);
+  height: 46svh;
+  margin: 0 -16px;
+  border: 0;
+  border-block: 1.5px solid var(--border);
+  background: #ffffff;
 }
-.pv-maybe {
-  background: var(--maybe-soft);
-  border-color: var(--maybe);
-}
-.pv-no {
-  background: var(--no-soft);
-  border-color: var(--no-cell);
-}
-.pv-btn {
-  background: var(--accent);
-  border-color: var(--accent);
-  color: var(--accent-ink);
-  padding: 10px 18px;
+@media (min-width: 960px) {
+  .brand-page {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 400px;
+    column-gap: 28px;
+    max-width: none;
+  }
+  .brand-page > * {
+    grid-column: 1;
+  }
+  .brand-page > .preview-box {
+    grid-column: 2;
+    grid-row: 1 / span 20;
+    align-self: start;
+    top: 12px;
+    margin: 0;
+    padding: 0;
+    border: 0;
+    background: none;
+  }
+  .brand-page #pv-frame {
+    width: 100%;
+    height: calc(100svh - 90px);
+    margin: 0;
+    border: 1.5px solid var(--border);
+    border-radius: var(--radius-lg);
+  }
+  .brand-page #pv-toggle {
+    display: none;
+  }
 }

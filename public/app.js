@@ -20,6 +20,7 @@ async function route() {
   let off;
   if (poll) off = await (await import('./event.js')).renderEvent(poll[1], navigate);
   // An organization's brand template (brand.js): made, managed or seen from its link.
+  else if (path === '/brand/preview') off = await (await import('./brand-demo.js')).renderDemo();
   else if (brand) off = await (await import('./brand.js')).renderBrand(brand[1] || null);
   else {
     // Every new poll is a Venn (create-free.js). /new/pick is the older "vote on a few dates" page,

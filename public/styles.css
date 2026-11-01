@@ -881,7 +881,7 @@ div.poll-share {
 .final-answer [data-final-vote='0'][aria-pressed='true'] {
   background: var(--no-cell);
   border-color: var(--no-cell);
-  color: var(--text);
+  color: var(--no-cell-ink, var(--text));
 }
 /* Once the date is picked: Yes, If needed or No for it. */
 .final-answer {

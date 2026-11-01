@@ -302,11 +302,11 @@ test('Worker: poll pages carry the same link preview, without the static ETag', 
   const classic = await fetchPath('/classic', { headers: { 'if-none-match': '"home"' } });
   assert.equal(classic.status, 200);
   assert.equal(classic.headers.get('etag'), null);
-  assert.equal(classic.headers.get('x-frame-options'), 'DENY');
+  assert.equal(classic.headers.get('x-frame-options'), 'SAMEORIGIN');
   assert.equal(assetRequests.at(-1).headers.get('if-none-match'), null);
   const missing = await fetchPath('/nope');
   assert.equal(missing.status, 404);
-  assert.equal(missing.headers.get('x-frame-options'), 'DENY');
+  assert.equal(missing.headers.get('x-frame-options'), 'SAMEORIGIN');
 });
 
 test('Worker: the hourly run sends what deadlines have due, and nothing when none are', async () => {

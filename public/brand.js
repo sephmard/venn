@@ -3,7 +3,7 @@
 // private manage link (/brand/<id>#admin=<token>), kept in this browser too, like a poll's organizer
 // link. See src/brands.js. Loaded only on these pages.
 
-import { BUTTONS, CORNERS, FONTS, LOGO_SIZES, brandBar, brandLook, brandPreview } from './brand-look.js';
+import { BUTTONS, CORNERS, FONTS, LOGO_SIZES, brandLook } from './brand-look.js';
 import { $, $$, api, app, esc, forget, save, saved, toast } from './ui.js';
 
 // The create pages' styles (forms, the sticky bar), and this page's own.
@@ -112,10 +112,10 @@ function showPublic(b) {
   app.innerHTML = `
     <div class="create brand-page">
       <h1>${esc(b.name)}’s template</h1>
-      ${preview(b)}
-      <a class="btn btn-primary btn-lg" href="/new?brand=${esc(b.id)}" data-link>Make a poll with it</a>
+      <p><a class="btn btn-primary btn-lg" href="/new?brand=${esc(b.id)}" data-link>Make a poll with it</a></p>
+      ${previewBox(false)}
     </div>`;
-  brandPreview(b, '#brand-preview');
+  livePreview(() => ({ brand: b, view: 'guest' }))();
 }
 
 /** Making a template, or (with `b`) changing one. */
@@ -130,7 +130,7 @@ function showForm(b, token) {
       <h1>${b ? 'Your brand template' : 'Make a brand template'}</h1>
       <p class="lede create-lede">Polls your team makes from it show your logo, colours and fonts to everyone.</p>
       ${b ? links(b.id, token) : ''}
-      <div id="preview-box"></div>
+      ${previewBox(true)}
       <section class="sheet" aria-labelledby="org-h">
         <h2 id="org-h">Your organization</h2>
         <label for="b-name">Name <span class="req" aria-hidden="true">Required</span></label>
@@ -274,11 +274,13 @@ function showForm(b, token) {
     where: $('#b-where').value.trim(),
     note: $('#b-note').value.trim(),
   });
-  // The preview shows the look as it's chosen; the page keeps Venn's own.
+  // The preview shows the template as it's made; the page keeps Venn's own look.
+  const send = livePreview(() => ({
+    brand: { ...fields(), name: $('#b-name').value.trim() || 'Your organization', logo },
+    view: picked('view') || 'guest',
+  }));
   const show = () => {
-    const f = fields();
-    $('#preview-box').innerHTML = preview({ ...f, logo });
-    brandPreview(f, '#brand-preview');
+    send();
     $('#logo-box').innerHTML = logo ? `<img src="${esc(logo)}" alt="">` : '<span>No logo yet</span>';
     $('#logo-pick').textContent = logo ? 'Change logo' : 'Upload logo';
     $('#logo-remove').hidden = $('#logo-more').hidden = !logo;
@@ -393,18 +395,43 @@ const fontPicker = (key, label, value = '') => `
     </div>
   </div>`;
 
-/** What a poll from it looks like, in its look: the bar, its name, a card with answers and Create. */
-const preview = (b) => `
-  <section class="brand-preview" id="brand-preview" aria-label="How your polls look">
-    ${b.name || b.logo ? brandBar(b, esc) : ''}
-    <p class="pv-title">${esc(b.title || 'Team lunch')}</p>
-    <div class="pv-card" aria-hidden="true">
-      <p class="pv-day">Friday, Nov 13</p>
-      <p class="pv-muted">3 can make it</p>
-      <p class="pv-row"><span class="pv-pill pv-yes">Yes</span><span class="pv-pill pv-maybe">If needed</span><span class="pv-pill pv-no">No</span></p>
-    </div>
-    <p class="pv-row" aria-hidden="true"><span class="pv-btn">Send my answer</span></p>
-  </section>`;
+/**
+ * The live preview: the real poll page in a frame (brand-demo.js), with a sample poll in the
+ * template's look, as a guest or (with `views`) the organizer sees it. Returns the HTML, and `send`
+ * gives the frame the template as it is now.
+ */
+const previewBox = (views) => `
+  <div id="preview-box" class="preview-box">
+    <p class="pv-top">
+      ${
+        views
+          ? `<span class="seg" role="radiogroup" aria-label="Preview as"><button type="button" role="radio" data-view="guest" aria-checked="true">Guest</button><button type="button" role="radio" data-view="organizer" aria-checked="false">Organizer</button></span>`
+          : '<span class="label">Preview</span>'
+      }
+      <button type="button" class="link-btn" id="pv-toggle" aria-expanded="true" aria-controls="pv-frame">Hide</button>
+    </p>
+    <iframe id="pv-frame" src="/brand/preview" title="Preview of a poll from this template"></iframe>
+  </div>`;
+
+function livePreview(get) {
+  const frame = $('#pv-frame');
+  let timer;
+  const send = () => {
+    clearTimeout(timer);
+    timer = setTimeout(() => frame.contentWindow?.postMessage(get(), location.origin), 120);
+  };
+  // The frame says when it's ready (and again if it reloads).
+  const ready = (e) => e.source === frame.contentWindow && e.data?.previewReady && send();
+  addEventListener('message', ready);
+  // On a phone the preview stays pinned over the form; it can be folded away.
+  $('#pv-toggle').onclick = () => {
+    const open = frame.hidden;
+    frame.hidden = !open;
+    $('#pv-toggle').setAttribute('aria-expanded', String(open));
+    $('#pv-toggle').textContent = open ? 'Hide' : 'Show';
+  };
+  return send;
+}
 
 /** The template's two links: one for the team, one to keep. */
 const links = (id, token) => `

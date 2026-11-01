@@ -99,7 +99,12 @@ export async function copy(text, done = 'Link copied') {
 // ---------- API ----------
 
 /** Errors carry the HTTP `status`, or 0 when Venn can't be reached. */
+// brand-demo.js answers requests itself.
+let standIn = null;
+export const useStandIn = (fn) => (standIn = fn);
+
 export async function api(path, { method = 'GET', body, headers = {} } = {}) {
+  if (standIn) return standIn(path, { method, body, headers });
   const fail = (status, message, cause) => Object.assign(new Error(message, { cause }), { status });
   let res;
   try {
@@ -128,7 +133,7 @@ let configPromise;
 export const getConfig = () => (configPromise ??= api('config').catch(() => ({})));
 
 // Usage stats (track.js), loaded when first used.
-export const track = (...a) => import('./track.js').then((m) => m.track(...a)).catch(() => {});
+export const track = (...a) => !standIn && import('./track.js').then((m) => m.track(...a)).catch(() => {});
 
 // ---------- dates and times ----------
 
