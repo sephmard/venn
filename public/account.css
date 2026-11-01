@@ -114,6 +114,15 @@
   background: var(--surface-2);
   animation: acct-pulse 0.9s ease-in-out infinite alternate;
 }
+/* Before the server says how to sign in (the first visit only): the switch and the buttons' places. */
+.acct-skeleton-signin {
+  gap: 20px;
+  margin-top: 0;
+}
+.acct-skeleton-signin span {
+  height: 52px;
+  border-radius: 999px;
+}
 /* Created · Answered · Templates: the poll page's tabs, with a count. */
 .acct-tabs {
   display: flex;

@@ -297,35 +297,21 @@ h2 em {
 .menu-panel a:hover {
   background: var(--paper-2);
 }
-/* Sign in, beside Create a Venn when signed out (account-menu.js): plain text, so Create stays the
-   main button. */
+/* Sign in when signed out (account-menu.js): plain text in the bar, so Create stays the main
+   button; on phones, where the bar is full, the first thing in the menu instead. */
 .nav-links > .site-signin {
   padding: 0 8px;
   white-space: nowrap;
 }
-.site-signin svg {
+.acct-group-out {
   display: none;
 }
 @media (max-width: 479px) {
-  .nav-links:has(.site-signin) {
-    gap: 2px;
+  .nav-links > a.site-signin {
+    display: none;
   }
-  /* 44px to tap, but only 36px of the bar: it reaches under the gaps on either side. */
-  .nav-links > .site-signin {
-    justify-content: center;
-    width: 44px;
-    margin: 0 -4px;
-    padding: 0;
-  }
-  .site-signin svg {
+  .acct-group-out {
     display: block;
-  }
-  .site-signin span {
-    position: absolute;
-    width: 1px;
-    height: 1px;
-    overflow: hidden;
-    clip-path: inset(50%);
   }
 }
 /* A line between the menu's groups: the account, the website's links, then Classic mode. */
@@ -1889,19 +1875,13 @@ html.retro :focus-visible {
     animation: none;
   }
 }
-/* Phones: the wide capitals in the bar a touch tighter, so it fits with Sign in beside it. */
-@media (max-width: 430px) {
-  .brand {
-    gap: 6px;
-  }
-  .nav {
-    gap: 4px;
-  }
+/* The smallest phones: the wide capitals in the bar a touch tighter, so it fits. */
+@media (max-width: 380px) {
   html.retro .brand {
     letter-spacing: 0.03em;
   }
   html.retro .nav-links .btn {
-    padding: 0 10px;
+    padding: 0 12px;
     font-size: 0.75rem;
     letter-spacing: 0.02em;
   }
