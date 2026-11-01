@@ -1392,15 +1392,9 @@ h3 {
 }
 
 /* ---------- retro mode (the menu's switch; retro-mode.js sets html.retro) ---------- */
-/* The logo: the usual one, or the neon one in retro mode. */
-.logo-retro {
+/* The logo: always the neon one, in either look. */
+.logo-classic {
   display: none;
-}
-html.retro .logo-classic {
-  display: none;
-}
-html.retro .logo-retro {
-  display: block;
 }
 /* The switch, last in the menu: a little track that lights up. */
 .classic-switch {

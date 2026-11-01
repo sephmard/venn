@@ -103,13 +103,32 @@ export function scheme({ bg, surface, text, accent }) {
       KEY[dark ? 'dark' : 'light'] +
       `color-scheme:${dark ? 'dark' : 'light'};`,
     dark,
+    card,
   };
 }
 
 // The organization's bar (brandBar), styled here so pages without a brand never download it.
 const BAR =
   '.brand-bar{display:flex;align-items:center;gap:10px;margin:0 0 16px;font-weight:700;font-size:1.05rem}' +
-  '.brand-bar img{height:40px;width:auto;max-width:160px;object-fit:contain}';
+  '.brand-bar img{height:var(--logo-h,40px);width:auto;max-width:calc(var(--logo-h,40px)*4);object-fit:contain}';
+
+/** How big the logo shows over its polls: its height in pixels. */
+export const LOGO_SIZES = { small: ['Small', 40], medium: ['Medium', 64], large: ['Large', 96] };
+/** Buttons: Venn's pills, or the template's own corners. */
+export const BUTTONS = { pill: 'Pills', corners: 'Match the corners' };
+
+/**
+ * The key's colours, when the template has its own (available, if needed, unavailable): each with
+ * ink that reads on it, and a soft tint on the cards (`card`, in a light or dark look).
+ */
+function keyVars(b, card, dark) {
+  const soft = (c) => mix(card, c, dark ? 0.26 : 0.18);
+  let v = '';
+  if (isHex(b.yes)) v += `--yes:${b.yes};--yes-ink:${inkOn(b.yes)};--yes-soft:${soft(b.yes)};--heat:${rgb(b.yes).join(', ')};`;
+  if (isHex(b.maybe)) v += `--maybe:${b.maybe};--maybe-ink:${inkOn(b.maybe)};--maybe-soft:${soft(b.maybe)};`;
+  if (isHex(b.no)) v += `--no-cell:${b.no};--no-soft:${soft(b.no)};--no-bg:${b.no};--no-ink:${inkOn(b.no)};`;
+  return v;
+}
 
 const fontVar = (k) => Object.hasOwn(FONTS, k ?? '') && FONTS[k][1];
 
@@ -121,18 +140,31 @@ const fontVar = (k) => Object.hasOwn(FONTS, k ?? '') && FONTS[k][1];
 export function brandCss(brand, scope = ':root') {
   const head = fontVar(brand.font);
   const body = fontVar(brand.bodyFont);
-  const corners = Object.hasOwn(CORNERS, brand.corners ?? '') && CORNERS[brand.corners];
+  const corners = Object.hasOwn(CORNERS, brand.corners ?? '') ? CORNERS[brand.corners] : CORNERS.soft;
+  const logo = Object.hasOwn(LOGO_SIZES, brand.logoSize ?? '') && LOGO_SIZES[brand.logoSize][1];
   const base =
     (head ? `--serif:${head};` : '') +
     (body ? `--display:${body};` : '') +
-    (corners ? `--radius:${corners[1]}px;--radius-lg:${corners[2]}px;` : '');
-  if (isHex(brand.bg)) return `${BAR}${scope}{${base}${scheme(brand).vars}}`;
+    (brand.corners ? `--radius:${corners[1]}px;--radius-lg:${corners[2]}px;` : '') +
+    (logo ? `--logo-h:${logo}px;` : '');
+  // Buttons, pills and switches with the template's corners instead of Venn's round ends.
+  const inside = scope === ':root' ? '' : `${scope} `;
+  const buttons =
+    brand.buttons === 'corners'
+      ? `${[`.btn`, `.pill`, `.seg`, `.seg button`, `.tabs`, `.tabs [role=tab]`, `.pv-pill`, `.pv-btn`].map((x) => inside + x).join(',')}{border-radius:${corners[1]}px}`
+      : '';
+  if (isHex(brand.bg)) {
+    const own = scheme(brand);
+    return `${BAR}${buttons}${scope}{${base}${own.vars}${keyVars(brand, own.card, own.dark)}}`;
+  }
   const p = isHex(brand.accent) ? palette(brand.accent) : null;
-  const vars = (m) => `--accent:${m.accent};--accent-ink:${m.ink};--accent-soft:${m.soft};`;
+  const vars = (m) => (p ? `--accent:${m.accent};--accent-ink:${m.ink};--accent-soft:${m.soft};` : '');
+  const dark = (p ? vars(p.dark) : '') + keyVars(brand, BACKS.dark[1], true);
   return (
     BAR +
-    `${scope}{${base}${p ? vars(p.light) : ''}}` +
-    (p ? `@media (prefers-color-scheme: dark){${scope}{${vars(p.dark)}}}html.retro ${scope}{${vars(p.dark)}}` : '')
+    buttons +
+    `${scope}{${base}${p ? vars(p.light) : ''}${keyVars(brand, BACKS.light[1], false)}}` +
+    (dark ? `@media (prefers-color-scheme: dark){${scope}{${dark}}}html.retro ${scope}{${dark}}` : '')
   );
 }
 
@@ -153,8 +185,11 @@ export function brandLook(brand) {
 }
 
 /** The organization's bar: its logo and name, at the top of the create page and its polls. */
-export const brandBar = (brand, esc) =>
-  `<p class="brand-bar">${brand.logo ? `<img src="${esc(brand.logo)}" alt="">` : ''}<span>${esc(brand.name)}</span></p>`;
+export const brandBar = (brand, esc) => {
+  // With its name in the logo, the template can leave the name out; the logo then says it.
+  const named = !(brand.hideName && brand.logo);
+  return `<p class="brand-bar">${brand.logo ? `<img src="${esc(brand.logo)}" alt="${named ? '' : esc(brand.name)}">` : ''}${named ? `<span>${esc(brand.name)}</span>` : ''}</p>`;
+};
 
 /** On the create page: the bar, no retro switch (the poll gets the brand's look), and (`fill`, a new poll) what it starts with. */
 export function brandForm(b, fill, $, esc) {

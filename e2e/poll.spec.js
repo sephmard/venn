@@ -925,7 +925,7 @@ test(
   { tag: '@site' },
   async ({ page }) => {
     await page.goto('/');
-    // The neon logo, the site's own look; the usual one waits for Classic mode.
+    // The neon logo, always.
     await expect(page.locator('.brand img.logo-retro')).toBeVisible();
     await expect(page.locator('.brand img.logo-classic')).toBeHidden();
     const nav = page.getByRole('navigation', { name: 'Main' });

@@ -1,7 +1,7 @@
 import { test, before, after } from 'node:test';
 import assert from 'node:assert/strict';
 import { createApp } from '../server.js';
-import { FONTS, brandCss, contrast, palette, scheme } from '../public/brand-look.js';
+import { FONTS, brandBar, brandCss, contrast, palette, scheme } from '../public/brand-look.js';
 import { normalizeBrand, publicBrand } from '../src/brands.js';
 import { isAppRoute } from '../src/routes.js';
 
@@ -86,6 +86,37 @@ test('brandCss: only computed colours and known fonts reach the page', () => {
   assert.doesNotMatch(plain, /--accent|--display|display:none/);
 });
 
+test('brandCss: the template’s own answers, buttons and logo size', () => {
+  const css = brandCss({
+    yes: '#1d4ed8',
+    maybe: '#fde047',
+    no: '#111111',
+    buttons: 'corners',
+    corners: 'square',
+    logoSize: 'large',
+  });
+  assert.match(css, /--yes:#1d4ed8;--yes-ink:#ffffff;/);
+  assert.match(css, /--maybe:#fde047;--maybe-ink:#111111;/);
+  assert.match(css, /--no-cell:#111111;.*--no-ink:#ffffff;/);
+  assert.match(css, /--heat:29, 78, 216;/);
+  assert.match(css, /\.btn,.*\.pill.*\{border-radius:4px\}/);
+  assert.match(css, /--logo-h:96px;/);
+  // Scoped to the preview, the buttons rule stays inside it.
+  assert.match(brandCss({ buttons: 'corners' }, '#brand-preview'), /#brand-preview \.btn,#brand-preview \.pill/);
+  // Venn's pills and key by default.
+  assert.doesNotMatch(brandCss({ accent: '#6d28d9' }), /--yes:|border-radius|--logo-h:/);
+});
+
+test('brandBar: the name can go, when the logo says it', () => {
+  const esc = (s) => String(s).replace(/[<>&"]/g, '');
+  assert.equal(
+    brandBar({ name: 'Acme', logo: '/l.png', hideName: true }, esc),
+    '<p class="brand-bar"><img src="/l.png" alt="Acme"></p>',
+  );
+  assert.match(brandBar({ name: 'Acme', hideName: true }, esc), /<span>Acme<\/span>/); // no logo, so the name stays
+  assert.match(brandBar({ name: 'Acme', logo: '/l.png' }, esc), /alt=""><span>Acme/);
+});
+
 test('normalizeBrand: keeps only what is set, and refuses what isn’t right', () => {
   assert.deepEqual(
     normalizeBrand({ name: 'A', bg: '#000000', surface: '#111111', text: '#EEEEEE', bodyFont: 'slab', corners: 'round' }),
@@ -94,6 +125,23 @@ test('normalizeBrand: keeps only what is set, and refuses what isn’t right', (
   // Cards and text go with a background of its own.
   assert.deepEqual(normalizeBrand({ name: 'A', surface: '#111111', text: '#eeeeee' }), { name: 'A' });
   assert.throws(() => normalizeBrand({ name: 'A', corners: 'wavy' }), /Unknown corners/);
+  assert.deepEqual(
+    normalizeBrand({
+      name: 'A',
+      yes: '#1D4ED8',
+      maybe: '#fde047',
+      no: '#111111',
+      buttons: 'corners',
+      logoSize: 'large',
+      hideName: true,
+    }),
+    { name: 'A', yes: '#1d4ed8', maybe: '#fde047', no: '#111111', buttons: 'corners', logoSize: 'large', hideName: true },
+  );
+  assert.deepEqual(normalizeBrand({ name: 'A', hideName: false, buttons: '', logoSize: '' }), { name: 'A' });
+  assert.throws(() => normalizeBrand({ name: 'A', yes: 'green' }), /Colours must look like/);
+  assert.throws(() => normalizeBrand({ name: 'A', buttons: 'blob' }), /Unknown buttons/);
+  assert.throws(() => normalizeBrand({ name: 'A', logoSize: 'huge' }), /Unknown logoSize/);
+  assert.throws(() => normalizeBrand({ name: 'A', hideName: 'yes' }), /true or false/);
   assert.throws(() => normalizeBrand({ name: 'A', bodyFont: 'comic' }), /Unknown font/);
   assert.deepEqual(normalizeBrand({ name: '  Acme  ', accent: '#AABBCC', font: 'mono', title: '', where: 'HQ', extra: 1 }), {
     name: 'Acme',

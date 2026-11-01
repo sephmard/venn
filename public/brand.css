@@ -8,13 +8,38 @@
   font-weight: 650;
   margin: 0 0 6px;
 }
-.logo-tile img {
-  object-fit: contain;
-  padding: 4px;
+/* The logo: big enough to check, with its buttons beside it. */
+.logo-row {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  flex-wrap: wrap;
 }
-.logo-tile span {
-  font-size: 1.6rem;
-  color: var(--accent);
+.logo-box {
+  display: grid;
+  place-items: center;
+  width: 160px;
+  height: 80px;
+  border: 1.5px dashed var(--border);
+  border-radius: var(--radius);
+  /* Light, like most pages a logo is made for, even when this page is dark (retro). */
+  background: #ffffff;
+  color: #55585c;
+  font-size: 0.9rem;
+}
+.logo-box img {
+  max-width: 100%;
+  max-height: 100%;
+  padding: 6px;
+  object-fit: contain;
+}
+.logo-actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+#logo-more .switch {
+  margin-top: 12px;
 }
 .color-row {
   display: flex;
@@ -92,6 +117,14 @@
   height: 18px;
   border: 2px solid currentColor;
 }
+.button-swatch {
+  width: 26px;
+  height: 14px;
+  border-radius: 3px;
+}
+.button-swatch.is-pill {
+  border-radius: 999px;
+}
 
 /* The preview: a poll in the brand's look (its colours, fonts and corners come from brand-look.js),
    drawn with its own classes so the page's look (retro) doesn't reach into it. */
@@ -151,6 +184,10 @@
 .pv-maybe {
   background: var(--maybe-soft);
   border-color: var(--maybe);
+}
+.pv-no {
+  background: var(--no-soft);
+  border-color: var(--no-cell);
 }
 .pv-btn {
   background: var(--accent);

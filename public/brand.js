@@ -3,7 +3,7 @@
 // private manage link (/brand/<id>#admin=<token>), kept in this browser too, like a poll's organizer
 // link. See src/brands.js. Loaded only on these pages.
 
-import { CORNERS, FONTS, brandBar, brandLook, brandPreview } from './brand-look.js';
+import { BUTTONS, CORNERS, FONTS, LOGO_SIZES, brandBar, brandLook, brandPreview } from './brand-look.js';
 import { $, $$, api, app, esc, forget, save, saved, toast } from './ui.js';
 
 // The create pages' styles (forms, the sticky bar), and this page's own.
@@ -16,6 +16,8 @@ await Promise.all([sheet('/create.css'), sheet('/brand.css')]);
 const DEFAULT_ACCENT = '#0b7a5c';
 // A page of its own starts white, with light grey cards and near-black text.
 const OWN = { bg: '#ffffff', surface: '#f4f4f5', text: '#16181a' };
+// Answers of its own start as Venn's: available, if needed, unavailable.
+const KEY = { yes: '#0b7a5c', maybe: '#e0a12e', no: '#f0b2a6' };
 // The logo: made small here, to fit a 320 × 160 box (the server takes at most 100 KB).
 const LOGO_BOX = [320, 160];
 const LOGO_MAX = 100_000;
@@ -51,10 +53,13 @@ export async function shrinkLogo(file) {
     const img = await new Promise((ok, bad) =>
       Object.assign(new Image(), { onload: (e) => ok(e.target), onerror: bad, src: url }),
     );
-    const scale = Math.min(1, LOGO_BOX[0] / img.naturalWidth, LOGO_BOX[1] / img.naturalHeight);
+    // An SVG without a size of its own fills the box.
+    const [w, h] = img.naturalWidth && img.naturalHeight ? [img.naturalWidth, img.naturalHeight] : LOGO_BOX;
+    // Small logos are drawn bigger (up to the box), so they stay sharp at the large size.
+    const scale = Math.min(LOGO_BOX[0] / w, LOGO_BOX[1] / h);
     const c = Object.assign(document.createElement('canvas'), {
-      width: Math.max(1, Math.round(img.naturalWidth * scale)),
-      height: Math.max(1, Math.round(img.naturalHeight * scale)),
+      width: Math.max(1, Math.round(w * scale)),
+      height: Math.max(1, Math.round(h * scale)),
     });
     const g = c.getContext('2d');
     g.drawImage(img, 0, 0, c.width, c.height);
@@ -128,15 +133,31 @@ function showForm(b, token) {
       <div id="preview-box"></div>
       <section class="sheet" aria-labelledby="org-h">
         <h2 id="org-h">Your organization</h2>
-        <div class="title-row">
-          <button type="button" class="emoji-tile logo-tile" id="logo-tile" aria-label="Add a logo"></button>
-          <div class="grow">
-            <label for="b-name">Name <span class="req" aria-hidden="true">Required</span></label>
-            <input id="b-name" type="text" maxlength="60" value="${v('name')}" placeholder="Acme Inc." aria-required="true" autocomplete="organization">
+        <label for="b-name">Name <span class="req" aria-hidden="true">Required</span></label>
+        <input id="b-name" type="text" maxlength="60" value="${v('name')}" placeholder="Acme Inc." aria-required="true" autocomplete="organization">
+        <div>
+          <span class="label" id="logo-l">Logo</span>
+          <div class="logo-row">
+            <div class="logo-box" id="logo-box" aria-hidden="true"></div>
+            <div class="logo-actions">
+              <button type="button" class="btn" id="logo-pick" aria-describedby="logo-l"></button>
+              <button type="button" class="link-btn" id="logo-remove">Remove</button>
+            </div>
           </div>
+          <input type="file" id="logo-file" accept="image/png,image/jpeg,image/webp,image/gif,image/svg+xml" hidden>
         </div>
-        <input type="file" id="logo-file" accept="image/png,image/jpeg,image/webp" hidden>
-        <p class="hint" id="logo-row" hidden><button type="button" class="link-btn" id="logo-remove">Remove logo</button></p>
+        <div id="logo-more">
+          <span class="label" id="size-l">Logo size</span>
+          <div class="seg" role="radiogroup" aria-labelledby="size-l">
+            ${Object.entries(LOGO_SIZES)
+              .map(
+                ([k, [name]]) =>
+                  `<button type="button" role="radio" data-logo-size="${k}" aria-checked="${k === (b?.logoSize || 'small')}">${name}</button>`,
+              )
+              .join('')}
+          </div>
+          <label class="switch"><input type="checkbox" role="switch" id="b-show-name"${b?.hideName ? '' : ' checked'}> Name next to the logo</label>
+        </div>
       </section>
       <section class="sheet" aria-labelledby="colours-h">
         <h2 id="colours-h">Colours</h2>
@@ -163,6 +184,25 @@ function showForm(b, token) {
             )
             .join('')}
         </div>
+        <div>
+          <span class="label" id="answers-l">Answers</span>
+          <div class="seg" role="radiogroup" aria-labelledby="answers-l">
+            <button type="button" role="radio" data-answers="venn" aria-checked="${!hasKey(b)}">Venn’s</button>
+            <button type="button" role="radio" data-answers="own" aria-checked="${hasKey(b)}">Your own</button>
+          </div>
+        </div>
+        <div class="color-grid" id="own-answers"${hasKey(b) ? '' : ' hidden'}>
+          ${[
+            ['yes', 'Available'],
+            ['maybe', 'If needed'],
+            ['no', 'Unavailable'],
+          ]
+            .map(
+              ([k, l]) =>
+                `<div class="color-row"><label for="b-${k}">${l}</label><input id="b-${k}" type="color" value="${esc(b?.[k] || KEY[k])}"></div>`,
+            )
+            .join('')}
+        </div>
       </section>
       <section class="sheet" aria-labelledby="type-h">
         <h2 id="type-h">Type and shape</h2>
@@ -175,6 +215,17 @@ function showForm(b, token) {
               .map(
                 ([k, [name, r]]) =>
                   `<button type="button" role="radio" data-corners="${k}" aria-checked="${k === (b?.corners || 'soft')}"><span class="corner-swatch" style="border-radius:${Math.round(r / 2.5)}px" aria-hidden="true"></span>${name}</button>`,
+              )
+              .join('')}
+          </div>
+        </div>
+        <div>
+          <span class="label" id="buttons-l">Buttons</span>
+          <div class="seg" role="radiogroup" aria-labelledby="buttons-l">
+            ${Object.entries(BUTTONS)
+              .map(
+                ([k, name]) =>
+                  `<button type="button" role="radio" data-buttons="${k}" aria-checked="${k === (b?.buttons || 'pill')}"><span class="corner-swatch button-swatch${k === 'pill' ? ' is-pill' : ''}" aria-hidden="true"></span>${name}</button>`,
               )
               .join('')}
           </div>
@@ -207,13 +258,18 @@ function showForm(b, token) {
 
   const picked = (attr, key = attr) => $(`[data-${attr}][aria-checked="true"]`)?.dataset[key] || '';
   const own = () => picked('page') === 'own';
+  const ownKey = () => picked('answers') === 'own';
   const fields = () => ({
     name: $('#b-name').value.trim(),
     accent: $('#b-accent').value,
     ...(own() && { bg: $('#b-bg').value, surface: $('#b-surface').value, text: $('#b-text').value }),
     font: picked('font'),
     bodyFont: picked('body-font', 'bodyFont'),
+    ...(ownKey() && { yes: $('#b-yes').value, maybe: $('#b-maybe').value, no: $('#b-no').value }),
     corners: picked('corners') === 'soft' ? '' : picked('corners'),
+    buttons: picked('buttons') === 'pill' ? '' : picked('buttons'),
+    logoSize: picked('logo-size', 'logoSize') === 'small' ? '' : picked('logo-size', 'logoSize'),
+    hideName: !$('#b-show-name').checked,
     title: $('#b-title').value.trim(),
     where: $('#b-where').value.trim(),
     note: $('#b-note').value.trim(),
@@ -223,21 +279,24 @@ function showForm(b, token) {
     const f = fields();
     $('#preview-box').innerHTML = preview({ ...f, logo });
     brandPreview(f, '#brand-preview');
-    $('#logo-tile').innerHTML = logo ? `<img src="${esc(logo)}" alt="">` : '<span aria-hidden="true">+</span>';
-    $('#logo-tile').setAttribute('aria-label', logo ? 'Change the logo' : 'Add a logo');
-    $('#logo-row').hidden = !logo;
+    $('#logo-box').innerHTML = logo ? `<img src="${esc(logo)}" alt="">` : '<span>No logo yet</span>';
+    $('#logo-pick').textContent = logo ? 'Change logo' : 'Upload logo';
+    $('#logo-remove').hidden = $('#logo-more').hidden = !logo;
   };
   show();
-  for (const el of ['#b-name', '#b-accent', '#b-bg', '#b-surface', '#b-text', '#b-title']) $(el).addEventListener('input', show);
+  for (const el of ['#b-name', '#b-accent', '#b-bg', '#b-surface', '#b-text', '#b-yes', '#b-maybe', '#b-no', '#b-title'])
+    $(el).addEventListener('input', show);
+  $('#b-show-name').addEventListener('change', show);
   // Each row of choices (page, fonts, corners) is one radio group.
   $('#brand-form').addEventListener('click', (e) => {
     const btn = e.target.closest('[role="radio"]');
     if (!btn) return;
     for (const x of $$('[role="radio"]', btn.parentElement)) x.setAttribute('aria-checked', String(x === btn));
     $('#own-colours').hidden = !own();
+    $('#own-answers').hidden = !ownKey();
     show();
   });
-  $('#logo-tile').onclick = () => $('#logo-file').click();
+  $('#logo-pick').onclick = () => $('#logo-file').click();
   $('#logo-file').onchange = async () => {
     const file = $('#logo-file').files[0];
     if (!file) return;
@@ -246,7 +305,7 @@ function showForm(b, token) {
       logoChanged = true;
       show();
     } catch {
-      toast("That file isn't a picture Venn can use. Try a PNG or JPEG.");
+      toast("That file isn't a picture Venn can use. Try a PNG, JPEG or SVG.");
     }
   };
   $('#logo-remove').onclick = () => {
@@ -316,6 +375,9 @@ function showForm(b, token) {
   if (!b) $('#b-name').focus();
 }
 
+/** Whether a template has answer colours of its own. */
+const hasKey = (b) => !!(b?.yes || b?.maybe || b?.no);
+
 /** A row of fonts to choose from, each shown in itself; the first is Venn's own. */
 const fontPicker = (key, label, value = '') => `
   <div>
@@ -339,7 +401,7 @@ const preview = (b) => `
     <div class="pv-card" aria-hidden="true">
       <p class="pv-day">Friday, Nov 13</p>
       <p class="pv-muted">3 can make it</p>
-      <p class="pv-row"><span class="pv-pill pv-yes">Yes</span><span class="pv-pill pv-maybe">If needed</span><span class="pv-pill">No</span></p>
+      <p class="pv-row"><span class="pv-pill pv-yes">Yes</span><span class="pv-pill pv-maybe">If needed</span><span class="pv-pill pv-no">No</span></p>
     </div>
     <p class="pv-row" aria-hidden="true"><span class="pv-btn">Send my answer</span></p>
   </section>`;

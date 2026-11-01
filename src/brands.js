@@ -4,7 +4,7 @@
 // the server keeps only a hash of the token. Polls made from it show its look to their guests.
 
 import { ValidationError } from '../public/core.js';
-import { CORNERS, FONTS, isHex } from '../public/brand-look.js';
+import { BUTTONS, CORNERS, FONTS, LOGO_SIZES, isHex } from '../public/brand-look.js';
 import { isEmoji } from '../public/emoji.js';
 
 export const BRAND_LIMITS = { name: 60, title: 120, note: 1000, where: 200 };
@@ -24,7 +24,7 @@ export function normalizeBrand(input) {
   if (!input || typeof input !== 'object') throw new ValidationError('Invalid request');
   const brand = { name: text(input.name, BRAND_LIMITS.name, 'Organization name', true) };
   // Colours: the accent, and the page's own background, cards and text (the app keeps them readable).
-  for (const key of ['accent', 'bg', 'surface', 'text']) {
+  for (const key of ['accent', 'bg', 'surface', 'text', 'yes', 'maybe', 'no']) {
     if (input[key] == null || input[key] === '') continue;
     if (!isHex(input[key])) throw new ValidationError('Colours must look like #1a2b3c');
     brand[key] = input[key].toLowerCase();
@@ -38,12 +38,16 @@ export function normalizeBrand(input) {
     ['font', FONTS],
     ['bodyFont', FONTS],
     ['corners', CORNERS],
+    ['buttons', BUTTONS],
+    ['logoSize', LOGO_SIZES],
   ]) {
     if (input[key] == null || input[key] === '') continue;
     if (typeof input[key] !== 'string' || !Object.hasOwn(list, input[key]))
-      throw new ValidationError(key === 'corners' ? 'Unknown corners' : 'Unknown font');
+      throw new ValidationError(/font/i.test(key) ? 'Unknown font' : `Unknown ${key}`);
     brand[key] = input[key];
   }
+  if (input.hideName != null && typeof input.hideName !== 'boolean') throw new ValidationError('hideName must be true or false');
+  if (input.hideName) brand.hideName = true;
   for (const [key, field] of [
     ['title', 'Poll name'],
     ['note', 'Note'],
@@ -67,7 +71,9 @@ export const publicBrand = (b) => ({
   id: b.id,
   name: b.name,
   ...Object.fromEntries(
-    ['accent', 'bg', 'surface', 'text', 'font', 'bodyFont', 'corners'].filter((k) => b[k]).map((k) => [k, b[k]]),
+    ['accent', 'bg', 'surface', 'text', 'yes', 'maybe', 'no', 'font', 'bodyFont', 'corners', 'buttons', 'logoSize', 'hideName']
+      .filter((k) => b[k])
+      .map((k) => [k, b[k]]),
   ),
   ...(b.title && { title: b.title }),
   ...(b.note && { note: b.note }),

@@ -119,16 +119,18 @@ the same PR** (and CLAUDE.md if it's a rule that matters in review).
 
 **Brand templates (/brand)**
 
-- An organization's own template, **highly customizable**: its name and logo; colours (buttons and
-  links, and optionally its own page: background, cards, text); a font for headings and one for
-  text (Venn's own or eight system fonts); corners (square, soft, round); and what its polls start
-  with (name, where, note). **No accounts**: a share
+- An organization's own template, **highly customizable**: its name and logo (an Upload / Change
+  logo button, three sizes, and the name beside it or not); colours (buttons and links, optionally
+  its own page: background, cards, text, and its own answer colours); a font for headings and one
+  for text (Venn's own or eight system fonts); corners (square, soft, round) and buttons (pills or
+  the corners); and what its polls start with (name, where, note). **No accounts**: a share
   link for the team (`/new?brand=…`) and a private manage link, like a poll's organizer link.
 - **Only polls are branded.** The website, /brand and the create page keep Venn's own look (retro
   by default); /brand shows the brand in a preview card, and the create page shows whose template
   it is (logo and name). The home page has a "Your brand, on every poll." section, and the menu
   has "For organizations".
-- Colours are made readable (WCAG AA) rather than refused. Picks stay green, amber and pink. On a branded poll the brand's look replaces retro.
+- Colours are made readable (WCAG AA) rather than refused. Answers are green, amber and pink unless the template picks its own. On a branded poll the brand's look replaces retro.
+- **Always the Venn retro logo** (Seph, 2026-11-01): the header shows the retro logo in every look, classic included; the organization's logo sits beside the poll, never in place of Venn's.
 - Its polls show the logo and name above the poll for everyone. Deleted, they're plain Venn again.
 
 **Website (venn.day)**
@@ -140,8 +142,8 @@ the same PR** (and CLAUDE.md if it's a rule that matters in review).
   it shows. A new poll's **Retro look** starts on (off for someone who chose Classic mode); the
   organizer can switch it off. Retro: a synthwave night of stars and scanlines, chrome Orbitron headlines
   with a sunset gradient on the key words, neon cyan and magenta, arcade pixel labels, a striped sun
-  on a moving grid, a neon logo (`logo-retro.svg`) and Finn stickers on neon circles
-  (`img/stickers/retro/`; Finn stays smooth, never chunky pixels). Off, the usual look and logo.
+  on a moving grid, a neon logo (`logo-retro.svg`, **always shown in the top bar, in either look and on branded polls**) and Finn stickers on neon circles
+  (`img/stickers/retro/`; Finn stays smooth, never chunky pixels). Off, the usual look (the logo stays neon).
   DESIGN.md has both.
 - The **README and the developer docs** (docs.venn.day, `site-src/site.css`) are always retro and
   short: the retro link-preview banner, retro screenshots (`npm run screenshots`), then only what a
