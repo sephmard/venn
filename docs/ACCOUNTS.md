@@ -1,6 +1,8 @@
 # Accounts (optional sign-in)
 
-Venn works fully without an account: polls and brand templates have their own organizer and manage links. Signing in is for people who want **My polls** (`/me`): every poll and brand template they organize in one list, on any device, opened as the organizer without the link.
+Venn works fully without an account: polls have their own organizer links, and brand templates their manage links. Signing in is for people who want **My polls** (`/me`): every poll and brand template they organize in one list, on any device, opened as the organizer without the link.
+
+**Saving a new brand template needs an account** when sign-in is set up: `POST /api/brands` answers 401 without a session, and the brand page asks the person to sign in at Save, keeps their draft through the sign-in and saves it on the way back. Templates that already exist keep working by their share and manage links, and can be added to an account from My polls. With no sign-in set up, anyone can save a template, as before.
 
 Each sign-in switches on when its client ID **and** secret are set. With none set, nothing about accounts shows anywhere, and `GET /api/config` returns `accounts: []`.
 

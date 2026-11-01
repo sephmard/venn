@@ -228,7 +228,7 @@ ${group('everyday').join('\n')}
 <section aria-labelledby="team">
 <h2 id="team">For your organization</h2>
 <ul class="tpl-cards">
-<li><a class="tpl-card" href="/brand"><strong>Your own template</strong><span>Your logo, colour and font on every poll your team sends. No account needed.</span><em>Make yours →</em></a></li>
+<li><a class="tpl-card" href="/brand"><strong>Your own template</strong><span>Your logo, colour and font on every poll your team sends. Free with an account.</span><em>Make yours →</em></a></li>
 </ul>
 </section>
 <section aria-labelledby="quick">
