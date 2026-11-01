@@ -12,6 +12,15 @@ const noSideways = async (page) =>
 
 async function audit(page, label) {
   await page.evaluate(() => (document.getElementById('toast').textContent = ''));
+  // Let opening animations (the sheet fades in) finish, or axe measures half-faded text.
+  await page.evaluate(() =>
+    Promise.all(
+      document
+        .getAnimations()
+        .filter((a) => a.effect?.getTiming().iterations !== Infinity)
+        .map((a) => a.finished.catch(() => {})),
+    ),
+  );
   const results = await new AxeBuilder({ page }).withTags(['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa', 'wcag22aa']).analyze();
   const blocking = results.violations.filter((v) => v.impact === 'serious' || v.impact === 'critical');
   expect(
