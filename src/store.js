@@ -399,8 +399,9 @@ export function createStore(db) {
       await init();
       const rows = await db.all(
         `SELECT e.id, e.data, e.final_start, e.created_at,
-           (SELECT COUNT(*) FROM participants p WHERE p.event_id = e.id AND p.id IS NOT COALESCE(json_extract(e.data, '$.hostId'), '')) AS answers
-         FROM owners o JOIN events e ON e.id = o.item_id
+           (SELECT COUNT(*) FROM participants p WHERE p.event_id = e.id AND p.id IS NOT COALESCE(json_extract(e.data, '$.hostId'), '')) AS answers,
+           COALESCE(json_array_length(json_extract(n.data, '$.remind.invitees')), 0) AS invitees
+         FROM owners o JOIN events e ON e.id = o.item_id LEFT JOIN notifications n ON n.event_id = e.id
          WHERE o.user_id = ? AND o.kind = 'poll' ORDER BY e.created_at DESC LIMIT 500`,
         [userId],
       );
@@ -414,6 +415,8 @@ export function createStore(db) {
           finalStart: r.final_start ?? null,
           ...(d.deadline != null && { deadline: d.deadline }),
           answers: Number(r.answers),
+          ...(d.location && { location: d.location }),
+          ...(Number(r.invitees) && { invitees: Number(r.invitees) }),
         };
       });
     },
@@ -433,7 +436,7 @@ export function createStore(db) {
     async listAnsweredPolls(userId) {
       await init();
       const rows = await db.all(
-        `SELECT e.id, e.data, e.final_start, e.created_at, p.updated_at AS answered_at, p.availability,
+        `SELECT e.id, e.data, e.final_start, e.created_at, p.id AS answer_id, p.updated_at AS answered_at, p.availability,
            (SELECT COUNT(*) FROM participants q WHERE q.event_id = e.id AND q.id IS NOT COALESCE(json_extract(e.data, '$.hostId'), '')) AS answers
          FROM owners o JOIN participants p ON p.id = o.item_id JOIN events e ON e.id = p.event_id
          WHERE o.user_id = ? AND o.kind = 'answer' ORDER BY p.updated_at DESC LIMIT 500`,
@@ -445,9 +448,11 @@ export function createStore(db) {
         const can = r.final_start == null ? undefined : (JSON.parse(r.availability)[r.final_start] ?? 0);
         return {
           id: r.id,
+          answerId: r.answer_id,
           title: d.title,
           ...(d.emoji && { emoji: d.emoji }),
           ...(d.organizer && { organizer: d.organizer }),
+          ...(d.location && { location: d.location }),
           createdAt: r.created_at,
           answeredAt: r.answered_at,
           finalStart: r.final_start ?? null,

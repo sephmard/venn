@@ -154,6 +154,64 @@ export function stopReminders(settings, value, timingSafeEqual) {
   return { ...settings, remind: { ...settings.remind, invitees } };
 }
 
+/** One round of reminders to the invitees who haven't answered: { sent, invitees } (with their counts). */
+async function remindRound({ store, env, fetchImpl, ev, r, site, last, mail }) {
+  const pollUrl = `${site}/e/${ev.id}`;
+  const answered = new Set((await store.listEmails(ev.id)).values());
+  const invitees = [];
+  let sent = 0;
+  for (const i of r.invitees || []) {
+    if (mail && !i.stopped && !answered.has(i.email) && i.sent < MAX_REMINDERS) {
+      const unsubscribeToken = `${i.id}.${i.token}`;
+      const msg = deadlineReminderEmail({
+        title: ev.title,
+        organizer: ev.organizer,
+        closes: closesLabel(ev),
+        pollUrl,
+        unsubscribeUrl: `${pollUrl}#unsubscribe=${unsubscribeToken}`,
+        last,
+        retro: ev.retro,
+      });
+      const headers = unsubscribeHeaders(unsubscribeLink(site, ev.id, unsubscribeToken));
+      try {
+        await sendEmail(env, { to: i.email, ...msg, headers }, { fetchImpl });
+        invitees.push({ ...i, sent: i.sent + 1 });
+        sent++;
+        continue;
+      } catch (e) {
+        console.error('reminder failed', e);
+      }
+    }
+    invitees.push(i);
+  }
+  return { sent, invitees };
+}
+
+/** Who a poll can still remind by email: invitees who haven't answered, stopped or had them all. */
+export async function waitingInvitees(store, ev, settings) {
+  const answered = new Set((await store.listEmails(ev.id)).values());
+  return (settings?.remind?.invitees || []).filter((i) => !i.stopped && !answered.has(i.email) && i.sent < MAX_REMINDERS);
+}
+
+/**
+ * The organizer's "Remind now" (My polls): one round of reminders straight away, to invitees who
+ * haven't answered, at most once every 12 hours. Returns { sent }, or throws a ValidationError-like message.
+ */
+export async function remindNow({ store, env = {}, ev, now = Date.now(), fetchImpl = fetch, origin }) {
+  if (!emailEnabled(env)) return { error: "Emails aren't turned on for this server" };
+  if (ev.finalStart != null) return { error: 'The date is already picked' };
+  if (isClosed(ev, now)) return { error: 'Answers have closed' };
+  const settings = (await store.getNotify(ev.id)) || {};
+  const r = settings.remind;
+  if (!r?.invitees?.length) return { error: 'This poll has no invite list to remind' };
+  if (r.lastManual && now - r.lastManual < 12 * HOUR) return { error: 'Reminders went out less than 12 hours ago' };
+  const site = (r.origin || origin || env.PUBLIC_URL || '').replace(/\/+$/, '');
+  const round = await remindRound({ store, env, fetchImpl, ev, r, site, last: false, mail: true });
+  if (!round.sent) return { error: 'Everyone invited has answered or stopped reminders' };
+  await store.setNotify(ev.id, { ...settings, remind: { ...r, invitees: round.invitees, lastManual: now } });
+  return { sent: round.sent };
+}
+
 /**
  * Send what's due (reminders, and the organizer's "answers are closed" email) for every poll whose
  * time has come, and return how many emails went. Each poll's next look is booked as it goes.
@@ -209,33 +267,9 @@ export async function sendDeadlines({ store, env = {}, now = Date.now(), fetchIm
     const periodic = r.every > 0 && now >= (r.lastRound ?? r.since) + r.every * DAY;
     const last = r.every != null && !r.lastSent && now >= ev.deadline - DAY;
     if ((periodic || last) && r.invitees?.length) {
-      const answered = new Set((await store.listEmails(id)).values());
-      const invitees = [];
-      for (const i of r.invitees) {
-        if (mail && !i.stopped && !answered.has(i.email) && i.sent < MAX_REMINDERS) {
-          const unsubscribeToken = `${i.id}.${i.token}`;
-          const msg = deadlineReminderEmail({
-            title: ev.title,
-            organizer: ev.organizer,
-            closes: closesLabel(ev),
-            pollUrl,
-            unsubscribeUrl: `${pollUrl}#unsubscribe=${unsubscribeToken}`,
-            last,
-            retro: ev.retro,
-          });
-          const headers = unsubscribeHeaders(unsubscribeLink(site, id, unsubscribeToken));
-          try {
-            await sendEmail(env, { to: i.email, ...msg, headers }, { fetchImpl });
-            invitees.push({ ...i, sent: i.sent + 1 });
-            n++;
-            continue;
-          } catch (e) {
-            console.error('reminder failed', e);
-          }
-        }
-        invitees.push(i);
-      }
-      Object.assign(r, { invitees, lastRound: now, ...(last && { lastSent: true }) });
+      const round = await remindRound({ store, env, fetchImpl, ev, r, site, last: !!last, mail });
+      n += round.sent;
+      Object.assign(r, { invitees: round.invitees, lastRound: now, ...(last && { lastSent: true }) });
     }
     const next = { ...settings, remind: r };
     await store.setNotify(id, next);

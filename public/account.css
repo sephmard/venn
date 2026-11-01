@@ -143,18 +143,50 @@
 }
 /* Search, then Sort and Group, one row each on a phone. */
 .acct-tools {
-  display: grid;
+  display: flex;
   gap: 8px;
   margin-bottom: 4px;
 }
-.acct-tools[hidden],
-.acct-pick[hidden] {
+.acct-tools[hidden] {
   display: none;
 }
 .acct-search {
   position: relative;
   display: block;
+  flex: 1;
+  min-width: 0;
   margin: 0;
+}
+/* Sort: one button beside the search, showing how the list is sorted. */
+.acct-sortbtn {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  gap: 6px;
+  min-height: 46px;
+  max-width: 46%;
+  padding: 0 14px;
+  border: 1.5px solid var(--border);
+  border-radius: 999px;
+  background: var(--surface);
+  color: var(--text);
+  font: inherit;
+  font-size: 0.92rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+.acct-sortbtn span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.acct-sortbtn svg {
+  flex: none;
+  color: var(--accent);
+}
+.acct-sortbtn:hover,
+.acct-sortbtn:focus-visible {
+  border-color: var(--accent);
 }
 .acct-search svg {
   position: absolute;
@@ -179,53 +211,7 @@
   outline: 2px solid var(--accent);
   outline-offset: 1px;
 }
-.acct-pickers {
-  display: flex;
-  gap: 8px;
-}
-.acct-pick {
-  position: relative;
-  display: flex;
-  flex: 1;
-  align-items: center;
-  min-width: 0;
-  min-height: 44px;
-  margin: 0;
-  padding: 0 12px;
-  border: 1.5px solid var(--border);
-  border-radius: 999px;
-  background: var(--surface);
-  font-size: 0.9rem;
-}
-.acct-pick span {
-  flex: none;
-  color: var(--muted);
-}
-/* The select fills the pill, so the whole pill opens the phone's own picker. */
-.acct-pick select {
-  flex: 1;
-  min-width: 0;
-  height: 100%;
-  min-height: 40px;
-  margin-left: 6px;
-  padding: 0 18px 0 0;
-  border: 0;
-  background: transparent
-    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath d='M2 4l4 4 4-4' fill='none' stroke='%23888' stroke-width='1.8'/%3E%3C/svg%3E")
-    no-repeat right center;
-  color: var(--text);
-  font: inherit;
-  font-size: 16px;
-  font-weight: 700;
-  appearance: none;
-  cursor: pointer;
-}
-.acct-pick:focus-within {
-  border-color: var(--accent);
-}
-.acct-pick select:focus-visible {
-  outline: none;
-}
+
 .account h1 {
   margin-bottom: 8px;
 }
@@ -339,11 +325,242 @@
   -webkit-line-clamp: 2;
   line-clamp: 2;
 }
-.acct-chev {
-  flex: none;
+.acct-item {
+  position: relative;
+}
+/* Room on the right of each row for ⋯, which sits over it. */
+.acct-item .acct-row {
+  padding-right: 52px;
+}
+/* When it was made (or answered), small, in the top right corner over ⋯, so the text keeps its width. */
+.acct-when {
+  position: absolute;
+  top: 10px;
+  right: 14px;
+  font-size: 0.75rem;
+  white-space: nowrap;
+}
+.acct-more {
+  position: absolute;
+  bottom: 2px;
+  right: 4px;
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
   color: var(--muted);
-  font-size: 1.4rem;
-  line-height: 1;
+  cursor: pointer;
+}
+.acct-more svg {
+  fill: currentColor;
+}
+.acct-more:hover,
+.acct-more:focus-visible {
+  background: var(--surface-2);
+  color: var(--text);
+}
+/* "Show 12 more", and Past folded until it's wanted. */
+.acct-showmore {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  min-height: 48px;
+  margin-top: 8px;
+  border: 1.5px dashed var(--border);
+  border-radius: var(--radius);
+  background: transparent;
+  color: var(--accent);
+  font: inherit;
+  font-weight: 700;
+  cursor: pointer;
+}
+.acct-showmore:hover {
+  border-color: var(--accent);
+}
+.acct-fold {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  width: 100%;
+  min-height: 44px;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  letter-spacing: inherit;
+  text-transform: inherit;
+  cursor: pointer;
+}
+.acct-fold-mark {
+  margin-left: auto;
+  font-size: 1.3rem;
+  transition: transform 0.2s;
+}
+.acct-fold[aria-expanded='true'] .acct-fold-mark {
+  transform: rotate(90deg);
+}
+/* The sheet: up from the bottom on phones, a card in the middle on wide screens. */
+.acct-sheet {
+  width: 100%;
+  max-width: 480px;
+  max-height: 88vh;
+  margin: auto auto 0;
+  padding: 0;
+  border: 0;
+  border-radius: 24px 24px 0 0;
+  background: var(--surface);
+  color: var(--text);
+  box-shadow: 0 -12px 40px -12px rgb(0 0 0 / 0.45);
+}
+.acct-sheet[open] {
+  animation: acct-up 0.22s ease-out;
+}
+@keyframes acct-up {
+  from {
+    transform: translateY(40px);
+    opacity: 0;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .acct-sheet[open] {
+    animation: none;
+  }
+}
+.acct-sheet::backdrop {
+  background: rgb(0 0 0 / 0.5);
+}
+@media (min-width: 641px) {
+  .acct-sheet {
+    margin: auto;
+    border-radius: 24px;
+  }
+}
+.acct-sheet-body {
+  display: grid;
+  gap: 4px;
+  padding: 10px 18px calc(18px + env(safe-area-inset-bottom));
+}
+.acct-grip {
+  justify-self: center;
+  width: 40px;
+  height: 5px;
+  margin-bottom: 8px;
+  border-radius: 999px;
+  background: var(--border);
+}
+@media (min-width: 641px) {
+  .acct-grip {
+    display: none;
+  }
+}
+.acct-sheet-h {
+  margin: 0 0 8px;
+  font-size: 1.25rem;
+}
+.acct-sheet-sub {
+  margin: 16px 0 8px;
+  color: var(--muted);
+  font-size: 0.8rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+.acct-opts {
+  display: grid;
+}
+.acct-opts button {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  min-height: 56px;
+  padding: 8px 4px;
+  border: 0;
+  border-bottom: 1px solid var(--border);
+  background: none;
+  color: var(--text);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.acct-opts button > span {
+  display: grid;
+}
+.acct-opts .muted {
+  font-size: 0.85rem;
+}
+.acct-opts svg {
+  flex: none;
+  color: var(--accent);
+  visibility: hidden;
+}
+.acct-opts [aria-checked='true'] svg {
+  visibility: visible;
+}
+.acct-seg {
+  max-width: none;
+}
+.acct-seg button {
+  color: var(--text);
+  font-size: 0.95rem;
+}
+.acct-done {
+  margin-top: 16px;
+  min-height: 50px;
+}
+/* A poll's sheet: which poll, then what can be done with it. */
+.acct-sheet-head {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid var(--border);
+}
+.acct-acts {
+  display: grid;
+}
+.acct-acts[hidden],
+.acct-sure[hidden] {
+  display: none;
+}
+.acct-acts > * {
+  display: flex;
+  align-items: center;
+  min-height: 52px;
+  padding: 0 4px;
+  border: 0;
+  border-bottom: 1px solid var(--border);
+  background: none;
+  color: var(--text);
+  font: inherit;
+  font-weight: 600;
+  text-align: left;
+  text-decoration: none;
+  cursor: pointer;
+}
+.acct-acts > *:hover,
+.acct-acts > *:focus-visible {
+  color: var(--accent);
+}
+.acct-acts .acct-danger {
+  border-bottom: 0;
+  color: var(--danger);
+}
+.acct-sure {
+  padding: 12px 0 0;
+}
+.acct-sure p {
+  margin: 0 0 12px;
+}
+.acct-sure-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
 }
 /* Whether they can make the picked date, in the key's colours. */
 .acct-can {

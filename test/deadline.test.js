@@ -272,3 +272,36 @@ test('without the server’s email nothing is sent, and answers still close', as
     quiet.close();
   }
 });
+
+test('Remind now (My polls): emails the invitees who haven’t answered, at most every 12 hours', async () => {
+  const { id, admin } = await create();
+  await answer(id, 'Ana', 'ana@example.com');
+  const before = emails().length;
+  // Only the organizer.
+  assert.equal((await call(`/api/events/${id}/remind`, { method: 'POST' })).status, 403);
+  const now = await call(`/api/events/${id}/remind`, { method: 'POST', headers: admin });
+  assert.deepEqual(now.data, { sent: 2 });
+  assert.deepEqual(
+    emails()
+      .slice(before)
+      .map((m) => m.to)
+      .flat()
+      .sort(),
+    ['kim@example.com', 'lee@example.com'],
+  );
+  // Not again straight away; fine after 12 hours, and counted like any reminder.
+  const again = await call(`/api/events/${id}/remind`, { method: 'POST', headers: admin });
+  assert.equal(again.status, 400);
+  assert.match(again.data.error, /12 hours/);
+  clock += 13 * HOUR;
+  assert.deepEqual((await call(`/api/events/${id}/remind`, { method: 'POST', headers: admin })).data, { sent: 2 });
+  const view = await call(`/api/events/${id}/deadline`, { headers: admin });
+  assert.deepEqual(
+    view.data.invitees.map((i) => i.reminded),
+    [0, 2, 2],
+  );
+  // A poll with no invite list has no one to email.
+  const plain = await create({ requireEmail: false, deadline: null, invitees: [] });
+  const none = await call(`/api/events/${plain.id}/remind`, { method: 'POST', headers: plain.admin });
+  assert.equal(none.status, 400);
+});
