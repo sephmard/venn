@@ -504,7 +504,7 @@ export function createStore(db) {
           createdAt: r.created_at,
           finalStart: r.final_start ?? null,
           // A topic poll: what was decided, or null while it's open.
-          ...(d.mode === 'topic' && { decided: d.options.find((o) => o.id === d.picked)?.label ?? null }),
+          ...(d.mode === 'topic' && { mode: 'topic', decided: d.options.find((o) => o.id === d.picked)?.label ?? null }),
           ...(d.deadline != null && { deadline: d.deadline }),
           answers: Number(r.answers),
           ...(d.location && { location: d.location }),
@@ -537,7 +537,9 @@ export function createStore(db) {
       return rows.map((r) => {
         const d = JSON.parse(r.data);
         // Whether they said they can make the picked date: 2 yes, 1 if needed, 0 no.
-        const can = r.final_start == null ? undefined : (JSON.parse(r.availability)[r.final_start] ?? 0);
+        // On a topic poll: whether they went with the option that was picked.
+        const key = d.mode === 'topic' ? d.picked : r.final_start;
+        const can = key == null ? undefined : (JSON.parse(r.availability)[key] ?? 0);
         return {
           id: r.id,
           answerId: r.answer_id,
@@ -549,7 +551,7 @@ export function createStore(db) {
           answeredAt: r.answered_at,
           finalStart: r.final_start ?? null,
           // A topic poll: what was decided, or null while it's open.
-          ...(d.mode === 'topic' && { decided: d.options.find((o) => o.id === d.picked)?.label ?? null }),
+          ...(d.mode === 'topic' && { mode: 'topic', decided: d.options.find((o) => o.id === d.picked)?.label ?? null }),
           ...(can !== undefined && { can }),
           answers: Number(r.answers),
         };

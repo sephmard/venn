@@ -8,12 +8,15 @@ import { accountHint, refreshAccountMenu } from './account-menu.js';
 import { stickerStack, rotate } from './stickers.js';
 import {
   GROUPS,
+  KINDS,
   SORTS,
   SORT_HINTS,
   answeredMeta,
   arrange,
   canMake,
+  isVote,
   madeMeta,
+  mixedKinds,
   nudgeText,
   whenShort,
   parseOrganizerLink,
@@ -43,12 +46,13 @@ function loadView() {
     tab: Object.hasOwn(TABS, v.tab) ? v.tab : 'made',
     sort: Object.hasOwn(SORTS, v.sort) ? v.sort : 'new',
     group: Object.hasOwn(GROUPS, v.group) ? v.group : 'status',
+    kind: Object.hasOwn(KINDS, v.kind) ? v.kind : 'all',
     q: '',
   };
 }
-const saveView = ({ tab, sort, group }) => {
+const saveView = ({ tab, sort, group, kind }) => {
   try {
-    localStorage.setItem(VIEW_KEY, JSON.stringify({ tab, sort, group }));
+    localStorage.setItem(VIEW_KEY, JSON.stringify({ tab, sort, group, kind }));
   } catch {}
 };
 
@@ -200,10 +204,13 @@ addEventListener('pageshow', (e) => {
 const MORE =
   '<svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><circle cx="5" cy="12" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="19" cy="12" r="2"/></svg>';
 
+// A poll's mark: its occasion's emoji, or a calendar for a date poll and a ballot box for a vote.
+const icon = (p) => esc(p.emoji || (isVote(p) ? '🗳️' : '📅'));
+
 // A poll's row: a tap opens it (as its organizer, for the ones they made); ⋯ manages it.
 const pollRow = (p) => `
   <li class="acct-item"><a class="acct-row" href="/e/${esc(p.id)}#organizer" data-link>
-    <span class="acct-icon" aria-hidden="true">${esc(p.emoji || '📅')}</span>
+    <span class="acct-icon" aria-hidden="true">${icon(p)}</span>
     <span class="acct-text"><b>${esc(p.title)}</b><span class="muted">${esc(madeMeta(p))}</span></span>
     <span class="acct-when muted">${esc(whenShort(p.createdAt))}</span>
   </a><button type="button" class="acct-more" data-more="${esc(p.id)}" aria-label="Manage ${esc(p.title)}" aria-haspopup="dialog">${MORE}</button></li>`;
@@ -212,7 +219,7 @@ const answeredRow = (p) => {
   const can = canMake(p);
   return `
   <li class="acct-item"><a class="acct-row" href="/e/${esc(p.id)}" data-link>
-    <span class="acct-icon" aria-hidden="true">${esc(p.emoji || '📅')}</span>
+    <span class="acct-icon" aria-hidden="true">${icon(p)}</span>
     <span class="acct-text"><b>${esc(p.title)}</b><span class="muted">${esc(answeredMeta(p))}</span></span>
     ${can ? `<span class="acct-can ${can[0]}">${can[1]}</span>` : `<span class="acct-when muted">${esc(whenShort(p.answeredAt))}</span>`}
   </a><button type="button" class="acct-more" data-more="${esc(p.id)}" aria-label="Manage ${esc(p.title)}" aria-haspopup="dialog">${MORE}</button></li>`;
@@ -338,12 +345,15 @@ function showMine(me, view) {
     $('#acct-q').placeholder = brands ? 'Search templates' : 'Search polls';
     // Templates have no date to sort by.
     const sort = brands && view.sort === 'date' ? 'new' : view.sort;
-    $('#acct-sortlabel').textContent = SORTS[sort];
+    // Dates or votes only, when this list has both.
+    const kind = mixedKinds(items) ? view.kind : 'all';
+    // Filtered, the button says so (the sort is in its name): "Votes", not a truncated "Votes · Ne…".
+    $('#acct-sortlabel').textContent = kind === 'all' ? SORTS[sort] : KINDS[kind];
     $('#acct-sortbtn').setAttribute(
       'aria-label',
-      `Sort: ${SORTS[sort]}${brands ? '' : `, grouped by ${GROUPS[view.group].toLowerCase()}`}. Change`,
+      `${kind === 'all' ? '' : `Showing ${KINDS[kind].toLowerCase()}. `}Sort: ${SORTS[sort]}${brands ? '' : `, grouped by ${GROUPS[view.group].toLowerCase()}`}. Change`,
     );
-    const groups = arrange(items, { q: view.q, sort, group: brands ? 'none' : view.group });
+    const groups = arrange(items, { q: view.q, sort, kind, group: brands ? 'none' : view.group });
     const searching = !!view.q.trim();
     const row = { made: pollRow, answered: answeredRow, brands: brandRow }[view.tab];
     const out = $('#acct-results');
@@ -351,6 +361,12 @@ function showMine(me, view) {
     if (!items.length) {
       const [line, action] = EMPTY[view.tab];
       out.innerHTML = `${brands ? `${top}<h2 class="acct-h">Yours</h2>` : ''}<div class="sheet acct-empty"><p>${line}</p>${action}</div>`;
+    } else if (!groups.length && !top && !view.q.trim()) {
+      out.innerHTML = `<div class="acct-empty acct-none"><p>No ${KINDS[kind].toLowerCase()} here.</p><button type="button" class="link-btn" id="acct-clear">Show all</button></div>`;
+      $('#acct-clear').onclick = () => {
+        view.kind = 'all';
+        draw();
+      };
     } else if (!groups.length && !top) {
       out.innerHTML = `<div class="acct-empty acct-none"><p>Nothing matches “${esc(view.q.trim())}”.</p><button type="button" class="link-btn" id="acct-clear">Clear search</button></div>`;
       $('#acct-clear').onclick = () => {
@@ -412,12 +428,23 @@ function showMine(me, view) {
   $('#acct-sortbtn').onclick = () => {
     const brands = view.tab === 'brands';
     const sorts = Object.keys(SORTS).filter((k) => !(brands && k === 'date'));
+    const kinds = !brands && mixedKinds(lists[view.tab]);
     const paint = (sheet) => {
+      for (const b of sheet.querySelectorAll('[data-kind]')) b.setAttribute('aria-checked', b.dataset.kind === view.kind);
       for (const b of sheet.querySelectorAll('[data-sort]')) b.setAttribute('aria-checked', b.dataset.sort === view.sort);
       for (const b of sheet.querySelectorAll('[data-group]')) b.setAttribute('aria-checked', b.dataset.group === view.group);
     };
     openSheet(
-      `<h2 class="acct-sheet-h">Sort${brands ? '' : ' and group'}</h2>
+      `<h2 class="acct-sheet-h">${kinds ? 'Show and sort' : `Sort${brands ? '' : ' and group'}`}</h2>
+       ${
+         kinds
+           ? `<div class="seg acct-seg acct-kinds" role="radiogroup" aria-label="Show">
+                ${Object.entries(KINDS)
+                  .map(([k, label]) => `<button type="button" role="radio" data-kind="${k}">${label}</button>`)
+                  .join('')}
+              </div>`
+           : ''
+       }
        <div class="acct-opts" role="radiogroup" aria-label="Sort">
          ${sorts.map((k) => `<button type="button" role="radio" data-sort="${k}"><span><b>${SORTS[k]}</b><span class="muted">${SORT_HINTS[k]}</span></span>${CHECK}</button>`).join('')}
        </div>
@@ -435,9 +462,10 @@ function showMine(me, view) {
       (sheet) => {
         paint(sheet);
         sheet.querySelector('[aria-checked="true"]')?.focus();
-        for (const b of sheet.querySelectorAll('[data-sort],[data-group]'))
+        for (const b of sheet.querySelectorAll('[data-sort],[data-group],[data-kind]'))
           b.addEventListener('click', () => {
             if (b.dataset.sort) view.sort = b.dataset.sort;
+            else if (b.dataset.kind) view.kind = b.dataset.kind;
             else view.group = b.dataset.group;
             paint(sheet);
             draw();
@@ -451,11 +479,11 @@ function showMine(me, view) {
     if (!p) return;
     const made = tab === 'made';
     const url = `${location.origin}/e/${p.id}`;
-    const waiting = p.finalStart == null && !(p.deadline != null && p.deadline <= Date.now());
+    const waiting = p.finalStart == null && !p.decided && !(p.deadline != null && p.deadline <= Date.now());
     const emailable = made && waiting && p.invitees && config.email;
     openSheet(
       `<div class="acct-sheet-head">
-         <span class="acct-icon" aria-hidden="true">${esc(p.emoji || '📅')}</span>
+         <span class="acct-icon" aria-hidden="true">${icon(p)}</span>
          <span class="acct-text"><b>${esc(p.title)}</b><span class="muted">${esc(made ? madeMeta(p) : answeredMeta(p))}</span></span>
        </div>
        <div class="acct-acts" id="acct-acts">

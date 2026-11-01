@@ -906,3 +906,7 @@ html.retro .btn-signin {
   font-size: 16px;
   padding-right: 72px;
 }
+/* Dates or votes only: above the sorts, when the list has both. */
+.acct-kinds {
+  margin-bottom: 14px;
+}
