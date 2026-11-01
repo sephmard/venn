@@ -41,8 +41,24 @@ test('brand template: make one, share it, and its polls show the organization’
   expect(await accent(page, '#brand-preview')).not.toBe(venn);
   await expect(page.locator('html')).toHaveClass(/retro/);
   await expect(page.locator('html')).not.toHaveClass(/branded/);
-  await page.getByRole('radio', { name: 'Serif' }).click();
-  await expect(page.getByRole('radio', { name: 'Serif' })).toHaveAttribute('aria-checked', 'true');
+  // A page of its own, its fonts and corners: the preview takes them on.
+  await page.getByRole('radio', { name: 'Your own' }).click();
+  for (const [id, value] of [
+    ['#b-bg', '#fff4e6'],
+    ['#b-text', '#3d2c1e'],
+  ])
+    await page.locator(id).evaluate((el, v) => {
+      el.value = v;
+      el.dispatchEvent(new Event('input'));
+    }, value);
+  await page.locator('[data-font="slab"]').click();
+  await page.locator('[data-body-font="humanist"]').click();
+  await page.getByRole('radio', { name: 'Square' }).click();
+  const look = (prop) =>
+    page.locator('#brand-preview').evaluate((el, p) => getComputedStyle(el).getPropertyValue(p).trim(), prop);
+  expect(await look('--bg')).toBe('#fff4e6');
+  expect(await look('--radius')).toBe('4px');
+  expect(await look('--serif')).toMatch(/Rockwell/);
   await page.setInputFiles('#logo-file', { name: 'logo.png', mimeType: 'image/png', buffer: LOGO });
   await expect(page.locator('.brand-bar img')).toBeVisible();
   await expect(page.locator('.brand-bar')).toHaveText('Acme Inc.');
@@ -86,6 +102,8 @@ test('brand template: make one, share it, and its polls show the organization’
   await expect(guest.locator('.brand-bar')).toHaveText('Acme Inc.');
   await expect(guest.locator('.brand-bar img')).toBeVisible();
   expect(await accent(guest)).not.toBe(venn);
+  // Its own page colours, in light or dark mode alike.
+  expect(await guest.locator('body').evaluate((el) => getComputedStyle(el).backgroundColor)).toBe('rgb(255, 244, 230)');
   await noSideways(guest);
   await audit(guest, 'a branded poll');
 

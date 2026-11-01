@@ -33,14 +33,6 @@
   background: var(--surface);
   cursor: pointer;
 }
-.font-seg {
-  grid-auto-flow: row;
-  grid-template-columns: repeat(4, 1fr);
-}
-.font-seg button {
-  font-weight: 600;
-  padding: 6px 4px;
-}
 .link-row {
   display: flex;
   gap: 8px;
@@ -63,23 +55,106 @@
   line-height: 44px;
 }
 
-/* The preview: a poll in the brand's look (its colours and font come from brand-look.js). */
+/* Fonts: a grid of choices, each in itself. */
+.font-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 6px;
+}
+@media (min-width: 560px) {
+  .font-grid {
+    grid-template-columns: repeat(5, 1fr);
+  }
+}
+.font-grid button {
+  min-height: 44px;
+  padding: 6px 4px;
+  border: 1.5px solid var(--border);
+  border-radius: 12px;
+  background: var(--surface);
+  color: var(--text);
+  font-size: 1rem;
+  cursor: pointer;
+}
+.font-grid [aria-checked='true'] {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 1.5px var(--accent);
+}
+.color-grid {
+  display: grid;
+  gap: 10px;
+}
+.color-grid .color-row label {
+  min-width: 110px;
+}
+.corner-swatch {
+  width: 18px;
+  height: 18px;
+  border: 2px solid currentColor;
+}
+
+/* The preview: a poll in the brand's look (its colours, fonts and corners come from brand-look.js),
+   drawn with its own classes so the page's look (retro) doesn't reach into it. */
 .brand-preview {
+  margin-bottom: 16px;
+  padding: 20px;
+  border: 1.5px solid var(--border);
+  border-radius: var(--radius-lg);
+  background: var(--bg);
+  color: var(--text);
   font-family: var(--display);
 }
-.brand-preview .preview-title {
+.pv-title {
   font-family: var(--serif);
   font-size: 1.9rem;
   line-height: 1.15;
   margin: 0 0 14px;
+  color: var(--text);
 }
-.preview-row {
+.pv-card {
+  padding: 14px;
+  margin-bottom: 14px;
+  border: 1.5px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface);
+}
+.pv-card p {
+  margin: 0 0 8px;
+}
+.pv-day {
+  font-weight: 700;
+}
+.pv-muted {
+  color: var(--muted);
+}
+.pv-row {
   display: flex;
   flex-wrap: wrap;
-  gap: 10px;
-  align-items: center;
+  gap: 8px;
   margin: 0;
 }
-.preview-row > * {
-  pointer-events: none;
+.pv-pill,
+.pv-btn {
+  display: inline-block;
+  padding: 8px 14px;
+  border-radius: 999px;
+  border: 1.5px solid var(--border);
+  background: var(--surface);
+  color: var(--text);
+  font-weight: 600;
+}
+.pv-yes {
+  background: var(--yes);
+  border-color: var(--yes);
+  color: var(--yes-ink);
+}
+.pv-maybe {
+  background: var(--maybe-soft);
+  border-color: var(--maybe);
+}
+.pv-btn {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--accent-ink);
+  padding: 10px 18px;
 }

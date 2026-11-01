@@ -4,7 +4,7 @@
 // the server keeps only a hash of the token. Polls made from it show its look to their guests.
 
 import { ValidationError } from '../public/core.js';
-import { FONTS, isHex } from '../public/brand-look.js';
+import { CORNERS, FONTS, isHex } from '../public/brand-look.js';
 import { isEmoji } from '../public/emoji.js';
 
 export const BRAND_LIMITS = { name: 60, title: 120, note: 1000, where: 200 };
@@ -23,13 +23,26 @@ function text(v, max, field, required = false) {
 export function normalizeBrand(input) {
   if (!input || typeof input !== 'object') throw new ValidationError('Invalid request');
   const brand = { name: text(input.name, BRAND_LIMITS.name, 'Organization name', true) };
-  if (input.accent != null && input.accent !== '') {
-    if (!isHex(input.accent)) throw new ValidationError('The colour must look like #1a2b3c');
-    brand.accent = input.accent.toLowerCase();
+  // Colours: the accent, and the page's own background, cards and text (the app keeps them readable).
+  for (const key of ['accent', 'bg', 'surface', 'text']) {
+    if (input[key] == null || input[key] === '') continue;
+    if (!isHex(input[key])) throw new ValidationError('Colours must look like #1a2b3c');
+    brand[key] = input[key].toLowerCase();
   }
-  if (input.font != null && input.font !== '') {
-    if (!Object.hasOwn(FONTS, input.font)) throw new ValidationError('Unknown font');
-    brand.font = input.font;
+  // Cards and text only go with a background of its own.
+  if (!brand.bg) {
+    delete brand.surface;
+    delete brand.text;
+  }
+  for (const [key, list] of [
+    ['font', FONTS],
+    ['bodyFont', FONTS],
+    ['corners', CORNERS],
+  ]) {
+    if (input[key] == null || input[key] === '') continue;
+    if (typeof input[key] !== 'string' || !Object.hasOwn(list, input[key]))
+      throw new ValidationError(key === 'corners' ? 'Unknown corners' : 'Unknown font');
+    brand[key] = input[key];
   }
   for (const [key, field] of [
     ['title', 'Poll name'],
@@ -53,8 +66,9 @@ export const logoPath = (id, v) => `/api/brands/${encodeURIComponent(id)}/logo?v
 export const publicBrand = (b) => ({
   id: b.id,
   name: b.name,
-  ...(b.accent && { accent: b.accent }),
-  ...(b.font && { font: b.font }),
+  ...Object.fromEntries(
+    ['accent', 'bg', 'surface', 'text', 'font', 'bodyFont', 'corners'].filter((k) => b[k]).map((k) => [k, b[k]]),
+  ),
   ...(b.title && { title: b.title }),
   ...(b.note && { note: b.note }),
   ...(b.where && { where: b.where }),

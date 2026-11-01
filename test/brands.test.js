@@ -1,7 +1,7 @@
 import { test, before, after } from 'node:test';
 import assert from 'node:assert/strict';
 import { createApp } from '../server.js';
-import { FONTS, brandCss, contrast, palette } from '../public/brand-look.js';
+import { FONTS, brandCss, contrast, palette, scheme } from '../public/brand-look.js';
 import { normalizeBrand, publicBrand } from '../src/brands.js';
 import { isAppRoute } from '../src/routes.js';
 
@@ -55,6 +55,27 @@ test('palette: any colour reads at 4.5:1 on Venn’s backgrounds, light and dark
   assert.equal(palette('#0b7a5c').light.accent, '#0b7a5c');
 });
 
+test('scheme: an organization’s own page colours stay readable, whatever they are', () => {
+  const get = (vars, k) => vars.match(new RegExp(`--${k}:(#[0-9a-f]{6})`))[1];
+  const cases = [
+    { bg: '#ffffff', surface: '#f4f4f5', text: '#cccccc', accent: '#ffff00' }, // pale text and accent
+    { bg: '#101820', surface: '#ffffff', text: '#333333', accent: '#000080' }, // a light card on a dark page
+    { bg: '#777777' }, // the middle
+    { bg: '#fff4e6', surface: '#ffffff', text: '#3d2c1e', accent: '#e8590c' },
+  ];
+  for (const c of cases) {
+    const { vars } = scheme(c);
+    const backs = ['bg', 'surface', 'surface-2'].map((k) => get(vars, k));
+    for (const k of ['text', 'muted', 'accent'])
+      for (const b of backs) assert.ok(contrast(get(vars, k), b) >= 4.5, `${JSON.stringify(c)}: ${k} on ${b}`);
+    assert.ok(contrast(get(vars, 'accent'), get(vars, 'accent-ink')) >= 4.5);
+  }
+  // Colours that already read well are kept.
+  const own = scheme(cases[3]).vars;
+  assert.match(own, /--bg:#fff4e6;--surface:#ffffff;/);
+  assert.match(own, /--text:#3d2c1e;/);
+});
+
 test('brandCss: only computed colours and known fonts reach the page', () => {
   const css = brandCss({ accent: '#6d28d9', font: 'serif' });
   assert.match(css, /--accent:#[0-9a-f]{6};/);
@@ -66,6 +87,14 @@ test('brandCss: only computed colours and known fonts reach the page', () => {
 });
 
 test('normalizeBrand: keeps only what is set, and refuses what isn’t right', () => {
+  assert.deepEqual(
+    normalizeBrand({ name: 'A', bg: '#000000', surface: '#111111', text: '#EEEEEE', bodyFont: 'slab', corners: 'round' }),
+    { name: 'A', bg: '#000000', surface: '#111111', text: '#eeeeee', bodyFont: 'slab', corners: 'round' },
+  );
+  // Cards and text go with a background of its own.
+  assert.deepEqual(normalizeBrand({ name: 'A', surface: '#111111', text: '#eeeeee' }), { name: 'A' });
+  assert.throws(() => normalizeBrand({ name: 'A', corners: 'wavy' }), /Unknown corners/);
+  assert.throws(() => normalizeBrand({ name: 'A', bodyFont: 'comic' }), /Unknown font/);
   assert.deepEqual(normalizeBrand({ name: '  Acme  ', accent: '#AABBCC', font: 'mono', title: '', where: 'HQ', extra: 1 }), {
     name: 'Acme',
     accent: '#aabbcc',
@@ -73,7 +102,7 @@ test('normalizeBrand: keeps only what is set, and refuses what isn’t right', (
     where: 'HQ',
   });
   assert.throws(() => normalizeBrand({ name: '' }), /Organization name is required/);
-  assert.throws(() => normalizeBrand({ name: 'A', accent: 'red' }), /colour/);
+  assert.throws(() => normalizeBrand({ name: 'A', accent: 'red' }), /Colours must look like/);
   assert.throws(() => normalizeBrand({ name: 'A', font: 'comic' }), /Unknown font/);
   assert.throws(() => normalizeBrand({ name: 'x'.repeat(61) }), /at most 60/);
   assert.throws(() => normalizeBrand({ name: 'A', emoji: 'nope' }), /Invalid emoji/);

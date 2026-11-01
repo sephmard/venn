@@ -1,7 +1,8 @@
-// An organization's own look (brand templates, /brand): its accent colour and font on the create page
-// and on polls made from it. The accent is nudged until it meets WCAG AA on Venn's own backgrounds in
-// light and dark mode, so any colour an organization picks stays readable. Picks keep the key's
-// colours (green, amber, pink): only Venn's accent changes.
+// An organization's own look (brand templates, /brand) on polls made from it: its colours (an
+// accent, and if it likes its own background, cards and text), a font for headings and one for
+// everything else, and its corners. Every colour is nudged until it meets WCAG AA against the ones
+// it sits on, so any palette an organization picks stays readable. Picks keep the key's colours
+// (green, amber, pink).
 
 /** The fonts an organization can choose: system fonts only, so nothing more is downloaded. */
 export const FONTS = {
@@ -9,7 +10,14 @@ export const FONTS = {
   serif: ['Serif', "'Iowan Old Style', 'Palatino Linotype', Georgia, serif"],
   rounded: ['Rounded', "ui-rounded, 'SF Pro Rounded', 'Arial Rounded MT Bold', system-ui, sans-serif"],
   mono: ['Mono', "ui-monospace, 'SF Mono', Menlo, Consolas, monospace"],
+  slab: ['Slab', "Rockwell, 'Roboto Slab', 'Bookman Old Style', 'DejaVu Serif', serif"],
+  humanist: ['Humanist', "Optima, Candara, 'Gill Sans', 'Noto Sans', 'Trebuchet MS', sans-serif"],
+  condensed: ['Condensed', "'Avenir Next Condensed', 'Arial Narrow', 'Roboto Condensed', 'Liberation Sans Narrow', sans-serif"],
+  elegant: ['Elegant', "Didot, 'Bodoni 72', 'Bodoni MT', 'Noto Serif Display', Georgia, serif"],
 };
+
+/** Corners: [cards, big cards]. Soft is Venn's own. */
+export const CORNERS = { square: ['Square', 4, 6], soft: ['Soft', 14, 20], round: ['Round', 22, 30] };
 
 export const isHex = (s) => typeof s === 'string' && /^#[0-9a-f]{6}$/i.test(s);
 
@@ -38,22 +46,64 @@ const mix = (a, b, t) => toHex(rgb(a).map((v, i) => v + (rgb(b)[i] - v) * t));
 
 // Venn's backgrounds (styles.css): the page and cards, in each mode.
 const BACKS = { light: ['#faf8f4', '#ffffff', '#f2eee6'], dark: ['#0f1112', '#171a1c', '#1f2326'] };
+// The key's colours (styles.css), for a light or a dark background.
+const KEY = {
+  light:
+    '--yes:#0b7a5c;--yes-ink:#ffffff;--maybe:#e0a12e;--maybe-ink:#241a04;--no-bg:#55585c;--no-ink:#ffffff;--no:#b42318;--no-cell:#f0b2a6;--danger:#b42318;--heat:11, 122, 92;',
+  dark: '--yes:#2fc497;--yes-ink:#06140f;--maybe:#e9b14a;--maybe-ink:#241a04;--no-bg:#c9c6bf;--no-ink:#0f1112;--no:#ff8577;--no-cell:#6a2e27;--danger:#ff8577;--heat:47, 196, 151;',
+};
+
+const isDark = (hex) => lum(hex) < 0.18;
+/** `hex`, mixed toward black (on light backgrounds) or white (on dark) until it reads at `min`:1 on each of `backs`. */
+function readable(hex, backs, min = 4.5) {
+  const toward = isDark(backs[0]) ? '#ffffff' : '#000000';
+  let c = hex.toLowerCase();
+  for (let t = 0.05; t <= 1.001 && backs.some((b) => contrast(c, b) < min); t += 0.05) c = mix(hex, toward, t);
+  return c;
+}
+/** The ink on a colour: white or near-black, whichever reads better. */
+const inkOn = (hex) => (contrast(hex, '#ffffff') >= contrast(hex, '#111111') ? '#ffffff' : '#111111');
 
 /**
- * The accent for each mode: the colour, mixed toward black (light) or white (dark) just enough to
- * read at 4.5:1 on every background; the ink on it (white or near-black, whichever reads better);
- * and a soft tint of it for highlights.
+ * The accent for each of Venn's modes: read at 4.5:1 on every background, the ink on it, and a soft
+ * tint of it for highlights.
  */
 export function palette(hex) {
   const out = {};
   for (const [mode, backs] of Object.entries(BACKS)) {
-    const toward = mode === 'light' ? '#000000' : '#ffffff';
-    let accent = hex.toLowerCase();
-    for (let t = 0.05; t <= 1 && backs.some((b) => contrast(accent, b) < 4.5); t += 0.05) accent = mix(hex, toward, t);
-    const ink = contrast(accent, '#ffffff') >= contrast(accent, '#111111') ? '#ffffff' : '#111111';
-    out[mode] = { accent, ink, soft: mix(backs[0], accent, mode === 'light' ? 0.14 : 0.24) };
+    const accent = readable(hex, backs);
+    out[mode] = { accent, ink: inkOn(accent), soft: mix(backs[0], accent, mode === 'light' ? 0.14 : 0.24) };
   }
   return out;
+}
+
+/**
+ * The organization's own page colours, the same in light and dark mode: its background, its cards
+ * (or a shade of the background), its text (or black or white) and the rest made from them, every
+ * one readable on what it sits on. Returns CSS custom properties.
+ */
+export function scheme({ bg, surface, text, accent }) {
+  const dark = isDark(bg);
+  // Text sits on both, so cards stay on the background's side (light or dark): a light card on a
+  // dark page becomes a hint of it.
+  let card = isHex(surface) ? surface.toLowerCase() : mix(bg, '#ffffff', dark ? 0.06 : 0.7);
+  if (isDark(card) !== dark) card = mix(bg, card, 0.12);
+  const card2 = mix(card, dark ? '#ffffff' : '#000000', 0.06);
+  const backs = [bg, card, card2];
+  const ink = readable(isHex(text) ? text : dark ? '#f1eee8' : '#16181a', backs);
+  const muted = readable(mix(ink, bg, 0.35), backs);
+  const acc = readable(isHex(accent) ? accent : dark ? '#2fc497' : '#0b7a5c', backs);
+  return {
+    vars:
+      `--bg:${bg};--surface:${card};--surface-2:${card2};--border:${mix(bg, ink, 0.16)};--text:${ink};--muted:${muted};` +
+      `--accent:${acc};--accent-ink:${inkOn(acc)};--accent-soft:${mix(card, acc, dark ? 0.24 : 0.14)};` +
+      `--cell-empty:${mix(card, ink, 0.08)};--cell-line:${readable(mix(ink, bg, 0.5), [card], 3)};` +
+      `--yes-soft:${mix(card, dark ? '#2fc497' : '#0b7a5c', 0.2)};--maybe-soft:${mix(card, '#e0a12e', 0.2)};--no-soft:${mix(card, dark ? '#ff8577' : '#b42318', 0.16)};` +
+      `--final:${ink};--final-ink:${bg};` +
+      KEY[dark ? 'dark' : 'light'] +
+      `color-scheme:${dark ? 'dark' : 'light'};`,
+    dark,
+  };
 }
 
 // The organization's bar (brandBar), styled here so pages without a brand never download it.
@@ -61,17 +111,27 @@ const BAR =
   '.brand-bar{display:flex;align-items:center;gap:10px;margin:0 0 16px;font-weight:700;font-size:1.05rem}' +
   '.brand-bar img{height:40px;width:auto;max-width:160px;object-fit:contain}';
 
+const fontVar = (k) => Object.hasOwn(FONTS, k ?? '') && FONTS[k][1];
+
 /**
  * The CSS that gives the page (or, with `scope`, one element: the preview on /brand) the brand's
- * look: only colours made here and fonts from FONTS. The retro look is dark, so it takes the dark ones.
+ * look: only colours made here, fonts from FONTS and corners from CORNERS. Without its own
+ * background it follows Venn's light and dark (the retro look is dark, so it takes the dark ones).
  */
 export function brandCss(brand, scope = ':root') {
+  const head = fontVar(brand.font);
+  const body = fontVar(brand.bodyFont);
+  const corners = Object.hasOwn(CORNERS, brand.corners ?? '') && CORNERS[brand.corners];
+  const base =
+    (head ? `--serif:${head};` : '') +
+    (body ? `--display:${body};` : '') +
+    (corners ? `--radius:${corners[1]}px;--radius-lg:${corners[2]}px;` : '');
+  if (isHex(brand.bg)) return `${BAR}${scope}{${base}${scheme(brand).vars}}`;
   const p = isHex(brand.accent) ? palette(brand.accent) : null;
   const vars = (m) => `--accent:${m.accent};--accent-ink:${m.ink};--accent-soft:${m.soft};`;
-  const font = Object.hasOwn(FONTS, brand.font ?? '') && FONTS[brand.font][1];
   return (
     BAR +
-    `${scope}{${font ? `--display:${font};--serif:${font};` : ''}${p ? vars(p.light) : ''}}` +
+    `${scope}{${base}${p ? vars(p.light) : ''}}` +
     (p ? `@media (prefers-color-scheme: dark){${scope}{${vars(p.dark)}}}html.retro ${scope}{${vars(p.dark)}}` : '')
   );
 }

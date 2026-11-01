@@ -3,7 +3,7 @@
 // private manage link (/brand/<id>#admin=<token>), kept in this browser too, like a poll's organizer
 // link. See src/brands.js. Loaded only on these pages.
 
-import { FONTS, brandBar, brandLook, brandPreview } from './brand-look.js';
+import { CORNERS, FONTS, brandBar, brandLook, brandPreview } from './brand-look.js';
 import { $, $$, api, app, esc, forget, save, saved, toast } from './ui.js';
 
 // The create pages' styles (forms, the sticky bar), and this page's own.
@@ -14,6 +14,8 @@ const sheet = (href) =>
 await Promise.all([sheet('/create.css'), sheet('/brand.css')]);
 
 const DEFAULT_ACCENT = '#0b7a5c';
+// A page of its own starts white, with light grey cards and near-black text.
+const OWN = { bg: '#ffffff', surface: '#f4f4f5', text: '#16181a' };
 // The logo: made small here, to fit a 320 × 160 box (the server takes at most 100 KB).
 const LOGO_BOX = [320, 160];
 const LOGO_MAX = 100_000;
@@ -115,14 +117,13 @@ function showPublic(b) {
 function showForm(b, token) {
   document.title = b ? `${b.name} · Brand template · Venn` : 'Brand template · Venn';
   const v = (k) => esc(b?.[k] || '');
-  const font = b?.font || 'sans';
   const others = mine().filter((x) => x.id !== b?.id);
   let logo = b?.logo || null; // what shows: the saved one's URL, or a new one's data URL
   let logoChanged = false;
   app.innerHTML = `
     <form id="brand-form" class="create brand-page" novalidate>
       <h1>${b ? 'Your brand template' : 'Make a brand template'}</h1>
-      <p class="lede create-lede">Polls your team makes from it show your logo, colour and font to everyone.</p>
+      <p class="lede create-lede">Polls your team makes from it show your logo, colours and fonts to everyone.</p>
       ${b ? links(b.id, token) : ''}
       <div id="preview-box"></div>
       <section class="sheet" aria-labelledby="org-h">
@@ -136,17 +137,44 @@ function showForm(b, token) {
         </div>
         <input type="file" id="logo-file" accept="image/png,image/jpeg,image/webp" hidden>
         <p class="hint" id="logo-row" hidden><button type="button" class="link-btn" id="logo-remove">Remove logo</button></p>
+      </section>
+      <section class="sheet" aria-labelledby="colours-h">
+        <h2 id="colours-h">Colours</h2>
         <div class="color-row">
-          <label for="b-accent">Colour</label>
+          <label for="b-accent">Buttons and links</label>
           <input id="b-accent" type="color" value="${esc(b?.accent || DEFAULT_ACCENT)}">
         </div>
         <div>
-          <span class="label" id="font-l">Font</span>
-          <div class="seg font-seg" role="radiogroup" aria-labelledby="font-l">
-            ${Object.entries(FONTS)
+          <span class="label" id="page-l">Page</span>
+          <div class="seg" role="radiogroup" aria-labelledby="page-l">
+            <button type="button" role="radio" data-page="venn" aria-checked="${!b?.bg}">Venn’s light and dark</button>
+            <button type="button" role="radio" data-page="own" aria-checked="${!!b?.bg}">Your own</button>
+          </div>
+        </div>
+        <div class="color-grid" id="own-colours"${b?.bg ? '' : ' hidden'}>
+          ${[
+            ['bg', 'Background'],
+            ['surface', 'Cards'],
+            ['text', 'Text'],
+          ]
+            .map(
+              ([k, l]) =>
+                `<div class="color-row"><label for="b-${k}">${l}</label><input id="b-${k}" type="color" value="${esc(b?.[k] || OWN[k])}"></div>`,
+            )
+            .join('')}
+        </div>
+      </section>
+      <section class="sheet" aria-labelledby="type-h">
+        <h2 id="type-h">Type and shape</h2>
+        ${fontPicker('font', 'Headings', b?.font)}
+        ${fontPicker('bodyFont', 'Text', b?.bodyFont)}
+        <div>
+          <span class="label" id="corners-l">Corners</span>
+          <div class="seg" role="radiogroup" aria-labelledby="corners-l">
+            ${Object.entries(CORNERS)
               .map(
-                ([k, [name, stack]]) =>
-                  `<button type="button" role="radio" data-font="${k}" aria-checked="${k === font}" style="font-family:${esc(stack)}">${name}</button>`,
+                ([k, [name, r]]) =>
+                  `<button type="button" role="radio" data-corners="${k}" aria-checked="${k === (b?.corners || 'soft')}"><span class="corner-swatch" style="border-radius:${Math.round(r / 2.5)}px" aria-hidden="true"></span>${name}</button>`,
               )
               .join('')}
           </div>
@@ -177,11 +205,15 @@ function showForm(b, token) {
       </div>
     </form>`;
 
-  const font$ = () => $('[data-font][aria-checked="true"]')?.dataset.font || 'sans';
+  const picked = (attr, key = attr) => $(`[data-${attr}][aria-checked="true"]`)?.dataset[key] || '';
+  const own = () => picked('page') === 'own';
   const fields = () => ({
     name: $('#b-name').value.trim(),
     accent: $('#b-accent').value,
-    font: font$(),
+    ...(own() && { bg: $('#b-bg').value, surface: $('#b-surface').value, text: $('#b-text').value }),
+    font: picked('font'),
+    bodyFont: picked('body-font', 'bodyFont'),
+    corners: picked('corners') === 'soft' ? '' : picked('corners'),
     title: $('#b-title').value.trim(),
     where: $('#b-where').value.trim(),
     note: $('#b-note').value.trim(),
@@ -196,13 +228,15 @@ function showForm(b, token) {
     $('#logo-row').hidden = !logo;
   };
   show();
-  for (const el of ['#b-name', '#b-accent', '#b-title']) $(el).addEventListener('input', show);
-  $('.font-seg').onclick = (e) => {
-    const btn = e.target.closest('[data-font]');
+  for (const el of ['#b-name', '#b-accent', '#b-bg', '#b-surface', '#b-text', '#b-title']) $(el).addEventListener('input', show);
+  // Each row of choices (page, fonts, corners) is one radio group.
+  $('#brand-form').addEventListener('click', (e) => {
+    const btn = e.target.closest('[role="radio"]');
     if (!btn) return;
-    for (const x of $$('[data-font]')) x.setAttribute('aria-checked', String(x === btn));
+    for (const x of $$('[role="radio"]', btn.parentElement)) x.setAttribute('aria-checked', String(x === btn));
+    $('#own-colours').hidden = !own();
     show();
-  };
+  });
   $('#logo-tile').onclick = () => $('#logo-file').click();
   $('#logo-file').onchange = async () => {
     const file = $('#logo-file').files[0];
@@ -282,12 +316,32 @@ function showForm(b, token) {
   if (!b) $('#b-name').focus();
 }
 
-/** What a poll from it looks like: the bar, its name in the font, a pick and Create in the colour. */
+/** A row of fonts to choose from, each shown in itself; the first is Venn's own. */
+const fontPicker = (key, label, value = '') => `
+  <div>
+    <span class="label" id="${key}-l">${label}</span>
+    <div class="font-grid" role="radiogroup" aria-labelledby="${key}-l">
+      <button type="button" role="radio" data-${key === 'font' ? 'font' : 'body-font'}="" aria-checked="${!value}">Venn</button>
+      ${Object.entries(FONTS)
+        .map(
+          ([k, [name, stack]]) =>
+            `<button type="button" role="radio" data-${key === 'font' ? 'font' : 'body-font'}="${k}" aria-checked="${k === value}" style="font-family:${esc(stack)}">${name}</button>`,
+        )
+        .join('')}
+    </div>
+  </div>`;
+
+/** What a poll from it looks like, in its look: the bar, its name, a card with answers and Create. */
 const preview = (b) => `
-  <section class="sheet brand-preview" id="brand-preview" aria-label="How your polls look">
+  <section class="brand-preview" id="brand-preview" aria-label="How your polls look">
     ${b.name || b.logo ? brandBar(b, esc) : ''}
-    <p class="preview-title">${esc(b.title || 'Team lunch')}</p>
-    <p class="preview-row" aria-hidden="true"><span class="pill" aria-pressed="true">Dinner</span><span class="btn btn-primary">Create Venn</span></p>
+    <p class="pv-title">${esc(b.title || 'Team lunch')}</p>
+    <div class="pv-card" aria-hidden="true">
+      <p class="pv-day">Friday, Nov 13</p>
+      <p class="pv-muted">3 can make it</p>
+      <p class="pv-row"><span class="pv-pill pv-yes">Yes</span><span class="pv-pill pv-maybe">If needed</span><span class="pv-pill">No</span></p>
+    </div>
+    <p class="pv-row" aria-hidden="true"><span class="pv-btn">Send my answer</span></p>
   </section>`;
 
 /** The template's two links: one for the team, one to keep. */
