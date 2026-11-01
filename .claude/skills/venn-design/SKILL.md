@@ -198,15 +198,17 @@ the same PR** (and CLAUDE.md if it's a rule that matters in review).
 - **No look switch on the create form** (Seph, 2026-11-01: "Is it needed here?"). It sat in About you,
   which is about the organizer, and it repeated the site's own choice. A new poll takes the page's look;
   the create page's footer has **Classic mode** like the website's (hidden for a brand template's poll).
-  Signed in, a **Look** row under the lede picks **Retro**, **Classic** or one of the account's templates
-  (`public/create-look.js`); Retro and Classic there are this poll's look only, the footer's switch is the
-  website's. Retro and classic are never account-gated: accounts add, never remove. Seph, 2026-11-01:
-  Retro and Classic are always in the templates: also at the top of My polls' Templates ("Built in").
+  **No Look row either** (Seph, 2026-11-01: "I don't like having look in the poll"): a template's poll
+  starts from the template (New poll in My polls' Templates, or its share link `/new?brand=`). Retro and
+  classic are never account-gated: accounts add, never remove. Retro and Classic are always in My polls'
+  Templates ("Built in") as starting points: **Duplicate** opens `/brand/new?look=retro|classic`, a new
+  template already in that look (Retro: the night colours, neon answers and Orbitron headings), to
+  change and then use (Seph: "the point is to duplicate and then edit to make their own").
 - **Sharing a template** (Seph, 2026-11-01: "admin rights or user rights"): its owner's Share step has
   **Copy admin invite** and **Copy user invite** (links `/brand/<id>#join=…`; the same link again until
   turned off), who has it with an Admin / User picker and Remove, and "N invite links work · Turn them
   off". **Admins** change the template (no delete, no sharing, a Leave instead); **users** have it in
-  their templates and Look row, see the template page with "In your templates" and can leave. Opening an
+  their templates, see the template page with "In your templates" and can leave. Opening an
   invite signed out asks to sign in first, then comes back. Templates rows say "Shared with you · Admin/User".
 - The hero Venn tells the story in motion, **from noise to a plan**: a group chat's messages bounce
   around, fly to the three friends, the circles drift together and the day that works pops out, then

@@ -462,10 +462,25 @@ const STEPS = [
 
 /**
  * Looks to start from: one tap sets the colours, fonts and shape, and everything stays editable.
- * The first is Venn's own.
+ * The first two are Venn's own built-in looks, Retro and Classic: My polls' Templates duplicates
+ * them into a template of your own (/brand/new?look=retro).
  */
 export const LOOKS = {
-  venn: ['Venn', { accent: DEFAULT_ACCENT }],
+  retro: [
+    'Retro',
+    {
+      accent: '#2de2e6',
+      bg: '#0d0221',
+      surface: '#150a35',
+      text: '#f5f0ff',
+      yes: '#2bf5a0',
+      maybe: '#ffd319',
+      no: '#ff3cac',
+      font: 'retro',
+      bodyFont: 'sans',
+    },
+  ],
+  classic: ['Classic', { accent: DEFAULT_ACCENT }],
   editorial: [
     'Editorial',
     {
@@ -579,7 +594,7 @@ function showForm(b, token, start, draft = null) {
         ${panel(
           'look',
           `<div class="look-grid" id="looks">
-            ${lookCard('logo', 'Your logo’s colour', LOOKS.venn[1]).replace('<button', '<button id="look-logo" hidden')}
+            ${lookCard('logo', 'Your logo’s colour', LOOKS.classic[1]).replace('<button', '<button id="look-logo" hidden')}
             ${Object.entries(LOOKS)
               .map(([k, [name, l]]) => lookCard(k, name, l))
               .join('')}
@@ -781,6 +796,7 @@ function showForm(b, token, start, draft = null) {
     $('#b-dark').checked = !!l.darkBg;
     for (const k of Object.keys(DARK)) setColour(`#b-${k}`, l[k]);
     pick('answers', l.yes ? 'own' : 'venn');
+    for (const k of Object.keys(KEY)) setColour(`#b-${k}`, l[k] || KEY[k]);
     pick('font', l.font || '');
     pick('body-font', l.bodyFont || '');
     pick('corners', l.corners || 'soft');
@@ -845,7 +861,7 @@ function showForm(b, token, start, draft = null) {
     if (step) return go(ids.indexOf(step.dataset.step));
     const look = e.target.closest('[data-look]');
     if (look) {
-      return applyLook(look.dataset.look === 'logo' ? { ...LOOKS.venn[1], accent: colours[0] } : LOOKS[look.dataset.look][1]);
+      return applyLook(look.dataset.look === 'logo' ? { ...LOOKS.classic[1], accent: colours[0] } : LOOKS[look.dataset.look][1]);
     }
     const swatch = e.target.closest('[data-colour]');
     if (swatch) {
@@ -970,6 +986,9 @@ function showForm(b, token, start, draft = null) {
       $('#err').textContent = ex.message;
     }
   };
+  // Duplicating one of Venn's built-in looks (My polls' Templates): the new template starts as it.
+  const from = !init && new URLSearchParams(location.search).get('look');
+  if (from && Object.hasOwn(LOOKS, from)) applyLook(LOOKS[from][1]);
   if (!b && !PHONE.matches) $('#b-name').focus();
   return fitPhone($('#brand-form'));
 }
@@ -1037,6 +1056,8 @@ const fontPicker = (key, label, value = '') => `
     <div class="font-grid" role="radiogroup" aria-labelledby="${key}-l">
       <button type="button" role="radio" data-${key === 'font' ? 'font' : 'body-font'}="" aria-checked="${!value}">Venn</button>
       ${Object.entries(FONTS)
+        // Retro's Orbitron is a headings font: too heavy to read as text.
+        .filter(([k]) => key === 'font' || k !== 'retro')
         .map(
           ([k, [name, stack]]) =>
             `<button type="button" role="radio" data-${key === 'font' ? 'font' : 'body-font'}="${k}" aria-checked="${k === value}" style="font-family:${esc(stack)}">${name}</button>`,

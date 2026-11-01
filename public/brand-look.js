@@ -14,6 +14,8 @@ export const FONTS = {
   humanist: ['Humanist', "Optima, Candara, 'Gill Sans', 'Noto Sans', 'Trebuchet MS', sans-serif"],
   condensed: ['Condensed', "'Avenir Next Condensed', 'Arial Narrow', 'Roboto Condensed', 'Liberation Sans Narrow', sans-serif"],
   elegant: ['Elegant', "Didot, 'Bodoni 72', 'Bodoni MT', 'Noto Serif Display', Georgia, serif"],
+  // Venn's own retro headings (Orbitron, which every app page loads with retro-app.css).
+  retro: ['Retro', "'Orbitron', 'Eurostile', 'Bank Gothic', system-ui, sans-serif"],
 };
 
 /** Corners: [cards, big cards]. Soft is Venn's own. */
