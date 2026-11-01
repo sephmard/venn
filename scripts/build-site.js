@@ -22,6 +22,7 @@ const DOCS = [
   ['docs/ACCOUNTS.md', 'accounts.html', 'Accounts', 'Reference'],
   ['docs/EMBED.md', 'embed.html', 'White label and embedding', 'Reference'],
   ['docs/AI.md', 'ai.html', 'AI features', 'Reference'],
+  ['docs/MCP.md', 'mcp.html', 'Claude, ChatGPT and MCP', 'Reference'],
   ['docs/USAGE-STATS.md', 'usage-stats.html', 'Usage stats', 'Reference'],
   ['CONTRIBUTING.md', 'contributing.html', 'Contributing', 'Project'],
   ['docs/CI.md', 'ci.html', 'CI and review', 'Project'],

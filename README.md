@@ -44,6 +44,7 @@ Venn is free to build on: no API key, no sign-up, no paid tier.
 
 - **Make polls from your app.** One `POST` makes a poll; a signed webhook tells you each time someone answers. [API reference](docs/API.md)
 - **Put polls on your website.** An `<iframe>` in your organization's look, with or without Venn's name. [Embedding guide](docs/EMBED.md)
+- **Make a Venn from Claude or ChatGPT.** Venn is an MCP server at `https://venn.day/api/mcp`: ask your assistant to find a date, and it makes the poll. [Connecting it](docs/MCP.md)
 - **Run your own.** One Cloudflare Worker or any Node server, with SQLite. [Self-hosting guide](docs/SELF-HOSTING.md)
 
 ```sh

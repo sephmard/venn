@@ -1,8 +1,11 @@
-// AI features, powered by Claude. Off unless ANTHROPIC_API_KEY is set.
-// Every call returns structured JSON (output_config.format), so the server never parses free text.
+// AI features, powered by Claude. Off unless ANTHROPIC_API_KEY is set, or AI_OWN_KEYS is "on" so
+// people can bring their own Anthropic key. Every call returns structured JSON
+// (output_config.format), so the server never parses free text.
 
 import Anthropic from '@anthropic-ai/sdk';
+import { BUTTONS, CORNERS, FONTS, isHex } from '../public/brand-look.js';
 import {
+  DAY_PARTS,
   IF_NEEDED,
   LIMITS,
   ValidationError,
@@ -15,31 +18,43 @@ import {
   zonedToUtc,
 } from '../public/core.js';
 
-export const aiEnabled = (env) => Boolean(env.ANTHROPIC_API_KEY);
-const DEFAULT_MODEL = 'claude-opus-5-5';
+export const aiEnabled = (env) => Boolean(env.ANTHROPIC_API_KEY) || env.AI_OWN_KEYS === 'on';
+// Haiku: quick and cheap, and plenty for turning a few sentences into dates.
+const DEFAULT_MODEL = 'claude-haiku-5-5';
 const MAX_TEXT = 600;
 
 export class AiUnavailableError extends Error {}
+/** The Anthropic key someone brought didn't work. */
+export class AiKeyError extends Error {}
 
-function client(env) {
-  return new Anthropic({ apiKey: env.ANTHROPIC_API_KEY, maxRetries: 1, timeout: 60_000 });
+/** A key someone brought: kept in their browser, sent with each AI request, never stored. */
+export const OWN_KEY_HEADER = 'x-anthropic-key';
+export const validOwnKey = (key) => typeof key === 'string' && /^sk-ant-[A-Za-z0-9_-]{20,300}$/.test(key);
+
+/** A Claude client: with the key someone brought, or the server's own. */
+export function aiClient(env, ownKey) {
+  return new Anthropic({ apiKey: ownKey || env.ANTHROPIC_API_KEY, maxRetries: 1, timeout: 60_000 });
 }
+const client = (env) => aiClient(env);
 
 /** One structured call. Throws AiUnavailableError for refusals and API problems. */
 async function ask(env, { system, prompt, schema, effort = 'low', maxTokens = 4000, anthropic = client(env) }) {
   let response;
+  const model = env.AI_MODEL || DEFAULT_MODEL;
   try {
     response = await anthropic.beta.messages.create({
-      model: env.AI_MODEL || DEFAULT_MODEL,
+      model,
       max_tokens: maxTokens,
-      // If a safety check declines a harmless request, retry on Anthropic's recommended fallback model.
-      betas: ['server-side-fallback-2026-07-01'],
-      fallbacks: 'default',
+      // If a safety check declines a harmless request, retry on Anthropic's recommended fallback
+      // model. Haiku has no server-side fallback.
+      ...(!model.includes('haiku') && { betas: ['server-side-fallback-2026-07-01'], fallbacks: 'default' }),
       output_config: { effort, format: { type: 'json_schema', schema } },
       system,
       messages: [{ role: 'user', content: prompt }],
     });
   } catch (e) {
+    if (e instanceof Anthropic.AuthenticationError || e instanceof Anthropic.PermissionDeniedError)
+      throw new AiKeyError("That Anthropic key didn't work. Check it and try again.", { cause: e });
     if (e instanceof Anthropic.RateLimitError)
       throw new AiUnavailableError('The AI is busy right now. Try again in a minute.', { cause: e });
     if (e instanceof Anthropic.APIError) throw new AiUnavailableError("The AI couldn't respond. Try again later.", { cause: e });
@@ -144,6 +159,147 @@ ${upcoming}
     durationMinutes: duration,
     options: options.slice(0, 30),
   };
+}
+
+// ---------- 1b. Describe it in words → the days on "Create a Venn" (/new) ----------
+
+const DAYS_SCHEMA = {
+  type: 'object',
+  properties: {
+    title: { type: 'string', description: 'Short poll title, under 60 characters' },
+    answerWith: {
+      type: 'string',
+      enum: ['days', 'parts', 'hours'],
+      description: 'days: whole days. parts: mornings, afternoons or evenings. hours: specific times.',
+    },
+    days: {
+      type: 'array',
+      items: {
+        type: 'object',
+        properties: {
+          date: { type: 'string', description: 'YYYY-MM-DD' },
+          part: { type: 'string', enum: ['', ...DAY_PARTS.map((p) => p.key)], description: 'For parts only, else empty' },
+          from: { type: 'string', description: 'For hours only: HH:MM, 24-hour, else empty' },
+          to: { type: 'string', description: 'For hours only: HH:MM, 24-hour, else empty' },
+        },
+        required: ['date', 'part', 'from', 'to'],
+        additionalProperties: false,
+      },
+    },
+  },
+  required: ['title', 'answerWith', 'days'],
+  additionalProperties: false,
+};
+
+/**
+ * The days (and parts of the day, or hours) that could work, for /new's calendar to show picked:
+ * { title, level: 'days' | 'parts' | 'hours', days: [{ date }] | [{ date, part }] | [{ date, start, end }] },
+ * with start and end in minutes after midnight.
+ */
+export async function draftDays(env, { prompt, timezone }, { now, anthropic } = {}) {
+  const text = cleanPrompt(prompt, 'Description');
+  const today = utcToZoned(now, timezone).date;
+  const NAMES = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+  const upcoming = Array.from({ length: 42 }, (_, i) => {
+    const d = addDays(today, i);
+    return `${NAMES[weekdayOf(d)]} ${d}`;
+  }).join('\n');
+
+  const out = await ask(env, {
+    schema: DAYS_SCHEMA,
+    anthropic,
+    effort: 'medium', // "any weekend in March" needs a little date reasoning
+    system: `You help someone set up a group poll to find a day that works for everyone. Turn their description into a short title and the days that could work.
+Rules:
+- answerWith is "days" unless the description names times of day. Use "parts" for mornings, afternoons or evenings, and "hours" for specific times.
+- List every day that fits the description, up to 31. Only use dates on or after today, and within the next six weeks unless the description says otherwise.
+- With "parts", list one entry per part of the day. With "hours", give the time range for each day.
+- Times are in the person's own time zone; do not convert them.
+${DATA_NOTE}`,
+    prompt: `Time zone: ${timezone}
+Today is ${upcoming.split('\n')[0]}. The next six weeks:
+${upcoming}
+
+<user_text>${text}</user_text>`,
+  });
+
+  const level = ['days', 'parts', 'hours'].includes(out.answerWith) ? out.answerWith : 'days';
+  const minutes = (t) => {
+    const m = /^(\d{1,2}):(\d{2})$/.exec(t || '');
+    if (!m || +m[1] > 24 || +m[2] > 59) return null;
+    return Math.min(1440, +m[1] * 60 + Math.round(+m[2] / 30) * 30);
+  };
+  const seen = new Set();
+  const days = [];
+  for (const d of out.days || []) {
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(d.date) || d.date < today || addDays(d.date, 0) !== d.date) continue;
+    let item = { date: d.date };
+    if (level === 'parts') {
+      if (!DAY_PARTS.some((p) => p.key === d.part)) continue;
+      item.part = d.part;
+    }
+    if (level === 'hours') {
+      const [start, end] = [minutes(d.from), minutes(d.to)];
+      if (start == null || end == null || end <= start) continue;
+      item = { ...item, start, end };
+    }
+    const key = JSON.stringify(item);
+    if (seen.has(key)) continue;
+    seen.add(key);
+    days.push(item);
+  }
+  if (!days.length) throw new AiUnavailableError("Couldn't find any days in that description. Try mentioning when.");
+  days.sort((a, b) => (a.date < b.date ? -1 : a.date > b.date ? 1 : (a.start ?? 0) - (b.start ?? 0)));
+  return { title: String(out.title || '').slice(0, LIMITS.title), level, days: days.slice(0, 62) };
+}
+
+// ---------- 1c. Describe your organization → a brand template's look ----------
+
+const TEMPLATE_SCHEMA = {
+  type: 'object',
+  properties: {
+    accent: { type: 'string', description: 'Buttons and links colour, #rrggbb' },
+    ownPage: { type: 'boolean', description: 'True to give the page its own background, cards and text colours' },
+    bg: { type: 'string', description: 'Page background, #rrggbb, or empty when ownPage is false' },
+    surface: { type: 'string', description: 'Cards on the page, #rrggbb, or empty' },
+    text: { type: 'string', description: 'Text colour, #rrggbb, or empty' },
+    font: { type: 'string', enum: Object.keys(FONTS).filter((f) => f !== 'retro'), description: 'Font for headings' },
+    bodyFont: { type: 'string', enum: Object.keys(FONTS).filter((f) => f !== 'retro'), description: 'Font for text' },
+    corners: { type: 'string', enum: Object.keys(CORNERS) },
+    buttons: { type: 'string', enum: Object.keys(BUTTONS), description: 'pill: rounded pills. corners: match the corners.' },
+    title: { type: 'string', description: 'A usual poll name for this organization, under 60 characters, or empty' },
+  },
+  required: ['accent', 'ownPage', 'bg', 'surface', 'text', 'font', 'bodyFont', 'corners', 'buttons', 'title'],
+  additionalProperties: false,
+};
+
+/** A starting look for a brand template from a few words about the organization. Everything stays editable. */
+export async function draftTemplate(env, { prompt, name }, { anthropic } = {}) {
+  const text = cleanPrompt(prompt, 'Description');
+  const org = typeof name === 'string' ? name.trim().slice(0, 60) : '';
+  const out = await ask(env, {
+    schema: TEMPLATE_SCHEMA,
+    anthropic,
+    system: `You help an organization style its scheduling polls. From its description, suggest colours, fonts and shapes that suit it.
+Rules:
+- Text must be easy to read on the background and on the cards (WCAG AA contrast). Cards are close to the background.
+- Keep it calm and readable. Only give the page its own colours when the description suggests a strong look; otherwise ownPage is false and bg, surface and text are empty.
+- If the description names brand colours, use them.
+${DATA_NOTE}`,
+    prompt: `<user_text>${org ? `Organization: ${org}\n` : ''}${text}</user_text>`,
+  });
+  const fonts = (f) => (Object.hasOwn(FONTS, f) && f !== 'retro' ? f : undefined);
+  const look = {
+    accent: isHex(out.accent) ? out.accent.toLowerCase() : undefined,
+    font: fonts(out.font),
+    bodyFont: fonts(out.bodyFont),
+    corners: Object.hasOwn(CORNERS, out.corners) ? out.corners : undefined,
+    buttons: Object.hasOwn(BUTTONS, out.buttons) ? out.buttons : undefined,
+  };
+  if (out.ownPage && [out.bg, out.surface, out.text].every(isHex))
+    Object.assign(look, { bg: out.bg.toLowerCase(), surface: out.surface.toLowerCase(), text: out.text.toLowerCase() });
+  if (!look.accent) throw new AiUnavailableError("Couldn't suggest a look from that. Try describing it differently.");
+  return { look: Object.fromEntries(Object.entries(look).filter(([, v]) => v)), title: String(out.title || '').slice(0, 60) };
 }
 
 // ---------- shared: describe the poll and its answers ----------
@@ -293,6 +449,38 @@ Proposed times: ${buildSlots(ev).length}. Responses so far: ${participants.lengt
 Link: ${url}`,
   });
   return { message: String(out.message || '') };
+}
+
+// ---------- the weekly allowance on the server's key ----------
+
+/**
+ * How many AI requests the server's own key pays for each week: per person, and for everyone
+ * together. Past either, people bring their own key. 0 turns the server's key off.
+ */
+export function aiAllowance(env) {
+  if (!env.ANTHROPIC_API_KEY) return { perPerson: 0, total: 0 };
+  const n = (v, fallback) => (v == null || v === '' ? fallback : Math.max(0, Math.floor(Number(v)) || 0));
+  return { perPerson: n(env.AI_WEEKLY_LIMIT, 20), total: n(env.AI_WEEKLY_TOTAL, 2000) };
+}
+
+/** The Monday (UTC) starting the week `now` is in, as YYYY-MM-DD. */
+export function weekOf(now) {
+  const d = new Date(now);
+  const back = (d.getUTCDay() + 6) % 7;
+  return new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate() - back)).toISOString().slice(0, 10);
+}
+
+/**
+ * Who a request counts against: their account when signed in, otherwise their IP address. Hashed
+ * with the week, so nothing readable is stored and one week can't be matched to the next.
+ */
+export async function allowanceKey(week, userId, ip) {
+  const who = userId ? `user:${userId}` : `ip:${ip || 'unknown'}`;
+  const hash = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(`venn-ai|${week}|${who}`));
+  return [...new Uint8Array(hash)]
+    .slice(0, 16)
+    .map((b) => b.toString(16).padStart(2, '0'))
+    .join('');
 }
 
 // ---------- rate limiting ----------

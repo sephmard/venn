@@ -276,3 +276,24 @@ test('brand template: a page of its own, with its own dark mode', async ({ page 
   await noSideways(page);
   await audit(page, 'colours step, dark');
 });
+
+test('brand template: describe the organization, and AI suggests a starting look to change', async ({ page }) => {
+  const { id, adminToken } = await (await page.request.post('/api/brands', { data: { name: 'Crux Climbing' } })).json();
+  await page.goto(`/brand/${id}#admin=${adminToken}`);
+  await expect(page.locator('#b-name')).toHaveValue('Crux Climbing');
+  await openStep(page, 'look');
+  await expect(page.locator('#ai-look label')).toHaveText('Or describe your organization');
+  const sent = page.waitForRequest((r) => r.url().endsWith('/api/ai/draft-template'));
+  await page.fill('#ai-prompt', 'A climbing gym, friendly and bold, orange and charcoal');
+  await page.click('#ai-go');
+  expect((await sent).postDataJSON()).toEqual({
+    prompt: 'A climbing gym, friendly and bold, orange and charcoal',
+    name: 'Crux Climbing',
+  });
+  await expect(page.locator('#toast')).toContainText('Look suggested');
+  await expect(page.locator('#b-accent')).toHaveValue('#c2410c');
+  await openStep(page, 'shape');
+  await expect(page.getByRole('radio', { name: /Round/ })).toHaveAttribute('aria-checked', 'true');
+  await openStep(page, 'poll');
+  await expect(page.locator('#b-title')).toHaveValue('Climb night');
+});
