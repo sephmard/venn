@@ -230,35 +230,31 @@ test('For organizations needs an account: sign in first, then make a template; a
   await expect(page.locator('#b-accent')).toHaveValue('#6d28d9');
   await page.goto('/me');
   await page.getByRole('tab', { name: /Templates/ }).click();
-  // Venn's own Retro and Classic are always there, above the account's own.
+  // Venn's own Retro and Classic are always there, above the account's own, to duplicate.
   await expect(page.locator('.acct-brand .acct-row b')).toHaveText(['Retro', 'Classic', 'Acme Inc.']);
-  await expect(page.getByRole('link', { name: 'New poll in Classic' })).toHaveAttribute('href', '/new?retro=0');
   await expect(page.locator('.acct-brand').getByRole('link', { name: 'New poll with Acme Inc.' })).toHaveAttribute(
     'href',
     /\/new\?brand=/,
   );
+  // Duplicating Retro starts a new template in its colours and headings, to make it yours.
+  await page.getByRole('link', { name: 'Duplicate Retro' }).click();
+  await expect(page).toHaveURL(/\/brand\/new\?look=retro$/);
+  await expect(page.locator('#b-accent')).toHaveValue('#2de2e6');
+  await expect(page.locator('#b-bg')).toHaveValue('#0d0221');
+  await expect(page.locator('[data-font="retro"]')).toHaveAttribute('aria-checked', 'true');
+  await noSideways(page);
 
-  // Signed in, a new poll's page has a Look row: Retro, Classic, or the template.
+  // A new poll's page has no look picker: the template's own New poll gives its look.
   await page.goto('/new');
-  const look = page.getByRole('radiogroup', { name: 'Look' });
-  await expect(look.getByRole('radio')).toHaveText(['Retro', 'Classic', 'Acme Inc.']);
-  await expect(look.getByRole('radio', { name: 'Retro' })).toHaveAttribute('aria-checked', 'true');
-  await look.getByRole('radio', { name: 'Classic' }).click();
-  await expect(page.locator('html')).not.toHaveClass(/retro/);
-  await expect(page.locator('.footer .classic-switch')).toHaveAttribute('aria-checked', 'true');
-  await look.getByRole('radio', { name: 'Retro' }).click();
-  await expect(page.locator('html')).toHaveClass(/retro/);
+  await expect(page.getByRole('radiogroup', { name: 'Look' })).toHaveCount(0);
   await expect(page.locator('.footer .classic-switch')).toBeVisible();
-  await look.getByRole('radio', { name: 'Acme Inc.' }).click();
+  await page.goto('/me');
+  await page.getByRole('tab', { name: /Templates/ }).click();
+  await page.getByRole('link', { name: 'New poll with Acme Inc.' }).click();
   await expect(page.locator('#create .brand-bar')).toHaveText('Acme Inc.');
-  await expect(page).toHaveURL(/[?&]brand=/);
   await expect(page.locator('.footer .classic-switch')).toBeHidden();
   await noSideways(page);
-  await audit(page, 'picking a look');
-  await look.getByRole('radio', { name: 'Retro' }).click();
-  await expect(page.locator('#create .brand-bar')).toHaveCount(0);
-  await expect(page).not.toHaveURL(/[?&]brand=/);
-  await look.getByRole('radio', { name: 'Acme Inc.' }).click();
+  await audit(page, 'a poll from a template');
   await page.fill('#organizer', 'Robin');
   await pickDays(page, 2);
   await page.fill('#notify', 'robin@example.com');
@@ -339,12 +335,7 @@ test('sharing a template: an admin invite lets them change it, a user invite add
   await guest.page.goto('/me');
   await guest.page.getByRole('tab', { name: /Templates/ }).click();
   await expect(guest.page.locator('.acct-brand', { hasText: 'Northwind' })).toContainText('Shared with you · User');
-  await guest.page.goto('/new');
-  await expect(guest.page.getByRole('radiogroup', { name: 'Look' }).getByRole('radio')).toHaveText([
-    'Retro',
-    'Classic',
-    'Northwind',
-  ]);
+  await expect(guest.page.getByRole('link', { name: 'New poll with Northwind' })).toHaveAttribute('href', /\/new\?brand=/);
 
   // The owner sees them, and makes them an admin: now they can change it.
   await owner.page.reload();
