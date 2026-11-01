@@ -375,6 +375,12 @@ test('sharing a template: an admin invite lets them change it, a user invite add
   await expect(guest.page).toHaveURL(/\/me$/);
   await guest.page.getByRole('tab', { name: /Templates/ }).click();
   await expect(guest.page.locator('.acct-brand', { hasText: 'Northwind' })).toHaveCount(0);
+  // Pasting the invite in "Missing a template?" adds it back, staying on My polls.
+  await guest.page.getByRole('button', { name: 'Missing a template?' }).click();
+  await guest.page.getByLabel('Or paste the link here').fill(invite);
+  await guest.page.locator('#acct-sheet').getByRole('button', { name: 'Add', exact: true }).click();
+  await expect(guest.page.locator('#toast')).toHaveText('Added to your templates');
+  await expect(guest.page.locator('.acct-brand', { hasText: 'Northwind' })).toHaveCount(1);
 
   // Turning the invite links off: the link no longer works.
   await owner.page.reload();

@@ -63,7 +63,7 @@ export function addedText({ polls = 0, brands = 0, answers = 0 }) {
 /**
  * A pasted Venn link, as what it is: something to keep with the account ({ kind: 'polls' | 'brands' |
  * 'answers', item }: an organizer, manage or change-your-answer link), a template's invite
- * ({ kind: 'invite', path }), a link for guests ({ kind: 'guest', brand }), or null.
+ * ({ kind: 'invite', item: { id, token } }), a link for guests ({ kind: 'guest', brand }), or null.
  */
 export function parseVennLink(text) {
   const m = String(text || '')
@@ -78,7 +78,7 @@ export function parseVennLink(text) {
   const token = h.get('admin');
   if (token && /^[A-Za-z0-9]+$/.test(token)) return { kind: where === 'e' ? 'polls' : 'brands', item: { id, token } };
   if (where === 'brand' && /^[A-Za-z0-9]{1,64}$/.test(h.get('join') || ''))
-    return { kind: 'invite', path: `/brand/${id}#join=${h.get('join')}` };
+    return { kind: 'invite', item: { id, token: h.get('join') } };
   const [pid, edit] = (where === 'e' && h.get('edit')?.split('.')) || [];
   if (pid && edit) return { kind: 'answers', item: { id, pid, token: edit } };
   return { kind: 'guest', brand: where === 'brand' };

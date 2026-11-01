@@ -612,7 +612,7 @@ test('My polls: the organizer links this browser remembers, and pasted ones', as
     kind: 'answers',
     item: { id: 'abc', pid: 'p1', token: 'tok' },
   });
-  assert.deepEqual(parseVennLink('venn.day/brand/b1#join=SEC'), { kind: 'invite', path: '/brand/b1#join=SEC' });
+  assert.deepEqual(parseVennLink('venn.day/brand/b1#join=SEC'), { kind: 'invite', item: { id: 'b1', token: 'SEC' } });
   assert.deepEqual(parseVennLink('https://venn.day/e/abc123'), { kind: 'guest', brand: false });
   assert.deepEqual(parseVennLink('https://venn.day/new?brand=b1'), { kind: 'guest', brand: true });
   assert.notEqual(parseVennLink('venn.day/brand/b1#join=<script>').kind, 'invite');

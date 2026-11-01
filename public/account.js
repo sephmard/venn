@@ -337,8 +337,16 @@ function missing(view, redraw) {
         e.preventDefault();
         const link = parseVennLink($('#acct-link', sheet).value);
         if (!link) return say('That isn’t a Venn link. Copy the whole link, with the part after #.');
-        // An invite opens the template, which adds it (brand.js) and shows it.
-        if (link.kind === 'invite') return location.assign(link.path);
+        // An invite: joining it puts the template in this account's templates (as opening it does).
+        if (link.kind === 'invite')
+          try {
+            const { role } = await api(`brands/${link.item.id}/join`, { method: 'POST', body: { token: link.item.token } });
+            sheet.close();
+            await redraw('brands');
+            return toast(role === 'owner' ? 'It’s your own template.' : 'Added to your templates');
+          } catch (ex) {
+            return say(ex.message);
+          }
         if (link.kind === 'guest')
           return say(
             link.brand
