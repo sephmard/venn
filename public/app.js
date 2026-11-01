@@ -7,6 +7,9 @@ async function route() {
   cleanup();
   cleanup = () => {};
   document.getElementById('toast').hidden = true;
+  // The footer's Classic mode switch is for a new poll's page only (create.js shows it there).
+  const classic = document.querySelector('.footer .classic-switch');
+  if (classic) classic.hidden = true;
   const path = location.pathname.replace(/\/$/, '');
   const poll = path.match(/^\/(?:e|embed)\/([A-Za-z0-9]+)$/);
   const embed = document.documentElement.classList.contains('embed');

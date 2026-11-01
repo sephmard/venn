@@ -65,7 +65,7 @@ Friendly, plain and short, like a helpful friend in the group chat.
 
 ## The two looks
 
-**Retro is the default** for the website and for new polls. **Classic mode** at the end of the footer switches to the classic look (remembered in the browser; `venn.day/classic` links to it). An organizer can turn a poll's Retro look off. Brand templates replace both on their own polls only.
+**Retro is the default** for the website and for new polls. **Classic mode** at the end of the footer switches to the classic look (remembered in the browser; `venn.day/classic` links to it). A new poll takes the look its page is in (Seph, 2026-11-01: no look switch on the create form; the create page's footer has Classic mode too), and its organizer can switch its Retro look from the top of the poll later. Signed in with brand templates, a **Look** row at the top of the create page picks Venn's look or one of them: accounts add looks, never take retro or classic away. Brand templates replace both on their own polls only.
 
 |              | Retro (default)                                                     | Classic                                        |
 | ------------ | ------------------------------------------------------------------- | ---------------------------------------------- |

@@ -196,14 +196,12 @@ export const brandBar = (brand, esc) => {
   return `<p class="brand-bar">${brand.logo ? `<img src="${esc(brand.logo)}" alt="${named ? '' : esc(brand.name)}">` : ''}${named ? `<span>${esc(brand.name)}</span>` : ''}</p>`;
 };
 
-/** On the create page: the bar, no retro switch (the poll gets the brand's look), and (`fill`, a new poll) what it starts with. */
+/** On the create page: the bar (the poll gets the brand's look), and (`fill`, a new poll) what it starts with. */
 export function brandForm(b, fill, $, esc) {
   // Only the poll is branded: the create page keeps Venn's look, and shows whose template it is.
   if (!document.getElementById('brand-bar-look'))
     document.head.append(Object.assign(document.createElement('style'), { id: 'brand-bar-look', textContent: BAR }));
   $('#create').insertAdjacentHTML('afterbegin', brandBar(b, esc));
-  const retro = $('#p-retro');
-  if (retro) [retro.checked, retro.closest('label').hidden] = [false, true];
   if (!fill) return;
   const title = $('#title');
   if (b.title) title.value = title.dataset.seed = b.title;

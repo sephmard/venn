@@ -58,15 +58,28 @@ test('venn.day/classic opens the classic look, and older ?retro= links still wor
   await expect(page).toHaveURL(/\/classic$/);
 });
 
-test('a new poll starts in the retro look, like the site; the organizer can switch it off', async ({ page }) => {
+test('a new poll is in the page’s look: retro like the site, or classic from the footer’s Classic mode', async ({ page }) => {
   await page.goto('/new');
-  const look = page.getByRole('switch', { name: 'Retro look' });
-  await expect(look).toBeChecked();
+  // No look switch on the form: the footer has Classic mode, as on the website.
+  await expect(page.getByRole('switch', { name: 'Retro look' })).toHaveCount(0);
+  const classic = page.locator('.footer').getByRole('switch', { name: 'Classic mode' });
+  await expect(classic).toHaveAttribute('aria-checked', 'false');
   await expect(page.locator('html')).toHaveClass(/\bretro\b/);
-  await look.uncheck();
+  await classic.click();
   await expect(page.locator('html')).not.toHaveClass(/\bretro\b/);
+  await expect(classic).toHaveAttribute('aria-checked', 'true');
+  // Remembered, like the website's: the site is classic now too.
+  await page.goto('/');
+  await expect(page.locator('html')).not.toHaveClass(/\bretro\b/);
+  await page.goto('/new');
+  await expect(page.locator('html')).not.toHaveClass(/\bretro\b/);
+  await classic.click();
+  await expect(page.locator('html')).toHaveClass(/\bretro\b/);
   // Someone who chose the site's classic look starts new polls in it too.
   await page.goto('/classic');
   await page.goto('/new');
-  await expect(page.getByRole('switch', { name: 'Retro look' })).not.toBeChecked();
+  await expect(classic).toHaveAttribute('aria-checked', 'true');
+  // The switch is for a new poll's page only.
+  await page.goto('/me');
+  await expect(page.locator('.footer .classic-switch')).toBeHidden();
 });

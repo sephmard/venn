@@ -181,8 +181,8 @@ the same PR** (and CLAUDE.md if it's a rule that matters in review).
 - **Retro is the default, for the website and for new polls.** The site's footer has **Classic mode**
   (a switch, off) for the classic look, remembered in the browser. The home page's address says
   which: `venn.day` for retro, `venn.day/classic` for classic, so a copied link previews the look
-  it shows. A new poll's **Retro look** starts on (off for someone who chose Classic mode); the
-  organizer can switch it off. Retro: a synthwave night of stars and scanlines, chrome Orbitron headlines
+  it shows. A new poll is in the look its page is in: retro, or classic for someone who chose Classic
+  mode; the organizer can switch it on the poll later. Retro: a synthwave night of stars and scanlines, chrome Orbitron headlines
   with a sunset gradient on the key words, neon cyan and magenta, arcade pixel labels, a striped sun
   on a moving grid, a neon logo (`logo-retro.svg`, **always shown in the top bar, in either look and on branded polls**) and Finn stickers on neon circles
   (`img/stickers/retro/`; Finn stays smooth, never chunky pixels). Off, the usual look (the logo stays neon).
@@ -190,12 +190,16 @@ the same PR** (and CLAUDE.md if it's a rule that matters in review).
 - The **README and the developer docs** (docs.venn.day, `site-src/site.css`) are always retro and
   short: the README opens on the retro link-preview banner and the docs on their quickstart, retro screenshots (`npm run screenshots`), then only what a
   developer needs, longer detail folded away or left to the docs.
-- A poll can have the **Retro look** too (the organizer's switch, off by default; on the create page,
-  and on top of the poll): its page in neon
+- A poll in the **Retro look** (a new poll's look when the site is retro; the organizer's switch on top
+  of the poll changes it later): its page in neon
   for everyone, its "Your Venn is ready!", arcade toasts, retro Finn, neon emails, and a retro link preview
-  (Venn's retro image, or its own picture's card drawn in neon). Picking it shows it on the create page at
-  once; it starts on when the site is retro. Available stays green, if needed amber,
+  (Venn's retro image, or its own picture's card drawn in neon). Available stays green, if needed amber,
   unavailable pink.
+- **No look switch on the create form** (Seph, 2026-11-01: "Is it needed here?"). It sat in About you,
+  which is about the organizer, and it repeated the site's own choice. A new poll takes the page's look;
+  the create page's footer has **Classic mode** like the website's (hidden for a brand template's poll).
+  Signed in with brand templates of your own, a **Look** row under the lede picks **Venn** or one of them
+  (`public/create-look.js`). Retro and classic are never account-gated: accounts add, never remove.
 - The hero Venn tells the story in motion, **from noise to a plan**: a group chat's messages bounce
   around, fly to the three friends, the circles drift together and the day that works pops out, then
   they keep floating, unhurried (the messages drift slowly enough to read, but only for about 3 seconds before they fly to their friends, then the circles snap together (0.7 seconds) and the day that works pops out the moment all three overlap: the payoff is fast, the noise is slow (about 24 seconds a loop); once the day has popped, the messages float out of the friends again, faint so the day still reads, and grow loud again as the next round's noise begins) so each step can be followed. It plays while in view. Tap replays it; press and hold a circle (a mouse just

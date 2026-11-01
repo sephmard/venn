@@ -184,7 +184,7 @@ test('brand template: make one, share it, and its polls show the organization’
   // Only the poll is branded: the create page keeps Venn's own look.
   await expect(team.locator('html')).toHaveClass(/retro/);
   await expect(team.locator('html')).not.toHaveClass(/branded/);
-  await expect(team.locator('#p-retro')).toBeHidden();
+  await expect(team.locator('.footer .classic-switch')).toBeHidden(); // the poll gets the brand's look
   await pickDays(team, 2);
   await team.fill('#organizer', 'Sam');
   await team.click('#submit');

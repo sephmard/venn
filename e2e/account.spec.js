@@ -236,6 +236,30 @@ test('For organizations needs an account: sign in first, then make a template; a
     /\/new\?brand=/,
   );
 
+  // Signed in with a template, a new poll's page has a Look row: Venn's own, or the template.
+  await page.goto('/new');
+  const look = page.getByRole('radiogroup', { name: 'Look' });
+  await expect(look.getByRole('radio', { name: 'Venn' })).toHaveAttribute('aria-checked', 'true');
+  await expect(page.locator('.footer .classic-switch')).toBeVisible();
+  await look.getByRole('radio', { name: 'Acme Inc.' }).click();
+  await expect(page.locator('#create .brand-bar')).toHaveText('Acme Inc.');
+  await expect(page).toHaveURL(/[?&]brand=/);
+  await expect(page.locator('.footer .classic-switch')).toBeHidden();
+  await noSideways(page);
+  await audit(page, 'picking a look');
+  await look.getByRole('radio', { name: 'Venn' }).click();
+  await expect(page.locator('#create .brand-bar')).toHaveCount(0);
+  await expect(page).not.toHaveURL(/[?&]brand=/);
+  await look.getByRole('radio', { name: 'Acme Inc.' }).click();
+  await page.fill('#organizer', 'Robin');
+  await pickDays(page, 2);
+  await page.fill('#notify', 'robin@example.com');
+  await page.click('#submit');
+  await expect(page.locator('.party [role=status]')).toContainText('Your Venn is ready!');
+  await page.locator('.party-go').click();
+  await expect(page).toHaveURL(/\/e\/[A-Za-z0-9]+$/);
+  await expect(page.locator('.brand-bar')).toHaveText('Acme Inc.');
+
   // A second one, whose session ends while it's made: Save asks to sign in, and the draft is saved
   // on the way back.
   await page.goto('/brand/new');
