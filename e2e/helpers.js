@@ -90,6 +90,11 @@ export async function changeAnswer(page) {
  */
 export async function submit(page) {
   await page.click('#save');
+  await afterSubmit(page);
+}
+
+/** After Submit (and any question asked in the page): "Submit your answer?", then the party. */
+export async function afterSubmit(page) {
   const yes = page.locator('#submit-check[open] #sc-yes');
   const err = page.locator('#save-err:not(:empty)');
   const go = page.locator('.party-go');

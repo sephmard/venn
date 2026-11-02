@@ -118,7 +118,8 @@ the same PR** (and CLAUDE.md if it's a rule that matters in review).
 **Picking and changing the date (organizer)**
 
 - Every Pick asks first, in the page ("Pick this time?" with the date in big type and who can make
-  it): picking tells everyone. **Never `confirm()`**: in-app browsers block it.
+  it): picking tells everyone. **Never `confirm()`**: in-app browsers block it. Every other
+  "Are you sure?" (Delete poll, Remove an answer, × on several days) uses `ask()` from `public/ask.js`.
 - **Change** sits right under the picked date; changing lists the next best dates.
 - No "It's set" pop-up after a first pick: the picked date is right there. A change or a clear still
   says so.

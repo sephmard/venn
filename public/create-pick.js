@@ -352,7 +352,7 @@ export function renderPick() {
     box.innerHTML = `<ul class="od-list">${rows}</ul>
       <button type="button" class="link-btn" id="clear-options">Clear all</button>`;
   }
-  $('#options-list').addEventListener('click', (e) => {
+  $('#options-list').addEventListener('click', async (e) => {
     const rm = e.target.closest('[data-remove]');
     if (rm) remove(rm.dataset.remove);
     const fl = e.target.closest('[data-flip]');
@@ -367,7 +367,10 @@ export function renderPick() {
       changed();
       $(`[data-trip="${trip.dataset.trip}"][data-d="${trip.dataset.d}"]`)?.focus();
     }
-    if (e.target.closest('#clear-options') && confirm('Remove all the options?')) {
+    if (
+      e.target.closest('#clear-options') &&
+      (await (await import('./ask.js')).ask({ title: 'Remove all the options?', yes: 'Remove all', danger: true }))
+    ) {
       items.clear();
       changed();
     }

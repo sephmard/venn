@@ -2391,6 +2391,21 @@ pre.code {
   min-height: 48px;
   width: 100%;
 }
+/* "Delete this poll?" and other questions asked in the page (ask.js). A sheet on phones. */
+.btn-no {
+  background: var(--no-soft);
+  border-color: var(--no);
+  color: var(--no);
+}
+@media (max-width: 640px) {
+  .ask {
+    width: 100%;
+    max-width: none;
+    margin: auto 0 0;
+    border-radius: 20px 20px 0 0;
+    padding-bottom: calc(24px + env(safe-area-inset-bottom));
+  }
+}
 
 /* The organizer, on the plain poll link: what guests see, and the way back to their tools. */
 .org-switch {

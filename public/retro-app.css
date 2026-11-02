@@ -93,6 +93,10 @@ html.retro .card {
   border-color: rgb(45 226 230 / 0.4);
   box-shadow: var(--lift);
 }
+/* Questions asked in the page (ask.js, Submit your answer?) wear the same neon edge. */
+html.retro .submit-check {
+  border: 1px solid rgb(45 226 230 / 0.4);
+}
 html.retro .topbar {
   background: rgb(13 2 33 / 0.85);
   border-bottom: 0;
