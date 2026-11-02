@@ -1433,7 +1433,12 @@ test('ask when people are free: parts of the day', async ({ page, request }) => 
     (t) => [new Date(t).toLocaleTimeString('en-US', { hour: 'numeric' }), new Date(t).getTimezoneOffset()],
     day(8, 12),
   );
-  await expect(page.locator('.best-hero')).toContainText(offset ? `Jan 8, ${local.split(/\s/)[0]}:00` : 'Jan 8, afternoon');
+  // Where it's the afternoon here, the date is the heading and the part sits under it.
+  if (offset) await expect(page.locator('.best-hero')).toContainText(`Jan 8, ${local.split(/\s/)[0]}:00`);
+  else {
+    await expect(page.locator('.best-hero .best-when')).toContainText('Jan 8');
+    await expect(page.locator('.best-hero .bw-part')).toHaveText(/^Afternoon, /);
+  }
   // Everyone's answers are colour-coded: available, if needed and unavailable, with a key.
   const rows = page.locator('#overlap .ov-row');
   await expect(rows.nth(0).locator('.ov-bar')).toHaveCount(0); // everyone's free: ✓ Everyone says it
