@@ -1511,6 +1511,22 @@ ol.best .when {
     opacity: 0;
   }
 }
+.org-keep {
+  margin: -4px 0 8px;
+  font-size: 0.875rem;
+  color: var(--muted);
+}
+.org-keep span {
+  display: block;
+}
+.org-keep .link-btn {
+  font-size: 1rem;
+}
+/* A create form put back from its draft (create.js keepDraft). */
+.draft-note {
+  margin: 0 0 8px;
+  color: var(--muted);
+}
 details.organizer {
   border-radius: var(--radius-lg);
   padding: 8px 20px 16px;

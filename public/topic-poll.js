@@ -93,6 +93,24 @@ export async function renderTopicPoll(ctx) {
   const canShare = !!navigator.share && matchMedia('(pointer: coarse)').matches;
   const me = () => ev.participants.find((p) => p.id === saved(id).participantId);
   const st = { mine: { ...(me()?.availability || {}) }, touched: new Set(me() ? ev.options.map((o) => String(o.id)) : []) };
+  // An answer not sent yet stays on this device (drafts.js) until it's sent, as on a date poll.
+  const drafts = await import('./drafts.js').catch(() => null);
+  const draftKey = `venn:answer-draft:${id}`;
+  const draft = ctx.embedded
+    ? null
+    : drafts?.cleanAnswerDraft(
+        drafts.readStored(localStorage, draftKey),
+        ev.options.map((o) => o.id),
+      );
+  if (draft) Object.assign(st, { mine: draft.mine, touched: new Set(draft.touched), draft: true, draftName: draft.name });
+  else drafts?.dropStored(localStorage, draftKey);
+  const keepDraft = () =>
+    drafts?.writeStored(localStorage, draftKey, {
+      mine: st.mine,
+      touched: [...st.touched],
+      name: $('#name')?.value ?? '',
+      at: Date.now(),
+    });
   const panels = {};
 
   async function reload() {
@@ -162,7 +180,7 @@ export async function renderTopicPoll(ctx) {
             ${locked ? `<div inert class="topic-locked">${answerRows()}</div>` : answerRows()}
             <div class="topic-you">
               <label for="name">Your name</label>
-              <input id="name" type="text" maxlength="80" autocomplete="name" value="${esc(me()?.name || host?.name || lastName())}">
+              <input id="name" type="text" maxlength="80" autocomplete="name" value="${esc(st.draftName || me()?.name || host?.name || lastName())}">
               ${
                 ev.requireEmail
                   ? `<label for="email">Your email <span class="muted">(only the organizer sees it)</span></label>
@@ -172,7 +190,7 @@ export async function renderTopicPoll(ctx) {
               ${privacy && `<p class="hint">🔒 ${privacy}</p>`}
             </div>
             <div class="save-bar">
-              <div><span id="save-state" class="hint">${locked ? `Answers are closed. ${esc(ev.organizer || 'The organizer')} is picking one.` : me() ? 'Your answer is in. Change it any time.' : ''}</span><div class="error" id="save-err" role="alert"></div></div>
+              <div><span id="save-state" class="hint">${locked ? `Answers are closed. ${esc(ev.organizer || 'The organizer')} is picking one.` : st.draft ? 'Not sent yet' : me() ? 'Your answer is in. Change it any time.' : ''}</span><div class="error" id="save-err" role="alert"></div></div>
               <button type="button" class="btn btn-primary" id="save"${locked ? ' disabled' : ''}>${me() ? 'Update' : 'Submit'}</button>
             </div>
           </section>
@@ -292,8 +310,11 @@ export async function renderTopicPoll(ctx) {
         else delete st.mine[k];
       }
       $('#save-state').textContent = 'Not sent yet';
+      st.draft = true;
+      keepDraft();
       refresh();
     });
+    $('#name')?.addEventListener('input', () => st.draft && keepDraft());
     // One pick: arrow keys move through the options, as in any radio group.
     if (ev.single)
       $('.topic-rows').addEventListener('keydown', (e) => {
@@ -365,6 +386,8 @@ export async function renderTopicPoll(ctx) {
       rememberName(name);
       if (email) rememberEmail(email);
       host?.tell('answered', { updated });
+      drafts?.dropStored(localStorage, draftKey);
+      Object.assign(st, { draft: false, draftName: '' });
       await reload();
       toast(ev.isAdmin ? 'Saved' : 'Thanks, your answer is in');
     } catch (ex) {
@@ -396,5 +419,6 @@ export async function renderTopicPoll(ctx) {
   }
 
   render();
+  if (draft) toast('Your answers are back. Submit when you’re ready.');
   return () => {};
 }

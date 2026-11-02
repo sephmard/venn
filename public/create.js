@@ -36,6 +36,7 @@ export function prefillTitle() {
   const q = new URLSearchParams(location.search);
   const title = titleFromUrl();
   const t = templateFromUrl();
+  linkFilled = !!(title || t >= 0 || q.get('where') || q.get('after'));
   if (t >= 0) $(`[data-occasion="${t}"]`)?.click(); // (a topic poll has no templates)
   if (title) $('#title').value = title;
   if (q.get('where')) $('#more-box').open = !!($('#location').value = q.get('where').slice(0, 200));
@@ -240,6 +241,8 @@ export function wirePlan(onOccasion) {
       );
     const b = e.target.closest('[data-occasion]');
     if (!b) return;
+    const quiet = fromDraft; // a draft put back brings its own note and title
+    fromDraft = false;
     const o = OCCASIONS[+b.dataset.occasion];
     current = current === o ? null : o;
     for (const x of $$('[data-occasion]')) x.setAttribute('aria-pressed', x === b && !!current);
@@ -255,6 +258,7 @@ export function wirePlan(onOccasion) {
     // Tapping the same template over and over gets noticed.
     taps = taps[0] === o ? [o, taps[1] + 1] : [o, 1];
     if (e.isTrusted && taps[1] > 4) egg('taps', o);
+    if (quiet) return;
     // What it fills in (template-notes.js), unless another was chosen or a poll is edited.
     const notes = await import('./template-notes.js').catch(() => null);
     if (!notes || !$('#desc') || (o !== current && current)) return; // or the page has gone
@@ -273,6 +277,24 @@ export function wirePlan(onOccasion) {
     if (e.isTrusted) typing = setTimeout(() => $('#title') && egg('title', $('#title').value), 700);
   });
   return () => current;
+}
+
+// ---------- a draft: a half-made poll survives a reload, Back and the Date / Vote switch ----------
+
+let formDraft = null; // form-draft.js, loaded once the form is drawn (a new poll's form only)
+let fromDraft = false; // a template tapped by a draft being put back: its note and name stay out
+let linkFilled = false; // the form was filled in from a link (prefillTitle), so it keeps no draft
+/** Forms call it as their picks change: the draft is kept once the change in hand is handled. */
+export const draftChanged = () => formDraft?.changed();
+/**
+ * A new poll's form keeps a draft of itself in this tab (not an edit, a copy, a brand template's
+ * poll or a form a link filled in). `own()` gives the form's own part; `putBack(draft)` restores it.
+ */
+export async function keepDraft(kind, own, putBack) {
+  formDraft?.stop();
+  if (source() || linkFilled || brandId) return;
+  formDraft = await import('./form-draft.js').catch(() => null);
+  return formDraft?.keep(kind, own, putBack, { privacy: PRIVACY, seeded, quietly: (v) => (fromDraft = v) });
 }
 
 /**
@@ -318,6 +340,7 @@ export async function submit(body, occasion, answer = null) {
   try {
     const { id, adminToken, participant } = await api('events', { method: 'POST', body });
     const picture = icon?.upload(id, adminToken, title); // the poll's own picture, while the party plays
+    formDraft?.drop(); // made: the next /new starts fresh
     save(id, {
       adminToken,
       justCreated: true,

@@ -107,6 +107,8 @@ export async function renderEvent(id, navigate) {
   if (location.hash) history.replaceState(null, '', location.pathname);
 
   app.innerHTML = '<div class="empty muted">Loading…</div>';
+  // An unsent answer kept on this device (drafts.js) loads while the poll does.
+  const draftsJs = import('./drafts.js').catch(() => null);
 
   const st = {
     ev: null,
@@ -417,6 +419,29 @@ export async function renderEvent(id, navigate) {
   if ($('#share-sheet')) $('#share-sheet').onclick = shareSheet;
   $('#name').value = me()?.name || host?.name || lastName();
   $('#name').oninput = () => setDirty(true);
+
+  // An answer not sent yet stays on this device (drafts.js), so a reload, or a trip to the
+  // calendar app on a phone that reloads the tab, doesn't lose it. Sending it clears it.
+  const drafts = await draftsJs;
+  const draftKey = `venn:answer-draft:${id}`;
+  const keepDraft = () =>
+    drafts?.writeStored(localStorage, draftKey, {
+      mine: st.mine,
+      touched: [...st.touched],
+      declined: !!st.declined,
+      name: $('#name')?.value ?? '',
+      at: Date.now(),
+    });
+  const dropDraft = () => drafts?.dropStored(localStorage, draftKey);
+  const draft = embedded ? null : drafts?.cleanAnswerDraft(drafts.readStored(localStorage, draftKey), ev().slots);
+  if (draft) {
+    st.mine = draft.mine;
+    st.touched = new Set(draft.touched);
+    st.declined = draft.declined;
+    if (draft.name) $('#name').value = draft.name;
+    st.dirty = true;
+    toast('Your answers are back. Submit when you’re ready.');
+  } else dropDraft();
 
   // ----- tabs (phones) -----
   function renderTabs() {
@@ -911,6 +936,7 @@ export async function renderEvent(id, navigate) {
   };
   function setDirty(v) {
     st.dirty = v;
+    if (v) keepDraft();
     if (v) $('#save-err').textContent = ''; // an old error goes once the answer changes
     const el = $('#save-state');
     const need = needs();
@@ -1036,6 +1062,7 @@ export async function renderEvent(id, navigate) {
         save(id, { participantId: r.id, editToken: r.editToken });
         created = true;
       }
+      dropDraft();
       await load();
       setDirty(false);
       if (ev().isAdmin) st.orgCompact = true; // back to one line
@@ -1089,6 +1116,7 @@ export async function renderEvent(id, navigate) {
       if (ex.status !== 404) return toast(ex.message);
     }
     forget(id, 'participantId', 'editToken');
+    dropDraft();
     st.mine = {};
     st.declined = false;
     st.touched.clear();

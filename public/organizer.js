@@ -3,6 +3,7 @@
 
 import { meetingEnd } from './core.js';
 import { $, ago, api, copy, esc, getConfig, lastEmail, save, saved, toast } from './ui.js';
+import { accountHint } from './account-menu.js';
 import { currentSub, pushSupport, subscribe } from './push-client.js';
 
 // ----- the organizer's tools, at the top of the poll -----
@@ -16,7 +17,14 @@ export function tools(box, ctx) {
   // Edit until someone else answers; after that, start a new poll from this one.
   const copyOnly = ev.participants.some((p) => p.id !== ev.hostId);
   // One closed line, the same before and after a date is picked, so sharing (above) comes first.
-  box.innerHTML = `<details class="organizer"${ctx.open ? ' open' : ''}>
+  // Signed out, the organizer's tools live in this browser only: say so once, with their link to
+  // keep, until they've copied it (signed in, the poll joins their account instead: keep.js).
+  const keepLink = ctx.adminToken && !saved(id).linkKept && !accountHint();
+  box.innerHTML = `${
+    keepLink
+      ? `<p class="org-keep" id="org-keep"><span>Only this browser can change this poll.</span> <button type="button" class="link-btn" id="keep-admin">Copy organizer link</button></p>`
+      : ''
+  }<details class="organizer"${ctx.open ? ' open' : ''}>
     <summary><b>Organizer tools</b>${ctx.notifyPending ? ' <span class="org-note">Check your inbox for its link: we\'ll email you when people answer.</span>' : ''}</summary>
     <div class="btn-row">
       <button class="btn btn-sm" id="notify-open" aria-expanded="${!!panels.notify}" aria-controls="notify-box">Notifications</button>
@@ -39,6 +47,12 @@ export function tools(box, ctx) {
       `${ctx.shareUrl}#admin=${ctx.adminToken}`,
       'Organizer link copied. Keep it private: anyone with it can change or delete the poll.',
     );
+  if ($('#keep-admin', box))
+    $('#keep-admin', box).onclick = async () => {
+      await copy(`${ctx.shareUrl}#admin=${ctx.adminToken}`, 'Organizer link copied. Keep it private.');
+      save(id, { linkKept: 1 });
+      $('#org-keep', box)?.remove();
+    };
   for (const name of ['notify', 'invite', 'deadline', 'privacy', 'writer'])
     if ($(`#${name}-open`)) $(`#${name}-open`).onclick = () => ctx.panel(name, !panels[name]);
   $('#delete-poll').onclick = async () => {

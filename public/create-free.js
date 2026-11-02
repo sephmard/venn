@@ -38,6 +38,8 @@ import {
   youFields,
   TAP_KEY,
   fromUrl,
+  keepDraft,
+  draftChanged,
 } from './create.js';
 
 // ---------- "Ask when people are available" ----------
@@ -493,6 +495,7 @@ export function renderFree() {
 
   // What guests will be able to mark, and whether the poll can be created yet.
   function update() {
+    draftChanged();
     // What's new takes the brush: available or if needed for the organizer.
     const may = maybe[level];
     for (const k of st[level]) if (!before.has(k)) brush() === IF_NEEDED ? may.add(k) : may.delete(k);
@@ -626,7 +629,33 @@ export function renderFree() {
   for (const ev of ['pointerover', 'focusin']) $('.zoom').addEventListener(ev, warm, { once: true });
   showConfig(update);
   if (src) prefill();
-  else prefillTitle();
+  else {
+    prefillTitle();
+    // A half-made poll comes back after a reload or Back (create.js), at the level it was left on.
+    keepDraft(
+      'free',
+      () => ({
+        level,
+        timeLevel,
+        span: span(),
+        picks: { days: [...selected], parts: [...partsSel], hours: [...painted] },
+        maybe: { days: [...maybe.days], parts: [...maybe.parts], hours: [...maybe.hours] },
+      }),
+      async (d) => {
+        for (const lv of ['days', 'parts', 'hours']) {
+          st[lv].clear();
+          maybe[lv].clear();
+          for (const k of d.picks[lv]) st[lv].add(k);
+          for (const k of d.maybe[lv]) if (st[lv].has(k)) maybe[lv].add(k);
+        }
+        setRow(d.span);
+        if (d.timeLevel || d.level !== 'days') await loadPaint();
+        timeLevel = d.timeLevel;
+        level = null; // show the level again, from the draft's picks
+        await setLevel(d.level);
+      },
+    );
+  }
   // Where the server has AI, "Use AI" (ai-draft.js) picks days as taps would.
   const showLevel = (next) => {
     level = null;
