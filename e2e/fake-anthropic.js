@@ -27,6 +27,9 @@ function reply(body) {
       days: days.map((l) => ({ date: l.split(' ')[1], part: 'evening', from: '', to: '' })).filter((d) => d.date > today),
     };
   }
+  // A vote on /new/topic.
+  if (props.yesNo)
+    return { question: 'Where should we eat Friday?', yesNo: false, options: ['Rosa’s', 'Luigi’s', 'Thai Garden'] };
   // A brand template's look.
   if (props.ownPage)
     return {

@@ -78,7 +78,7 @@ export const USAGE_EVENTS = {
   'notify.push': {},
   'push.guest': {},
   'calendar.ics': {},
-  'ai.used': { feature: ['draft', 'days', 'template', 'answer', 'summary', 'message'] },
+  'ai.used': { feature: ['draft', 'days', 'topic', 'template', 'answer', 'summary', 'message'] },
   // Browser
   view: {
     client: true,

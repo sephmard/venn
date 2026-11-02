@@ -621,7 +621,7 @@ export function renderFree() {
   showConfig(update);
   if (src) prefill();
   else prefillTitle();
-  // Where the server has AI, "Describe it instead" (ai-draft.js) picks days as taps would.
+  // Where the server has AI, "Use AI" (ai-draft.js) picks days as taps would.
   const showLevel = (next) => {
     level = null;
     return setLevel(next);

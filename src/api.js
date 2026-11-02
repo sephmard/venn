@@ -52,6 +52,7 @@ import {
   draftDays,
   draftPoll,
   draftTemplate,
+  draftTopic,
   summarize,
   validOwnKey,
   weekOf,
@@ -253,7 +254,16 @@ function setNotifyEmail(settings, value, env) {
   delete settings.confirmationsSent;
 }
 
-export async function handleApi(
+export async function handleApi(request, store, options = {}) {
+  const ctx = {};
+  const res = await route(request, store, options, ctx);
+  // A request that took a free AI request but didn't get an answer (a poll that isn't there, an
+  // organizer-only action, a bad time zone, a busy AI) gives it back.
+  if (ctx.allowance && !res.ok) await store.returnAiAllowance(ctx.allowance.week, ctx.allowance.who).catch(() => {});
+  return res;
+}
+
+async function route(
   request,
   store,
   {
@@ -268,6 +278,7 @@ export async function handleApi(
     places = sharedPlaces,
     contactWindows = sharedContactWindows,
   } = {},
+  ctx = {},
 ) {
   const options = arguments[2]; // as given, for MCP's own calls back into the API
   const url = new URL(request.url);
@@ -526,7 +537,6 @@ export async function handleApi(
   }
 
   let ownKey = null; // an AI request's own Anthropic key, if the person brought one
-  let allowance = null; // { week, who } when this request took one from the server key's weekly allowance
   try {
     // /api/mcp — Venn for AI assistants (src/mcp.js): each tool is a call to this same API.
     if (parts.length === 1 && parts[0] === 'mcp')
@@ -663,7 +673,7 @@ export async function handleApi(
         const overBudget = who && (await store.aiSpend(week)) >= budget;
         const used = !who ? 'off' : overBudget ? 'total' : await store.takeAiAllowance(week, who, perPerson, total);
         if (!used) {
-          allowance = { week, who };
+          ctx.allowance = { week, who }; // given back by handleApi if no answer comes of it
           anthropic = meteredClient(anthropic ?? aiClient(env), env, (micros) => store.addAiSpend(week, micros));
         }
         if (used)
@@ -693,6 +703,13 @@ export async function handleApi(
       if (!isValidTimeZone(timezone)) throw new ValidationError('Unknown time zone');
       count('ai.used', { feature: 'days' });
       return json(await draftDays(env, { prompt, timezone }, { now: now(), anthropic }));
+    }
+
+    // POST /api/ai/draft-topic  { prompt } — a vote's question and options (/new/topic)
+    if (isAi && parts[0] === 'ai' && parts[1] === 'draft-topic') {
+      const { prompt } = await readJson(request);
+      count('ai.used', { feature: 'topic' });
+      return json(await draftTopic(env, { prompt }, { anthropic }));
     }
 
     // POST /api/ai/draft-template  { prompt, name } — a brand template's starting look
@@ -1351,9 +1368,6 @@ export async function handleApi(
 
     return error(404, 'Not found');
   } catch (e) {
-    // A request that failed before Claude answered doesn't use up one of this week's free requests.
-    if (allowance && (e instanceof ValidationError || e instanceof AiUnavailableError || e instanceof AiKeyError))
-      await store.returnAiAllowance(allowance.week, allowance.who).catch(() => {});
     if (e instanceof ValidationError) return error(400, e.message);
     if (e instanceof AiKeyError)
       return error(ownKey ? 400 : 503, ownKey ? e.message : "The AI couldn't respond. Try again later.");

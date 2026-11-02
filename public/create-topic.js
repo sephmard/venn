@@ -190,6 +190,21 @@ export function renderTopic() {
   showConfig(update);
   if (src) prefill();
   else prefillTitle();
+  // Where the server has AI, "Use AI" (ai-draft.js) writes the question and the options.
+  if (!src)
+    getConfig().then(
+      (c) =>
+        c.ai &&
+        import('./ai-draft.js').then((m) =>
+          m.aiTopic(({ question, yesNo, options }) => {
+            $('#title').value = question;
+            if (yesNo) return setKind('yesno');
+            setKind('options');
+            $('#opts').innerHTML = options.map((w, i) => row(w, i + 1)).join('');
+            renumber();
+          }),
+        ),
+    );
   $('#title').focus();
   return () => {};
 }

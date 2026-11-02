@@ -257,6 +257,29 @@ test('describe your organization: a template look, only known fonts and readable
   assert.match(calls[0].messages[0].content, /<user_text>Organization: Peak Club\nA hiking club/);
 });
 
+test('describe a vote: a question and its options, tidied; or one yes-or-no question', async () => {
+  nextOutput = {
+    question: 'Where should we eat Friday?',
+    yesNo: false,
+    options: [' Rosa’s ', 'Luigi’s', 'rosa’s', '', 'Thai place'],
+  };
+  const res = await call('/api/ai/draft-topic', { body: { prompt: 'Friday dinner: Rosa’s, Luigi’s or the Thai place' } });
+  assert.equal(res.status, 200);
+  assert.deepEqual(res.data, {
+    question: 'Where should we eat Friday?',
+    yesNo: false,
+    options: ['Rosa’s', 'Luigi’s', 'Thai place'],
+  });
+  nextOutput = { question: 'Should we do a book swap?', yesNo: true, options: ['Yes', 'No'] };
+  assert.deepEqual((await call('/api/ai/draft-topic', { body: { prompt: 'book swap or not' } })).data, {
+    question: 'Should we do a book swap?',
+    yesNo: true,
+    options: [],
+  });
+  nextOutput = { question: 'Which?', yesNo: false, options: ['Only one'] };
+  assert.equal((await call('/api/ai/draft-topic', { body: { prompt: 'hmm' } })).status, 503);
+});
+
 test('the server key has a weekly allowance; past it, people bring their own key', async (t) => {
   let clock = Date.UTC(2030, 0, 8, 12); // a Tuesday
   const s = createApp({
@@ -283,6 +306,9 @@ test('the server key has a weekly allowance; past it, people bring their own key
     body: JSON.stringify({ prompt: 'lunch', timezone: 'Not/AZone' }),
   });
   assert.equal(bad.status, 400);
+  // So does one for a poll that isn't there.
+  const missing = await fetch(`http://localhost:${port}/api/events/nope1234/ai/summary`, { method: 'POST' });
+  assert.equal(missing.status, 404);
   assert.deepEqual([(await post()).status, (await post()).status], [200, 200]);
   const third = await post();
   assert.equal(third.status, 402);
