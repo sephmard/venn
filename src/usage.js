@@ -11,6 +11,7 @@
 
 import { allDaySpan, isOptionsPoll, isPartsPoll } from '../public/core.js';
 import { PAGE_SLUGS } from '../pages/pages.js';
+import { AI_FAILURE_REASONS } from './ai.js';
 
 const BUCKETS = ['1', '2-3', '4-7', '8-15', '16+'];
 const bucket = (n) => (n <= 1 ? '1' : n <= 3 ? '2-3' : n <= 7 ? '4-7' : n <= 15 ? '8-15' : '16+');
@@ -79,6 +80,7 @@ export const USAGE_EVENTS = {
   'push.guest': {},
   'calendar.ics': {},
   'ai.used': { feature: ['draft', 'days', 'topic', 'template', 'answer', 'summary', 'message'] },
+  'ai.failed': { key: ['server', 'own'], reason: AI_FAILURE_REASONS }, // why Anthropic turned an AI request down
   // Browser
   view: {
     client: true,
