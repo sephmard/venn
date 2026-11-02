@@ -94,8 +94,10 @@ export async function renderEvent(id, navigate) {
   };
   // `#organizer`: opened from My polls (account.js), where the account stands in for the link.
   const viaOrganizerLink = !!hash.get('admin') || hash.has('organizer') || !!saved(id).justCreated;
-  // `#organizer&deadline`: My polls' "Deadline and reminders", straight to that panel.
-  let openDeadline = hash.has('deadline');
+  // `#organizer&deadline` (or `&invite`): from My polls, straight to that panel.
+  let openPanel = ['deadline', 'invite'].find((p) => hash.has(p));
+  // `#invited=<email>`: an invitation's link (src/invites.js).
+  const invitedEmail = [(hash.get('invited') || '').toLowerCase()].find(isEmail);
   if (viaOrganizerLink) organizerView.set();
   const asOrganizer = () => viaOrganizerLink || organizerView.on();
   // Links in notification emails: stop the emails.
@@ -262,6 +264,7 @@ export async function renderEvent(id, navigate) {
       }
       <div id="banners"></div>
       <div id="notify-box"></div>
+      <div id="invite-box"></div>
       <div id="deadline-box"></div>
         <div id="privacy-box"></div>
       <div id="writer-box"></div>
@@ -834,7 +837,7 @@ export async function renderEvent(id, navigate) {
     // Guests can give it so the organizer can invite them; the organizer only for a copy.
     $('#copy-field').hidden = !c.email && !ev().requireEmail && !guest;
     $('#copy-me').parentNode.hidden = !c.email;
-    $('#copy-to').value = me()?.email || lastEmail();
+    $('#copy-to').value = me()?.email || invitedEmail || lastEmail();
     // With "Email me a copy" ticked (it starts ticked), the email is needed for it.
     const needMail = () => {
       const need = ev().requireEmail || (!$('#copy-me').parentNode.hidden && $('#copy-me').checked);
@@ -1423,7 +1426,7 @@ export async function renderEvent(id, navigate) {
   }
 
   // ----- organizer: notifications and privacy, from a module only organizers load -----
-  const panels = {}; // which organizer panels are open: notify, privacy, writer
+  const panels = {}; // which organizer panels are open: notify, privacy, writer…
   async function panel(name, open) {
     panels[name] = open;
     $(`#${name}-open`)?.setAttribute('aria-expanded', open);
@@ -1434,6 +1437,7 @@ export async function renderEvent(id, navigate) {
       shareUrl,
       headers: authHeaders(),
       close: () => panel(name, false),
+      panel,
       reload: () => load().then(() => (renderAll(), ev())),
     });
   }
@@ -1581,10 +1585,10 @@ export async function renderEvent(id, navigate) {
         navigate('/new');
       },
     });
-    if (org && openDeadline) {
-      openDeadline = false;
+    if (org && openPanel) {
       $('details.organizer').open = st.orgOpen = true;
-      panel('deadline', true);
+      panel(openPanel, true);
+      openPanel = null;
     }
     // Finn, the Venn dog, has something to say at a few moments: finn.js, loaded after the page.
     if (!whiteLabel)

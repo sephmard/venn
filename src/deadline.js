@@ -13,18 +13,19 @@ import {
   answersClosedEmail,
   deadlineReminderEmail,
   emailEnabled,
-  normalizeEmail,
   sendEmail,
   unsubscribeHeaders,
   unsubscribeLink,
 } from './notify.js';
 import { setLabel } from './preview.js';
+import { normalizeInvitees } from './invites.js';
+
+export { MAX_INVITEES } from './invites.js';
 
 const HOUR = 3_600_000;
 const DAY = 24 * HOUR;
 /** How often invitees who haven't answered get a reminder, in days; 0 is only the day before. */
 export const REMIND_EVERY = [0, 1, 2, 3];
-export const MAX_INVITEES = 50;
 /** No more than this many reminders to anyone, however long the deadline is. */
 export const MAX_REMINDERS = 5;
 /** A deadline at least this far ahead, and at most this far. */
@@ -57,61 +58,52 @@ export const isClosed = (ev, now) => ev.deadline != null && !isDecided(ev) && no
 export const isDecided = (ev) => ev.finalStart != null || ev.picked != null;
 
 /**
- * Check what the organizer sent: `{ deadline, remindEvery, invitees }`, each optional. Reminders and
- * invitees need a deadline; invitees make the poll ask everyone's email (applyDeadline), since
- * that's how Venn knows who answered. Returns the cleaned values.
+ * Check what the organizer sent: `{ deadline, remindEvery, invitees }`, each optional. Invitees don't
+ * need a deadline (Venn emails them the poll, src/invites.js); reminders need both. Invitees make
+ * the poll ask everyone's email (applyDeadline), since that's how Venn knows who answered. Returns
+ * the cleaned values.
  */
 export function normalizeDeadline(body, ev, now) {
+  const invitees = normalizeInvitees(body.invitees);
   const deadline = body.deadline ?? null;
-  if (deadline === null) return { deadline: null, remindEvery: null, invitees: [] };
+  if (deadline === null) return { deadline: null, remindEvery: null, invitees };
   if (!Number.isFinite(deadline) || deadline < now + MIN_AHEAD || deadline > now + MAX_AHEAD)
     throw new ValidationError('Choose when answers close: at least an hour from now, and within 30 days');
   const remindEvery = body.remindEvery ?? null;
   if (remindEvery !== null && !REMIND_EVERY.includes(remindEvery))
     throw new ValidationError('Remind every day, every 2 or 3 days, or only the day before');
-  const list = body.invitees ?? [];
-  if (!Array.isArray(list)) throw new ValidationError('Invitees must be a list of emails');
-  const invitees = [
-    ...new Set(
-      list
-        .map((e) => {
-          try {
-            return normalizeEmail(e);
-          } catch {
-            throw new ValidationError(`Check this email: ${String(e).slice(0, 80)}`);
-          }
-        })
-        .filter(Boolean),
-    ),
-  ];
-  if (invitees.length > MAX_INVITEES) throw new ValidationError(`Invite at most ${MAX_INVITEES} people`);
   return { deadline, remindEvery: invitees.length ? remindEvery : null, invitees };
 }
 
 /**
- * Put a checked deadline on poll `ev` (its data, saved by the caller) and on its private `settings`
- * (also saved by the caller): invitees already on the list keep their reminders and unsubscribe
- * links. `origin` is where the site lives, for the links in reminders. Returns when the poll is
- * next due a look (store.setReminderDue).
+ * Put a checked deadline and invite list on poll `ev` (its data, saved by the caller) and on its
+ * private `settings` (also saved by the caller): invitees already on the list keep their reminders,
+ * unsubscribe links and whether they were sent the poll. `origin` is where the site lives, for the
+ * links in emails. Returns when the poll is next due a look (store.setReminderDue).
  */
 export function applyDeadline(ev, settings, { deadline, remindEvery, invitees }, { now, origin }) {
-  if (deadline === null) {
-    delete ev.deadline;
+  if (deadline === null) delete ev.deadline;
+  else ev.deadline = deadline;
+  if (deadline === null && !invitees.length) {
     delete settings.remind;
     return null;
   }
-  ev.deadline = deadline;
   // Reminders go to those who haven't answered, told apart by the email they answer with.
   if (invitees.length) ev.requireEmail = true;
   const before = new Map((settings.remind?.invitees || []).map((i) => [i.email, i]));
   settings.remind = {
-    every: remindEvery,
+    every: deadline === null ? null : remindEvery,
     origin,
     since: settings.remind?.since ?? now,
     lastRound: settings.remind?.lastRound ?? null,
-    lastSent: settings.remind?.deadline === deadline ? !!settings.remind?.lastSent : false,
+    lastSent: deadline !== null && settings.remind?.deadline === deadline ? !!settings.remind?.lastSent : false,
     deadline,
-    invitees: invitees.map((email) => before.get(email) || { id: `i${token().slice(0, 8)}`, token: token(), email, sent: 0 }),
+    ...(settings.remind?.invitesSent && { invitesSent: settings.remind.invitesSent }),
+    ...(settings.remind?.lastManual && { lastManual: settings.remind.lastManual }),
+    // `invited: null`: due the poll by email (src/invites.js). Lists from before that have no `invited`.
+    invitees: invitees.map(
+      (email) => before.get(email) || { id: `i${token().slice(0, 8)}`, token: token(), email, sent: 0, invited: null },
+    ),
   };
   return nextDue(ev, settings);
 }
@@ -139,6 +131,7 @@ export function deadlineView(ev, settings, emails) {
     invitees: (r.invitees || []).map((i) => ({
       email: i.email,
       answered: answered.has(i.email),
+      invited: !!i.invited,
       reminded: i.sent,
       stopped: !!i.stopped,
     })),
@@ -173,6 +166,7 @@ async function remindRound({ store, env, fetchImpl, ev, r, site, last, mail }) {
         closes: closesLabel(ev),
         pollUrl,
         unsubscribeUrl: `${pollUrl}#unsubscribe=${unsubscribeToken}`,
+        answerUrl: invitedUrl(pollUrl, i.email),
         last,
         retro: ev.retro,
       });
@@ -190,6 +184,9 @@ async function remindRound({ store, env, fetchImpl, ev, r, site, last, mail }) {
   }
   return { sent, invitees };
 }
+
+/** The poll's link for one invitee: their email goes in the fragment, ready in the answer form. */
+export const invitedUrl = (pollUrl, email) => `${pollUrl}#invited=${encodeURIComponent(email)}`;
 
 /** Who a poll can still remind by email: invitees who haven't answered, stopped or had them all. */
 export async function waitingInvitees(store, ev, settings) {

@@ -55,7 +55,8 @@ const PAGES = {
   // code plus its own (topic-poll.js, topic.css), loaded only for topic polls.
   'vote on options page': ['create-topic.js', ['create.css'], 56],
   // +0.5 for a vote's deadline: when answers close, locked after it, and the organizer's Deadline panel.
-  'topic poll page': [['event.js', 'topic-poll.js'], ['topic.css'], 58.25],
+  // +0.25 for invitations: the email an invitation's link fills in, and the Invite by email panel's place.
+  'topic poll page': [['event.js', 'topic-poll.js'], ['topic.css'], 58.5],
 };
 
 for (const [name, [entry, css, PAGE_KB]] of Object.entries(PAGES)) {

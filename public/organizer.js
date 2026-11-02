@@ -1,4 +1,4 @@
-// Organizer-only panels on the poll page: notifications, the deadline (with who to remind), and
+// Organizer-only panels on the poll page: notifications, invite by email, the deadline (and its reminders), and
 // privacy (with the emails people answered with). Loaded when the organizer opens one, so guests never download this code.
 
 import { meetingEnd } from './core.js';
@@ -21,6 +21,7 @@ export function tools(box, ctx) {
     <div class="btn-row">
       <button class="btn btn-sm" id="notify-open" aria-expanded="${!!panels.notify}" aria-controls="notify-box">Notifications</button>
       ${ctx.ai ? '<button class="btn btn-sm" id="writer-open" aria-controls="writer-box">Write a message</button>' : ''}
+      <button class="btn btn-sm" id="invite-open" aria-expanded="${!!panels.invite}" aria-controls="invite-box">Invite by email</button>
       <button class="btn btn-sm" id="deadline-open" aria-expanded="${!!panels.deadline}" aria-controls="deadline-box">Deadline</button>
       <button class="btn btn-sm" id="privacy-open" aria-expanded="${!!panels.privacy}" aria-controls="privacy-box">Privacy</button>
       <a class="btn btn-sm" href="/new/${ctx.kind}?${copyOnly ? 'copy' : 'edit'}=${id}${copyOnly && ev.finalStart != null ? '&amp;next' : ''}" data-link>${copyOnly ? 'Duplicate' : 'Edit'} poll</a>
@@ -38,7 +39,7 @@ export function tools(box, ctx) {
       `${ctx.shareUrl}#admin=${ctx.adminToken}`,
       'Organizer link copied. Keep it private: anyone with it can change or delete the poll.',
     );
-  for (const name of ['notify', 'deadline', 'privacy', 'writer'])
+  for (const name of ['notify', 'invite', 'deadline', 'privacy', 'writer'])
     if ($(`#${name}-open`)) $(`#${name}-open`).onclick = () => ctx.panel(name, !panels[name]);
   $('#delete-poll').onclick = async () => {
     if (!confirm("Delete this poll and everyone's answers? This cannot be undone.")) return;
@@ -296,12 +297,116 @@ export function privacy(ctx) {
   };
 }
 
+// ----- invite by email -----
+
+/** Signed out where the server has sign-in: what to say instead of the panel, or ''. */
+async function needsAccount(c, what) {
+  if (!(c.accounts || []).length || (await import('./account-menu.js')).accountHint()) return '';
+  return `<p class="hint"><a href="/me" data-link>Sign in</a> to ${what}.</p>`;
+}
+
+const status = (i) =>
+  i.answered
+    ? 'Answered'
+    : i.stopped
+      ? 'Stopped emails'
+      : `${i.invited ? 'Emailed' : 'Waiting'}${i.reminded ? ` · ${i.reminded === 1 ? '1 reminder' : `${i.reminded} reminders`}` : ''}`;
+
+/**
+ * Who the poll is emailed to (src/invites.js): add more by pasting a list, see who's answered, take
+ * someone off. The deadline's reminders go to the same list. ctx: { id, ev, headers, close, reload }
+ */
+export async function invite(ctx) {
+  const { id, ev, headers, close } = ctx;
+  const box = $('#invite-box');
+  box.innerHTML = `
+    <section class="sheet" aria-labelledby="invite-h">
+      <div class="sheet-head">
+        <h2 id="invite-h">Invite by email</h2>
+        <button type="button" class="link-btn" id="invite-close">Close</button>
+      </div>
+      <div id="invite-body"><p class="hint">Loading…</p></div>
+    </section>`;
+  box.scrollIntoView({ block: 'nearest' });
+  $('#invite-close').onclick = () => close();
+  const c = await getConfig().catch(() => ({}));
+  const body = $('#invite-body');
+  if (!c.email) return void (body.innerHTML = '<p class="hint">Email isn’t switched on for this Venn server.</p>');
+  const signIn = await needsAccount(c, 'email your poll to people');
+  if (signIn) return void (body.innerHTML = signIn);
+  if (ev.finalStart != null || ev.picked != null || (ev.deadline != null && Date.now() >= ev.deadline))
+    return void (body.innerHTML = '<p class="hint">This poll isn’t taking answers any more.</p>');
+  let m, d;
+  try {
+    [m, d] = await Promise.all([import('./invite-fields.js'), api(`events/${id}/invitees`, { headers })]);
+  } catch (ex) {
+    return void (body.innerHTML = `<p class="error">${esc(ex.message)}</p>`);
+  }
+  const show = (d) => {
+    const on = d.invitees.map((i) => i.email);
+    body.innerHTML = `
+      <form id="invite-form" class="stack-sm" novalidate>
+        ${m.field({ label: on.length ? 'Add more people' : 'Who should get it?' })}
+        <p class="hint">Venn emails each of them the link, once. ${d.deadline != null ? 'They get the deadline’s reminders too.' : 'Add a deadline to remind who hasn’t answered.'}</p>
+        <div class="btn-row"><button class="btn btn-primary" type="submit" id="invite-send" disabled>Send</button></div>
+        <div class="error" id="invite-err" role="alert"></div>
+      </form>
+      ${
+        on.length
+          ? `<h3 class="sub-h">Emailed so far <span class="muted">(${on.length})</span></h3>
+      <ul class="email-list" id="invitee-list">${d.invitees
+        .map(
+          (i) =>
+            `<li><b>${esc(i.email)}</b> <span>${status(i)}</span>${i.answered ? '' : ` <button type="button" class="link-btn" data-off="${esc(i.email)}" aria-label="Take ${esc(i.email)} off the list">Remove</button>`}</li>`,
+        )
+        .join('')}</ul>`
+          : ''
+      }`;
+    const field = m.wire({
+      taken: on,
+      onChange: (n) => {
+        $('#invite-send').disabled = !n;
+        $('#invite-send').textContent = n ? `Send to ${n === 1 ? '1 person' : `${n} people`}` : 'Send';
+      },
+    });
+    /** Save a new list: everyone new on it gets the poll. */
+    const put = async (list, done, btn) => {
+      if (btn) btn.disabled = true;
+      $('#invite-err').textContent = '';
+      try {
+        await api(`events/${id}/invitees`, { method: 'PUT', body: { invitees: list }, headers });
+        toast(done);
+        // The poll may now ask everyone's email: drawn again, panel open.
+        return invite({ ...ctx, ev: await ctx.reload() });
+      } catch (ex) {
+        $('#invite-err').textContent = ex.message;
+        if (btn) btn.disabled = false;
+      }
+    };
+    $('#invite-form').onsubmit = (e) => {
+      e.preventDefault();
+      if (!field.commit()) return;
+      const add = field.emails();
+      if (add.length) put([...on, ...add], `Emailed ${add.length === 1 ? '1 person' : `${add.length} people`}`, e.submitter);
+    };
+    for (const b of body.querySelectorAll('[data-off]'))
+      b.onclick = () =>
+        put(
+          on.filter((e) => e !== b.dataset.off),
+          'Taken off the list',
+          b,
+        );
+  };
+  show(d);
+}
+
 // ----- deadline -----
 
 /**
- * When answers close, who to remind, and how each invitee is doing (deadline-fields.js). With an
- * account, where the server has sign-in; signed out, one line saying so (a deadline set before
- * can still be taken off). ctx: { id, ev, headers, close, reload }
+ * When answers close, and how often to remind who hasn't answered (deadline-fields.js); reminders
+ * go to the people the poll was emailed to (Invite by email). With an account, where the server has
+ * sign-in; signed out, one line saying so (a deadline set before can still be taken off).
+ * ctx: { id, ev, headers, close, reload, panel }
  */
 export async function deadline(ctx) {
   const { id, ev, headers, close } = ctx;
@@ -317,42 +422,31 @@ export async function deadline(ctx) {
   box.scrollIntoView({ block: 'nearest' });
   $('#deadline-close').onclick = () => close();
   const c = await getConfig().catch(() => ({}));
-  const signedOut = (c.accounts || []).length && !(await import('./account-menu.js')).accountHint();
-  if (signedOut && ev.deadline == null) {
-    $('#deadline-body').innerHTML =
-      '<p class="hint"><a href="/me" data-link>Sign in</a> to close answers on a set day and remind who hasn’t answered.</p>';
-    return;
-  }
+  const signIn = await needsAccount(c, 'close answers on a set day and remind who hasn’t answered');
+  if (signIn && ev.deadline == null) return void ($('#deadline-body').innerHTML = signIn);
   $('#deadline-body').innerHTML = `
     <form id="deadline-form" class="stack-sm" novalidate>
       <div id="deadline-fields"></div>
       <div class="btn-row"><button class="btn btn-primary" type="submit">Save deadline</button></div>
       <div class="error" id="deadline-err" role="alert"></div>
-    </form>
-    <ul class="email-list" id="invitee-list"></ul>`;
+    </form>`;
   let m, d;
   try {
     [m, d] = await Promise.all([import('./deadline-fields.js'), api(`events/${id}/deadline`, { headers })]);
   } catch (ex) {
     return void ($('#deadline-fields').innerHTML = `<p class="error">${esc(ex.message)}</p>`);
   }
-  const show = (d) => {
-    $('#deadline-fields').innerHTML = m.fields(d, { email: !!c.email });
-    m.wire();
-    $('#invitee-list').innerHTML = d.invitees
-      .map(
-        (i) =>
-          `<li><b>${esc(i.email)}</b> <span>${
-            i.answered
-              ? 'Answered'
-              : i.stopped
-                ? 'Stopped reminders'
-                : `Waiting${i.reminded ? ` · ${i.reminded === 1 ? '1 reminder' : `${i.reminded} reminders`} sent` : ''}`
-          }</span></li>`,
-      )
-      .join('');
-  };
-  show(d);
+  const waiting = d.invitees.filter((i) => !i.answered && !i.stopped).length;
+  $('#deadline-fields').innerHTML = m.fields(d, {
+    email: !!c.email,
+    invitees: d.invitees.length,
+    none: '<button type="button" class="link-btn" id="dl-invite">Email the poll to people</button> to remind who hasn’t answered.',
+  });
+  if (d.invitees.length && $('#dl-hint'))
+    $('#dl-hint').textContent =
+      `Goes to the ${waiting === 1 ? '1 person' : `${waiting} people`} you emailed it to who haven’t answered yet.`;
+  $('#dl-invite')?.addEventListener('click', () => ctx.panel?.('invite', true));
+  m.wire();
   $('#deadline-form').onsubmit = async (e) => {
     e.preventDefault();
     const btn = e.submitter;
@@ -361,7 +455,7 @@ export async function deadline(ctx) {
     try {
       await api(`events/${id}/deadline`, { method: 'PUT', body: m.values(), headers });
       toast('Deadline saved');
-      // The poll shows when answers close (and may now ask for emails): drawn again, panel open.
+      // The poll shows when answers close: drawn again, panel open.
       return deadline({ ...ctx, ev: await ctx.reload() });
     } catch (ex) {
       $('#deadline-err').textContent = ex.message;

@@ -175,6 +175,10 @@ export function youFields() {
         <label class="switch"><input type="checkbox" role="switch" id="p-names"> Hide names from guests</label>
         <label class="switch"><input type="checkbox" role="switch" id="p-results"> Hide answers from guests</label>
       </details>
+      <details class="reveal" id="invite-opts" hidden>
+        <summary>Email it to people</summary>
+        <div id="invite-box"></div>
+      </details>
       <details class="reveal" id="deadline-opts" hidden>
         <summary>Deadline</summary>
         <div id="deadline-box"></div>
@@ -276,6 +280,8 @@ export async function submit(body, occasion, answer = null) {
   // The look the page is in (an edit keeps the poll's own; a brand template's replaces it).
   if (!editing && !brand) body.retro = document.documentElement.classList.contains('retro');
   if (deadline && !$('#deadline-opts').hidden) Object.assign(body, deadline.values());
+  // Who Venn emails the poll to (invite-fields.js).
+  if (invites && !invites.into(body)) return;
   const notifyEmail = !$('#notify-field') || $('#notify-field').hidden ? '' : $('#notify').value.trim();
   if (notifyEmail) body.notifyEmail = notifyEmail;
   if (body.organizer) rememberName(body.organizer);
@@ -335,6 +341,7 @@ export async function submit(body, occasion, answer = null) {
     party?.finish();
     // Opening the poll clears any toast, so say the link was copied after it.
     if (copying) (await copying) ? toast('Invite link copied. Paste it in your group chat.') : prompt('Copy this:', url);
+    else invites?.done(body);
   } catch (ex) {
     $('#err').textContent = ex.message;
     $('#submit').disabled = false;
@@ -342,11 +349,13 @@ export async function submit(body, occasion, answer = null) {
 }
 
 let deadline = null; // deadline-fields.js, for organizers who are signed in
+let invites = null; // invite-fields.js, the same
 
 /** Show the email field when this server sends email; the organizer's email is then required. */
 export function showConfig(update) {
   tried = false;
   deadline = null;
+  invites = null;
   // Each thing still needed, named in the sticky bar, goes to its field.
   $('#summary').onclick = (e) => {
     const b = e.target.closest('[data-need]');
@@ -365,14 +374,17 @@ export function showConfig(update) {
   if (opts && !source()?.edit)
     getConfig().then(async (c) => {
       if ((c.accounts || []).length && !(await import('./account-menu.js')).accountHint()) return;
-      const m = await import('./deadline-fields.js').catch(() => null);
+      const [m, inv] = await Promise.all([
+        import('./deadline-fields.js').catch(() => null),
+        c.email ? import('./invite-fields.js').catch(() => null) : null,
+      ]);
       // Only into this form, still on the page (not a poll opened since).
       if (!m || deadline || !opts.isConnected) return;
       deadline = m;
       $('#deadline-box', opts).innerHTML = m.fields({}, { email: !!c.email });
-      // Reminders go to who hasn't answered, told apart by the email they answer with.
-      m.wire({ onInvitees: (some) => some && ($('#p-email').checked = true) });
+      m.wire();
       opts.hidden = false;
+      invites = inv?.onCreate(m);
     });
   getConfig().then((c) => {
     if (!$('#notify-field')) return;

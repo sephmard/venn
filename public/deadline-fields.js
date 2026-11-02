@@ -1,9 +1,9 @@
 // The deadline fields, on the create pages and in the organizer's Deadline panel: when answers close,
-// and, when this server sends email, who to remind and how often (src/deadline.js). For organizers
+// and, when this server sends email, how often to remind who hasn't answered (src/deadline.js). For organizers
 // who are signed in (where the server has sign-in), and loaded only for them.
 
 import { pad, utcToZoned, zonedToUtc } from './core.js';
-import { $, esc, localTz } from './ui.js';
+import { $, localTz } from './ui.js';
 
 const EVERY = [
   [1, 'Every day'],
@@ -31,8 +31,15 @@ const soon = (days) => {
   return local(d.getTime());
 };
 
-/** The fields, filled in with `d` ({ deadline, remindEvery, invitees }); reminders only when `email`. */
-export function fields(d = {}, { email = true } = {}) {
+/**
+ * The fields, filled in with `d` ({ deadline, remindEvery }). Reminders only when `email`; they go
+ * to the people the poll is emailed to (invite-fields.js), so they show once there are some
+ * (`invitees`, or setInvitees); until then `none` says how to add them.
+ */
+export function fields(
+  d = {},
+  { email = true, invitees = 0, none = 'Add people under “Email it to people” to remind who hasn’t answered.' } = {},
+) {
   const on = d.deadline != null;
   const every = d.remindEvery ?? 1;
   return `<div class="deadline-fields stack-sm">
@@ -45,24 +52,30 @@ export function fields(d = {}, { email = true } = {}) {
     </div>
     ${
       email
-        ? `<div id="dl-remind" class="stack-sm"${on ? '' : ' hidden'}>
-      <div>
-        <label for="dl-invitees">Remind who hasn't answered <span class="muted">(their emails)</span></label>
-        <textarea id="dl-invitees" rows="3" placeholder="ana@example.com, lee@example.com" aria-describedby="dl-hint">${esc((d.invitees || []).map((i) => i.email ?? i).join(', '))}</textarea>
-        <p class="hint" id="dl-hint">Only those who haven't answered get a reminder, with a one-tap stop.</p>
+        ? `<div id="dl-remind" class="stack-sm" data-invitees="${invitees}"${on ? '' : ' hidden'}>
+      <div id="dl-every-box"${invitees ? '' : ' hidden'}>
+        <label for="dl-every">Remind who hasn't answered</label>
+        <select id="dl-every" aria-describedby="dl-hint">${EVERY.map(([n, label]) => `<option value="${n}"${n === every ? ' selected' : ''}>${label}</option>`).join('')}</select>
+        <p class="hint" id="dl-hint">Goes to the people you emailed it to, with a one-tap stop.</p>
       </div>
-      <div>
-        <label for="dl-every">How often</label>
-        <select id="dl-every">${EVERY.map(([n, label]) => `<option value="${n}"${n === every ? ' selected' : ''}>${label}</option>`).join('')}</select>
-      </div>
+      ${none ? `<p class="hint" id="dl-none"${invitees ? ' hidden' : ''}>${none}</p>` : ''}
     </div>`
         : ''
     }
   </div>`;
 }
 
-/** Reminders show once there's a deadline; a quick pick fills it in. `onInvitees` hears the emails change. */
-export function wire({ onInvitees } = {}) {
+/** How many the poll is emailed to: reminders show once there's someone. */
+export function setInvitees(n) {
+  const box = $('#dl-remind');
+  if (!box) return;
+  box.dataset.invitees = n;
+  $('#dl-every-box').hidden = !n;
+  if ($('#dl-none')) $('#dl-none').hidden = !!n;
+}
+
+/** Reminders show once there's a deadline; a quick pick fills it in. */
+export function wire() {
   const at = $('#dl-at');
   const sync = () => {
     if ($('#dl-remind')) $('#dl-remind').hidden = !at.value;
@@ -75,17 +88,14 @@ export function wire({ onInvitees } = {}) {
       at.value = at.value === soon(+b.dataset.soon) ? '' : soon(+b.dataset.soon);
       sync();
     };
-  if (onInvitees) $('#dl-invitees')?.addEventListener('input', () => onInvitees(!!$('#dl-invitees').value.trim()));
   sync();
 }
 
-/** What to send: { deadline, remindEvery, invitees }, or { deadline: null } for none. */
+/** What to send: { deadline, remindEvery }, or { deadline: null } for none. */
 export function values() {
   const v = $('#dl-at')?.value;
   if (!v) return { deadline: null };
   const [date, time] = v.split('T');
   const [h, m] = time.split(':').map(Number);
-  // Pasted from anywhere ("Ana <ana@example.com>, lee@example.com"): just the addresses.
-  const invitees = $('#dl-invitees')?.value.match(/[^\s,;<>"'()]+@[^\s,;<>"'()]+/g) || [];
-  return { deadline: zonedToUtc(date, h * 60 + m, localTz), remindEvery: +($('#dl-every')?.value ?? 1), invitees };
+  return { deadline: zonedToUtc(date, h * 60 + m, localTz), remindEvery: +($('#dl-every')?.value ?? 1) };
 }
