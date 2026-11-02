@@ -95,9 +95,41 @@ html.retro .card {
 }
 html.retro .topbar {
   background: rgb(13 2 33 / 0.85);
+  border-bottom: 0;
   box-shadow:
     0 1px 0 0 rgb(255 60 172 / 0.6),
     0 6px 24px -10px rgb(255 60 172 / 0.6);
+}
+/* The bar as on the website: chrome capitals, and Create a Venn in neon. */
+html.retro .brand {
+  font-family: var(--serif);
+  font-weight: 900;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+html.retro .btn-new {
+  border-radius: 10px;
+  box-shadow:
+    0 0 0 1px rgb(255 255 255 / 0.25) inset,
+    0 0 18px -2px rgb(45 226 230 / 0.6);
+  font-family: var(--serif);
+  font-weight: 900;
+  font-size: 0.875rem;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+html.retro .menu-panel {
+  box-shadow: var(--lift);
+}
+@media (max-width: 380px) {
+  html.retro .brand {
+    letter-spacing: 0.03em;
+  }
+  html.retro .btn-new {
+    padding: 0 12px;
+    font-size: 0.75rem;
+    letter-spacing: 0.02em;
+  }
 }
 html.retro .btn-primary {
   box-shadow: 0 0 18px -2px rgb(45 226 230 / 0.7);

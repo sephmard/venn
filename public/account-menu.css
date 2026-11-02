@@ -1,49 +1,53 @@
-/* The account in the app's top bar (account-menu.js), and its avatar on My polls. Loaded by
-   account-menu.js only when there's something to show, so the app's first download stays small. */
-.acct-slot {
-  position: relative;
-  margin-left: -6px;
+/* The account in the app's top bar menu (account-menu.js), as on the website (site.css), and its
+   avatar on My polls. Loaded by account-menu.js only when there's something to show, so the app's
+   first download stays small. */
+.nav-links > .site-signin {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+  padding: 0 8px;
+  border-radius: 999px;
+  color: var(--text);
+  font-size: 0.9375rem;
+  font-weight: 500;
+  text-decoration: none;
+  white-space: nowrap;
 }
-.topbar:has(.acct-slot) .brand {
-  margin-right: auto;
+.nav-links > .site-signin:hover {
+  background: var(--surface-2);
 }
-.acct-signin {
-  padding-inline: 10px;
-}
-.acct-menu summary {
-  display: grid;
-  place-items: center;
-  width: 44px;
-  height: 44px;
-  list-style: none;
-  cursor: pointer;
-}
-.acct-menu summary::-webkit-details-marker {
+.acct-group-out {
   display: none;
 }
-.acct-avatar {
-  display: grid;
-  place-items: center;
-  width: 34px;
-  height: 34px;
-  border-radius: 50%;
-  background: var(--accent);
-  color: var(--accent-ink);
-  font-weight: 800;
+/* Sign in when signed out: in the bar on wider screens; on phones, where the bar is full, first in
+   the menu instead. On a poll's page, always in the menu. */
+.acct-group-always {
+  display: block;
 }
-.acct-panel {
-  position: absolute;
-  right: 0;
-  top: calc(100% + 6px);
-  z-index: 30;
-  min-width: 180px;
-  padding: 6px;
-  background: var(--surface);
-  border: 1.5px solid var(--border);
-  border-radius: var(--radius);
-  box-shadow: var(--lift);
+@media (max-width: 479px) {
+  .nav-links > a.site-signin {
+    display: none;
+  }
+  .acct-group-out {
+    display: block;
+  }
 }
-.acct-panel :is(a, button) {
+.menu-sep {
+  margin: 6px 4px;
+  border: 0;
+  border-top: 1px solid var(--border);
+}
+.menu-who {
+  max-width: 240px;
+  margin: 0;
+  padding: 6px 12px 2px;
+  overflow: hidden;
+  color: var(--muted);
+  font-size: 0.875rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.menu-panel .menu-signout {
   display: flex;
   align-items: center;
   width: 100%;
@@ -54,13 +58,23 @@
   background: none;
   color: var(--text);
   font: inherit;
-  text-decoration: none;
+  font-weight: 500;
   cursor: pointer;
 }
-.acct-panel :is(a, button):hover {
+.menu-panel .menu-signout:hover {
   background: var(--surface-2);
 }
 
+.acct-avatar {
+  display: grid;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  background: var(--accent);
+  color: var(--accent-ink);
+  font-weight: 800;
+}
 html.retro .acct-avatar {
   background: #150a35;
   color: #2de2e6;

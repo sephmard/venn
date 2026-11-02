@@ -202,26 +202,82 @@ button.final:focus-visible {
 }
 
 /* ---------- top bar and footer ---------- */
+/* The website's bar (site.css), on every app page: the logo, Create a Venn and the menu, across
+   the page, with the menu's links and (account-menu.js) the account. */
 .topbar {
+  position: relative;
+  z-index: 20;
+  border-bottom: 1px solid var(--border);
+}
+.nav {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 12px;
+  gap: 8px;
   max-width: 1080px;
-  width: 100%;
+  height: 68px;
   margin: 0 auto;
-  padding: 14px 16px;
+  padding: 0 16px;
 }
 .brand {
   display: inline-flex;
   align-items: center;
-  gap: 8px;
+  gap: 10px;
   font-family: var(--display);
-  font-weight: 800;
-  font-size: 1.3rem;
+  font-weight: 700;
+  font-size: 1.15rem;
   color: var(--text);
   text-decoration: none;
   min-height: 44px;
+}
+.nav-links {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  min-width: 0;
+}
+.menu {
+  position: relative;
+}
+.menu summary {
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  border-radius: 999px;
+  color: var(--text);
+  list-style: none;
+  cursor: pointer;
+}
+.menu summary::-webkit-details-marker {
+  display: none;
+}
+.menu[open] summary {
+  background: var(--surface-2);
+}
+.menu-panel {
+  position: absolute;
+  right: 0;
+  top: calc(100% + 8px);
+  min-width: 200px;
+  padding: 8px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  box-shadow: 0 16px 40px -12px rgb(22 24 26 / 0.25);
+}
+.menu-panel a {
+  display: flex;
+  align-items: center;
+  min-height: 44px;
+  padding: 0 12px;
+  border-radius: 10px;
+  color: var(--text);
+  font-weight: 500;
+  text-decoration: none;
+}
+.menu-panel a:hover {
+  background: var(--surface-2);
 }
 .footer {
   text-align: center;
@@ -2138,14 +2194,29 @@ pre.code {
   line-height: 1.45;
 }
 
-/* ---------- top bar: start a new poll ---------- */
+/* ---------- top bar: Create a Venn, filled like the website's ---------- */
 .btn-new {
+  padding: 0 20px;
   border-color: var(--accent);
-  color: var(--accent);
+  background: var(--accent);
+  color: var(--accent-ink);
+  font-size: 0.9375rem;
+  font-weight: 600;
+}
+.btn-new:hover {
+  background: var(--accent);
+  filter: brightness(1.08);
+}
+.creating .btn-new {
+  display: none;
 }
 @media (max-width: 374px) {
   .btn-new {
-    padding-inline: 12px;
+    padding-inline: 10px;
+    font-size: 0.8125rem;
+  }
+  .nav {
+    gap: 4px;
   }
 }
 /* Blocks on the week: drag an edge to change the length; "if needed" options are amber. */

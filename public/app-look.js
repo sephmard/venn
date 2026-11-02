@@ -15,6 +15,8 @@
       on = localStorage.getItem('venn:retro') !== '0';
     } catch {}
   if (on) document.documentElement.classList.add('retro');
+  // The create pages: no Create a Venn in the bar (app.js keeps this up to date).
+  if (/^\/new(\/|$)/.test(location.pathname)) document.documentElement.classList.add('creating');
   // A poll shown in another website's frame (/embed/<id>): the poll alone, without Venn's bar.
   const embed = /^\/embed\//.test(location.pathname);
   if (embed) document.documentElement.classList.add('embed');
