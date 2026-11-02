@@ -336,18 +336,60 @@ export function pollReadyEmail({ title, pollUrl, unsubscribeUrl, retro = false }
  * To someone the organizer invited who hasn't answered yet, as the deadline nears: a nudge, when
  * answers close, and one tap to answer. `organizer` may be empty; `closes` is in the poll's zone.
  */
-export function deadlineReminderEmail({ title, organizer, closes, pollUrl, unsubscribeUrl, last = false, retro = false }) {
+export function deadlineReminderEmail({
+  title,
+  organizer,
+  closes,
+  pollUrl,
+  answerUrl = pollUrl,
+  unsubscribeUrl,
+  last = false,
+  retro = false,
+}) {
   const who = organizer ? `${organizer} is` : "You're";
   const subject = last ? `Last chance: when works for “${title}”?` : `When works for “${title}”?`;
   const lead = organizer
     ? `${who} finding a time for “${title}”, and hasn't heard from you yet.`
     : `Answers for “${title}” close soon, and you haven't answered yet.`;
-  const text = `${lead}\n\nAnswers close ${closes}. It takes a few seconds, no sign-up:\n\n${pollUrl}\n\nStop these reminders: ${unsubscribeUrl}\n`;
+  const text = `${lead}\n\nAnswers close ${closes}. It takes a few seconds, no sign-up:\n\n${answerUrl}\n\nStop these reminders: ${unsubscribeUrl}\n`;
   const html = emailLayout(
     `${heading(last ? 'Last chance to answer ⏳' : 'When works for you? 🗓️')}${para(escHtml(lead))}${para(
       `Answers close <strong>${escHtml(closes)}</strong>. It takes a few seconds, no sign-up.`,
-    )}${button(pollUrl, 'Answer the poll')}`,
+    )}${button(answerUrl, 'Answer the poll')}`,
     `You get these reminders because the organizer invited this address to “${escHtml(title)}”. <a href="${escHtml(unsubscribeUrl)}" style="color:#6b6d70">Stop these reminders</a>.`,
+    pollUrl,
+  );
+  return { subject, text, html: styled(html, retro) };
+}
+
+/**
+ * To someone the organizer listed, as the poll is made (or as they're added): the poll, from the
+ * organizer, one tap to answer. `organizer` may be empty; `closes` (in the poll's zone) only with a
+ * deadline; `topic` for a vote on options rather than a date. Nothing the organizer writes beyond the
+ * poll's own name and title goes in, so it can't be used to send someone any message.
+ */
+export function inviteEmail({
+  title,
+  organizer,
+  closes = null,
+  topic = false,
+  pollUrl,
+  answerUrl = pollUrl,
+  unsubscribeUrl,
+  retro = false,
+}) {
+  const who = organizer || 'Someone';
+  const subject = topic ? `${who} wants your vote: “${title}”` : `${who} invited you: when works for “${title}”?`;
+  const lead = topic
+    ? `${who} is asking the group to vote on “${title}”, and would love your answer.`
+    : `${who} is finding a time for “${title}”, and would love to know when works for you.`;
+  const by = closes ? ` Answers close ${closes}.` : '';
+  const text = `${lead}\n\nIt takes a few seconds, no sign-up.${by}\n\n${answerUrl}\n\nNot for you? Stop emails about this poll: ${unsubscribeUrl}\n`;
+  const html = emailLayout(
+    `${heading(topic ? 'Your vote, please 🗳️' : 'When works for you? 🗓️')}${para(escHtml(lead))}${para(
+      `It takes a few seconds, no sign-up.${closes ? ` Answers close <strong>${escHtml(closes)}</strong>.` : ''}`,
+    )}${button(answerUrl, topic ? 'Vote' : 'Answer the poll')}`,
+    `You got this because ${escHtml(who)} added this address to “${escHtml(title)}” on Venn. <a href="${escHtml(unsubscribeUrl)}" style="color:#6b6d70">Stop emails about this poll</a>.`,
     pollUrl,
   );
   return { subject, text, html: styled(html, retro) };

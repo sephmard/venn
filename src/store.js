@@ -59,6 +59,13 @@ const SCHEMA = [
      next_at INTEGER NOT NULL
    )`,
   `CREATE INDEX IF NOT EXISTS reminders_next ON reminders(next_at)`,
+  // Polls emailed to people (src/invites.js): how many invitations each account sent a day, for its limit.
+  `CREATE TABLE IF NOT EXISTS email_sends (
+     user_id TEXT NOT NULL,
+     day TEXT NOT NULL,
+     count INTEGER NOT NULL,
+     PRIMARY KEY (user_id, day)
+   )`,
   // Brand templates (src/brands.js): an organization's look and defaults, and its logo in base64.
   // `logo_v` is the logo's version, for the URL that serves it.
   `CREATE TABLE IF NOT EXISTS brands (
@@ -874,6 +881,23 @@ export function createStore(db) {
         [since],
       );
       return rows.map((r) => ({ data: r.data, final_start: r.final_start ?? null, answers: Number(r.answers) }));
+    },
+
+    /** Invitations account `userId` sent on `day` (YYYY-MM-DD). */
+    async sendsOn(userId, day) {
+      await init();
+      const row = await db.first('SELECT count FROM email_sends WHERE user_id = ? AND day = ?', [userId, day]);
+      return row ? Number(row.count) : 0;
+    },
+
+    async addSends(userId, day, n) {
+      await init();
+      await db.run(
+        'INSERT INTO email_sends (user_id, day, count) VALUES (?, ?, ?) ON CONFLICT(user_id, day) DO UPDATE SET count = count + excluded.count',
+        [userId, day, n],
+      );
+      // Only today's count matters; older days go.
+      await db.run('DELETE FROM email_sends WHERE user_id = ? AND day < ?', [userId, day]);
     },
 
     /** Participant id → email, for one poll. */

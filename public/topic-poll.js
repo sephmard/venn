@@ -98,6 +98,8 @@ export async function renderTopicPoll(ctx) {
     ev = await ctx.load();
     render();
   }
+  // `#invited=<email>`: an invitation's link (src/invites.js).
+  const invited = [(ctx.hash?.get('invited') || '').toLowerCase()].find(isEmail) || '';
   async function panel(name, open) {
     panels[name] = open;
     $(`#${name}-open`)?.setAttribute('aria-expanded', open);
@@ -108,6 +110,7 @@ export async function renderTopicPoll(ctx) {
       shareUrl,
       headers: authHeaders(),
       close: () => panel(name, false),
+      panel,
       reload: () => reload().then(() => ev),
     });
   }
@@ -150,6 +153,7 @@ export async function renderTopicPoll(ctx) {
         ${picked ? decided(picked, guest) : ''}
         <div id="org-tools"></div>
         <div id="notify-box"></div>
+        <div id="invite-box"></div>
         <div id="deadline-box"></div>
         <div id="privacy-box"></div>
         <div class="panels">
@@ -162,7 +166,7 @@ export async function renderTopicPoll(ctx) {
               ${
                 ev.requireEmail
                   ? `<label for="email">Your email <span class="muted">(only the organizer sees it)</span></label>
-                <input id="email" type="email" inputmode="email" autocomplete="email" maxlength="254" placeholder="you@example.com" value="${esc(me()?.email || lastEmail())}">`
+                <input id="email" type="email" inputmode="email" autocomplete="email" maxlength="254" placeholder="you@example.com" value="${esc(me()?.email || invited || lastEmail())}">`
                   : ''
               }
               ${privacy && `<p class="hint">🔒 ${privacy}</p>`}
@@ -330,11 +334,12 @@ export async function renderTopicPoll(ctx) {
         navigate('/new/topic');
       },
     });
-    // `#organizer&deadline` (My polls): straight to the Deadline panel, once.
-    if (ctx.hash?.has('deadline') && !panels.deadline && !st.deadlineShown) {
+    // `#organizer&deadline` (or `&invite`), from My polls: straight to that panel, once.
+    const open = ['deadline', 'invite'].find((p) => ctx.hash?.has(p));
+    if (open && !panels[open] && !st.deadlineShown) {
       st.deadlineShown = true;
       $('details.organizer').open = true;
-      panel('deadline', true);
+      panel(open, true);
     }
   }
 

@@ -559,7 +559,7 @@ function showMine(me, view) {
     );
   };
 
-  // ⋯ on a poll: open it, share it, remind people, take it off the list, or delete it.
+  // ⋯ on a poll: open it, share it, email it to people, remind them, take it off the list, or delete it.
   function manage(p, tab) {
     if (!p) return;
     const made = tab === 'made';
@@ -576,6 +576,7 @@ function showMine(me, view) {
          <button type="button" data-act="copy">Copy link</button>
          ${made && waiting ? '<button type="button" data-act="nudge">Remind the group</button>' : ''}
          ${emailable ? `<button type="button" data-act="email">Email invitees who haven’t answered</button>` : ''}
+         ${made && waiting && config.email ? `<a href="/e/${esc(p.id)}#organizer&amp;invite" data-link data-close>${p.invitees ? 'Invite more by email' : 'Email it to people'}</a>` : ''}
          ${made && p.finalStart == null && !p.decided ? `<a href="/e/${esc(p.id)}#organizer&amp;deadline" data-link data-close>${p.deadline != null ? 'Change the deadline' : 'Add a deadline'}</a>` : ''}
          <button type="button" data-act="unlist">Remove from My polls</button>
          ${made ? '<button type="button" data-act="delete" class="acct-danger">Delete poll</button>' : ''}
