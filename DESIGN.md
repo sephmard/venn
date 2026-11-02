@@ -124,6 +124,7 @@ The app (`public/styles.css`, for `/new` and `/e/:id`) uses the same colors and 
 - **The organizer's answer comes with the poll.** The times they offer count as their own answer, as they marked them (Available or If needed). They can change it on the poll like anyone, and the poll can still be edited until a guest answers.
 - **Answers are explicit.** Available is green, If needed amber, Unavailable pink (never red), and not answered yet is plain. "Everyone's answers" uses the same colours.
 - **Say less.** A hint only when the next step isn't obvious from the page.
+- **Times never break mid-range.** "6 – 10 PM" stays on one line everywhere (`keep()` in `public/ui.js`, `.nowrap` in the results rows). The best option and the picked date show a part of the day as the date in big type, then "Evening, 6 – 10 PM" on its own line in body type (`.bw-part`).
 - **Pick first, then your name.** On the answer form, the name and email fields sit just above **Save**, after the answers, so people start choosing straight away.
 - **Edit, then duplicate.** Organizers can **Edit poll** until someone else answers. After that the button becomes **Duplicate poll**, which opens the create page filled in.
 - **Phones first:** 44px tap targets, 16px inputs, sticky Save and Create bars, and two tabs ("Your answer", "The group") that become two columns on wide screens.

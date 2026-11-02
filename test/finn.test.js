@@ -116,8 +116,12 @@ test('Finn: which moment a poll is at, for a guest', () => {
   // Guests don't hear about the organizer's poll filling up.
   assert.equal(momentFor(poll({ ...guest })), null);
   assert.equal(momentFor(poll({ ...guest, answers: answers.slice(0, 2) })), null);
-  // Everyone works: guests see that too.
-  assert.equal(momentFor(poll({ ...guest, answers: [...answers.slice(0, 2), ['lee', { [t(9)]: IF_NEEDED }]] })), 'everyone');
+  // Everyone works: guests who answered see that too; one who hasn't hears it's everyone so far.
+  const agree = poll({ ...guest, answers: [...answers.slice(0, 2), ['lee', { [t(9)]: IF_NEEDED }]] });
+  assert.equal(momentFor(agree, { meId: 'lee' }), 'everyone');
+  assert.equal(momentFor(agree), 'soFar');
+  assert.equal(momentFor(agree, { meId: 'someone-else' }), 'soFar');
+  for (const line of MOMENTS.soFar.lines) assert.match(line, /so far/i);
   // Picked: a match for Ana, who said yes; just picked for Jo, who can't, and for someone who hasn't answered.
   const picked = poll({ ...guest, answers, finalStart: t(9) });
   assert.equal(momentFor(picked, { meId: 'ana' }), 'match');

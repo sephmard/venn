@@ -1067,6 +1067,17 @@ div.poll-share {
   line-height: 1.2;
   margin-bottom: 10px;
 }
+/* A part of the day under its date, in body type: "Evening, 6 – 10 PM" (the times never break). */
+.bw-part {
+  display: block;
+  margin-top: 4px;
+  font-family: var(--display);
+  font-size: 1.05rem;
+  font-weight: 600;
+  letter-spacing: normal;
+  text-transform: none;
+  color: var(--muted);
+}
 .best-who {
   display: flex;
   flex-wrap: wrap;

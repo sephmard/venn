@@ -4,7 +4,7 @@
 // Tap a row for who's free (and, on the organizer's link, Pick).
 
 import { IF_NEEDED, YES, allDaySpan, meetingEnd, partOf, rankTimes, utcToZoned } from './core.js';
-import { avatar, dateParts, esc, fmtDay, plural, shortRange, shortTime } from './ui.js';
+import { avatar, dateParts, esc, fmtDay, keep, plural, shortRange, shortTime } from './ui.js';
 import { fmtTimeRange } from './when.js';
 
 const KEY = `<p class="hint legend ov-legend"><span class="sw sw-y"></span>Available <span class="sw sw-m"></span>If needed <span class="sw sw-nc"></span>Unavailable</p>`;
@@ -41,7 +41,7 @@ function row(r, n, { kind, open, final, pick, mine }) {
   const said = `${yes} of ${n} available${maybe ? `, ${maybe} if needed` : ''}${no ? `, ${no} unavailable` : ''}${kind === 'all' ? ". Everyone's free" : kind === 'ifn' ? '. Everyone can, some only if needed' : kind === 'best' ? '. The most overlap' : ''}`;
   return `<li class="ov-item${open ? ' open' : ''}">
     <button type="button" class="ov-row${kind ? ` ${kind}` : ''}${final ? ' final' : ''}" data-ov="${r.start}" aria-expanded="${open}">
-      <span class="ov-when">${r.day ? `<span class="sr-only">${esc(dayName(r.day))}, </span>` : ''}${esc(r.label)}${final ? ' <span class="ov-picked">✓ Picked</span>' : ''}</span>
+      <span class="ov-when">${r.day ? `<span class="sr-only">${esc(dayName(r.day))}, </span>` : ''}${esc(r.label).replace(/\S*\u00a0[\S\u00a0]*/g, (m) => `<span class="nowrap">${m}</span>`)}${final ? ' <span class="ov-picked">✓ Picked</span>' : ''}</span>
       <span class="ov-count">${kind === 'all' ? '✓ Everyone' : kind === 'ifn' ? 'Everyone, if needed' : `${yes + maybe} of ${n}`}${mine ? ` <span class="ov-mine">${esc(mine)}</span>` : ''}<span class="sr-only">. ${esc(said)}</span><span class="ov-chev" aria-hidden="true"></span></span>
       ${whole ? '' : `<span class="ov-bar" aria-hidden="true">${bar(yes, maybe, no)}</span>`}
     </button>
@@ -77,10 +77,10 @@ function listHtml({ ev, people, tz, inspect, focus, windows, days, parts, when }
       label: !timed
         ? when(w.start, w.end)
         : p
-          ? `${p.label} · ${shortRange(p.start, p.end)}`
+          ? `${p.label} · ${keep(shortRange(p.start, p.end))}`
           : whole
             ? 'All day'
-            : fmtTimeRange(w.start, w.end, tz),
+            : keep(fmtTimeRange(w.start, w.end, tz)),
       yes: by(YES),
       maybe: by(IF_NEEDED),
       no: by(0),
