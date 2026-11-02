@@ -391,8 +391,10 @@ const TEMPLATE_SCHEMA = {
     corners: { type: 'string', enum: Object.keys(CORNERS) },
     buttons: { type: 'string', enum: Object.keys(BUTTONS), description: 'pill: rounded pills. corners: match the corners.' },
     title: { type: 'string', description: 'A usual poll name for this organization, under 60 characters, or empty' },
+    name: { type: 'string', description: 'The organization’s name, only if the description gives it, else empty' },
+    emoji: { type: 'string', description: 'One emoji for its polls, like 🏃 for a running club' },
   },
-  required: ['accent', 'ownPage', 'bg', 'surface', 'text', 'font', 'bodyFont', 'corners', 'buttons', 'title'],
+  required: ['accent', 'ownPage', 'bg', 'surface', 'text', 'font', 'bodyFont', 'corners', 'buttons', 'title', 'name', 'emoji'],
   additionalProperties: false,
 };
 
@@ -408,6 +410,7 @@ Rules:
 - Text must be easy to read on the background and on the cards (WCAG AA contrast). Cards are close to the background.
 - Keep it calm and readable. Only give the page its own colours when the description suggests a strong look; otherwise ownPage is false and bg, surface and text are empty.
 - If the description names brand colours, use them.
+- The name is only one the description gives ("Riverside Runners"); never invent one.
 ${DATA_NOTE}`,
     prompt: `<user_text>${org ? `Organization: ${org}\n` : ''}${text}</user_text>`,
   });
@@ -422,7 +425,16 @@ ${DATA_NOTE}`,
   if (out.ownPage && [out.bg, out.surface, out.text].every(isHex))
     Object.assign(look, { bg: out.bg.toLowerCase(), surface: out.surface.toLowerCase(), text: out.text.toLowerCase() });
   if (!look.accent) throw new AiUnavailableError("Couldn't suggest a look from that. Try describing it differently.");
-  return { look: Object.fromEntries(Object.entries(look).filter(([, v]) => v)), title: String(out.title || '').slice(0, 60) };
+  return {
+    look: Object.fromEntries(Object.entries(look).filter(([, v]) => v)),
+    title: String(out.title || '')
+      .trim()
+      .slice(0, 60),
+    name: String(out.name || '')
+      .trim()
+      .slice(0, 60),
+    emoji: firstEmoji(out.emoji), // one emoji, or '' for none
+  };
 }
 
 // ---------- shared: describe the poll and its answers ----------

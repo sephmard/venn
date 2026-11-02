@@ -295,6 +295,17 @@ test('For organizations needs an account: sign in first, then make a template; a
   await expect(page.locator('#b-bg')).toHaveValue('#0d0221');
   await expect(page.locator('[data-font="retro"]')).toHaveAttribute('aria-checked', 'true');
   await noSideways(page);
+  // Where the server has AI, Built in also offers to make one from a sentence.
+  await page.route('**/api/config', async (r) => r.fulfill({ json: { ...(await (await r.fetch()).json()), ai: true } }));
+  await page.goto('/me');
+  await page.getByRole('tab', { name: /Templates/ }).click();
+  await expect(page.locator('.acct-brand .acct-row b')).toHaveText(['Retro', 'Classic', 'Make one with AI', 'Acme Inc.']);
+  await expect(page.getByRole('link', { name: 'Describe it: make a template with AI' })).toHaveAttribute(
+    'href',
+    '/brand/new?ai=1',
+  );
+  await audit(page, 'Templates with Make one with AI');
+  await page.unroute('**/api/config');
 
   // A new poll's page has no look picker: the template's own New poll gives its look.
   await page.goto('/new');

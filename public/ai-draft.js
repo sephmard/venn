@@ -119,7 +119,7 @@ function done(text, undo) {
   $('#ai-undo').onclick = async () => {
     await undo();
     $('#ai-done')?.remove();
-    $('#ai-open')?.focus();
+    ($('#ai-open') || $('#ai-prompt'))?.focus();
     toast('Put back as it was.');
   };
   $('#ai-done').scrollIntoView({ behavior: reducedMotion() ? 'auto' : 'smooth', block: 'center' });
@@ -306,24 +306,27 @@ export function aiTopic(fill, snapshot) {
 }
 
 /**
- * On a brand template's "Starting look": a few words about the organization suggest a look.
- * `name()` is the organization's name so far; `apply(look, title)` sets it, like a look card.
+ * On a brand template's "Starting look": a few words about the organization fill in the template
+ * for review: its look, and its name, emoji and usual poll name where those are still empty.
+ * `name()` is the organization's name so far; `apply(draft)` fills it in and returns
+ * { changed, text, undo }: the elements it changed, a line saying what it did, and how to put it back.
  */
 export function aiLook(host, { name, apply }) {
   host.innerHTML = box(
     'ai-inline',
     'Or describe your organization',
-    'A climbing gym, friendly and bold, orange and charcoal',
+    'Riverside Runners, a running club, bright orange, friendly and bold',
     'Suggest a look',
     'You can change everything after.',
   );
   wire(async (prompt) => {
-    const { look, title } = await api('ai/draft-template', {
+    const draft = await api('ai/draft-template', {
       method: 'POST',
       body: { prompt, name: name() },
       headers: aiHeaders(),
     });
-    apply(look, title);
-    toast('Look suggested. Change anything in the next steps.');
+    const { changed, text, undo } = apply(draft);
+    light(changed);
+    done(text, undo);
   }, 'Suggest a look');
 }
