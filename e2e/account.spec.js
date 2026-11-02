@@ -211,6 +211,24 @@ test('the sign-in page shows at once on a second visit, with no stand-in first',
   await expect(page.locator('.acct-skeleton')).toHaveCount(0);
 });
 
+test('back from Google with the server slow to answer: My polls loading, never the sign-in page again', async ({
+  browser,
+}, info) => {
+  const context = await browser.newContext({ extraHTTPHeaders: { 'x-test-user': `slow-${info.project.name}-${Date.now()}` } });
+  const page = await context.newPage();
+  await page.goto('/me'); // remembers the ways in, so the sign-in page would show at once
+  await page.route('**/api/me', async (r) => {
+    await new Promise((done) => setTimeout(done, 1500));
+    await r.continue();
+  });
+  await page.getByRole('link', { name: 'Continue with Google' }).click();
+  await expect(page).toHaveURL(/\/me$/); // the #signed-in marker is gone from the address bar
+  await expect(page.locator('.acct-skeleton')).toBeVisible();
+  await expect(page.getByRole('link', { name: 'Continue with Google' })).toHaveCount(0);
+  await expect(page.locator('.acct-who')).toBeVisible();
+  await context.close();
+});
+
 test('a sign-in that doesn’t finish says so', async ({ page }) => {
   await page.goto('/api/auth/google/callback?code=x&state=forged');
   await expect(page).toHaveURL(/\/me$/);

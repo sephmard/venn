@@ -124,7 +124,7 @@ test('starting sign-in: PKCE, state and nonce, and a short-lived cookie for the 
 
 test('signing in with Google: an account, a session cookie, and the page it started from', async () => {
   const { back, session } = await signIn('g-flow', { next: '/me' });
-  assert.equal(back.headers.get('location'), '/me');
+  assert.equal(back.headers.get('location'), '/me#signed-in');
   assert.match(
     back.headers.getSetCookie().join('\n'),
     /venn_session=[\w-]{40,}; Path=\/api; Max-Age=2592000; HttpOnly; SameSite=Lax/,
@@ -177,7 +177,7 @@ test('sign-in fails safely: wrong state, nonce, audience, issuer, an expired tok
 test('only paths on this site are where sign-in goes back to', async () => {
   for (const next of ['https://evil.example', '//evil.example', '/\\evil', 'javascript:alert(1)']) {
     const { back } = await signIn('g-next', { next });
-    assert.equal(back.headers.get('location'), '/me');
+    assert.equal(back.headers.get('location'), '/me#signed-in');
   }
   assert.equal((await signIn('g-next', { next: '/e/abc' })).back.headers.get('location'), '/e/abc');
 });
@@ -363,7 +363,7 @@ test('sharing a brand template: admins change it, users make polls with it, only
   // anything else after the path falls back to My polls.
   const via = (await signIn('g-share-via', { next: '/brand/abc#join=Secret123' })).back.headers.get('location');
   assert.match(via, /\/brand\/abc#join=Secret123$/);
-  assert.match((await signIn('g-share-via', { next: '/brand/abc#evil' })).back.headers.get('location'), /\/me$/);
+  assert.match((await signIn('g-share-via', { next: '/brand/abc#evil' })).back.headers.get('location'), /\/me#signed-in$/);
   // Invite links: one for admins, one for users. Only the owner makes them.
   const invite = async (role, cookie = owner) =>
     call(`/api/brands/${made.id}/invites`, { method: 'POST', body: { role }, cookie });
