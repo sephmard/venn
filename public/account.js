@@ -62,6 +62,7 @@ export async function renderAccount() {
   if (sub) return (await import('./account-settings.js')).renderSub(sub);
   document.title = 'My polls · Venn';
   const failed = location.hash === '#signin-failed';
+  const justSignedIn = location.hash === '#signed-in'; // back from Google (src/auth.js)
   const forgot = location.hash === '#forgot';
   const signup = location.hash === '#signup';
   const mode = forgot ? 'forgot' : signup ? 'signup' : 'signin';
@@ -69,9 +70,10 @@ export async function renderAccount() {
   // Not signed in here: the sign-in page straight away, with the ways in this server offered last
   // time, so nothing jumps when the server answers (it's redrawn only if they changed). Signed in:
   // My polls' outline until the polls come.
-  const early = accountHint() ? null : seenProviders();
+  const signedIn = justSignedIn || accountHint();
+  const early = signedIn ? null : seenProviders();
   if (early) showSignIn(early, failed, mode);
-  else if (!accountHint()) showSignIn(null, failed, mode);
+  else if (!signedIn) showSignIn(null, failed, mode);
   else
     app.innerHTML = `<div class="account" aria-busy="true"><h1>My polls</h1><div class="acct-skeleton" aria-hidden="true">${'<span></span>'.repeat(4)}</div></div>`;
   let me;

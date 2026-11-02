@@ -260,12 +260,14 @@ function fakeD1() {
   const db = new DatabaseSync(':memory:');
   return {
     prepare: (sql) => ({
+      sql,
       bind: (...params) => ({
         run: async () => db.prepare(sql).run(...params),
         all: async () => ({ results: db.prepare(sql).all(...params) }),
         first: async () => db.prepare(sql).get(...params) ?? null,
       }),
     }),
+    batch: async (stmts) => stmts.map((st) => db.prepare(st.sql).run()),
   };
 }
 
