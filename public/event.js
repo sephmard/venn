@@ -160,6 +160,9 @@ export async function renderEvent(id, navigate) {
         ? `<div class="sheet empty"><h1>Poll not found</h1><p class="muted">This poll may have been deleted, or the link wasn't copied in full. Check the link with whoever sent it.</p><a class="btn btn-primary" href="/new" data-link>Create a Venn</a></div>`
         : `<div class="sheet empty"><h1>Can't open this poll</h1><p class="muted">${esc(e.message)}</p><button class="btn btn-primary" onclick="location.reload()">Try again</button></div>`;
     if (e.status === 404) import('./finn.js').then((m) => m.lost(app.querySelector('.sheet'))).catch(() => {});
+    // No poll, so no organizer's look: the visitor's own, like the website's (retro unless Classic mode).
+    if (e.status === 404 && !document.documentElement.classList.contains('embed'))
+      import('./retro-look.js').then((m) => m.retroLook(m.wantsRetro())).catch(() => {});
     return () => {};
   }
 

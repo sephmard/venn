@@ -408,9 +408,23 @@ test('page never scrolls sideways', async ({ page }) => {
   expect(overflow).toBeLessThanOrEqual(0);
 });
 
-test('unknown poll shows a friendly error', async ({ page }) => {
+test("unknown poll shows a friendly error, in the visitor's look: retro unless Classic mode", async ({ page }) => {
   await page.goto('/e/doesnotexist');
   await expect(page.getByRole('heading', { name: 'Poll not found' })).toBeVisible();
+  await expect(page.locator('html')).toHaveClass(/\bretro\b/);
+  await expect(page.locator('#app').getByRole('link', { name: 'Create a Venn' })).toHaveCount(1);
+  // The 404 page, the same way.
+  await page.goto('/nope');
+  await expect(page.getByRole('heading', { name: 'Page not found' })).toBeVisible();
+  await expect(page.locator('html')).toHaveClass(/\bretro\b/);
+  // Classic mode on: both are classic.
+  await page.evaluate(() => localStorage.setItem('venn:retro', '0'));
+  await page.goto('/e/doesnotexist');
+  await expect(page.getByRole('heading', { name: 'Poll not found' })).toBeVisible();
+  await expect(page.locator('html')).not.toHaveClass(/\bretro\b/);
+  await page.goto('/nope');
+  await expect(page.getByRole('heading', { name: 'Page not found' })).toBeVisible();
+  await expect(page.locator('html')).not.toHaveClass(/\bretro\b/);
 });
 
 test('poll links get their own preview in chat apps, before and after the date is picked', async ({ page, request }) => {
