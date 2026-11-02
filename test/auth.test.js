@@ -124,7 +124,7 @@ test('starting sign-in: PKCE, state and nonce, and a short-lived cookie for the 
 
 test('signing in with Google: an account, a session cookie, and the page it started from', async () => {
   const { back, session } = await signIn('g-flow', { next: '/me' });
-  assert.equal(back.headers.get('location'), '/me');
+  assert.equal(back.headers.get('location'), '/me#signed-in');
   assert.match(
     back.headers.getSetCookie().join('\n'),
     /venn_session=[\w-]{40,}; Path=\/api; Max-Age=2592000; HttpOnly; SameSite=Lax/,
@@ -177,7 +177,7 @@ test('sign-in fails safely: wrong state, nonce, audience, issuer, an expired tok
 test('only paths on this site are where sign-in goes back to', async () => {
   for (const next of ['https://evil.example', '//evil.example', '/\\evil', 'javascript:alert(1)']) {
     const { back } = await signIn('g-next', { next });
-    assert.equal(back.headers.get('location'), '/me');
+    assert.equal(back.headers.get('location'), '/me#signed-in');
   }
   assert.equal((await signIn('g-next', { next: '/e/abc' })).back.headers.get('location'), '/e/abc');
 });
@@ -363,7 +363,7 @@ test('sharing a brand template: admins change it, users make polls with it, only
   // anything else after the path falls back to My polls.
   const via = (await signIn('g-share-via', { next: '/brand/abc#join=Secret123' })).back.headers.get('location');
   assert.match(via, /\/brand\/abc#join=Secret123$/);
-  assert.match((await signIn('g-share-via', { next: '/brand/abc#evil' })).back.headers.get('location'), /\/me$/);
+  assert.match((await signIn('g-share-via', { next: '/brand/abc#evil' })).back.headers.get('location'), /\/me#signed-in$/);
   // Invite links: one for admins, one for users. Only the owner makes them.
   const invite = async (role, cookie = owner) =>
     call(`/api/brands/${made.id}/invites`, { method: 'POST', body: { role }, cookie });
@@ -568,6 +568,10 @@ test('My polls: search, sort and group', async () => {
   const { madeMeta, whenShort, nudgeText } = await import('../public/account-data.js');
   assert.equal(madeMeta({ finalStart: null, answers: 2, location: 'Rosa’s' }), '2 answers · Rosa’s');
   assert.match(madeMeta({ finalStart: Date.UTC(2031, 2, 3, 12), answers: 1 }, Date.UTC(2030, 0, 1)), /^Picked: .*3 · 1 answer$/);
+  // A deadline, while the poll is open: when answers close, then that they have.
+  const deadline = Date.UTC(2030, 0, 4, 12);
+  assert.match(madeMeta({ finalStart: null, deadline, answers: 0 }, Date.UTC(2030, 0, 1)), /^Closes .*4 · No answers yet$/);
+  assert.equal(madeMeta({ finalStart: null, deadline, answers: 1 }, deadline), 'Closed · 1 answer');
   assert.equal(whenShort(now, now), 'Today');
   assert.match(whenShort(now - 40 * day, now), /^[A-Z][a-z]{2} \d+$|^\d+ [A-Z][a-z]{2}$/);
   assert.match(whenShort(Date.UTC(2020, 0, 5), now), /2020/);
@@ -580,7 +584,8 @@ test('My polls: search, sort and group', async () => {
 });
 
 test('My polls: the organizer links this browser remembers, and pasted ones', async () => {
-  const { rememberedLinks, parseOrganizerLink, pollMeta, signInButtons } = await import('../public/account-data.js');
+  const { rememberedLinks, parseVennLink, unkept, addedText, pollMeta, signInButtons } =
+    await import('../public/account-data.js');
   const buttons = signInButtons(['google', 'evil"><script>', 'github'], '/brand');
   assert.match(buttons, /href="\/api\/auth\/google\?next=%2Fbrand"/);
   assert.match(buttons, /Continue with GitHub/);
@@ -601,9 +606,32 @@ test('My polls: the organizer links this browser remembers, and pasted ones', as
     brands: [{ id: 'br1', token: 'tok2' }],
     answers: [{ id: 'guestonly', pid: 'p', token: 'e' }],
   });
-  assert.deepEqual(parseOrganizerLink(' https://venn.day/e/abc123#admin=XYZ9 '), { kind: 'polls', id: 'abc123', token: 'XYZ9' });
-  assert.deepEqual(parseOrganizerLink('venn.day/brand/br1#admin=t'), { kind: 'brands', id: 'br1', token: 't' });
-  assert.equal(parseOrganizerLink('https://venn.day/e/abc123'), null);
+  // A pasted link, as what it is: something to keep, an invite to open, or a guest's link.
+  assert.deepEqual(parseVennLink(' https://venn.day/e/abc123#admin=XYZ9 '), {
+    kind: 'polls',
+    item: { id: 'abc123', token: 'XYZ9' },
+  });
+  assert.deepEqual(parseVennLink('venn.day/brand/br1#admin=t'), { kind: 'brands', item: { id: 'br1', token: 't' } });
+  assert.deepEqual(parseVennLink('https://venn.day/e/abc#edit=p1.tok'), {
+    kind: 'answers',
+    item: { id: 'abc', pid: 'p1', token: 'tok' },
+  });
+  assert.deepEqual(parseVennLink('venn.day/brand/b1#join=SEC'), { kind: 'invite', item: { id: 'b1', token: 'SEC' } });
+  assert.deepEqual(parseVennLink('https://venn.day/e/abc123'), { kind: 'guest', brand: false });
+  assert.deepEqual(parseVennLink('https://venn.day/new?brand=b1'), { kind: 'guest', brand: true });
+  assert.notEqual(parseVennLink('venn.day/brand/b1#join=<script>').kind, 'invite');
+  assert.equal(parseVennLink('hello'), null);
+  // Each link goes to the account once: the ones sent before stay home.
+  const links = rememberedLinks(storage);
+  const first = unkept(links, new Set());
+  assert.deepEqual(first.keys, ['poll:abc123', 'brand:br1', 'answer:guestonly.p']);
+  const again = unkept(links, new Set(['poll:abc123', 'answer:guestonly.p']));
+  assert.deepEqual(again.links, { polls: [], brands: [{ id: 'br1', token: 'tok2' }], answers: [] });
+  assert.deepEqual(again.keys, ['brand:br1']);
+  assert.equal(addedText({ polls: 1 }), 'Added to My polls');
+  assert.equal(addedText({ polls: 2, answers: 1 }), 'Added 3 polls to My polls');
+  assert.equal(addedText({ brands: 1 }), 'Added to your templates');
+  assert.equal(addedText({ polls: 1, brands: 2 }), 'Added 1 poll and 2 templates to My polls');
   assert.equal(pollMeta({ finalStart: null, answers: 0 }), 'No answers yet');
   assert.equal(pollMeta({ finalStart: null, answers: 1 }), '1 answer');
   assert.equal(pollMeta({ finalStart: null, answers: 3 }), '3 answers');

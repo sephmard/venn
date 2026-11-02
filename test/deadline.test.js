@@ -9,11 +9,12 @@ const START = Date.UTC(2026, 10, 1, 12); // Sun, Nov 1 2026, noon UTC
 
 // ---------- unit ----------
 
-test('a deadline needs required emails, a sensible time and a valid reminder choice', () => {
+test('a deadline needs a sensible time and a valid reminder choice', () => {
   const ev = { requireEmail: true };
   const at = START + 2 * DAY;
   assert.deepEqual(normalizeDeadline({}, ev, START), { deadline: null, remindEvery: null, invitees: [] });
-  assert.throws(() => normalizeDeadline({ deadline: at }, {}, START), /email/);
+  // No need to ask everyone's email for a deadline alone (invitees switch that on: applyDeadline).
+  assert.deepEqual(normalizeDeadline({ deadline: at }, {}, START), { deadline: at, remindEvery: null, invitees: [] });
   assert.throws(() => normalizeDeadline({ deadline: START + HOUR / 2 }, ev, START), /at least an hour/);
   assert.throws(() => normalizeDeadline({ deadline: START + 31 * DAY }, ev, START), /within 30 days/);
   assert.throws(() => normalizeDeadline({ deadline: 'soon' }, ev, START), /Choose when/);
@@ -44,6 +45,9 @@ test('answers close at the deadline, shown in the poll’s own time zone', () =>
   assert.equal(isClosed(ev, ev.deadline - 1), false);
   assert.equal(isClosed(ev, ev.deadline), true);
   assert.equal(isClosed({}, START), false);
+  // Picked, a date or a vote's option: guests can still say whether they're in.
+  assert.equal(isClosed({ ...ev, finalStart: 1 }, ev.deadline), false);
+  assert.equal(isClosed({ ...ev, picked: 'o1' }, ev.deadline), false);
 });
 
 test('the next look is the soonest of the next reminder, the day before, and the deadline', () => {
@@ -60,7 +64,9 @@ test('the next look is the soonest of the next reminder, the day before, and the
 // ---------- API ----------
 
 let server, base, sent, clock;
-const env = { RESEND_API_KEY: 're_test', EMAIL_FROM: 'Venn <notify@venn.example>' };
+// No sign-in on this server (email sign-in is on whenever email is), so anyone can set a deadline;
+// with sign-in, it takes an account (test/auth.test.js).
+const env = { RESEND_API_KEY: 're_test', EMAIL_FROM: 'Venn <notify@venn.example>', EMAIL_SIGNIN: 'off' };
 
 // A fresh server for each test, so one test's polls aren't due in another's runs.
 beforeEach(async () => {
@@ -126,9 +132,9 @@ test('the organizer sets a deadline and who to remind; guests see only when answ
     deadline,
     remindEvery: 1,
     invitees: [
-      { email: 'ana@example.com', answered: true, reminded: 0, stopped: false },
-      { email: 'lee@example.com', answered: false, reminded: 0, stopped: false },
-      { email: 'kim@example.com', answered: false, reminded: 0, stopped: false },
+      { email: 'ana@example.com', answered: true, invited: true, reminded: 0, stopped: false },
+      { email: 'lee@example.com', answered: false, invited: true, reminded: 0, stopped: false },
+      { email: 'kim@example.com', answered: false, invited: true, reminded: 0, stopped: false },
     ],
   });
 
@@ -148,19 +154,37 @@ test('the organizer sets a deadline and who to remind; guests see only when answ
   // Bad input is refused; no deadline takes it off.
   const bad = await call(`/api/events/${id}/deadline`, { method: 'PUT', body: { deadline: START }, headers: admin });
   assert.equal(bad.status, 400);
+  // No deadline takes it off; the invite list stays (Invite by email changes it).
   const off = await call(`/api/events/${id}/deadline`, { method: 'PUT', body: { deadline: null }, headers: admin });
-  assert.deepEqual(off.data, { deadline: null, remindEvery: null, invitees: [] });
+  assert.equal(off.data.deadline, null);
+  assert.equal(off.data.remindEvery, null);
+  assert.deepEqual(
+    off.data.invitees.map((i) => i.email),
+    ['lee@example.com'],
+  );
   assert.equal((await call(`/api/events/${id}`)).data.deadline, undefined);
 });
 
-test('a deadline needs the poll to ask for emails, and goes when that is turned off', async () => {
-  const refused = await call('/api/events', { method: 'POST', body: { ...poll, requireEmail: false, deadline } });
-  assert.equal(refused.status, 400);
+test('a deadline alone needs no emails; invitees ask for them, and go when that is turned off', async () => {
+  const plain = await call('/api/events', { method: 'POST', body: { ...poll, requireEmail: false, deadline } });
+  assert.equal(plain.status, 201);
+  assert.equal((await call(`/api/events/${plain.data.id}`)).data.deadline, deadline);
+  // Invitees make the poll ask everyone's email: that's how Venn knows who answered.
+  const asked = await call('/api/events', {
+    method: 'POST',
+    body: { ...poll, requireEmail: false, deadline, invitees: ['ana@example.com'] },
+  });
+  assert.equal((await call(`/api/events/${asked.data.id}`)).data.requireEmail, true);
   const { id, admin } = await create();
   await call(`/api/events/${id}/settings`, { method: 'PUT', body: { requireEmail: false }, headers: admin });
-  assert.equal((await call(`/api/events/${id}`)).data.deadline, undefined);
-  assert.equal((await call(`/api/events/${id}/deadline`, { headers: admin })).data.deadline, null);
-  clock = deadline + HOUR;
+  assert.equal((await call(`/api/events/${id}`)).data.deadline, deadline);
+  assert.deepEqual((await call(`/api/events/${id}/deadline`, { headers: admin })).data, {
+    deadline,
+    remindEvery: null,
+    invitees: [],
+  });
+  sent.length = 0; // the invitations, sent as the polls were made
+  clock = START + 2 * DAY;
   await server.deadlines();
   assert.equal(emails().length, 0);
 });
@@ -304,4 +328,109 @@ test('Remind now (My polls): emails the invitees who haven’t answered, at most
   const plain = await create({ requireEmail: false, deadline: null, invitees: [] });
   const none = await call(`/api/events/${plain.id}/remind`, { method: 'POST', headers: plain.admin });
   assert.equal(none.status, 400);
+});
+
+// ---------- with sign-in: deadlines come with an account ----------
+
+const b64url = (o) => Buffer.from(JSON.stringify(o)).toString('base64url');
+
+/** A server with Google sign-in (its token endpoint stubbed) and email; returns it and a sign-in. */
+async function signInServer() {
+  let claims = {};
+  const fakeFetch = async (url, init = {}) => {
+    if (String(url) === 'https://oauth2.googleapis.com/token')
+      return Response.json({ access_token: 'at', id_token: `${b64url({ alg: 'RS256' })}.${b64url(claims)}.sig` });
+    sent.push({ url: String(url), headers: init.headers, body: JSON.parse(init.body) });
+    return new Response('{}', { status: 200 });
+  };
+  const app = createApp({
+    env: { ...env, EMAIL_SIGNIN: undefined, GOOGLE_CLIENT_ID: 'g-client', GOOGLE_CLIENT_SECRET: 'g-secret' },
+    fetchImpl: fakeFetch,
+    now: () => clock,
+  });
+  await new Promise((r) => app.listen(0, r));
+  const at = `http://localhost:${app.address().port}`;
+  const req = async (path, { method = 'GET', body, cookie } = {}) => {
+    const res = await fetch(at + path, {
+      method,
+      redirect: 'manual',
+      headers: { 'content-type': 'application/json', ...(cookie && { cookie }) },
+      body: body && JSON.stringify(body),
+    });
+    const text = await res.text();
+    await app.settled();
+    return { status: res.status, data: text.startsWith('{') ? JSON.parse(text) : text, headers: res.headers };
+  };
+  const cookieOf = (res, name) =>
+    res.headers
+      .getSetCookie()
+      .find((c) => c.startsWith(`${name}=`))
+      ?.split(';')[0];
+  const signIn = async () => {
+    const start = await req('/api/auth/google?next=/me');
+    const to = new URL(start.headers.get('location'));
+    claims = {
+      iss: 'https://accounts.google.com',
+      aud: 'g-client',
+      sub: 'g-sam',
+      email: 'sam@example.com',
+      email_verified: true,
+      name: 'Sam',
+      exp: Math.floor(clock / 1000) + 600,
+      nonce: to.searchParams.get('nonce'),
+    };
+    const back = await req(`/api/auth/google/callback?code=ok&state=${to.searchParams.get('state')}`, {
+      cookie: cookieOf(start, 'venn_signin'),
+    });
+    return cookieOf(back, 'venn_session');
+  };
+  return { app, req, signIn };
+}
+
+test('with sign-in, a deadline needs an account; answers-are-in goes to the account’s email, votes too', async () => {
+  const { app, req, signIn } = await signInServer();
+  try {
+    const vote = {
+      title: 'Where should we eat?',
+      timezone: 'America/New_York',
+      mode: 'topic',
+      options: [{ label: "Rosa's" }, { label: 'Luigi’s' }],
+      deadline,
+    };
+    // Signed out: no deadline, nor reminders; the poll itself never needs an account.
+    const out = await req('/api/events', { method: 'POST', body: vote });
+    assert.equal(out.status, 401);
+    assert.match(out.data.error, /Sign in/);
+    const plain = await req('/api/events', { method: 'POST', body: { ...vote, deadline: undefined } });
+    assert.equal(plain.status, 201);
+    const set = await req(`/api/events/${plain.data.id}/deadline`, { method: 'PUT', body: { deadline } });
+    assert.equal(set.status, 403); // not even the organizer, without the link
+    // Signed in: a vote with a deadline, kept with the account.
+    const cookie = await signIn();
+    const made = await req('/api/events', { method: 'POST', body: vote, cookie });
+    assert.equal(made.status, 201, JSON.stringify(made.data));
+    const id = made.data.id;
+    const ev = (await req(`/api/events/${id}`)).data;
+    assert.equal(ev.deadline, deadline);
+    // A guest votes; at the deadline, voting closes and the organizer hears the favourite.
+    const rosa = ev.options[0].id;
+    assert.equal(
+      (await req(`/api/events/${id}/participants`, { method: 'POST', body: { name: 'Ana', availability: { [rosa]: 2 } } }))
+        .status,
+      201,
+    );
+    sent = [];
+    clock = deadline;
+    const late = await req(`/api/events/${id}/participants`, {
+      method: 'POST',
+      body: { name: 'Lee', availability: { [rosa]: 2 } },
+    });
+    assert.equal(late.status, 403);
+    assert.equal(await app.deadlines(), 1);
+    const [mail] = sent.map((s) => s.body);
+    assert.deepEqual(mail.to, ['sam@example.com']);
+    assert.match(mail.text, /The favourite so far: Rosa's\. Pick one here/);
+  } finally {
+    app.close();
+  }
 });

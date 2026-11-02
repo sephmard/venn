@@ -67,6 +67,13 @@ const SCHEMA = [
      next_at INTEGER NOT NULL
    )`,
   `CREATE INDEX IF NOT EXISTS reminders_next ON reminders(next_at)`,
+  // Polls emailed to people (src/invites.js): how many invitations each account sent a day, for its limit.
+  `CREATE TABLE IF NOT EXISTS email_sends (
+     user_id TEXT NOT NULL,
+     day TEXT NOT NULL,
+     count INTEGER NOT NULL,
+     PRIMARY KEY (user_id, day)
+   )`,
   // Brand templates (src/brands.js): an organization's look and defaults, and its logo in base64.
   // `logo_v` is the logo's version, for the URL that serves it.
   `CREATE TABLE IF NOT EXISTS brands (
@@ -169,11 +176,21 @@ const imageOf = (row) => (row.image_v != null ? { image: { v: row.image_v, card:
 const IMAGE_COLUMNS = 'i.updated_at AS image_v, i.icon_type AS image_type, i.card IS NOT NULL AS image_card';
 
 export function createStore(db) {
+  // The tables, made once per server (a Worker isolate) before its first query: all in one batch, so
+  // a cold Worker waits for one database round trip, not one per table. If that fails (the database
+  // was briefly unreachable), the next request tries again instead of failing for the isolate's life.
   let ready = null;
   const init = () =>
-    (ready ??= (async () => {
-      for (const sql of SCHEMA) await db.run(sql, []);
-    })());
+    (ready ??= (
+      db.batch
+        ? db.batch(SCHEMA)
+        : (async () => {
+            for (const sql of SCHEMA) await db.run(sql, []);
+          })()
+    ).catch((e) => {
+      ready = null;
+      throw e;
+    }));
 
   return {
     async createEvent({ id, event, adminHash, now }) {
@@ -878,6 +895,12 @@ export function createStore(db) {
       return null;
     },
 
+    /** Give back a request taken from this week's allowance, when it failed before Claude answered. */
+    async returnAiAllowance(week, who) {
+      await init();
+      await db.run('UPDATE ai_allowance SET count = count - 1 WHERE week = ? AND who IN (?, ?) AND count > 0', [week, who, '*']);
+    },
+
     async countUsage(day, name, props) {
       await init();
       await db.run(
@@ -903,6 +926,23 @@ export function createStore(db) {
       return rows.map((r) => ({ data: r.data, final_start: r.final_start ?? null, answers: Number(r.answers) }));
     },
 
+    /** Invitations account `userId` sent on `day` (YYYY-MM-DD). */
+    async sendsOn(userId, day) {
+      await init();
+      const row = await db.first('SELECT count FROM email_sends WHERE user_id = ? AND day = ?', [userId, day]);
+      return row ? Number(row.count) : 0;
+    },
+
+    async addSends(userId, day, n) {
+      await init();
+      await db.run(
+        'INSERT INTO email_sends (user_id, day, count) VALUES (?, ?, ?) ON CONFLICT(user_id, day) DO UPDATE SET count = count + excluded.count',
+        [userId, day, n],
+      );
+      // Only today's count matters; older days go.
+      await db.run('DELETE FROM email_sends WHERE user_id = ? AND day < ?', [userId, day]);
+    },
+
     /** Participant id → email, for one poll. */
     async listEmails(eventId) {
       await init();
@@ -914,6 +954,8 @@ export function createStore(db) {
 
 export function d1Adapter(d1) {
   return {
+    // Statements without parameters, in one round trip (D1 runs a batch as one transaction).
+    batch: (sqls) => d1.batch(sqls.map((sql) => d1.prepare(sql))),
     run: (sql, params) =>
       d1
         .prepare(sql)

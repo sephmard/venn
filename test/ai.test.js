@@ -271,6 +271,13 @@ test('the server key has a weekly allowance; past it, people bring their own key
   nextOutput = { title: 'Lunch', description: '', durationMinutes: 60, slots: [{ date: '2030-02-09', time: '12:00' }] };
   const config = await (await fetch(`http://localhost:${port}/api/config`)).json();
   assert.equal(config.aiWeekly, 2);
+  // A request that fails before Claude answers gives its free request back.
+  const bad = await fetch(`http://localhost:${port}/api/ai/draft-poll`, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ prompt: 'lunch', timezone: 'Not/AZone' }),
+  });
+  assert.equal(bad.status, 400);
   assert.deepEqual([(await post()).status, (await post()).status], [200, 200]);
   const third = await post();
   assert.equal(third.status, 402);
@@ -317,4 +324,6 @@ test('the weekly allowance: per person and for everyone, hashed, and last week i
   assert.deepEqual([await take(b), await take(b)], [null, 'total']);
   assert.equal(await store.takeAiAllowance('2030-01-14', a, 2, 3), null);
   assert.equal(await store.takeAiAllowance('2030-01-07', b, 2, 3), null); // last week's counts are gone
+  await store.returnAiAllowance('2030-01-07', b); // a failed request gives it back
+  assert.deepEqual([await take(b), await take(b), await take(b)], [null, null, 'person']);
 });

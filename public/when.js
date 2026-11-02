@@ -2,7 +2,19 @@
 // pages don't download this.
 
 import { allDaySpan, utcToZoned } from './core.js';
-import { dateParts, fmtDay } from './ui.js';
+import { dateParts, esc, fmtDay } from './ui.js';
+
+/** "⏳ Answers close Fri, Nov 6, 5:00 PM", on this device's clock (src/deadline.js). */
+export const closesLine = (at) =>
+  `<p class="deadline-line"><span aria-hidden="true">⏳</span> Answers ${Date.now() >= at ? 'closed' : 'close'} ${esc(
+    new Intl.DateTimeFormat(undefined, {
+      weekday: 'short',
+      month: 'short',
+      day: 'numeric',
+      hour: 'numeric',
+      minute: '2-digit',
+    }).format(at),
+  )}</p>`;
 
 /** "Sat, Nov 7, 7:00 – 9:00 PM", "Sat, Nov 7, all day" or "Fri, Nov 6 – Sun, Nov 8". */
 export function fmtWhen(start, end, tz) {

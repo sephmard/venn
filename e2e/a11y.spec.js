@@ -171,16 +171,18 @@ for (const scheme of ['light', 'dark']) {
       await page.locator('#privacy-opts summary').click();
       for (const name of ['Ask guests for their email', 'Hide answers from guests'])
         await page.getByRole('switch', { name }).check();
-      await expect(page.locator('#dl-at')).toBeVisible(); // asking for emails allows a deadline
-      await audit(page, 'create (privacy options)');
+      await page.locator('#deadline-opts summary').click(); // no sign-in on this Venn: anyone can
+      await expect(page.locator('#dl-at')).toBeVisible();
+      await audit(page, 'create (privacy options and deadline)');
       await page.click('#submit');
       await page.getByRole('button', { name: 'View poll' }).click();
       await expect(page.locator('details.organizer')).toBeVisible();
       if (!(await page.locator('#privacy-open').isVisible())) await page.locator('details.organizer summary').click();
       await page.click('#privacy-open');
       await expect(page.locator('#privacy-form')).toBeVisible();
+      await page.click('#deadline-open');
       await expect(page.locator('#dl-at')).toBeVisible();
-      await audit(page, 'organizer privacy panel');
+      await audit(page, 'organizer privacy and deadline panels');
       const guest = await browser.newContext({ colorScheme: scheme });
       const g = await guest.newPage();
       await g.goto(page.url());

@@ -118,6 +118,7 @@ export async function renderBrand(id) {
   if (m) {
     save(key(id), { adminToken: m[1] });
     history.replaceState(null, '', location.pathname);
+    import('./keep.js').then((k) => k.keepThisBrowser()).catch(() => {}); // signed in: it's in their templates
   }
   // An invite link (#join=<secret>): out of the address bar, and never stored. Signing in first
   // carries it in the sign-in's way back (src/auth.js safeNext), so it isn't kept in the browser.
@@ -321,7 +322,8 @@ async function join(id, secret) {
   }
 }
 
-const ROLE_NAMES = { admin: 'Admin', user: 'User' };
+// What each invite lets them do, said plainly (admins and users, in the code and the API).
+const ROLE_NAMES = { admin: 'Can edit', user: 'Can use' };
 
 /** The owner's sharing: invite links for admins and users, who has it, and turning the links off. */
 async function drawSharing(b, token) {
@@ -348,10 +350,10 @@ async function drawSharing(b, token) {
     </li>`;
   box.innerHTML = `
     <h3 id="share-h">Share it</h3>
-    <p class="hint"><b>Admins</b> can change it. <b>Users</b> add it to their templates and make polls with it. They sign in to join.</p>
+    <p class="hint">Send someone a link. They open it, sign in, and it’s in their templates. <b>Use</b>: they make polls with it. <b>Edit</b>: they can change it too, so send that one only to people you trust.</p>
     <div class="invite-row">
-      <button type="button" class="btn" data-invite="admin">Copy admin invite</button>
-      <button type="button" class="btn" data-invite="user">Copy user invite</button>
+      <button type="button" class="btn" data-invite="user">Copy link to use</button>
+      <button type="button" class="btn" data-invite="admin">Copy link to edit</button>
     </div>
     ${
       data.members.length
@@ -374,7 +376,7 @@ async function drawSharing(b, token) {
       }
       const url = inviteUrl(b.id, secret);
       navigator.clipboard.writeText(url).then(
-        () => toast(`${ROLE_NAMES[role]} invite copied. Send it to them.`),
+        () => toast(`Link copied. Whoever opens it ${role === 'admin' ? 'can use and change' : 'can use'} this template.`),
         () => prompt('Copy this:', url),
       );
       if (!data.invites[role]) drawSharing(b, token);
@@ -435,7 +437,7 @@ function showPublic(b) {
   app.innerHTML = `
     <div class="create brand-page">
       <h1>${esc(b.name)}’s template</h1>
-      ${user ? '<p class="hint">In your templates. Its admins can change it.</p>' : ''}
+      ${user ? '<p class="hint">In your templates, to make polls with. Its owner can change it.</p>' : ''}
       <p><a class="btn btn-primary btn-lg" href="/new?brand=${esc(b.id)}" data-link>Make a poll with it</a></p>
       ${previewBox(false)}
       ${user ? '<p class="delete-row"><button type="button" class="link-btn danger" id="b-leave">Leave template</button></p>' : ''}
@@ -1156,7 +1158,7 @@ const links = (b, token, others) => {
       owner
         ? `<p class="hint">Your manage link changes this template. Keep it private, as nobody can send it to you again.</p>
     <p class="link-row"><input type="text" readonly value="${esc(manageUrl(id, token))}" aria-label="Your manage link"><button type="button" class="btn" data-copy="${esc(manageUrl(id, token))}">Copy</button></p>`
-        : '<p class="hint">Shared with you as an admin: you can change it. Its owner shares it.</p>'
+        : '<p class="hint">Shared with you to edit: you can change it. Its owner shares it.</p>'
     }
     <p><a class="btn" href="/new?brand=${esc(id)}" data-link>Make a poll with it</a></p>
     ${owner && (token || b.role === 'owner') ? '<div class="brand-sharing" id="b-sharing"></div>' : ''}

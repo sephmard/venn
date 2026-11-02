@@ -57,5 +57,5 @@ Each AI action is a single, short request. Effort is set to `low` for summaries,
 
 - **The API key stays on the server.** Browsers call Venn, and Venn calls Claude.
 - **User text is treated as data.** Everything people type is wrapped in tags, and the model is told never to follow instructions inside them. Every response must match a fixed JSON schema, and the server re-checks it: drafted dates must be real and in the future, and answers must refer to real options.
-- **Refusals are handled.** Requests use Anthropic's server-side fallback (`fallbacks: "default"`), so a false-positive safety refusal is retried on a fallback model. A real refusal shows a friendly message.
+- **Refusals are handled.** On Sonnet and Opus, requests use Anthropic's server-side fallback (`fallbacks: "default"`), so a false-positive safety refusal is retried on a fallback model. Haiku, the default, has no fallback. A refusal shows a friendly message.
 - **Only organizers** can use Summarize and Write a message, using the same organizer link that controls the poll.

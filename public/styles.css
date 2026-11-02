@@ -417,6 +417,7 @@ label {
   margin: 0 0 6px;
 }
 input[type='text'],
+input[type='password'],
 input[type='email'],
 input[type='url'],
 input[type='number'],
