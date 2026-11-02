@@ -12,7 +12,7 @@ const TOOLS = [
     name: 'create_venn',
     title: 'Create a Venn',
     description:
-      'Create a Venn: a group poll that finds the day (or time) that works for everyone. Give either whole days to choose from, or specific times. Returns the link to share with guests and a private organizer link to manage the poll. Show both to the person, and tell them to keep the organizer link to themselves.',
+      'Create a Venn: a group poll that finds the day (or time) that works for everyone. Give either whole days to choose from, or specific times. Returns the link to share with guests and a private organizer link to manage the poll.',
     inputSchema: {
       type: 'object',
       properties: {
