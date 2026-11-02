@@ -1,6 +1,7 @@
 import { test, before, after } from 'node:test';
 import assert from 'node:assert/strict';
 import { DatabaseSync } from 'node:sqlite';
+import Anthropic from '@anthropic-ai/sdk';
 import { createApp } from '../server.js';
 import { aiAllowance, aiBudget, allowanceKey, costOf, weekOf } from '../src/ai.js';
 import { createStore, sqliteAdapter } from '../src/store.js';
@@ -10,11 +11,17 @@ const calls = [];
 let nextOutput = {};
 let nextStop = 'end_turn';
 let nextUsage = { input_tokens: 1000, output_tokens: 200 };
+let nextError = null;
 const fakeAnthropic = {
   beta: {
     messages: {
       create: async (params) => {
         calls.push(params);
+        if (nextError) {
+          const e = nextError;
+          nextError = null;
+          throw e;
+        }
         return {
           stop_reason: nextStop,
           usage: nextUsage,
@@ -161,6 +168,49 @@ test('refusals become a friendly error', async () => {
   nextStop = 'end_turn';
   assert.equal(res.status, 503);
   assert.match(res.data.error, /couldn't help/);
+});
+
+test('when Anthropic turns the server key down, the log says why, without any key', async (t) => {
+  const logged = [];
+  t.mock.method(console, 'error', (...args) => logged.push(args.join(' ')));
+  const headers = new Headers({ 'request-id': 'req_123' });
+  const body = (type, message) => ({ type: 'error', error: { type, message } });
+  const post = () => call('/api/ai/draft-poll', { body: { prompt: 'dinner friday', timezone: 'UTC' } });
+
+  nextError = new Anthropic.BadRequestError(
+    400,
+    body('invalid_request_error', 'Your credit balance is too low. sk-ant-api03-abcdefghijklmnopqrstuvwxyz'),
+    undefined,
+    headers,
+  );
+  let res = await post();
+  assert.equal(res.status, 503);
+  assert.match(res.data.error, /couldn't respond/);
+  const line = logged.find((l) => l.startsWith('AI request failed'));
+  assert.ok(line, 'the failure is logged');
+  const info = JSON.parse(line.slice('AI request failed '.length));
+  assert.equal(info.key, 'server');
+  assert.equal(info.reason, 'bad-request');
+  assert.equal(info.status, 400);
+  assert.equal(info.type, 'invalid_request_error');
+  assert.equal(info.requestId, 'req_123');
+  assert.match(info.message, /credit balance is too low/);
+  assert.doesNotMatch(line, /abcdefghij/); // anything like a key is taken out
+
+  // A server key Anthropic rejects: people see the usual message, the log says "auth".
+  logged.length = 0;
+  nextError = new Anthropic.AuthenticationError(401, body('authentication_error', 'invalid x-api-key'), undefined, headers);
+  res = await post();
+  assert.equal(res.status, 503);
+  assert.match(res.data.error, /couldn't respond/);
+  assert.match(logged.join('\n'), /"reason":"auth"/);
+
+  // A refusal isn't Anthropic failing: nothing is logged for it.
+  logged.length = 0;
+  nextStop = 'refusal';
+  await post();
+  nextStop = 'end_turn';
+  assert.equal(logged.filter((l) => l.startsWith('AI request failed')).length, 0);
 });
 
 test('AI is off without a key, and rate limited per visitor', async (t) => {

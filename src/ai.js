@@ -37,6 +37,36 @@ export function aiClient(env, ownKey) {
 }
 const client = (env) => aiClient(env);
 
+const REASONS = {
+  400: 'bad-request',
+  401: 'auth',
+  403: 'permission',
+  404: 'not-found',
+  413: 'too-large',
+  429: 'rate-limit',
+  529: 'overloaded',
+};
+/** Every reason aiFailure can give, for the usage stats (src/usage.js). */
+export const AI_FAILURE_REASONS = [...Object.values(REASONS), 'server', 'connection', 'other'];
+
+/**
+ * Why a call to Anthropic failed, safe to log and count: the status, Anthropic's error type and
+ * request id, and its message with anything that looks like a key taken out. Null when the
+ * error didn't come from Anthropic (a refusal, or an answer Venn couldn't use).
+ */
+export function aiFailure(e) {
+  const c = e?.cause;
+  if (!(c instanceof Anthropic.APIError)) return null;
+  const status = c.status ?? null;
+  const reason =
+    c instanceof Anthropic.APIConnectionError ? 'connection' : REASONS[status] || (status >= 500 ? 'server' : 'other');
+  const body = c.error?.error ?? c.error;
+  const message = String(body?.message ?? c.message ?? '')
+    .replace(/sk-ant-[A-Za-z0-9_-]+/g, 'sk-ant-…')
+    .slice(0, 300);
+  return { reason, status, type: body?.type ?? c.type ?? null, requestId: c.requestID ?? null, message };
+}
+
 /** One structured call. Throws AiUnavailableError for refusals and API problems. */
 async function ask(env, { system, prompt, schema, effort = 'low', maxTokens = 4000, anthropic = client(env) }) {
   let response;

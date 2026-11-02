@@ -30,6 +30,11 @@ crons = ["0 * * * *"]
 #   GITHUB_CLIENT_ID in [vars], then: npx wrangler secret put GITHUB_CLIENT_SECRET
 # Email and password sign-in is on whenever email is (EMAIL_SIGNIN = "off" turns it off).
 
+# Workers Logs: console output (like why an AI request failed) is kept and searchable in the
+# Cloudflare dashboard under Workers > venn > Logs.
+[observability]
+enabled = true
+
 [vars]
 # Address search in "Where" with OpenStreetMap's Photon: free and keyless. Remove it to switch the
 # search off, or set it to "google" with the GOOGLE_PLACES_API_KEY secret.
