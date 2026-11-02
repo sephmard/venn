@@ -41,6 +41,7 @@ import {
   lengthLabel,
   localTz,
   minutesLabel,
+  keep,
   plural,
   reducedMotion,
   rememberEmail,
@@ -161,7 +162,7 @@ export async function renderEvent(id, navigate) {
     if (e.status === 404) import('./finn.js').then((m) => m.lost(app.querySelector('.sheet'))).catch(() => {});
     // No poll, so no organizer's look: the visitor's own, like the website's (retro unless Classic mode).
     if (e.status === 404 && !document.documentElement.classList.contains('embed'))
-      import('./retro-look.js').then((m) => m.retroLook(m.wantsRetro()));
+      import('./retro-look.js').then((m) => m.retroLook(m.wantsRetro())).catch(() => {});
     return () => {};
   }
 
@@ -212,13 +213,17 @@ export async function renderEvent(id, navigate) {
   const when = (s, e) => {
     const p = partsMode && partOf(s, e, st.tz);
     return p
-      ? `${fmtDay.format(dateParts(utcToZoned(s, st.tz).date))}, ${p.label.toLowerCase()} (${shortRange(p.start, p.end)})`
+      ? `${fmtDay.format(dateParts(utcToZoned(s, st.tz).date))}, ${p.label.toLowerCase()} (${keep(shortRange(p.start, p.end))})`
       : fmtWhen(s, e, zoneOf(s, e));
   };
   /** `when` as HTML for big type: the times of a day kept together ("Fri, Nov 6," then "7:00 – 9:00 PM"). */
   const bigWhen = (s, e) => {
     const tz = zoneOf(s, e);
     const d = utcToZoned(s, tz).date;
+    // A part of the day: the date big, then the part and its times on a line of their own, in body type.
+    const p = partsMode && partOf(s, e, st.tz);
+    if (p)
+      return `${esc(fmtDay.format(dateParts(utcToZoned(s, st.tz).date)))}<span class="bw-part">${esc(p.label)}, ${esc(keep(shortRange(p.start, p.end)))}</span>`;
     return partsMode || allDaySpan(s, e, tz) || d !== utcToZoned(e - 1, tz).date
       ? esc(when(s, e)).replace(/\s–/g, '\u00a0–') // a line never starts with the dash
       : [`${fmtDay.format(dateParts(d))},`, fmtTimeRange(s, e, tz)]
