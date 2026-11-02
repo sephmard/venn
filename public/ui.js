@@ -176,6 +176,8 @@ export function shortRange(from, to) {
   return (from % 60 || to % 60 ? fmtMinutes : fmtHour).formatRange(at(from), at(to));
 }
 export const dayLabel = (d) => fmtDay.format(dateParts(d));
+/** Text that never breaks across lines, like a time range ("6 – 10 PM"): its spaces don't break. */
+export const keep = (s) => s.replace(/\s/g, '\u00a0');
 
 export function lengthLabel(min) {
   if (min % 1440 === 0) return `${min / 1440} day${min > 1440 ? 's' : ''}`;
