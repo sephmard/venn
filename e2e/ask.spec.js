@@ -30,7 +30,7 @@ test('a guest removes their own answer, asked in the page', async ({ page, reque
   await page.fill('#name', 'Ben');
   await submit(page);
   expect(await names(request, id)).toEqual(['Ana', 'Ben']);
-  await page.click('#tab-mine');
+  if (await page.locator('#tab-mine').isVisible()) await page.click('#tab-mine'); // tabs on phones only
   await page.click('#leave');
   const ask = page.getByRole('dialog', { name: 'Remove your answer from this poll?' });
   await expect(ask.getByRole('button', { name: 'Cancel' })).toBeFocused(); // the safe way out first
