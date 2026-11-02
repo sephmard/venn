@@ -58,7 +58,8 @@ export async function summary(btn, { id, ev, headers, when }) {
   btn.disabled = true;
   btn.textContent = 'Summarizing…';
   try {
-    const r = await api(`events/${id}/ai/summary`, { method: 'POST', body: {}, headers });
+    const { aiHeaders } = await import('./ai-key.js');
+    const r = await api(`events/${id}/ai/summary`, { method: 'POST', body: {}, headers: aiHeaders(headers) });
     const rec =
       r.recommendedStart == null
         ? ''
@@ -69,7 +70,7 @@ export async function summary(btn, { id, ev, headers, when }) {
     $('#ai-summary').innerHTML =
       `<div class="ai-card"><p>${esc(r.summary)}</p>${rec}<p class="hint">Written by AI from the answers so far. Double-check before deciding.</p></div>`;
   } catch (ex) {
-    toast(ex.message);
+    (await import('./ai-key.js')).aiFailed(ex, $('#ai-summary'), () => summary(btn, { id, ev, headers, when }));
   } finally {
     btn.disabled = false;
     btn.textContent = 'Summarize with AI';
@@ -495,14 +496,16 @@ export function writer(ctx) {
       const out = $('#ai-write-out');
       out.innerHTML = '<p class="hint">Writing…</p>';
       try {
+        const { aiHeaders } = await import('./ai-key.js');
         const { message } = await api(`events/${ctx.id}/ai/message`, {
           method: 'POST',
           body: { kind: b.dataset.kind },
-          headers: ctx.headers,
+          headers: aiHeaders(ctx.headers),
         });
         out.innerHTML = `<label for="ai-msg" class="sr-only">Message</label><textarea id="ai-msg" rows="5">${esc(message)}</textarea><div class="btn-row"><button type="button" class="btn btn-sm btn-primary" id="ai-msg-copy">Copy</button></div>`;
         $('#ai-msg-copy').onclick = () => copy($('#ai-msg').value, 'Message copied');
       } catch (ex) {
+        if (ex.status === 402) return (await import('./ai-key.js')).keyForm(out, { why: ex.message, done: () => b.click() });
         out.innerHTML = `<p class="error">${esc(ex.message)}</p>`;
       }
     };

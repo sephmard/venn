@@ -123,6 +123,16 @@
             typed there is sent to it through Venn's server, so it never sees your IP address, and Venn doesn't log it. A Venn
             server can use Google Places for this instead, the same way, or switch it off, and then nothing is sent.
           </li>
+          <li>
+            <b>Anthropic</b> runs Claude, the AI behind the optional AI buttons, only when you press one. What's sent depends on
+            the button: what you typed to describe a poll or your organization; for an organizer's summary or message, the poll's
+            title, times, and guests' names and answers; for <i>Answer for me</i>, what you typed and, only if you tick the box,
+            when your calendar is busy (never what's in it). It goes through Venn's server, so Anthropic doesn't see your IP
+            address. Anthropic doesn't train on it and deletes it within 30 days, unless it's flagged for a safety review. Venn
+            counts AI requests each week, under a code made from your account or IP address that changes every week, and deletes
+            the counts after that week. If you add your own Anthropic API key, it stays on your device and is sent only with your
+            AI requests; Venn never stores it. AI isn't offered on polls inside other websites or on white-label polls.
+          </li>
         </ul>
         <p>We never sell or share poll data with anyone else.</p>
 

@@ -292,6 +292,11 @@ Facts:
 
 ${TEMPLATE_PAGES.map((p) => `- [${p.name}](${ORIGIN}/templates/${p.slug}): ${p.card}`).join('\n')}
 
+## For AI assistants and agents
+
+- MCP server: \`${ORIGIN}/api/mcp\` (Streamable HTTP, no sign-in or key). Tools: \`create_venn\` makes a poll from whole days or specific times and returns its share link and private organizer link; \`get_venn_results\` reads who answered and which days work best. [Connecting it](https://docs.venn.day/mcp.html).
+- JSON API, no key needed: \`POST ${ORIGIN}/api/events\` with \`{ "title", "timezone", "dates": ["YYYY-MM-DD", …], "startMinute": 0, "endMinute": 1440, "slotMinutes": 1440, "durationMinutes": 1440 }\` for whole days, or \`{ "title", "timezone", "mode": "options", "options": [{ "start", "end" }] }\` for times (UTC milliseconds), returns \`{ id, adminToken }\`. Share \`${ORIGIN}/e/<id>\`; \`${ORIGIN}/e/<id>#admin=<adminToken>\` manages it. \`GET ${ORIGIN}/api/events/<id>\` returns the poll, its \`slots\` and each participant's \`availability\` (slot start → 2 available, 1 if needed). [Full API](https://docs.venn.day/api.html).
+
 ## Optional
 
 - [Developer docs and API](https://docs.venn.day): self-hosting, the API, notifications and calendars.

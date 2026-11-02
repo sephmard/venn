@@ -1303,6 +1303,62 @@ test('AI: answer for me, using preferences and calendar busy times', async ({ pa
   await expect(row(0).locator('.row-note')).toHaveText('You said no mornings');
 });
 
+test('AI: describe it instead on Create a Venn picks the days, with your own key if you add one', async ({ page }) => {
+  await page.goto('/new');
+  await page.fill('#organizer', 'Sam');
+  await expect(page.locator('#ai-draft')).toBeHidden();
+  await page.click('#ai-open');
+  await expect(page.locator('#ai-open')).toHaveAttribute('aria-expanded', 'true');
+  // Add a key of your own first: it's kept in this browser and sent with the request.
+  await page.click('#ai-draft [data-ai-key]');
+  await page.fill('#ai-key-in', 'not a key');
+  await page.click('#ai-key-save');
+  await expect(page.locator('#toast')).toContainText("doesn't look like an Anthropic API key");
+  await page.fill('#ai-key-in', `sk-ant-${'x'.repeat(30)}`);
+  await page.click('#ai-key-save');
+  await expect(page.locator('#toast')).toContainText('Key saved on this device');
+  const sent = page.waitForRequest((r) => r.url().endsWith('/api/ai/draft-days'));
+  await page.fill('#ai-prompt', 'Dinner, any Friday or Saturday evening');
+  await page.click('#ai-go');
+  expect((await sent).headers()['x-anthropic-key']).toMatch(/^sk-ant-x+$/);
+  await expect(page.locator('#toast')).toContainText(/Picked \d+ days?/);
+  await expect(page.locator('#title')).toHaveValue('Dinner');
+  await expect(page.locator('[data-level="parts"]')).toHaveAttribute('aria-checked', 'true');
+  await expect(page.locator('#free-list .chip').first()).toContainText('Evening');
+  await expect(page.locator('#ai-draft')).toBeHidden();
+  // Once days are picked, it doesn't replace them.
+  await page.click('#ai-open');
+  await page.click('#ai-go');
+  await expect(page.locator('#toast')).toContainText('Clear the days');
+});
+
+test('AI: a key that does not work says so, and the key form stays open to fix it', async ({ page }) => {
+  await page.goto('/new');
+  await page.evaluate(() => localStorage.setItem('venn:anthropic-key', `sk-ant-bad${'x'.repeat(30)}`));
+  await page.reload();
+  await page.click('#ai-open');
+  await page.fill('#ai-prompt', 'Dinner, any Friday evening');
+  await page.click('#ai-go');
+  await expect(page.locator('#ai-key-box')).toContainText("That Anthropic key didn't work");
+  await expect(page.locator('#ai-key-rm')).toBeVisible();
+  await page.click('#ai-key-rm');
+  expect(await page.evaluate(() => localStorage.getItem('venn:anthropic-key'))).toBeNull();
+});
+
+test('AI: not offered on a poll inside another website', async ({ page, request }) => {
+  const H = 3_600_000;
+  const t0 = Date.UTC(2030, 0, 8, 15);
+  const options = [0, 24].map((h) => ({ start: t0 + h * H, end: t0 + (h + 1) * H }));
+  const { id } = await (
+    await request.post('/api/events', { data: { title: 'Sync', timezone: 'UTC', mode: 'options', options } })
+  ).json();
+  await page.goto(`/e/${id}`);
+  await expect(page.locator('#ai-answer-btn')).toBeVisible();
+  await page.goto(`/embed/${id}`);
+  await expect(page.locator('#mine .row').first()).toBeVisible();
+  await expect(page.locator('#ai-answer-btn')).toBeHidden();
+});
+
 test('organizer draws options on the week view, and removes one', async ({ page, isMobile }) => {
   test.skip(isMobile, 'drag to draw is for a mouse; phones tap (see the phone test)');
   await page.goto('/new/pick');

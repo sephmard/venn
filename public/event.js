@@ -849,7 +849,8 @@ export async function renderEvent(id, navigate) {
     };
     $('#copy-me').onchange = needMail;
     needMail();
-    if (!c.ai) return;
+    // Not inside other websites or on white-label polls.
+    if (!c.ai || embedded || whiteLabel) return;
     aiOn = true;
     if (optionsMode) $('#ai-answer-btn').hidden = $('#quick-top').hidden = false;
     if (ev().isAdmin) $('#ai-summary-btn').hidden = false;

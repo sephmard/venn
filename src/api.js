@@ -38,10 +38,29 @@ import {
   validateWebhookUrl,
 } from './notify.js';
 import { pollKind, planOf, recordUsage, sizeOf, usageEnabled, usageReport } from './usage.js';
-import { AiUnavailableError, aiEnabled, allowAiRequest, answerForMe, draftPoll, summarize, writeMessage } from './ai.js';
+import {
+  AiKeyError,
+  AiUnavailableError,
+  OWN_KEY_HEADER,
+  aiAllowance,
+  aiClient,
+  aiEnabled,
+  meteredClient,
+  allowAiRequest,
+  allowanceKey,
+  answerForMe,
+  draftDays,
+  draftPoll,
+  draftTemplate,
+  summarize,
+  validOwnKey,
+  weekOf,
+  writeMessage,
+} from './ai.js';
 import { allowContactRequest, contactEmail, contactEnabled, contactInbox, normalizeContact } from './contact.js';
 import { allowPlacesRequest, placesProvider, placesState, searchPlaces } from './places.js';
 import { handleAccount, sessionUser, signInProviders } from './auth.js';
+import { handleMcp } from './mcp.js';
 import { MAX_GUEST_DEVICES, MAX_PUSH_DEVICES, checkSubscription, pushEnabled, sendPush } from './push.js';
 
 const sharedPlaces = placesState();
@@ -250,6 +269,7 @@ export async function handleApi(
     contactWindows = sharedContactWindows,
   } = {},
 ) {
+  const options = arguments[2]; // as given, for MCP's own calls back into the API
   const url = new URL(request.url);
   const parts = url.pathname
     .replace(/^\/api\/?/, '')
@@ -505,12 +525,30 @@ export async function handleApi(
     }
   }
 
+  let ownKey = null; // an AI request's own Anthropic key, if the person brought one
+  let allowance = null; // { week, who } when this request took one from the server key's weekly allowance
   try {
+    // /api/mcp — Venn for AI assistants (src/mcp.js): each tool is a call to this same API.
+    if (parts.length === 1 && parts[0] === 'mcp')
+      return await handleMcp(request, (path, { method, body }) =>
+        handleApi(
+          new Request(`${origin}/api/${path}`, {
+            method,
+            headers: { 'content-type': 'application/json' },
+            body: body && JSON.stringify(body),
+          }),
+          store,
+          options,
+        ),
+      );
+
     // GET /api/config — which optional features this server has switched on
     if (parts.length === 1 && parts[0] === 'config' && method === 'GET') {
       return json({
         email: emailEnabled(env),
         ai: aiEnabled(env),
+        // AI requests the server's key pays for, per person each week. 0: people bring their own key.
+        aiWeekly: aiAllowance(env).perPerson,
         usage: usageEnabled(env),
         // The home page's feature requests and "Contact us", emailed to EMAIL_REPLY_TO.
         contact: contactEnabled(env),
@@ -606,11 +644,39 @@ export async function handleApi(
 
     // Every AI endpoint: switched on, and rate limited per visitor (each call costs money).
     const isAi = (parts[0] === 'ai' && parts.length === 2) || (parts[0] === 'events' && parts[2] === 'ai' && parts.length === 4);
+    // Paid for by the key the person brought (kept in their browser, never stored), or by the
+    // server's key within this week's allowance.
     if (isAi) {
       if (method !== 'POST') return error(405, 'Method not allowed');
       if (!aiEnabled(env)) return error(404, "AI features aren't turned on for this server");
       if (!(await allowAiRequest(env, clientIp, now(), aiWindows)))
         return error(429, "You're going a bit fast. Try again in a minute.");
+      const brought = request.headers.get(OWN_KEY_HEADER);
+      if (brought && !validOwnKey(brought))
+        return error(400, "That doesn't look like an Anthropic API key. They start with sk-ant-.");
+      ownKey = brought || null;
+      if (!ownKey) {
+        const { perPerson, total, budget } = aiAllowance(env);
+        const week = weekOf(now());
+        const who = perPerson && total ? await allowanceKey(week, (await currentUser())?.id, clientIp) : null;
+        // The weekly dollar cap (AI_WEEKLY_BUDGET_USD): once this week's spend reaches it, people bring their own key.
+        const overBudget = who && (await store.aiSpend(week)) >= budget;
+        const used = !who ? 'off' : overBudget ? 'total' : await store.takeAiAllowance(week, who, perPerson, total);
+        if (!used) {
+          allowance = { week, who };
+          anthropic = meteredClient(anthropic ?? aiClient(env), env, (micros) => store.addAiSpend(week, micros));
+        }
+        if (used)
+          return error(
+            402,
+            used === 'off'
+              ? 'Add your own Anthropic API key to use AI here.'
+              : used === 'person'
+                ? "You've used this week's free AI requests. Add your own Anthropic API key to keep going."
+                : 'Free AI requests are used up for this week. Add your own Anthropic API key to keep going.',
+          );
+      }
+      anthropic ??= aiClient(env, ownKey);
     }
 
     // POST /api/ai/draft-poll  { prompt, timezone }
@@ -619,6 +685,21 @@ export async function handleApi(
       if (!isValidTimeZone(timezone)) throw new ValidationError('Unknown time zone');
       count('ai.used', { feature: 'draft' });
       return json(await draftPoll(env, { prompt, timezone }, { now: now(), anthropic }));
+    }
+
+    // POST /api/ai/draft-days  { prompt, timezone } — the days on "Create a Venn"
+    if (isAi && parts[0] === 'ai' && parts[1] === 'draft-days') {
+      const { prompt, timezone } = await readJson(request);
+      if (!isValidTimeZone(timezone)) throw new ValidationError('Unknown time zone');
+      count('ai.used', { feature: 'days' });
+      return json(await draftDays(env, { prompt, timezone }, { now: now(), anthropic }));
+    }
+
+    // POST /api/ai/draft-template  { prompt, name } — a brand template's starting look
+    if (isAi && parts[0] === 'ai' && parts[1] === 'draft-template') {
+      const { prompt, name } = await readJson(request);
+      count('ai.used', { feature: 'template' });
+      return json(await draftTemplate(env, { prompt, name }, { anthropic }));
     }
 
     // POST /api/events
@@ -1270,9 +1351,15 @@ export async function handleApi(
 
     return error(404, 'Not found');
   } catch (e) {
+    // A request that failed before Claude answered doesn't use up one of this week's free requests.
+    if (allowance && (e instanceof ValidationError || e instanceof AiUnavailableError || e instanceof AiKeyError))
+      await store.returnAiAllowance(allowance.week, allowance.who).catch(() => {});
     if (e instanceof ValidationError) return error(400, e.message);
+    if (e instanceof AiKeyError)
+      return error(ownKey ? 400 : 503, ownKey ? e.message : "The AI couldn't respond. Try again later.");
     if (e instanceof AiUnavailableError) {
-      if (e.cause) console.error('AI request failed', e.cause);
+      // Only the status: the error could carry a key someone brought.
+      if (e.cause) console.error('AI request failed', e.cause.status ?? e.cause.name);
       return error(503, e.message);
     }
     console.error(e);

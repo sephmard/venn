@@ -16,7 +16,7 @@ import {
   zonedToUtc,
 } from './core.js';
 import { monthView, timeView, tinyTime } from './picker.js';
-import { $, $$, app, dateParts, dayLabel, esc, fmtDay, plural, shortTime, track } from './ui.js';
+import { $, $$, app, dateParts, dayLabel, esc, fmtDay, getConfig, plural, shortTime, track } from './ui.js';
 
 import {
   kindSwitch,
@@ -621,6 +621,12 @@ export function renderFree() {
   showConfig(update);
   if (src) prefill();
   else prefillTitle();
+  // Where the server has AI, "Describe it instead" (ai-draft.js) picks days as taps would.
+  const showLevel = (next) => {
+    level = null;
+    return setLevel(next);
+  };
+  if (!src) getConfig().then((c) => c.ai && import('./ai-draft.js').then((m) => m.aiDays(st, empty, setRow, showLevel)));
   $('#title').focus();
   return () => {
     painter?.cleanup();
