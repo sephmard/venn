@@ -92,7 +92,7 @@ the same PR** (and CLAUDE.md if it's a rule that matters in review).
   (Date, vote on a few dates, Vote), with a sparkle and a gradient edge from the accent to violet.
   Excited but elegant: no fill, no loud animation (the sparkle twinkles twice, none with reduced
   motion). It opens the describe box under the heading; it never takes over the form.
-- **Create Venn sits at the end of the form**, never stuck to the bottom of the screen.
+- **Create a Venn sits at the end of the form**, never stuck to the bottom of the screen.
 - **Clear all has Undo** in its place. No pop-up tips over the calendar.
 - With nothing picked, every level says the same: **"Pick at least one day to create the poll"**.
 - Days in a row: a run that fits shows just its length; only a short one says "too short".

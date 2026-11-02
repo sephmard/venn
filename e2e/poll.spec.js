@@ -74,8 +74,8 @@ test('vote on a few dates: collect votes, pick the final date', async ({ page, r
   // The times the organizer offered are already their answer: yes to all of them.
   const row = (i) => page.locator('#mine .row').nth(i);
   await expect(page.locator('#mine .row[data-v="2"]')).toHaveCount(14);
-  // The organizer is "Hosted by" in the header, not counted again as an answer.
-  await expect(page.locator('#ev-meta')).toHaveText(/^S\s*Hosted by Sam\s*No answers yet$/);
+  // The organizer is named in the header ("By Sam", never "host"), not counted again as an answer.
+  await expect(page.locator('#ev-meta')).toHaveText(/^S\s*By Sam\s*No answers yet$/);
   await changeAnswer(page); // the organizer's answer came with the poll
   await page.click('#none');
 
@@ -965,7 +965,7 @@ test(
     await page.locator('.hero').getByRole('link', { name: 'Create a Venn' }).click();
     await expect(page).toHaveURL(/\/new$/);
     await expect(page.locator('#create h1')).toHaveText('Create a Venn');
-    await expect(page.getByRole('button', { name: 'Create Venn' })).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Create a Venn' })).toBeVisible();
   },
 );
 

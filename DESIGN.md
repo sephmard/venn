@@ -30,6 +30,15 @@ Every color is a CSS variable in `site.css`. Pages use the names, never raw valu
 
 Contrast: body text ≥ 7:1, secondary ≥ 4.5:1, white on green 5.3:1.
 
+The app's answer colours (classic look, `public/styles.css`; retro's are in `retro-app.css`, and brand templates start from the same in `brand-look.js`):
+
+| Token       | Light     | Dark      | Role                                                                         |
+| ----------- | --------- | --------- | ---------------------------------------------------------------------------- |
+| `--no`      | `#c2185b` | `#ff7ab4` | Unavailable: its key and words (pink, never red; ≥ 4.5:1 as text)            |
+| `--no-soft` | `#fce4ee` | `#3b1a2b` | Unavailable's tint behind an answered row                                    |
+| `--no-cell` | `#f5b5d0` | `#6e2a4c` | Unavailable in everyone's answers and on a tapped part (text stays `--text`) |
+| `--danger`  | `#b42318` | `#ff8577` | Errors only. Red is never an answer                                          |
+
 ## Typography
 
 - **Display:** Instrument Serif 400 (and italic), self-hosted in `public/fonts/` (SIL OFL). Headlines only.
@@ -113,7 +122,7 @@ The app (`public/styles.css`, for `/new` and `/e/:id`) uses the same colors and 
 - **Guests see options on a calendar too**: Week on desktop, Day on phones, with overlapping options side by side.
 - **Emoji** mark the kind of plan (🍝 dinner, ✈️ trip…) in the app only; the landing page stays without.
 - **The organizer's answer comes with the poll.** The times they offer count as their own answer, as they marked them (Available or If needed). They can change it on the poll like anyone, and the poll can still be edited until a guest answers.
-- **Answers are explicit.** Available is green, If needed amber, Unavailable red, and not answered yet is plain. "Everyone's answers" uses the same colours.
+- **Answers are explicit.** Available is green, If needed amber, Unavailable pink (never red), and not answered yet is plain. "Everyone's answers" uses the same colours.
 - **Say less.** A hint only when the next step isn't obvious from the page.
 - **"Are you sure?" is asked in the page** (`ask()` in `public/ask.js`), never with the browser's `confirm()` or `alert()`: a small dialog on desktop, a sheet from the bottom on phones, in both looks. A short question as the title, one line on what follows if needed, then the safe choice (**Cancel**, focused first) and the action named (**Delete poll**, **Remove**). Removing and deleting use the pink unavailable button (`.btn-no`), never red. `test/no-browser-dialogs.test.js` keeps browser pop-ups out.
 - **Pick first, then your name.** On the answer form, the name and email fields sit just above **Save**, after the answers, so people start choosing straight away.

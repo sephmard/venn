@@ -25,9 +25,9 @@
   --maybe-soft: #faefd8;
   --no-bg: #55585c;
   --no-ink: #ffffff;
-  --no: #b42318;
-  --no-soft: #fbe6e2;
-  --no-cell: #f0b2a6; /* unavailable, in everyone's answers */
+  --no: #c2185b;
+  --no-soft: #fce4ee;
+  --no-cell: #f5b5d0; /* unavailable, in everyone's answers */
   --danger: #b42318;
   --cell-empty: #ece8df;
   --cell-line: #8f8a80;
@@ -60,9 +60,9 @@
     --maybe-soft: #3a2f16;
     --no-bg: #c9c6bf;
     --no-ink: #0f1112;
-    --no: #ff8577;
-    --no-soft: #3a1f1c;
-    --no-cell: #6a2e27;
+    --no: #ff7ab4;
+    --no-soft: #3b1a2b;
+    --no-cell: #6e2a4c;
     --danger: #ff8577;
     --cell-empty: #23272a;
     --cell-line: #6e7378;
