@@ -41,6 +41,7 @@ import { pollKind, planOf, recordUsage, sizeOf, usageEnabled, usageReport } from
 import {
   AiKeyError,
   AiUnavailableError,
+  aiFailure,
   OWN_KEY_HEADER,
   aiAllowance,
   aiClient,
@@ -1369,11 +1370,19 @@ async function route(
     return error(404, 'Not found');
   } catch (e) {
     if (e instanceof ValidationError) return error(400, e.message);
+    if (e instanceof AiKeyError || e instanceof AiUnavailableError) {
+      // Why Anthropic said no, in the Worker's logs and the usage stats, so a broken server key or
+      // model shows up. Counted even for browsers that opt out: it's about the server, not them.
+      const failed = aiFailure(e);
+      if (failed) {
+        const key = ownKey ? 'own' : 'server';
+        console.error('AI request failed', JSON.stringify({ key, ...failed }));
+        waitUntil(recordUsage(store, env, now(), 'ai.failed', { key, reason: failed.reason }));
+      }
+    }
     if (e instanceof AiKeyError)
       return error(ownKey ? 400 : 503, ownKey ? e.message : "The AI couldn't respond. Try again later.");
     if (e instanceof AiUnavailableError) {
-      // Only the status: the error could carry a key someone brought.
-      if (e.cause) console.error('AI request failed', e.cause.status ?? e.cause.name);
       return error(503, e.message);
     }
     console.error(e);
