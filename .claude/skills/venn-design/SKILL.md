@@ -88,6 +88,10 @@ the same PR** (and CLAUDE.md if it's a rule that matters in review).
 - Likewise, **parts of the day show on Hours** as those parts' times, whichever way you get there.
 - Templates shape the calendar only while nothing is picked; they never move or remove picks. A second
   tap turns one off.
+- **AI is "Use AI"** (Seph, 2026-11-02): a pill beside the section heading on every create form
+  (Date, vote on a few dates, Vote), with a sparkle and a gradient edge from the accent to violet.
+  Excited but elegant: no fill, no loud animation (the sparkle twinkles twice, none with reduced
+  motion). It opens the describe box under the heading; it never takes over the form.
 - **Create Venn sits at the end of the form**, never stuck to the bottom of the screen.
 - **Clear all has Undo** in its place. No pop-up tips over the calendar.
 - With nothing picked, every level says the same: **"Pick at least one day to create the poll"**.

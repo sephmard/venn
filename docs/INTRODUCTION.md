@@ -97,7 +97,7 @@ public/            the whole front end, served as-is
   half-day.js      half-day options (mornings, afternoons, evenings) on "vote on a few dates", loaded when picked
   lengths.js       how long a poll's options are, for editing, duplicating and the AI draft
   edit-poll.js     editing or duplicating a poll on the create pages, loaded only for those links
-  ai-draft.js      "describe it, and AI fills in the form", loaded only when AI is switched on
+  ai-draft.js      "Use AI": describe it, and AI fills in the form, loaded only when AI is switched on
   day-nav.js       the organizer's day strip, « » and jump-to-a-day month, loaded after the create page
   day-window.js    the days that strip offers
   ui.js            shared UI helpers: formatting, avatars, storage, API calls

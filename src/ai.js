@@ -253,6 +253,56 @@ ${upcoming}
   return { title: String(out.title || '').slice(0, LIMITS.title), level, days: days.slice(0, 62) };
 }
 
+// ---------- 1d. Describe the decision → a vote's question and options (/new/topic) ----------
+
+const TOPIC_SCHEMA = {
+  type: 'object',
+  properties: {
+    question: { type: 'string', description: 'The question to ask the group, under 100 characters, ending in ?' },
+    yesNo: { type: 'boolean', description: 'True when it is one yes-or-no question' },
+    options: {
+      type: 'array',
+      items: { type: 'string', description: 'One option, under 60 characters' },
+      description: 'The options to vote on: empty when yesNo is true, otherwise 2 to 8',
+    },
+  },
+  required: ['question', 'yesNo', 'options'],
+  additionalProperties: false,
+};
+
+/** A vote's question and options from a few words: { question, yesNo, options }. */
+export async function draftTopic(env, { prompt }, { anthropic } = {}) {
+  const text = cleanPrompt(prompt, 'Description');
+  const out = await ask(env, {
+    schema: TOPIC_SCHEMA,
+    anthropic,
+    system: `You help someone set up a group vote. Turn their description into one short question and the options to vote on.
+Rules:
+- Use the options the description names. If it names none, suggest 3 to 5 sensible, general ones; never invent addresses, prices or opening hours.
+- If it is a single yes-or-no decision, set yesNo to true and leave options empty.
+- Plain, friendly wording. No numbering or emoji in options.
+${DATA_NOTE}`,
+    prompt: `<user_text>${text}</user_text>`,
+  });
+  const question = String(out.question || '')
+    .trim()
+    .slice(0, LIMITS.title);
+  if (!question) throw new AiUnavailableError("Couldn't make a question from that. Try describing it differently.");
+  if (out.yesNo) return { question, yesNo: true, options: [] };
+  const seen = new Set();
+  const options = [];
+  for (const o of Array.isArray(out.options) ? out.options : []) {
+    const label = String(o || '')
+      .trim()
+      .slice(0, LIMITS.title);
+    if (!label || seen.has(label.toLowerCase())) continue;
+    seen.add(label.toLowerCase());
+    options.push(label);
+  }
+  if (options.length < 2) throw new AiUnavailableError("Couldn't find options in that. Try listing a few.");
+  return { question, yesNo: false, options: options.slice(0, LIMITS.topics) };
+}
+
 // ---------- 1c. Describe your organization → a brand template's look ----------
 
 const TEMPLATE_SCHEMA = {

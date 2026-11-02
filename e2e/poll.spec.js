@@ -1250,9 +1250,25 @@ test('installable: manifest and icons are served', async ({ request }) => {
   }
 });
 
+test('AI on a vote: Use AI writes the question and the options', async ({ page }) => {
+  await page.goto('/new/topic');
+  await expect(page.locator('#ai-draft')).toBeHidden();
+  await page.click('#ai-open');
+  await expect(page.locator('#ai-open')).toHaveAttribute('aria-expanded', 'true');
+  await page.fill('#ai-prompt', 'Dinner Friday: Rosa’s, Luigi’s or Thai Garden');
+  await page.click('#ai-go');
+  await expect(page.locator('#toast')).toContainText('Filled in 3 options');
+  await expect(page.locator('#title')).toHaveValue('Where should we eat Friday?');
+  await expect(page.locator('#opts input')).toHaveCount(3);
+  await expect(page.locator('#opts input').nth(2)).toHaveValue('Thai Garden');
+  await expect(page.locator('#ai-draft')).toBeHidden();
+});
+
 test('AI: describe a poll in words, then summarize and write messages as the organizer', async ({ page }) => {
   await page.goto('/new/pick');
   await page.fill('#organizer', 'Sam');
+  await expect(page.locator('#ai-draft')).toBeHidden();
+  await page.click('#ai-open');
   await expect(page.locator('#ai-draft')).toBeVisible();
   await page.fill('#ai-prompt', '45 minute design review, afternoons later this week');
   await page.click('#ai-go');
