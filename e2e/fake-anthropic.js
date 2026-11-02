@@ -25,6 +25,7 @@ function reply(body) {
     return {
       title: 'Dinner',
       emoji: '🍝',
+      tile: 'sunny',
       location: text.match(/ at (.+?)(,|$)/)?.[1] || '', // only a place the description names
       answerWith: 'parts',
       firstDate: today,

@@ -1413,6 +1413,7 @@ test('AI: one sentence fills the whole poll for review, shows what it did, and U
   await expect(page.locator('#ai-wait')).toBeHidden();
   await expect(page.locator('#title')).toHaveValue('Dinner');
   await expect(page.locator('#emoji-tile')).toHaveText('🍝');
+  await expect(page.locator('#emoji-tile')).toHaveAttribute('data-tile', 'sunny'); // one of Venn's own backgrounds
   await expect(page.locator('#location')).toHaveValue('Rosa’s');
   await expect(page.locator('[data-level="parts"]')).toHaveAttribute('aria-checked', 'true');
   await expect(page.locator('#free-list .chip').first()).toContainText('Evening');
@@ -1422,6 +1423,7 @@ test('AI: one sentence fills the whole poll for review, shows what it did, and U
   await expect(page.locator('#ai-done')).toHaveCount(0);
   await expect(page.locator('#title')).not.toHaveValue('Dinner');
   await expect(page.locator('#emoji-tile')).toHaveText('🗓️');
+  await expect(page.locator('#emoji-tile')).not.toHaveAttribute('data-tile', /.*/);
   await expect(page.locator('#location')).toHaveValue('');
   await expect(page.locator('[data-level="days"]')).toHaveAttribute('aria-checked', 'true');
   await expect(page.locator('#free-list .chip')).toHaveCount(0);

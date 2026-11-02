@@ -13,6 +13,7 @@ import {
   partOf,
 } from '../public/core.js';
 import { isEmoji } from '../public/emoji.js';
+import { isTileStyle } from '../public/tile-styles.js';
 
 const DAY = 86_400_000;
 const DAY_MINUTES = 1440;
@@ -43,6 +44,7 @@ export function normalizeEventInput(input) {
   const organizer = cleanText(input.organizer, LIMITS.name, 'Organizer name');
   const location = cleanText(input.location, LIMITS.location, 'Location');
   const emoji = cleanEmoji(input.emoji);
+  const tile = cleanTile(input.tile);
 
   const timezone = input.timezone;
   if (!isValidTimeZone(timezone)) throw new ValidationError('Unknown time zone');
@@ -50,6 +52,7 @@ export function normalizeEventInput(input) {
   const base = { title, description, organizer, timezone };
   if (location) base.location = location;
   if (emoji) base.emoji = emoji;
+  if (tile) base.tile = tile;
   // The poll this one follows on from, as the next one of a plan. Its id; the API checks it exists.
   if (input.seriesOf != null && input.seriesOf !== '') {
     if (typeof input.seriesOf !== 'string' || !POLL_ID_RE.test(input.seriesOf))
@@ -220,6 +223,13 @@ export function checkSingle(ev, availability) {
 }
 
 const POLL_ID_RE = /^[A-Za-z0-9]{1,32}$/;
+
+// Optional tile style behind the emoji: one of a fixed set (public/tile-styles.js), never anything drawn.
+function cleanTile(v) {
+  if (v == null || v === '') return '';
+  if (!isTileStyle(v)) throw new ValidationError('Unknown tile style');
+  return v;
+}
 
 // Optional emoji for the kind of plan, or any other one the organizer picks: one emoji (public/emoji.js).
 function cleanEmoji(v) {

@@ -24,6 +24,7 @@ import {
   saved,
   toast,
   track,
+  tileAttr,
 } from './ui.js';
 
 const VOTES = [
@@ -138,7 +139,7 @@ export async function renderTopicPoll(ctx) {
       <article id="event-root" class="poll topic-poll">
         ${ev.brand && ctx.brandBar ? ctx.brandBar(ev.brand, esc) : ''}
         <header class="poll-head">
-          <span class="emoji-tile big" aria-hidden="true">${picture ? `<img src="${esc(picture)}" alt="">` : esc(ev.emoji || '🗳️')}</span>
+          <span class="emoji-tile big"${tileAttr(ev.tile)} aria-hidden="true">${picture ? `<img src="${esc(picture)}" alt="">` : esc(ev.emoji || '🗳️')}</span>
           <div class="poll-head-text">
             <h1 id="ev-title">${esc(ev.title)}</h1>
             <p class="poll-meta">${ev.organizer ? `<span class="host">${avatar(ev.organizer, 'av-xs')}Asked by ${esc(ev.organizer)}</span>` : ''}<span class="answered">${n ? `${plural(n, 'person', 'people')} answered` : 'No answers yet'}</span></p>

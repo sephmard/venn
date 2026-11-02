@@ -665,6 +665,36 @@ details.organizer[open] summary::before {
   font-size: 2.4rem;
   border-radius: 22px;
 }
+/* A poll's tile style (tile-styles.js): two soft Venn circles on a gradient of one colour, behind
+   the emoji. Mixed with the page's surface, so it fits light, dark and retro by itself. */
+.emoji-tile[data-tile],
+.acct-icon[data-tile],
+.icon-bg[data-tile] {
+  --ta: color-mix(in srgb, var(--h) 10%, var(--surface));
+  --tb: color-mix(in srgb, var(--h) 32%, var(--surface));
+  --tc: color-mix(in srgb, var(--h) 18%, transparent);
+  background:
+    radial-gradient(circle at 34% 36%, var(--tc) 0 31%, transparent 33%),
+    radial-gradient(circle at 66% 64%, var(--tc) 0 31%, transparent 33%), linear-gradient(140deg, var(--ta), var(--tb));
+}
+[data-tile='mint'] {
+  --h: #13a37a;
+}
+[data-tile='sunny'] {
+  --h: #f0a81c;
+}
+[data-tile='berry'] {
+  --h: #e0307a;
+}
+[data-tile='sky'] {
+  --h: #2f8be0;
+}
+[data-tile='dusk'] {
+  --h: #7a55d6;
+}
+[data-tile='paper'] {
+  --h: #a39c8e;
+}
 /* The poll's own picture (poll-image.js), in place of its emoji. */
 .emoji-tile img {
   width: 100%;

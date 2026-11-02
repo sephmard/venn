@@ -53,6 +53,7 @@ import {
   toast,
   track,
   isPhone,
+  tileAttr,
 } from './ui.js';
 import { closesLine, fmtTimeRange, fmtWhen } from './when.js';
 
@@ -257,7 +258,7 @@ export async function renderEvent(id, navigate) {
     <article id="event-root" class="poll">
       ${ev().brand && brandJs ? brandJs.brandBar(ev().brand, esc) : ''}
       <header class="poll-head">
-        <span class="emoji-tile big" aria-hidden="true">${picture ? `<img src="${esc(picture)}" alt="">` : esc(ev().emoji || '🗓️')}</span>
+        <span class="emoji-tile big"${tileAttr(ev().tile)} aria-hidden="true">${picture ? `<img src="${esc(picture)}" alt="">` : esc(ev().emoji || '🗓️')}</span>
         <div class="poll-head-text">
           <h1 id="ev-title"></h1>
           <p class="poll-meta" id="ev-meta"></p>

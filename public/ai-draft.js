@@ -191,16 +191,27 @@ export function aiDays(st, { empty, setRow, show, level, row }) {
       body: { prompt, timezone: $('#tz').value },
       headers: aiHeaders(),
     });
-    const { iconEmoji, setIconEmoji } = await import('./create.js'); // the page's own, already loaded
+    const { iconEmoji, setIconEmoji, iconBg, setIconBg } = await import('./create.js'); // the page's own, already loaded
     const [t, where] = [$('#title'), $('#location')];
-    const before = { title: t.value, seed: t.dataset.seed, where: where.value, emoji: iconEmoji(), level: level(), row: row() };
+    const before = {
+      title: t.value,
+      seed: t.dataset.seed,
+      where: where.value,
+      emoji: iconEmoji(),
+      bg: iconBg(),
+      level: level(),
+      row: row(),
+    };
     const changed = [];
     if (draft.title && (!t.value.trim() || t.value === t.dataset.seed)) {
       t.value = draft.title;
       t.dispatchEvent(new Event('input'));
       changed.push(t);
     }
-    if (draft.emoji && !before.emoji && (await setIconEmoji(draft.emoji))) changed.push($('#emoji-tile'));
+    const tile = $('#emoji-tile');
+    if (draft.emoji && !before.emoji && (await setIconEmoji(draft.emoji))) changed.push(tile);
+    // Its background, from Venn's own set (tile-styles.js), unless they picked one or it's a brand's poll.
+    if (draft.tile && !before.bg && (await setIconBg(draft.tile)) && !changed.includes(tile)) changed.push(tile);
     if (draft.location && !where.value.trim()) {
       where.value = draft.location;
       $('#more-box').open = true;
@@ -223,8 +234,10 @@ export function aiDays(st, { empty, setRow, show, level, row }) {
       for (const set of [st.days, st.parts, st.hours, st.maybe.days, st.maybe.parts, st.maybe.hours]) set.clear();
       t.value = before.title;
       t.dataset.seed = before.seed ?? '';
+      t.dispatchEvent(new Event('input')); // whatever follows the name (the link preview) follows it back
       where.value = before.where;
       await setIconEmoji(before.emoji);
+      if (iconBg() !== before.bg) await setIconBg(before.bg);
       setRow(before.row);
       await show(before.level);
     });

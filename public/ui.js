@@ -176,6 +176,12 @@ export function shortRange(from, to) {
   return (from % 60 || to % 60 ? fmtMinutes : fmtHour).formatRange(at(from), at(to));
 }
 export const dayLabel = (d) => fmtDay.format(dateParts(d));
+/**
+ * The attribute that gives a poll's tile its style (tile-styles.js), or '' for the plain one. The server
+ * keeps only known keys; this only ever lets a short lowercase word through, and styles.css draws the known ones.
+ */
+export const tileAttr = (key) => (/^[a-z]{1,12}$/.test(key ?? '') ? ` data-tile="${key}"` : '');
+
 /** Text that never breaks across lines, like a time range ("6 – 10 PM"): its spaces don't break. */
 export const keep = (s) => s.replace(/\s/g, '\u00a0');
 

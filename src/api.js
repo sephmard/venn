@@ -733,6 +733,7 @@ async function route(
           throw new ValidationError('This brand template does not exist or was deleted');
         event.brand = body.brand;
         delete event.retro; // the organization's look replaces the retro one
+        delete event.tile; // and its tile
       }
       const notifyEmail = body.notifyEmail ? normalizeEmail(body.notifyEmail) : null;
       if (notifyEmail && !emailEnabled(env)) throw new ValidationError("Email notifications aren't set up on this server");
@@ -905,7 +906,10 @@ async function route(
         if (ev.hostId) next.hostId = ev.hostId;
         // The edit form doesn't send them, so a poll keeps the one it follows on from, and its brand.
         if (ev.seriesOf) next.seriesOf = ev.seriesOf;
-        if (ev.brand) next.brand = ev.brand;
+        if (ev.brand) {
+          next.brand = ev.brand;
+          delete next.tile; // the organization's look has its own tile
+        }
         // Its deadline: as sent, or as it was when not sent; a new one needs an account.
         if (body.deadline != null && body.deadline !== ev.deadline && !(await mayUseDeadlines()))
           return error(401, SIGN_IN_FOR_DEADLINE);

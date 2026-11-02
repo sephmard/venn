@@ -5,6 +5,7 @@
 import Anthropic from '@anthropic-ai/sdk';
 import { BUTTONS, CORNERS, FONTS, isHex } from '../public/brand-look.js';
 import { firstEmoji } from '../public/emoji.js';
+import { TILE_KEYS, isTileStyle } from '../public/tile-styles.js';
 import {
   DAY_PARTS,
   IF_NEEDED,
@@ -200,6 +201,12 @@ const DAYS_SCHEMA = {
     title: { type: 'string', description: 'Short poll title, under 60 characters' },
     emoji: { type: 'string', description: 'One emoji that fits the plan, like 🦃 for Friendsgiving or 🍝 for dinner' },
     location: { type: 'string', description: 'The place, only if the description names one, else empty' },
+    tile: {
+      type: 'string',
+      enum: TILE_KEYS,
+      description:
+        'The background behind the emoji: mint (fresh, outdoors), sunny (warm, celebrations), berry (parties, romance), sky (trips, water, calm), dusk (evenings, culture), paper (plain, work)',
+    },
     answerWith: {
       type: 'string',
       enum: ['days', 'parts', 'hours'],
@@ -229,13 +236,13 @@ const DAYS_SCHEMA = {
       },
     },
   },
-  required: ['title', 'emoji', 'location', 'answerWith', 'firstDate', 'lastDate', 'days'],
+  required: ['title', 'emoji', 'tile', 'location', 'answerWith', 'firstDate', 'lastDate', 'days'],
   additionalProperties: false,
 };
 
 /**
  * The days (and parts of the day, or hours) that could work, for /new's calendar to show picked:
- * { title, emoji, location, level: 'days' | 'parts' | 'hours', days: [{ date }] | [{ date, part }] | [{ date, start, end }] },
+ * { title, emoji, tile, location, level: 'days' | 'parts' | 'hours', days: [{ date }] | [{ date, part }] | [{ date, start, end }] },
  * with start and end in minutes after midnight, and `ifNeeded: true` on days the person called optional.
  */
 export async function draftDays(env, { prompt, timezone }, { now, anthropic } = {}) {
@@ -256,7 +263,7 @@ export async function draftDays(env, { prompt, timezone }, { now, anthropic } = 
     schema: DAYS_SCHEMA,
     anthropic,
     effort: 'medium', // "any weekend in March" needs a little date reasoning
-    system: `You help someone set up a group poll to find a day that works for everyone. Turn their description into a short title, one emoji that fits, the place if they name one, and the days that could work.
+    system: `You help someone set up a group poll to find a day that works for everyone. Turn their description into a short title, one emoji that fits and a background for it, the place if they name one, and the days that could work.
 Rules:
 - The location is only a place the description names ("at mine", "Rosa's"); never invent one.
 - answerWith is "days" unless the description names times of day. Use "parts" for mornings, afternoons or evenings, and "hours" for specific times.
@@ -310,6 +317,7 @@ ${lines.join('\n')}
       .trim()
       .slice(0, 80),
     emoji: firstEmoji(out.emoji), // one emoji, or '' for the plan's own
+    tile: isTileStyle(out.tile) ? out.tile : '', // only a style Venn draws itself
     location: String(out.location || '')
       .trim()
       .slice(0, LIMITS.location),
