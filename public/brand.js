@@ -544,6 +544,7 @@ function showForm(b, token, start, draft = null) {
   const others = mine().filter((x) => x.id !== b?.id);
   let logo = init?.logo || null; // what shows: the saved one's URL, or a new one's data URL
   let logoChanged = !b && !!logo;
+  let emoji = init?.emoji || ''; // its polls' emoji: kept when it's edited, suggested by AI
   // A saved template opens on its links; a new one on its name.
   const steps = b ? [['share', 'Share', 'top'], ...STEPS] : STEPS;
   const ids = steps.map(([id]) => id);
@@ -757,6 +758,7 @@ function showForm(b, token, start, draft = null) {
     embedSites: $('#b-sites')
       .value.split(/[\s,]+/)
       .filter(Boolean),
+    ...(emoji && { emoji }),
   });
   // The preview shows the template as it's made, at the part the open step changes; the page keeps
   // Venn's own look.
@@ -938,12 +940,45 @@ function showForm(b, token, start, draft = null) {
             $('#ai-look') &&
             m.aiLook($('#ai-look'), {
               name: () => $('#b-name').value.trim(),
-              apply: (look, title) => {
-                applyLook(look);
-                if (title && !$('#b-title').value.trim()) $('#b-title').value = title;
+              apply: (d) => {
+                const [nameIn, titleIn] = [$('#b-name'), $('#b-title')];
+                const before = { look: fields(), name: nameIn.value, title: titleIn.value, emoji };
+                const set = (el, value) => {
+                  el.value = value;
+                  el.dispatchEvent(new Event('input', { bubbles: true }));
+                };
+                const changed = [$('#preview-box')];
+                applyLook(d.look);
+                if (d.name && !nameIn.value.trim()) {
+                  set(nameIn, d.name);
+                  changed.push(nameIn);
+                }
+                if (d.title && !titleIn.value.trim()) set(titleIn, d.title);
+                if (d.emoji && !emoji) emoji = d.emoji;
+                send();
+                const who = [nameIn.value.trim(), emoji].filter(Boolean).join(' ');
+                return {
+                  changed,
+                  text: [who, 'colours, fonts and corners', titleIn.value.trim() && `“${titleIn.value.trim()}”`]
+                    .filter(Boolean)
+                    .join(' · '),
+                  undo: () => {
+                    applyLook(before.look);
+                    set(nameIn, before.name);
+                    set(titleIn, before.title);
+                    emoji = before.emoji;
+                    send();
+                  },
+                };
               },
             }),
         )
+        .then(() => {
+          // From My polls' "Make one with AI": straight to the description.
+          if (b || !new URLSearchParams(location.search).has('ai') || !$('#ai-prompt')) return;
+          go(ids.indexOf('look'), { focus: false });
+          $('#ai-prompt').focus();
+        })
         .catch(() => {});
   });
   /** Signing in to save: the draft waits in this tab, and the page comes back to it. */

@@ -55,6 +55,8 @@ function reply(body) {
       corners: 'round',
       buttons: 'corners',
       title: 'Climb night',
+      name: /Summit Gym/.test(prompt) ? 'Summit Gym' : '', // only a name the description gives
+      emoji: '🧗',
     };
   if (props.recommendedOption)
     return { summary: 'Most people can make the first option.', recommendedOption: 1, reason: 'Nobody is busy then.' };

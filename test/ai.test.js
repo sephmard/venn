@@ -333,6 +333,8 @@ test('describe your organization: a template look, only known fonts and readable
     corners: 'round',
     buttons: 'pill',
     title: 'Trail day',
+    name: '  Peak Hiking Club ',
+    emoji: '🥾 boots',
   };
   calls.length = 0;
   const res = await call('/api/ai/draft-template', {
@@ -342,6 +344,8 @@ test('describe your organization: a template look, only known fonts and readable
   assert.deepEqual(res.data, {
     look: { accent: '#2f6b3a', font: 'slab', bodyFont: 'humanist', corners: 'round', buttons: 'pill' },
     title: 'Trail day',
+    name: 'Peak Hiking Club',
+    emoji: '🥾',
   });
   assert.match(calls[0].messages[0].content, /<user_text>Organization: Peak Club\nA hiking club/);
 });

@@ -290,10 +290,35 @@ test('brand template: describe the organization, and AI suggests a starting look
     prompt: 'A climbing gym, friendly and bold, orange and charcoal',
     name: 'Crux Climbing',
   });
-  await expect(page.locator('#toast')).toContainText('Look suggested');
+  // It says what it filled in, for review, with Undo.
+  await expect(page.locator('#ai-done')).toHaveText('Crux Climbing 🧗 · colours, fonts and corners · “Climb night”Undo');
   await expect(page.locator('#b-accent')).toHaveValue('#c2410c');
   await openStep(page, 'shape');
   await expect(page.getByRole('radio', { name: /Round/ })).toHaveAttribute('aria-checked', 'true');
   await openStep(page, 'poll');
   await expect(page.locator('#b-title')).toHaveValue('Climb night');
+  // Saved with its polls' emoji.
+  await page.click('#submit');
+  await expect.poll(async () => (await (await page.request.get(`/api/brands/${id}`)).json()).emoji).toBe('🧗');
+});
+
+test('brand template: Make one with AI starts at the description, fills it all in, and Undo puts it back', async ({ page }) => {
+  await page.goto('/brand/new?ai=1');
+  await expect(page.locator('#ai-prompt')).toBeFocused();
+  await expect(page.locator('[data-panel="look"]')).toBeVisible();
+  await page.fill('#ai-prompt', 'Summit Gym, a climbing gym, orange and charcoal, friendly and bold');
+  await page.click('#ai-go');
+  await expect(page.locator('#ai-done')).toHaveText('Summit Gym 🧗 · colours, fonts and corners · “Climb night”Undo');
+  await expect(page.locator('#b-name')).toHaveValue('Summit Gym');
+  await expect(page.locator('#b-title')).toHaveValue('Climb night');
+  await expect(page.locator('#b-accent')).toHaveValue('#c2410c');
+  await audit(page, 'template made with AI');
+  // Undo: a new template again, nothing filled in.
+  await page.getByRole('button', { name: 'Undo' }).click();
+  await expect(page.locator('#ai-done')).toHaveCount(0);
+  await expect(page.locator('#b-name')).toHaveValue('');
+  await expect(page.locator('#b-title')).toHaveValue('');
+  await expect(page.locator('#b-accent')).not.toHaveValue('#c2410c');
+  await expect(page.locator('#ai-prompt')).toBeFocused();
+  await noSideways(page);
 });
