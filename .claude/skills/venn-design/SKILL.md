@@ -169,7 +169,8 @@ the same PR** (and CLAUDE.md if it's a rule that matters in review).
 - **The website's menu is short** (Seph, 2026-11-01): the account (Sign in on phones, or the signed-in name and links), a thin line, then For organizations, For developers and Contact. **Classic mode** is in the footer (Seph, 2026-11-01), not the menu. Privacy, Terms, Docs and GitHub are in the footer only.
 - **The sign-in page never jumps** (Seph, 2026-11-01): a browser that isn't signed in gets the sign-in page at once, with the ways in the server offered last time (redrawn only if they changed), never My polls' outline first; Sign in in the bar is drawn at once from what the server said last time too.
 - **Sign-in screen** (Seph, 2026-11-01, after Cloudflare's): Finn, "Sign in to Venn", one line on what it's for, the buttons, "No account needed to make or answer a poll.", and under everything **"By continuing, you agree to Venn's Terms and Privacy policy."** (`/terms`, `/privacy`; also under the brand page's sign-in). **Only Google and email** for now; no SSO. A sign-in that fails says so in the page, above the buttons. A tapped button shows it's on its way and can't be tapped twice.
-- **My polls** (Seph, 2026-11-01: see polls created and completed, sort, group, search, templates; best on mobile): three tabs, **Created · Answered · Templates**, each with its count. Answered is every poll answered while signed in (or whose edit link this browser remembers); its row says whether they're in on the picked date (You're in / If needed / Can't make it, in the key's colours), and the answer is theirs on any device while signed in. Search, and beside it **one Sort button** (it reads how the list is sorted) that opens a **bottom sheet** in Venn's style: Sort (Newest, Oldest, Date picked, Name) and Group by (Status: Coming up, Waiting on a date, Past; Month; None), applied as they're tapped, then Done (Seph, 2026-11-01: the phone's own pickers looked janky). Shown once a list has two or more. **A few at a time** (Seph: 60+ polls felt overwhelming): five per group, then "Show N more"; Past starts folded; a search shows every match. Rows tell polls apart (many share a name): picked date, answers and where under the name, when it was made in the corner. **⋯ on every poll** opens the same kind of sheet to manage it (Seph): Open, Copy link, Remind the group (the phone's share sheet with a ready nudge; while waiting on a date), Email invitees who haven't answered (when the poll has an invite list and email is on; at most every 12 hours), Remove from My polls, and Delete poll, which asks first in the sheet. The tab, sort and group are remembered. Templates: a row opens it, **New poll** starts one with it, **+ New template** at the end. The account (who, add a poll from its link, Account settings, Sign out) is a card at the end.
+- **My polls** (Seph, 2026-11-01: see polls created and completed, sort, group, search, templates; best on mobile): three tabs, **Created · Answered · Templates**, each with its count. Answered is every poll answered while signed in (or whose edit link this browser remembers); its row says whether they're in on the picked date (You're in / If needed / Can't make it, in the key's colours), and the answer is theirs on any device while signed in. Search, and beside it **one Sort button** (it reads how the list is sorted) that opens a **bottom sheet** in Venn's style: Sort (Newest, Oldest, Date picked, Name) and Group by (Status: Coming up, Waiting on a date, Past; Month; None), applied as they're tapped, then Done (Seph, 2026-11-01: the phone's own pickers looked janky). Shown once a list has two or more. **A few at a time** (Seph: 60+ polls felt overwhelming): five per group, then "Show N more"; Past starts folded; a search shows every match. Rows tell polls apart (many share a name): picked date, answers and where under the name, when it was made in the corner. **⋯ on every poll** opens the same kind of sheet to manage it (Seph): Open, Copy link, Remind the group (the phone's share sheet with a ready nudge; while waiting on a date), Email invitees who haven't answered (when the poll has an invite list and email is on; at most every 12 hours), Email it to people / Invite more by email (while open, email on), Add a deadline / Change the deadline (while open), Remove from My polls, and Delete poll, which asks first in the sheet. The tab, sort and group are remembered. Templates: a row opens it, **New poll** starts one with it, **+ New template** at the end. The account (who, Account settings, Sign out) is a card at the end.
+- **No pasting links into My polls** (Seph, 2026-11-01: the "Add a poll from its link" box was confusing). Things join the account on their own: made or answered while signed in, held by this browser when signing in, or opened by their private link (organizer, manage, change-your-answer) while signed in, with a toast "Added to My polls". A guest's plain link never adds anything. Under each list a quiet **Missing a poll? / Missing a template?** opens a sheet saying how it gets here (sign in on the other device, or open its private link on this one); pasting is the last line, and it says plainly what a wrong link is (a guest link, a template's poll link). Template sharing says what people can do: **Copy link to use / Copy link to edit**, roles **Can use / Can edit**.
 - **Sign in · Create account** (Seph, 2026-11-01: creating an account must be easy to find): a two-way switch under the line on what it's for; the heading follows it ("Sign in to Venn" / "Create your account"), and `/me#signup` opens on Create account. Continue with Google does both.
 - **Email and password** sits between the provider buttons and the hint, after an "or", in the switch's mode; Sign in has Forgot password? under it. Making an account or resetting ends in one "Check your inbox" card; emailed links open a page with one button.
 - **Account settings** (/me/settings, from My polls' account card): email, password, connect Google, devices (sign out others, sign out), and Delete account, which needs the password (if any) and a second press; polls stay.
@@ -214,12 +215,27 @@ the same PR** (and CLAUDE.md if it's a rule that matters in review).
   around, fly to the three friends, the circles drift together and the day that works pops out, then
   they keep floating, unhurried (the messages drift slowly enough to read, but only for about 3 seconds before they fly to their friends, then the circles snap together (0.7 seconds) and the day that works pops out the moment all three overlap: the payoff is fast, the noise is slow (about 24 seconds a loop); once the day has popped, the messages float out of the friends again, faint so the day still reads, and grow loud again as the next round's noise begins) so each step can be followed. It plays while in view. Tap replays it; press and hold a circle (a mouse just
   drags) to pull a friend away, and the ✓ follows the overlap. Still for reduced motion.
-- **A deadline, when emails are required.** Asking guests for their email (Privacy options) shows
-  "Answers close" (optional); with a deadline, the organizer can paste who they invited and choose how
-  often to remind them (every day, 2 or 3 days, or only the day before). Venn emails only invitees who
-  haven't answered, with a one-tap stop. At the deadline answers close (guests see their answer, not a
-  form) and the organizer gets one email with the best time, ready to pick. Changed later in Organizer
-  tools → Privacy, which also shows each invitee: Answered, Waiting, or Stopped reminders.
+- **Email it to people, with an account** (Seph, 2026-11-02: add emails once a poll is made so Venn sends it,
+  reminders use them, easy to add many at once): a collapsed **Email it to people** row under About you,
+  just above Deadline, signed in and email on only. One box takes a pasted list from anywhere (commas,
+  semicolons, spaces, new lines, "Name <email>"); each address becomes a chip with ×, repeats are dropped
+  and counted, anything that isn't an email stays in the box flagged "Check this: …" and Create says so.
+  Listing anyone turns on asking guests' emails. The Deadline row's reminder choice shows only once
+  someone's listed. After the poll: Organizer tools → **Invite by email** (paste more, Send to N people,
+  the list with Emailed / Answered / Stopped emails and Remove); the Deadline panel only sets the date and
+  how often. The email is from the organizer's name with one button, and its link fills in their email.
+- **A deadline, with an account** (Seph, 2026-11-01: deadlines and reminders only for people with an
+  account; date polls and votes). Signed in (or on a server without sign-in), both create forms have a
+  collapsed **Deadline** row under About you: "Answers close" with quick picks (Tomorrow, In 3 days,
+  In a week, at 6 PM) and, when the server sends email, "Remind who hasn't answered" (pasted emails)
+  and how often (every day, 2 or 3 days, or only the day before). A deadline alone needs no guest
+  emails; listing invitees turns on asking for them (that's how Venn knows who answered). Signed out,
+  the form shows nothing; Organizer tools → **Deadline** says "Sign in to close answers on a set day
+  and remind who hasn't answered", one quiet line. Guests see "⏳ Answers close …"; after it, their
+  answer stays in view, locked. The organizer gets one email at the deadline with the best time (or
+  the favourite option), to the email they gave or their account's. The Deadline panel also lists each
+  invitee: Answered, Waiting, or Stopped reminders. My polls rows say "Closes Wed, Nov 4" (or
+  "Closed") while open, and ⋯ has **Add a deadline** / **Change the deadline**, straight to the panel.
 - The same top bar on every page: logo, Create a Venn, (Sign in,) menu. GitHub lives in the footer,
   not the bar or the menu. No floating buttons.
 - **Developers** (Seph, 2026-11-01: highlight the GitHub repo and dev docs more, encourage developers
@@ -235,8 +251,11 @@ the same PR** (and CLAUDE.md if it's a rule that matters in review).
 - The owner asked (2026-11) for a second kind of poll: voting on options that aren't times (a
   place, the next book, yes or no), that leads into a date poll. It's still **a Venn**: same Create
   button, same "Create a Venn" heading.
-- **No chooser screen.** /new stays the date poll; one quiet link in its intro, "Deciding what or
-  where?", opens /new/topic, which links back ("Pick a date instead").
+- **No chooser screen.** /new stays the date poll. Under "Create a Venn", both forms have the same
+  small **📅 Date · 🗳️ Vote** switch (links, so Back goes between them; a brand template's ?brand=
+  stays), in the same place, and nothing else: no intro paragraph, no "Deciding what or where?" or
+  "Pick a date instead" links (the owner, 2026-11: "the same between polls, and elegant. Not
+  verbose"). The switch is hidden when editing or copying a poll.
 - **The question comes first** (the owner, 2026-11: "you can't put in the actual question"): the
   first card, "What are you deciding?", has **Pick from options · Yes or no**, then **Your question**,
   empty (no "Get-together" name), its example fitting the kind ("Where should we eat?" / "Should we
@@ -255,7 +274,7 @@ the same PR** (and CLAUDE.md if it's a rule that matters in review).
   (decided ones go to Past, "Decided: …"). Answered rows say **Your pick** / **Not your pick**. When
   a list has both kinds, the sort sheet becomes **Show and sort** with All · Dates · Votes on top
   (remembered); the sort button then names the kind, "Votes", not a truncated sort.
-- Not yet: guests suggesting options, ranked choice, AI features, deadlines.
+- Not yet: guests suggesting options, ranked choice, AI features.
 
 **Never**
 

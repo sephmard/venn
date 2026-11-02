@@ -53,7 +53,7 @@ import {
   track,
   isPhone,
 } from './ui.js';
-import { fmtTimeRange, fmtWhen } from './when.js';
+import { closesLine, fmtTimeRange, fmtWhen } from './when.js';
 
 const VOTES = [
   [YES, 'v-yes', 'Yes', '✓'],
@@ -70,6 +70,8 @@ export async function renderEvent(id, navigate) {
     const [participantId, editToken] = hash.get('edit').split('.');
     if (participantId && editToken) save(id, { participantId, editToken });
   }
+  // Signed in, a private link opened here adds the poll to My polls (keep.js).
+  if (hash.get('admin') || hash.get('edit')) import('./keep.js').then((m) => m.keepThisBrowser()).catch(() => {});
   // The organizer's tools (Pick, editing, notifications) are for the organizer's link: their private
   // link, or this tab once they've created the poll. On the plain link they see what guests see, with
   // a button back to their tools. Per tab, so a guest link opened later never shows Pick.
@@ -92,6 +94,10 @@ export async function renderEvent(id, navigate) {
   };
   // `#organizer`: opened from My polls (account.js), where the account stands in for the link.
   const viaOrganizerLink = !!hash.get('admin') || hash.has('organizer') || !!saved(id).justCreated;
+  // `#organizer&deadline` (or `&invite`): from My polls, straight to that panel.
+  let openPanel = ['deadline', 'invite'].find((p) => hash.has(p));
+  // `#invited=<email>`: an invitation's link (src/invites.js).
+  const invitedEmail = [(hash.get('invited') || '').toLowerCase()].find(isEmail);
   if (viaOrganizerLink) organizerView.set();
   const asOrganizer = () => viaOrganizerLink || organizerView.on();
   // Links in notification emails: stop the emails.
@@ -259,7 +265,9 @@ export async function renderEvent(id, navigate) {
       }
       <div id="banners"></div>
       <div id="notify-box"></div>
-      <div id="privacy-box"></div>
+      <div id="invite-box"></div>
+      <div id="deadline-box"></div>
+        <div id="privacy-box"></div>
       <div id="writer-box"></div>
       <div class="tabs" role="tablist" aria-label="Poll">
         <button type="button" role="tab" id="tab-mine" aria-controls="panel-mine" data-tab="mine">Your answer</button>
@@ -831,7 +839,7 @@ export async function renderEvent(id, navigate) {
     // Guests can give it so the organizer can invite them; the organizer only for a copy.
     $('#copy-field').hidden = !c.email && !ev().requireEmail && !guest;
     $('#copy-me').parentNode.hidden = !c.email;
-    $('#copy-to').value = me()?.email || lastEmail();
+    $('#copy-to').value = me()?.email || invitedEmail || lastEmail();
     // With "Email me a copy" ticked (it starts ticked), the email is needed for it.
     const needMail = () => {
       const need = ev().requireEmail || (!$('#copy-me').parentNode.hidden && $('#copy-me').checked);
@@ -1420,7 +1428,7 @@ export async function renderEvent(id, navigate) {
   }
 
   // ----- organizer: notifications and privacy, from a module only organizers load -----
-  const panels = {}; // which organizer panels are open: notify, privacy, writer
+  const panels = {}; // which organizer panels are open: notify, privacy, writer…
   async function panel(name, open) {
     panels[name] = open;
     $(`#${name}-open`)?.setAttribute('aria-expanded', open);
@@ -1431,6 +1439,7 @@ export async function renderEvent(id, navigate) {
       shareUrl,
       headers: authHeaders(),
       close: () => panel(name, false),
+      panel,
       reload: () => load().then(() => (renderAll(), ev())),
     });
   }
@@ -1461,18 +1470,7 @@ export async function renderEvent(id, navigate) {
         ? `<p class="hint">Looking for ${daysMode ? `${lengthLabel(ev().durationMinutes)} in a row` : `${lengthLabel(ev().durationMinutes)}`}.</p>`
         : '';
     // When answers close (src/deadline.js), until the date is picked; on this device's clock.
-    const closes =
-      ev().deadline != null && ev().finalStart == null
-        ? `<p class="deadline-line"><span aria-hidden="true">⏳</span> Answers ${Date.now() >= ev().deadline ? 'closed' : 'close'} ${esc(
-            new Intl.DateTimeFormat(undefined, {
-              weekday: 'short',
-              month: 'short',
-              day: 'numeric',
-              hour: 'numeric',
-              minute: '2-digit',
-            }).format(ev().deadline),
-          )}</p>`
-        : '';
+    const closes = ev().deadline != null && ev().finalStart == null ? closesLine(ev().deadline) : '';
     $('#ev-details').innerHTML = where + (ev().description ? `<p class="note">${esc(ev().description)}</p>` : '') + what + closes;
     renderClosed();
   }
@@ -1589,6 +1587,11 @@ export async function renderEvent(id, navigate) {
         navigate('/new');
       },
     });
+    if (org && openPanel) {
+      $('details.organizer').open = st.orgOpen = true;
+      panel(openPanel, true);
+      openPanel = null;
+    }
     // Finn, the Venn dog, has something to say at a few moments: finn.js, loaded after the page.
     if (!whiteLabel)
       import('./finn.js')

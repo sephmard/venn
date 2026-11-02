@@ -15,7 +15,7 @@ async function noBlockingA11y(page, label) {
 /** Make a topic poll from /new and land on it as its organizer. */
 async function createTopic(page, { title, options, yesNo = false, single = false }) {
   await page.goto('/new');
-  await page.getByRole('link', { name: 'Deciding what or where?' }).click();
+  await page.getByRole('link', { name: '🗳️ Vote' }).click();
   await expect(page).toHaveURL(/\/new\/topic$/);
   // The kind of question first, then the question itself (its example changes to fit).
   if (yesNo) {
@@ -126,4 +126,19 @@ test('the topic form says what is missing', async ({ page }) => {
   await page.getByLabel('Option 2', { exact: true }).fill('Piranesi');
   await expect(page.locator('#summary')).toHaveText('2 options to vote on');
   await noBlockingA11y(page, 'topic create page');
+});
+
+test('the Date · Vote switch is the same on both forms, and Back goes between them', async ({ page }) => {
+  await page.goto('/new');
+  const nav = page.getByRole('navigation', { name: 'Kind of Venn' });
+  await expect(nav.getByRole('link', { name: '📅 Date' })).toHaveAttribute('aria-current', 'page');
+  await nav.getByRole('link', { name: '🗳️ Vote' }).click();
+  await expect(page).toHaveURL(/\/new\/topic$/);
+  await expect(nav.getByRole('link', { name: '🗳️ Vote' })).toHaveAttribute('aria-current', 'page');
+  await expect(page.locator('.create-lede')).toHaveCount(0);
+  await page.goBack();
+  await expect(page).toHaveURL(/\/new$/);
+  await expect(nav.getByRole('link', { name: '📅 Date' })).toHaveAttribute('aria-current', 'page');
+  const widths = await page.evaluate(() => document.documentElement.scrollWidth - innerWidth);
+  expect(widths).toBeLessThanOrEqual(0);
 });

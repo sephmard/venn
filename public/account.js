@@ -19,8 +19,8 @@ import {
   mixedKinds,
   nudgeText,
   whenShort,
-  parseOrganizerLink,
-  rememberedLinks,
+  addedText,
+  parseVennLink,
   signInAgree,
   signInButtons,
 } from './account-data.js';
@@ -94,17 +94,17 @@ export async function renderAccount() {
   refreshAccountMenu();
   const view = loadView();
   showMine(me, view);
-  // The links this browser remembers join the account, once.
-  const links = rememberedLinks();
-  if (!links.polls.length && !links.brands.length && !links.answers.length) return;
-  try {
-    const { added } = await api('me/claim', { method: 'POST', body: links });
-    const n = added.polls + added.brands + (added.answers || 0);
-    if (!n) return;
-    showMine(await api('me'), view);
-    toast(`Added ${plural(n, added.brands === n ? 'template' : 'poll')} from this browser`);
-  } catch {}
+  // The links this browser remembers join the account (keep.js; all of them again here, in case
+  // one was missed). Whatever joins, from here or the top bar's check, shows in the list.
+  if (!keptListener) {
+    keptListener = () => location.pathname === '/me' && $('.acct-tabs') && redrawMine?.();
+    addEventListener('venn:kept', keptListener);
+  }
+  (await import('./keep.js')).keepThisBrowser({ all: true });
 }
+
+let keptListener = null;
+let redrawMine = null; // shows My polls again, as it is now on the server
 
 // ---------- signed out ----------
 
@@ -226,7 +226,7 @@ const answeredRow = (p) => {
 };
 
 // What each template row says: the account's own, or shared with it (to change, or to use).
-const ROLE_META = { owner: 'Edit and share', admin: 'Shared with you · Admin', user: 'Shared with you · User' };
+const ROLE_META = { owner: 'Edit and share', admin: 'Shared with you · Can edit', user: 'Shared with you · Can use' };
 const brandRow = (b) => `
   <li class="acct-brand">
     <a class="acct-row" href="/brand/${esc(b.id)}#organizer" data-link>
@@ -287,6 +287,87 @@ function openSheet(html, wire) {
   return sheet;
 }
 
+// "Missing a poll?": things join the account on their own (keep.js), so this says how, for each
+// list, with pasting a link as the last resort.
+const MISSING = {
+  made: {
+    ask: 'Missing a poll?',
+    lines: [
+      'Polls you make while signed in are added here on their own, and so are the ones made in this browser before you signed in.',
+      'Made it on another phone or computer? Sign in to Venn there. Or open its private organizer link on this one: it’s added as it opens.',
+    ],
+    field: 'Its private organizer link',
+  },
+  answered: {
+    ask: 'Missing a poll?',
+    lines: [
+      'Polls you answer while signed in are added here on their own, and so are the ones answered in this browser before you signed in.',
+      'Answered on another phone or computer? Sign in to Venn there. Or open the link to change your answer (it’s in Venn’s email to you) on this one.',
+    ],
+    field: 'The link to change your answer',
+  },
+  brands: {
+    ask: 'Missing a template?',
+    lines: [
+      'Templates you make are added here on their own.',
+      'Someone shared one with you? Open the invite link they sent, and it’s added. Yours, from another phone or computer: sign in to Venn there, or open its private manage link on this one.',
+    ],
+    field: 'Its invite or manage link',
+  },
+};
+
+/** The "Missing a poll?" sheet. `redraw(tab)` shows My polls again, on that tab. */
+function missing(view, redraw) {
+  const m = MISSING[view.tab];
+  openSheet(
+    `<h2 class="acct-sheet-h" tabindex="-1" autofocus>${m.ask}</h2>
+     ${m.lines.map((l) => `<p class="acct-sheet-p">${l}</p>`).join('')}
+     <form class="acct-paste" id="acct-paste">
+       <label for="acct-link">Or paste the link here</label>
+       <div class="acct-add-row">
+         <input id="acct-link" type="url" inputmode="url" autocomplete="off" enterkeyhint="go" placeholder="${m.field}">
+         <button type="submit" class="btn">Add</button>
+       </div>
+       <p class="hint" id="acct-paste-msg" role="status"></p>
+     </form>
+     <button type="button" class="btn acct-done" data-close>Close</button>`,
+    (sheet) => {
+      const say = (t) => ($('#acct-paste-msg', sheet).textContent = t);
+      $('#acct-paste', sheet).onsubmit = async (e) => {
+        e.preventDefault();
+        const link = parseVennLink($('#acct-link', sheet).value);
+        if (!link) return say('That isn’t a Venn link. Copy the whole link, with the part after #.');
+        // An invite: joining it puts the template in this account's templates (as opening it does).
+        if (link.kind === 'invite')
+          try {
+            const { role } = await api(`brands/${link.item.id}/join`, { method: 'POST', body: { token: link.item.token } });
+            sheet.close();
+            await redraw('brands');
+            return toast(role === 'owner' ? 'It’s your own template.' : 'Added to your templates');
+          } catch (ex) {
+            return say(ex.message);
+          }
+        if (link.kind === 'guest')
+          return say(
+            link.brand
+              ? 'That’s the template’s link for making polls, not a manage or invite link.'
+              : 'That’s the poll’s link for guests. Its private organizer link ends in #admin=…',
+          );
+        try {
+          const { added } = await api('me/claim', { method: 'POST', body: { [link.kind]: [link.item] } });
+          if (!(added.polls + added.brands + (added.answers || 0)))
+            return say('That link doesn’t work any more, or it’s in someone else’s account.');
+          sheet.close();
+          await redraw({ polls: 'made', answers: 'answered', brands: 'brands' }[link.kind]);
+          toast(addedText(added));
+        } catch (ex) {
+          say(ex.message);
+        }
+      };
+    },
+  );
+}
+
 function showMine(me, view) {
   const { user } = me;
   const lists = { made: me.polls || [], answered: me.answered || [], brands: me.brands || [] };
@@ -316,13 +397,6 @@ function showMine(me, view) {
           <span class="acct-avatar" aria-hidden="true">${esc(initial(user))}</span>
           <span class="acct-text"><b>${esc(user.name || user.email || 'Signed in')}</b><span class="muted">${esc(user.name && user.email ? user.email : `Signed in with ${user.providerLabel}`)}</span></span>
         </div>
-        <details class="acct-add">
-          <summary>Add a poll from its link</summary>
-          <form id="acct-add-form" class="acct-add-row">
-            <input id="acct-link" type="url" inputmode="url" autocomplete="off" placeholder="venn.day/e/…#admin=…" aria-label="Organizer link">
-            <button type="submit" class="btn">Add</button>
-          </form>
-        </details>
         <div class="acct-actions">
           <a class="btn" href="/me/settings" data-link>Account settings</a>
           <button type="button" class="btn" id="acct-out">Sign out</button>
@@ -422,7 +496,17 @@ function showMine(me, view) {
             view.tab,
           );
     }
+    // Nothing to paste, mostly: what's missing, and how it gets here on its own.
+    if (!view.q.trim()) {
+      out.insertAdjacentHTML(
+        'beforeend',
+        `<p class="acct-missing"><button type="button" class="link-btn" id="acct-missing">${MISSING[view.tab].ask}</button></p>`,
+      );
+      $('#acct-missing').onclick = () => missing(view, (tab) => showMineAgain(tab));
+    }
   };
+  const showMineAgain = async (tab) => showMine(await api('me'), { ...view, tab });
+  redrawMine = () => showMineAgain(view.tab).catch(() => {});
   const open = new Set(); // groups opened in full (or Past unfolded), by tab, grouping and group
 
   // Sort and group: one button, one sheet with big targets, applied as they're tapped.
@@ -475,7 +559,7 @@ function showMine(me, view) {
     );
   };
 
-  // ⋯ on a poll: open it, share it, remind people, take it off the list, or delete it.
+  // ⋯ on a poll: open it, share it, email it to people, remind them, take it off the list, or delete it.
   function manage(p, tab) {
     if (!p) return;
     const made = tab === 'made';
@@ -492,6 +576,8 @@ function showMine(me, view) {
          <button type="button" data-act="copy">Copy link</button>
          ${made && waiting ? '<button type="button" data-act="nudge">Remind the group</button>' : ''}
          ${emailable ? `<button type="button" data-act="email">Email invitees who haven’t answered</button>` : ''}
+         ${made && waiting && config.email ? `<a href="/e/${esc(p.id)}#organizer&amp;invite" data-link data-close>${p.invitees ? 'Invite more by email' : 'Email it to people'}</a>` : ''}
+         ${made && p.finalStart == null && !p.decided ? `<a href="/e/${esc(p.id)}#organizer&amp;deadline" data-link data-close>${p.deadline != null ? 'Change the deadline' : 'Add a deadline'}</a>` : ''}
          <button type="button" data-act="unlist">Remove from My polls</button>
          ${made ? '<button type="button" data-act="delete" class="acct-danger">Delete poll</button>' : ''}
        </div>
@@ -589,19 +675,6 @@ function showMine(me, view) {
   $('#acct-q').value = view.q;
   draw();
 
-  $('#acct-add-form').onsubmit = async (e) => {
-    e.preventDefault();
-    const link = parseOrganizerLink($('#acct-link').value);
-    if (!link) return toast('Paste the whole organizer link, with #admin= at the end');
-    try {
-      const { added } = await api('me/claim', { method: 'POST', body: { [link.kind]: [{ id: link.id, token: link.token }] } });
-      if (!added.polls && !added.brands) return toast('That link isn’t an organizer link, or the poll is already in an account');
-      showMine(await api('me'), { ...view, tab: link.kind === 'brands' ? 'brands' : 'made' });
-      toast('Added');
-    } catch (ex) {
-      toast(ex.message);
-    }
-  };
   $('#acct-out').onclick = () => signOut().then(renderAccount);
 }
 

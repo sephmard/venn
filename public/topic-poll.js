@@ -5,6 +5,7 @@
 
 import { IF_NEEDED, YES, isEmail } from './core.js';
 import { inviteText } from './invite.js';
+import { closesLine } from './when.js';
 import {
   $,
   $$,
@@ -97,6 +98,8 @@ export async function renderTopicPoll(ctx) {
     ev = await ctx.load();
     render();
   }
+  // `#invited=<email>`: an invitation's link (src/invites.js).
+  const invited = [(ctx.hash?.get('invited') || '').toLowerCase()].find(isEmail) || '';
   async function panel(name, open) {
     panels[name] = open;
     $(`#${name}-open`)?.setAttribute('aria-expanded', open);
@@ -107,6 +110,7 @@ export async function renderTopicPoll(ctx) {
       shareUrl,
       headers: authHeaders(),
       close: () => panel(name, false),
+      panel,
       reload: () => reload().then(() => ev),
     });
   }
@@ -126,6 +130,10 @@ export async function renderTopicPoll(ctx) {
     const n = (ev.responses ?? ev.participants.length) - (ev.participants.length - others.length);
     const picture = ev.image && `/api/events/${encodeURIComponent(id)}/icon.jpg?v=${ev.image.v}`;
     const loc = ev.location;
+    // When voting closes (src/deadline.js), until one is picked; after it, only the organizer votes.
+    const closed = ev.deadline != null && !picked && Date.now() >= ev.deadline;
+    const closes = ev.deadline != null && !picked ? closesLine(ev.deadline) : '';
+    const locked = guest && closed;
     app.innerHTML = `
       <article id="event-root" class="poll topic-poll">
         ${ev.brand && ctx.brandBar ? ctx.brandBar(ev.brand, esc) : ''}
@@ -137,6 +145,7 @@ export async function renderTopicPoll(ctx) {
             <p class="poll-meta">${ev.organizer ? `<span class="host">${avatar(ev.organizer, 'av-xs')}Asked by ${esc(ev.organizer)}</span>` : ''}<span class="answered">${n ? `${plural(n, 'person', 'people')} answered` : 'No answers yet'}</span></p>
             ${ev.description ? `<p class="desc">${esc(ev.description)}</p>` : ''}
             ${loc ? `<p class="where"><span aria-hidden="true">📍</span> ${esc(loc)}</p>` : ''}
+            ${closes}
           </div>
           ${guest || picked ? '' : `<div class="poll-share"><button class="btn btn-primary" id="copy">Copy link</button>${canShare ? '<button class="btn" id="share-sheet">Share</button>' : ''}</div>`}
         </header>
@@ -144,25 +153,27 @@ export async function renderTopicPoll(ctx) {
         ${picked ? decided(picked, guest) : ''}
         <div id="org-tools"></div>
         <div id="notify-box"></div>
+        <div id="invite-box"></div>
+        <div id="deadline-box"></div>
         <div id="privacy-box"></div>
         <div class="panels">
           <section class="panel active sheet" aria-labelledby="mine-h">
             <h2 class="panel-title" id="mine-h">${ev.single ? (ev.options[0].label === 'Yes' && ev.options.length === 2 ? 'What do you say?' : 'Pick one') : 'Which would you go with?'}</h2>
-            ${answerRows()}
+            ${locked ? `<div inert class="topic-locked">${answerRows()}</div>` : answerRows()}
             <div class="topic-you">
               <label for="name">Your name</label>
               <input id="name" type="text" maxlength="80" autocomplete="name" value="${esc(me()?.name || host?.name || lastName())}">
               ${
                 ev.requireEmail
                   ? `<label for="email">Your email <span class="muted">(only the organizer sees it)</span></label>
-                <input id="email" type="email" inputmode="email" autocomplete="email" maxlength="254" placeholder="you@example.com" value="${esc(me()?.email || lastEmail())}">`
+                <input id="email" type="email" inputmode="email" autocomplete="email" maxlength="254" placeholder="you@example.com" value="${esc(me()?.email || invited || lastEmail())}">`
                   : ''
               }
               ${privacy && `<p class="hint">🔒 ${privacy}</p>`}
             </div>
             <div class="save-bar">
-              <div><span id="save-state" class="hint">${me() ? 'Your answer is in. Change it any time.' : ''}</span><div class="error" id="save-err" role="alert"></div></div>
-              <button type="button" class="btn btn-primary" id="save">${me() ? 'Update' : 'Submit'}</button>
+              <div><span id="save-state" class="hint">${locked ? `Answers are closed. ${esc(ev.organizer || 'The organizer')} is picking one.` : me() ? 'Your answer is in. Change it any time.' : ''}</span><div class="error" id="save-err" role="alert"></div></div>
+              <button type="button" class="btn btn-primary" id="save"${locked ? ' disabled' : ''}>${me() ? 'Update' : 'Submit'}</button>
             </div>
           </section>
           <section class="panel active" aria-labelledby="group-h">
@@ -323,6 +334,13 @@ export async function renderTopicPoll(ctx) {
         navigate('/new/topic');
       },
     });
+    // `#organizer&deadline` (or `&invite`), from My polls: straight to that panel, once.
+    const open = ['deadline', 'invite'].find((p) => ctx.hash?.has(p));
+    if (open && !panels[open] && !st.deadlineShown) {
+      st.deadlineShown = true;
+      $('details.organizer').open = true;
+      panel(open, true);
+    }
   }
 
   async function send() {

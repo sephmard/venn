@@ -101,3 +101,8 @@ ol.t-results li {
   align-items: center;
   justify-content: center;
 }
+
+/* After the deadline, a guest's vote stays in view, with nothing left to change. */
+.topic-locked {
+  opacity: 0.6;
+}

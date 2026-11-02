@@ -19,6 +19,7 @@ import { monthView, timeView, tinyTime } from './picker.js';
 import { $, $$, app, dateParts, dayLabel, esc, fmtDay, plural, shortTime, track } from './ui.js';
 
 import {
+  kindSwitch,
   brush,
   createBar,
   explainNotReady,
@@ -82,7 +83,7 @@ export function renderFree() {
     <form id="create" class="create" novalidate>
       <a class="back" href="/" hidden>‹ Back</a>
       <h1>Create a Venn</h1>
-      <p class="lede create-lede">Tap the days that could work. Everyone marks when they're free, and Venn finds the overlap. <a href="/new/topic" data-link class="nowrap">Deciding what or where?</a></p>
+      ${src ? '' : kindSwitch('date')}
       ${planFields('free')}
       <section class="sheet" aria-labelledby="when-h">
         <h2 id="when-h">When could it be?</h2>

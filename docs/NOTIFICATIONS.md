@@ -21,9 +21,13 @@ When email is on, the poll page asks people who answer for their email, as an op
 - Because anyone could type someone else's address, each answer gets at most 3 copies, and each poll at most 300.
 - With the API, send `copyTo` with `POST` or `PUT /api/events/:id/participants`.
 
+## Emailing the poll to people
+
+A signed-in organizer (on a server with sign-in; anyone, without it) can paste a list of emails when creating a poll, or later in organizer tools under **Invite by email**. Venn emails each of them the poll once, and the deadline's reminders go to the same list. At most 50 people per poll, 100 invitations per poll ever and 200 a day per account. See [Emailing a poll to people](API.md#emailing-a-poll-to-people).
+
 ## Reminders before a deadline
 
-When a poll asks everyone for their email, the organizer can set when answers close and list who they invited. Venn emails each invitee who hasn't answered yet, every day, every 2 or 3 days, or only the day before, as the organizer chose, and once more the day before; at most 5 reminders, each with a one-click unsubscribe. At the deadline, the organizer gets one email: how many answered and the best time so far, with a button to pick the date. Nothing is sent when email isn't turned on; answers still close. See [Deadline and reminders](API.md#deadline-and-reminders).
+A signed-in organizer (on a server with sign-in; anyone, without it) can set when answers close, on a date poll or a vote, and list who they invited (the poll then asks everyone's email). Venn emails each invitee who hasn't answered yet, every day, every 2 or 3 days, or only the day before, as the organizer chose, and once more the day before; at most 5 reminders, each with a one-click unsubscribe. At the deadline, the organizer gets one email: how many answered and the best time (or favourite option) so far, with a button to pick, sent to the email they gave or their account's. Nothing is sent when email isn't turned on; answers still close. See [Deadline and reminders](API.md#deadline-and-reminders).
 
 These go out from an hourly run: the Worker's Cron Trigger (`crons` in `wrangler.toml`), or a timer in the Node server.
 

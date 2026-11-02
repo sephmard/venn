@@ -65,7 +65,7 @@ test('sign in, and the polls this browser organizes are in My polls, on any devi
 
   // Back, signed in: the remembered poll joined the account.
   await expect(page.locator('.acct-who')).toContainText('Robin Park');
-  await expect(page.locator('#toast')).toHaveText('Added 1 poll from this browser');
+  await expect(page.locator('#toast')).toHaveText('Added to My polls');
   await expect(page.locator('.acct-list .acct-row')).toHaveCount(1);
   await expect(page.locator('.acct-row').first()).toContainText('Supper club');
   await expect(page.locator('.acct-row').first()).toContainText('No answers yet');
@@ -112,13 +112,34 @@ test('sign in, and the polls this browser organizes are in My polls, on any devi
   await expect(other.locator('.topbar .acct-signin')).toBeVisible();
   await phone.close();
 
-  // Adding a poll from its organizer link (one made elsewhere, never opened here).
-  const elsewhere = await (await page.request.post('/api/events', { data: poll('Cabin trip') })).json();
+  // A poll made on another device: opening its organizer link here, signed in, adds it. No pasting.
+  // (Made without this account's cookie, so it isn't kept with the account already.)
+  const anon = await browser.newContext();
+  const elsewhere = await (await anon.request.post('/api/events', { data: poll('Cabin trip') })).json();
+  await page.goto(`/e/${elsewhere.id}#admin=${elsewhere.adminToken}`);
+  await expect(page.locator('#toast')).toHaveText('Added to My polls');
   await page.goto('/me');
-  await page.locator('.acct-add summary').click();
-  await page.fill('#acct-link', `${ACCOUNTS_URL}/e/${elsewhere.id}#admin=${elsewhere.adminToken}`);
-  await page.getByRole('button', { name: 'Add', exact: true }).click();
   await expect(page.locator('.acct-row')).toHaveCount(3);
+  // A guest's link adds nothing.
+  const theirs = await (await anon.request.post('/api/events', { data: poll('Pub quiz') })).json();
+  await anon.close();
+  await page.goto(`/e/${theirs.id}`);
+  await page.goto('/me');
+  await expect(page.locator('.acct-row')).toHaveCount(3);
+
+  // "Missing a poll?" says how polls get here, and pasting the link is the last resort.
+  await page.getByRole('button', { name: 'Missing a poll?' }).click();
+  const sheet = page.locator('#acct-sheet');
+  await expect(sheet).toContainText('Sign in to Venn there');
+  await sheet.getByLabel('Or paste the link here').fill(`${ACCOUNTS_URL}/e/${theirs.id}`);
+  await sheet.getByRole('button', { name: 'Add', exact: true }).click();
+  await expect(sheet.locator('#acct-paste-msg')).toContainText('the poll’s link for guests');
+  await noSideways(page);
+  await audit(page, 'missing a poll');
+  await sheet.getByLabel('Or paste the link here').fill(`${ACCOUNTS_URL}/e/${theirs.id}#admin=${theirs.adminToken}`);
+  await sheet.getByRole('button', { name: 'Add', exact: true }).click();
+  await expect(page.locator('#toast')).toHaveText('Added to My polls');
+  await expect(page.locator('.acct-row')).toHaveCount(4);
 
   // Deleting the account is in Account settings, and asks twice; the polls stay, with their links.
   await page.getByRole('link', { name: 'Account settings' }).click();
@@ -308,13 +329,13 @@ test('sharing a template: an admin invite lets them change it, a user invite add
   const share = owner.page.locator('#b-sharing');
   await expect(share.getByRole('heading', { name: 'Share it' })).toBeVisible();
   await expect(share).toContainText('Nobody else has it yet.');
-  await share.getByRole('button', { name: 'Copy user invite' }).click();
-  await expect(owner.page.locator('#toast')).toHaveText('User invite copied. Send it to them.');
+  await share.getByRole('button', { name: 'Copy link to use' }).click();
+  await expect(owner.page.locator('#toast')).toHaveText('Link copied. Whoever opens it can use this template.');
   const invite = await owner.page.evaluate(() => navigator.clipboard.readText());
   expect(invite).toMatch(new RegExp(`/brand/${made.id}#join=[A-Za-z0-9]+$`));
   await expect(share).toContainText('1 invite link works');
   // The same link again, not a new one.
-  await share.getByRole('button', { name: 'Copy user invite' }).click();
+  await share.getByRole('button', { name: 'Copy link to use' }).click();
   expect(await owner.page.evaluate(() => navigator.clipboard.readText())).toBe(invite);
   await expect(share).toContainText('1 invite link works');
 
@@ -328,13 +349,13 @@ test('sharing a template: an admin invite lets them change it, a user invite add
   await expect(guest.page).toHaveURL(new RegExp(`/brand/${made.id}$`));
   await expect(guest.page.locator('#toast')).toHaveText('Added to your templates.');
   await expect(guest.page.locator('h1')).toHaveText('Northwind’s template');
-  await expect(guest.page.getByText('In your templates. Its admins can change it.')).toBeVisible();
+  await expect(guest.page.getByText('In your templates, to make polls with. Its owner can change it.')).toBeVisible();
   await expect(guest.page.locator('#brand-form')).toHaveCount(0);
   await noSideways(guest.page);
   await audit(guest.page, 'a template shared as a user');
   await guest.page.goto('/me');
   await guest.page.getByRole('tab', { name: /Templates/ }).click();
-  await expect(guest.page.locator('.acct-brand', { hasText: 'Northwind' })).toContainText('Shared with you · User');
+  await expect(guest.page.locator('.acct-brand', { hasText: 'Northwind' })).toContainText('Shared with you · Can use');
   await expect(guest.page.getByRole('link', { name: 'New poll with Northwind' })).toHaveAttribute('href', /\/new\?brand=/);
 
   // The owner sees them, and makes them an admin: now they can change it.
@@ -346,7 +367,7 @@ test('sharing a template: an admin invite lets them change it, a user invite add
   await audit(owner.page, 'sharing a template');
   await guest.page.goto(`/brand/${made.id}#organizer`);
   await expect(guest.page.locator('#brand-form')).toBeVisible();
-  await expect(guest.page.locator('[data-panel="share"]')).toContainText('Shared with you as an admin');
+  await expect(guest.page.locator('[data-panel="share"]')).toContainText('Shared with you to edit');
   await expect(guest.page.locator('#b-sharing')).toHaveCount(0);
   await expect(guest.page.locator('#b-delete')).toHaveCount(0);
   // They leave it: it's off their templates.
@@ -354,6 +375,12 @@ test('sharing a template: an admin invite lets them change it, a user invite add
   await expect(guest.page).toHaveURL(/\/me$/);
   await guest.page.getByRole('tab', { name: /Templates/ }).click();
   await expect(guest.page.locator('.acct-brand', { hasText: 'Northwind' })).toHaveCount(0);
+  // Pasting the invite in "Missing a template?" adds it back, staying on My polls.
+  await guest.page.getByRole('button', { name: 'Missing a template?' }).click();
+  await guest.page.getByLabel('Or paste the link here').fill(invite);
+  await guest.page.locator('#acct-sheet').getByRole('button', { name: 'Add', exact: true }).click();
+  await expect(guest.page.locator('#toast')).toHaveText('Added to your templates');
+  await expect(guest.page.locator('.acct-brand', { hasText: 'Northwind' })).toHaveCount(1);
 
   // Turning the invite links off: the link no longer works.
   await owner.page.reload();
