@@ -42,7 +42,15 @@ export function tools(box, ctx) {
   for (const name of ['notify', 'invite', 'deadline', 'privacy', 'writer'])
     if ($(`#${name}-open`)) $(`#${name}-open`).onclick = () => ctx.panel(name, !panels[name]);
   $('#delete-poll').onclick = async () => {
-    if (!confirm("Delete this poll and everyone's answers? This cannot be undone.")) return;
+    const sure = await (
+      await import('./ask.js')
+    ).ask({
+      title: 'Delete this poll?',
+      text: "Everyone's answers go with it. This can't be undone.",
+      yes: 'Delete poll',
+      danger: true,
+    });
+    if (!sure) return;
     try {
       await api(`events/${id}`, { method: 'DELETE', headers: ctx.headers });
       ctx.deleted();

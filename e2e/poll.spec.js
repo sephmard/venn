@@ -14,6 +14,7 @@ import {
   tapDays,
   todayIn,
   submit,
+  afterSubmit,
   weekendsFrom,
   openTools,
 } from './helpers.js';
@@ -262,8 +263,12 @@ test('ask when people are available: a tap picks days in a row, shown as one ban
   await page.keyboard.press(' ');
   await expect(day(9)).toHaveAttribute('aria-pressed', 'false');
   await expect(page.locator('.cal-day[aria-pressed="true"]')).toHaveCount(4);
-  // A run's × removes the whole run (after asking).
+  // A run's × removes the whole run (after asking, in the page).
   await rows.last().locator('[data-rm-days]').click();
+  await page
+    .getByRole('dialog', { name: /^Remove these \d+ days\?$/ })
+    .getByRole('button', { name: 'Remove' })
+    .click();
   await expect(rows).toHaveCount(2);
   await expect(page.locator('.cal-day[aria-pressed="true"]')).toHaveCount(2);
 });
@@ -585,22 +590,11 @@ test('organizers add different times on different days, and see the whole poll b
 });
 
 test('switching lengths keeps the days picked, and organizers are asked before one × removes several', async ({ page }) => {
-  /** Answer the next confirm() with `yes`, and return its message. */
-  const answer = (yes) => {
-    page.removeAllListeners('dialog');
-    return new Promise((done) =>
-      page.once('dialog', (d) => {
-        done(d.message());
-        yes ? d.accept() : d.dismiss();
-      }),
-    );
-  };
   await page.goto('/new/pick');
   await page.fill('#organizer', 'Sam');
   await addOptions(page, 2, [1140]);
   // Switching between times and whole days needs no asking: the days stay, as whole days, and
   // come back at their time. (Some in-app browsers block confirm() and would stop the switch.)
-  let asked;
   await page.click('[data-length="allday"]');
   await expect(page.locator('[data-length="allday"]')).toHaveAttribute('aria-pressed', 'true');
   await expect(page.locator('#picker .cal-day[aria-pressed="true"]')).toHaveCount(2);
@@ -619,13 +613,20 @@ test('switching lengths keeps the days picked, and organizers are asked before o
   const rows = page.locator('#free-list .od-row');
   const before = await page.locator('#free-list .chip').count();
   const rm = rows.first().locator('[data-rm-window]').last();
-  asked = answer(false);
+  // Asked in the page: Cancel keeps them, and focus goes back to the ×.
+  const ask = page.getByRole('dialog', { name: /^Remove these \d+ days\?$/ });
   await rm.click();
-  expect(await asked).toMatch(/^Remove these \d+ days\?$/);
+  await expect(ask.getByRole('button', { name: 'Cancel' })).toBeFocused();
+  await ask.getByRole('button', { name: 'Cancel' }).click();
+  await expect(ask).toHaveCount(0);
   await expect(page.locator('#free-list .chip')).toHaveCount(before);
-  asked = answer(true);
+  await expect(rm).toBeFocused();
   await rm.click();
-  await asked;
+  await page.keyboard.press('Escape');
+  await expect(ask).toHaveCount(0);
+  await expect(page.locator('#free-list .chip')).toHaveCount(before);
+  await rm.click();
+  await ask.getByRole('button', { name: 'Remove' }).click();
   await expect(page.locator('#free-list .chip')).toHaveCount(before - 1);
 });
 
@@ -1149,10 +1150,13 @@ test('guests are told before answering twice, and a bad email is caught on the p
   await expect(page.locator('#copy-to')).toBeFocused();
   await expect(page.locator('#copy-to')).toHaveAttribute('aria-invalid', 'true');
   await page.fill('#copy-to', 'marcus@example.com');
-  // Every dialog in these tests is accepted: answering again as a new person is still allowed.
-  const asked = page.waitForEvent('dialog');
-  await submit(page);
-  expect((await asked).message()).toContain('Someone called Marcus has already answered');
+  // Asked in the page: answering again as a new person is still allowed.
+  await page.click('#save');
+  await page
+    .getByRole('dialog', { name: 'Someone called Marcus has already answered' })
+    .getByRole('button', { name: 'Answer as someone new' })
+    .click();
+  await afterSubmit(page);
   await expect(page.locator('#save-state')).toHaveText('Submitted');
 });
 

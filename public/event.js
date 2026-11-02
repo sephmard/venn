@@ -981,9 +981,14 @@ export async function renderEvent(id, navigate) {
     const twin = !me() && ev().participants.find((p) => p.name.trim().toLowerCase() === name.toLowerCase());
     if (
       twin &&
-      !confirm(
-        `Someone called ${twin.name} has already answered. If that's you, open your personal link from that phone to change your answer. Answer again as a new person?`,
-      )
+      !(await (
+        await import('./ask.js')
+      ).ask({
+        title: `Someone called ${twin.name} has already answered`,
+        text: "If that's you, open your personal link from that phone to change your answer.",
+        yes: 'Answer as someone new',
+        no: 'Go back',
+      }))
     )
       return;
     // "Are you sure?" only when some options were left without an answer; a full answer goes straight in.
@@ -1066,7 +1071,8 @@ export async function renderEvent(id, navigate) {
   };
 
   $('#leave').onclick = async () => {
-    if (!confirm('Remove your answer from this poll?')) return;
+    if (!(await (await import('./ask.js')).ask({ title: 'Remove your answer from this poll?', yes: 'Remove', danger: true })))
+      return;
     const s = saved(id);
     try {
       await api(`events/${id}/participants/${s.participantId}`, { method: 'DELETE', headers: authHeaders() });
@@ -1288,7 +1294,8 @@ export async function renderEvent(id, navigate) {
     if (rm) {
       e.stopPropagation();
       const p = ev().participants.find((x) => x.id === rm.dataset.remove);
-      if (!p || !confirm(`Remove ${p.name}'s answer?`)) return;
+      if (!p || !(await (await import('./ask.js')).ask({ title: `Remove ${p.name}'s answer?`, yes: 'Remove', danger: true })))
+        return;
       try {
         await api(`events/${id}/participants/${p.id}`, { method: 'DELETE', headers: authHeaders() });
         if (st.focus === p.id) st.focus = null;

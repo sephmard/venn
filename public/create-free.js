@@ -331,7 +331,7 @@ export function renderFree() {
     painter?.render();
     cal?.render();
   };
-  $('#create').addEventListener('click', (e) => {
+  $('#create').addEventListener('click', async (e) => {
     const to = e.target.closest('[data-level]');
     if (to) setLevel(to.dataset.level);
     const s = e.target.closest('[data-step]');
@@ -371,7 +371,9 @@ export function renderFree() {
     if (rm) {
       const lv = lvOf(rm);
       const ds = rm.split('|')[0].split(',');
-      if (ds.length > 1 && !confirm(`Remove ${lv === 'days' ? `these ${ds.length} days` : pt.windowWhat(lv, rm)}?`)) return;
+      const what = lv === 'days' ? `these ${ds.length} days` : pt.windowWhat(lv, rm);
+      if (ds.length > 1 && !(await (await import('./ask.js')).ask({ title: `Remove ${what}?`, yes: 'Remove', danger: true })))
+        return;
       if (lv === 'days') for (const d of ds) selected.delete(d);
       else {
         for (const k of pt.windowKeys(lv, rm)) st[lv].delete(k);
@@ -382,7 +384,11 @@ export function renderFree() {
     }
     const rd = e.target.closest('[data-rm-days]')?.dataset.rmDays.split(',');
     if (rd) {
-      if (rd.length > 1 && !confirm(`Remove these ${rd.length} days?`)) return;
+      if (
+        rd.length > 1 &&
+        !(await (await import('./ask.js')).ask({ title: `Remove these ${rd.length} days?`, yes: 'Remove', danger: true }))
+      )
+        return;
       for (const d of rd) selected.delete(d);
       redraw();
     }
