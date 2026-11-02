@@ -62,6 +62,8 @@ test('Delete poll asks in the page: Cancel and Escape keep it, Delete poll delet
   await expect(ask).toHaveCount(0);
   await expect(del).toBeFocused();
   await del.click();
+  // ask.js loads on the first question: Escape before the dialog is open would go nowhere.
+  await expect(ask.getByRole('button', { name: 'Cancel' })).toBeFocused();
   await page.keyboard.press('Escape');
   await expect(ask).toHaveCount(0);
   expect((await request.get(`/api/events/${id}`)).status()).toBe(200);

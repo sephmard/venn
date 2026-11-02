@@ -622,6 +622,7 @@ test('switching lengths keeps the days picked, and organizers are asked before o
   await expect(page.locator('#free-list .chip')).toHaveCount(before);
   await expect(rm).toBeFocused();
   await rm.click();
+  await expect(ask.getByRole('button', { name: 'Cancel' })).toBeFocused(); // open before Escape
   await page.keyboard.press('Escape');
   await expect(ask).toHaveCount(0);
   await expect(page.locator('#free-list .chip')).toHaveCount(before);

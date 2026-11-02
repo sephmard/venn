@@ -21,7 +21,10 @@ export function ask({ title, text = '', yes, no = 'Cancel', danger = false }) {
   const back = document.activeElement;
   document.body.append(d);
   return new Promise((done) => {
+    let closed = false;
     const close = (answer) => {
+      if (closed) return;
+      closed = true;
       d.close();
       d.remove();
       if (back?.isConnected) back.focus();
@@ -33,6 +36,13 @@ export function ask({ title, text = '', yes, no = 'Cancel', danger = false }) {
       else if (e.target === d) close(false); // a tap outside the box
     };
     d.oncancel = (e) => {
+      e.preventDefault();
+      close(false);
+    };
+    // Escape closes it here too, not only through the browser's cancel, which some browsers skip
+    // (Chrome's close-request rules, on phones).
+    d.onkeydown = (e) => {
+      if (e.key !== 'Escape') return;
       e.preventDefault();
       close(false);
     };
