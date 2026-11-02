@@ -29,6 +29,15 @@ async function audit(page, label) {
   ).toEqual([]);
 }
 
+// Sign in, signed out: in the top bar on wider screens, first in its menu on phones.
+async function signIn(page) {
+  const bar = page.locator('.topbar .site-signin');
+  await expect(page.locator('.menu-panel .acct-group-out')).toHaveCount(1); // drawn once sign-in is known
+  if (await bar.isVisible()) return bar;
+  await page.getByLabel('Menu').click();
+  return page.locator('.menu-panel').getByRole('link', { name: 'Sign in' });
+}
+
 const poll = (title) => ({
   title,
   organizer: 'Robin',
@@ -49,12 +58,15 @@ test('sign in, and the polls this browser organizes are in My polls, on any devi
   const made = await (await page.request.post('/api/events', { data: poll('Supper club') })).json();
   await page.goto(`/e/${made.id}#admin=${made.adminToken}`);
   await expect(page.locator('h1')).toContainText('Supper club');
-  // A poll's page is for answering: no "Sign in" there.
-  await expect(page.locator('.acct-signin')).toHaveCount(0);
+  // A poll's page is for answering: no "Sign in" in its bar, only in the menu.
+  await expect(page.locator('.topbar .site-signin')).toHaveCount(0);
+  await page.getByLabel('Menu').click();
+  await expect(page.locator('.menu-panel').getByRole('link', { name: 'Sign in' })).toBeVisible();
+  await page.keyboard.press('Escape');
 
-  // The create page has it; it leads to My polls, with the ways to sign in.
+  // The create page has it in the bar (in the menu on phones); it leads to My polls, with the ways to sign in.
   await page.goto('/new');
-  await page.locator('.topbar .acct-signin').click();
+  await (await signIn(page)).click();
   await expect(page).toHaveURL(/\/me$/);
   await expect(page.locator('h1')).toHaveText('Sign in to Venn');
   await expect(page.locator('.acct-agree').getByRole('link', { name: 'Terms' })).toHaveAttribute('href', '/terms');
@@ -82,9 +94,10 @@ test('sign in, and the polls this browser organizes are in My polls, on any devi
   await page.click('#submit');
   await expect(page.locator('.party [role=status]')).toContainText('Your Venn is ready!');
   await expect(page.locator('.party')).toHaveCount(0, { timeout: 10_000 });
-  // The top bar has the account: My polls and Sign out.
-  await page.locator('.acct-menu summary').click();
-  await page.getByRole('link', { name: 'My polls' }).click();
+  // The top bar's menu has the account: their name, My polls and Sign out.
+  await page.getByLabel('Menu').click();
+  await expect(page.locator('.menu-who')).toHaveText('Robin Park');
+  await page.locator('.menu-panel').getByRole('link', { name: 'My polls' }).click();
   await expect(page.locator('.acct-row')).toHaveCount(2);
   await expect(page.locator('.acct-row').first()).toContainText('Board games');
 
@@ -106,10 +119,10 @@ test('sign in, and the polls this browser organizes are in My polls, on any devi
 
   // Signing out, from the top bar.
   await other.goto('/me');
-  await other.locator('.acct-menu summary').click();
-  await other.locator('.acct-panel').getByRole('button', { name: 'Sign out' }).click();
+  await other.getByLabel('Menu').click();
+  await other.locator('.menu-panel').getByRole('button', { name: 'Sign out' }).click();
   await expect(other.getByRole('link', { name: 'Continue with Google' })).toBeVisible();
-  await expect(other.locator('.topbar .acct-signin')).toBeVisible();
+  await expect(await signIn(other)).toBeVisible();
   await phone.close();
 
   // A poll made on another device: opening its organizer link here, signed in, adds it. No pasting.

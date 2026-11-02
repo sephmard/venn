@@ -1,8 +1,8 @@
-// The account's place in the top bar (app pages) and on the website: "Sign in" beside Create a
-// Venn, or (signed in) the person's initial, or the website menu, with My polls, Account settings
-// and Sign out. Only when the server has sign-in set up
-// (/api/config), and never "Sign in" on a poll's page, which is for answering. Who's signed in is
-// remembered in this browser (just a name and an initial), so it shows without asking the server.
+// The account's place in the top bar, on the website and the app alike: "Sign in" beside Create a
+// Venn (first in the menu on phones), or (signed in) the person's name, My polls, Account settings
+// and Sign out at the top of the menu. Only when the server has sign-in set up (/api/config). On a
+// poll's page, which is for answering, Sign in is only in the menu, never in the bar. Who's signed
+// in is remembered in this browser (just a name and an initial), so it shows without asking the server.
 
 const KEY = 'venn:account';
 
@@ -46,11 +46,11 @@ export async function accountMenu(getConfig) {
 }
 
 async function draw(me) {
-  // The app's top bar (the website has its menu instead).
-  const bar = document.getElementById('app') && document.querySelector('.topbar');
-  if (bar) await drawBar(bar, me);
   const panel = document.querySelector('.menu-panel');
-  if (panel) drawSiteMenu(panel, me);
+  if (!panel) return;
+  // The app (every page but the website's): its stylesheet for the account's part of the menu.
+  if (document.getElementById('app') && (me || configured)) await styles();
+  drawMenu(panel, me);
 }
 
 const SEEN = 'venn:signin-on';
@@ -78,65 +78,26 @@ const styles = () =>
     ),
   ));
 
-async function drawBar(bar, me) {
-  const onPoll = /^\/e\//.test(location.pathname);
-  if (!me && (!configured || onPoll)) return bar.querySelector('.acct-slot')?.remove();
-  await styles();
-  // Already showing this person (or Sign in): left alone, so an open menu stays open.
-  const key = me ? `${me.initial}|${me.name}` : '-';
-  if (bar.querySelector('.acct-slot')?.dataset.key === key) return;
-  bar.querySelector('.acct-slot')?.remove();
-  const slot = document.createElement('div');
-  slot.className = 'acct-slot';
-  slot.dataset.key = key;
-  slot.innerHTML = me
-    ? `<details class="acct-menu">
-         <summary aria-label="${esc(me.name ? `Account: ${me.name}` : 'Account')}"><span class="acct-avatar" aria-hidden="true">${esc(me.initial)}</span></summary>
-         <div class="acct-panel">
-           <a href="/me" data-link>My polls</a>
-           <a href="/me/settings" data-link>Account settings</a>
-           <button type="button" data-signout>Sign out</button>
-         </div>
-       </details>`
-    : '<a class="btn btn-ghost acct-signin" href="/me" data-link>Sign in</a>';
-  bar.append(slot); // after Create a Venn, at the end of the bar
-  const menu = slot.querySelector('details');
-  if (!menu) return;
-  // Closes on a pick, a tap outside, or Escape, like the website's menu.
-  slot.addEventListener('click', (e) => {
-    if (e.target.closest('.acct-panel a')) menu.open = false;
-  });
-  slot.querySelector('[data-signout]').onclick = async () => {
-    menu.open = false;
-    const { signOut } = await import('./account.js');
-    await signOut();
-    if (location.pathname === '/me') (await import('./account.js')).renderAccount();
-  };
-  const away = (e) => {
-    if (!slot.isConnected) return removeEventListener('click', away);
-    if (menu.open && !menu.contains(e.target)) menu.open = false;
-  };
-  addEventListener('click', away);
-  menu.addEventListener('keydown', (e) => {
-    if (e.key === 'Escape' && menu.open) {
-      menu.open = false;
-      menu.querySelector('summary').focus();
-    }
-  });
-}
-
-function drawSiteMenu(panel, me) {
+function drawMenu(panel, me) {
+  const app = !!document.getElementById('app');
+  // In the app, links go through its router (app.js), so the page changes without reloading.
+  const link = (href, text) => `<a href="${href}"${app ? ' data-link' : ''}>${text}</a>`;
   panel.querySelector('.acct-group')?.remove();
   panel.closest('.nav-links')?.querySelector('.site-signin')?.remove();
   if (!me && !configured) return;
   // Signed out: "Sign in", quieter than Create a Venn, which stays the main way in. In the bar on
-  // wider screens; on phones, where the bar is full, first in the menu (site.css shows one).
+  // wider screens; on phones, where the bar is full, first in the menu (the stylesheet shows one).
+  // A poll's page is for answering, so there it's only in the menu, never in the bar.
   if (!me) {
-    const a = Object.assign(document.createElement('a'), { href: '/me', className: 'site-signin', textContent: 'Sign in' });
-    panel.closest('details').before(a);
+    const onPoll = /^\/e\//.test(location.pathname);
+    if (!onPoll) {
+      const a = Object.assign(document.createElement('a'), { href: '/me', className: 'site-signin', textContent: 'Sign in' });
+      if (app) a.dataset.link = '';
+      panel.closest('details').before(a);
+    }
     const group = document.createElement('div');
-    group.className = 'acct-group acct-group-out';
-    group.innerHTML = '<a href="/me">Sign in</a><hr class="menu-sep" />';
+    group.className = `acct-group acct-group-out${onPoll ? ' acct-group-always' : ''}`;
+    group.innerHTML = `${link('/me', 'Sign in')}<hr class="menu-sep" />`;
     panel.prepend(group);
     return;
   }
@@ -144,14 +105,15 @@ function drawSiteMenu(panel, me) {
   const group = document.createElement('div');
   group.className = 'acct-group';
   group.innerHTML = `${me.name ? `<p class="menu-who">${esc(me.name)}</p>` : ''}
-     <a href="/me">My polls</a>
-     <a href="/me/settings">Account settings</a>
+     ${link('/me', 'My polls')}
+     ${link('/me/settings', 'Account settings')}
      <button type="button" class="menu-signout">Sign out</button>
      <hr class="menu-sep" />`;
   group.querySelector('.menu-signout').addEventListener('click', async () => {
     panel.closest('details').open = false;
     const { signOut } = await import('./account.js');
     await signOut();
+    if (app && location.pathname === '/me') (await import('./account.js')).renderAccount();
   });
   panel.prepend(group);
 }
