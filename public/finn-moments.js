@@ -35,6 +35,16 @@ export const MOMENTS = {
       'Everyone overlaps on a date. Finn is doing a little spin.',
     ],
   },
+  // The same, for a guest who hasn't answered yet: it's only true of the people so far.
+  soFar: {
+    pose: 'tilt',
+    extra: ['sparkle'],
+    lines: [
+      'Everyone so far can make the same date. Finn is keeping watch.',
+      'So far, one date works for everyone. Finn wonders if it works for you.',
+      'Everyone who’s answered so far overlaps. Finn’s ears are up.',
+    ],
+  },
   first: {
     pose: 'wag',
     extra: ['heart'],
@@ -84,6 +94,7 @@ function canMake(ev, p) {
  * - match: the date is picked, and it's one this guest said they could make
  * - picked: the date is picked
  * - everyone: no date yet, but at least three people answered and one works for all of them
+ * - soFar: the same, for a guest who hasn't answered yet
  * - first: the organizer's first answer from a guest is in
  * - waiting: the organizer's poll has no answers from guests yet
  */
@@ -96,7 +107,8 @@ export function momentFor(ev, { meId = null } = {}) {
   }
   if (people.length >= 3) {
     const [best] = rankTimes(ev, ev.slots || [], people, 1);
-    if (best && best.yes.length + best.ifNeeded.length === people.length) return 'everyone';
+    if (best && best.yes.length + best.ifNeeded.length === people.length)
+      return ev.isAdmin || people.some((p) => p.id === meId) ? 'everyone' : 'soFar';
   }
   if (!ev.isAdmin) return null;
   const guests = people.filter((p) => p.id !== ev.hostId).length;

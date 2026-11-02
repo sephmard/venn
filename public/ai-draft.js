@@ -207,10 +207,15 @@ export function aiDays(st, { empty, setRow, show, level, row }) {
       changed.push(where);
     }
     setRow(1);
+    // Each pick goes in the level's set, and in its "if needed" set too when the person called it optional.
+    const pick = (key, ifNeeded) => {
+      st[draft.level].add(key);
+      if (ifNeeded) st.maybe[draft.level].add(key);
+    };
     for (const d of draft.days.slice(0, LIMITS.dates))
-      if (draft.level === 'hours') for (let m = d.start; m < d.end; m += 30) st.hours.add(`${d.date}|${m}`);
-      else if (draft.level === 'parts') st.parts.add(`${d.date}|${DAY_PARTS.find((p) => p.key === d.part).start}`);
-      else st.days.add(d.date);
+      if (draft.level === 'hours') for (let m = d.start; m < d.end; m += 30) pick(`${d.date}|${m}`, d.ifNeeded);
+      else if (draft.level === 'parts') pick(`${d.date}|${DAY_PARTS.find((p) => p.key === d.part).start}`, d.ifNeeded);
+      else pick(d.date, d.ifNeeded);
     await show(draft.level);
     closeBox();
     light([...changed, ...$$('#free-list .chip')]);

@@ -144,3 +144,13 @@ test('with reduced motion, Finn still shows, without moving', async ({ page, req
   // No sideways scrolling on a phone.
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
 });
+
+test('a guest who hasn’t answered hears it’s everyone so far, not everyone', async ({ page, request }) => {
+  const { id } = await poll(request);
+  for (const name of ['Ana', 'Jo', 'Lee']) await answer(request, id, name, { [t(9)]: 2 });
+  await page.goto(`/e/${id}`);
+  const finn = page.locator('.finn');
+  await expect(finn).toHaveAttribute('data-finn', 'soFar');
+  await expect(finn.getByRole('status')).toHaveText(/so far/i);
+  await expect(finn.getByRole('status')).not.toHaveText(/!/);
+});

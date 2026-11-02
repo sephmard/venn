@@ -205,6 +205,11 @@ const DAYS_SCHEMA = {
       enum: ['days', 'parts', 'hours'],
       description: 'days: whole days. parts: mornings, afternoons or evenings. hours: specific times.',
     },
+    firstDate: { type: 'string', description: 'YYYY-MM-DD: the first day the description allows' },
+    lastDate: {
+      type: 'string',
+      description: 'YYYY-MM-DD: the last day the description allows. "This week" ends on its Sunday.',
+    },
     days: {
       type: 'array',
       items: {
@@ -214,29 +219,38 @@ const DAYS_SCHEMA = {
           part: { type: 'string', enum: ['', ...DAY_PARTS.map((p) => p.key)], description: 'For parts only, else empty' },
           from: { type: 'string', description: 'For hours only: HH:MM, 24-hour, else empty' },
           to: { type: 'string', description: 'For hours only: HH:MM, 24-hour, else empty' },
+          ifNeeded: {
+            type: 'boolean',
+            description: 'True when the person called this day optional, a maybe, a backup or only if needed',
+          },
         },
-        required: ['date', 'part', 'from', 'to'],
+        required: ['date', 'part', 'from', 'to', 'ifNeeded'],
         additionalProperties: false,
       },
     },
   },
-  required: ['title', 'emoji', 'location', 'answerWith', 'days'],
+  required: ['title', 'emoji', 'location', 'answerWith', 'firstDate', 'lastDate', 'days'],
   additionalProperties: false,
 };
 
 /**
  * The days (and parts of the day, or hours) that could work, for /new's calendar to show picked:
  * { title, emoji, location, level: 'days' | 'parts' | 'hours', days: [{ date }] | [{ date, part }] | [{ date, start, end }] },
- * with start and end in minutes after midnight.
+ * with start and end in minutes after midnight, and `ifNeeded: true` on days the person called optional.
  */
 export async function draftDays(env, { prompt, timezone }, { now, anthropic } = {}) {
   const text = cleanPrompt(prompt, 'Description');
   const today = utcToZoned(now, timezone).date;
   const NAMES = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
-  const upcoming = Array.from({ length: 42 }, (_, i) => {
+  // Six weeks of dates in weeks that run Monday to Sunday, each labelled, so "this week" and
+  // "next week" are read off the list rather than worked out.
+  const weekLabel = (i) => (i === 0 ? 'This week' : i === 1 ? 'Next week' : `In ${i} weeks`);
+  const lines = [];
+  for (let i = 0, week = -1; i < 42; i++) {
     const d = addDays(today, i);
-    return `${NAMES[weekdayOf(d)]} ${d}`;
-  }).join('\n');
+    if (i === 0 || weekdayOf(d) === 1) lines.push(`${weekLabel(++week)}:`);
+    lines.push(`  ${NAMES[weekdayOf(d)]} ${d}`);
+  }
 
   const out = await ask(env, {
     schema: DAYS_SCHEMA,
@@ -246,17 +260,23 @@ export async function draftDays(env, { prompt, timezone }, { now, anthropic } = 
 Rules:
 - The location is only a place the description names ("at mine", "Rosa's"); never invent one.
 - answerWith is "days" unless the description names times of day. Use "parts" for mornings, afternoons or evenings, and "hours" for specific times.
-- List every day that fits the description, up to 31. Only use dates on or after today, and within the next six weeks unless the description says otherwise.
+- First decide the span the description allows, as firstDate and lastDate, and list only days inside it. Weeks run Monday to Sunday, as in the calendar given: "this week" is only the days under This week, "next week" only those under Next week, "this weekend" only the coming Saturday and Sunday. Never go past a span the person gave. With no span given, use the next three weeks.
+- List each day that fits, up to 31. Only use dates on or after today.
+- ifNeeded is true for days the person called optional, a maybe, a backup, a fallback or only if needed, and false for the rest. Those days are still listed.
 - With "parts", list one entry per part of the day. With "hours", give the time range for each day.
 - Times are in the person's own time zone; do not convert them.
 ${DATA_NOTE}`,
     prompt: `Time zone: ${timezone}
-Today is ${upcoming.split('\n')[0]}. The next six weeks:
-${upcoming}
+Today is ${NAMES[weekdayOf(today)]} ${today}. The calendar:
+${lines.join('\n')}
 
 <user_text>${text}</user_text>`,
   });
 
+  // The span the AI read from the description: a day outside it never gets picked.
+  const isDate = (v) => typeof v === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(v) && addDays(v, 0) === v;
+  const first = isDate(out.firstDate) && out.firstDate > today ? out.firstDate : today;
+  const last = isDate(out.lastDate) && out.lastDate >= first ? out.lastDate : null;
   const level = ['days', 'parts', 'hours'].includes(out.answerWith) ? out.answerWith : 'days';
   const minutes = (t) => {
     const m = /^(\d{1,2}):(\d{2})$/.exec(t || '');
@@ -266,7 +286,7 @@ ${upcoming}
   const seen = new Set();
   const days = [];
   for (const d of out.days || []) {
-    if (!/^\d{4}-\d{2}-\d{2}$/.test(d.date) || d.date < today || addDays(d.date, 0) !== d.date) continue;
+    if (!isDate(d.date) || d.date < first || (last && d.date > last)) continue;
     let item = { date: d.date };
     if (level === 'parts') {
       if (!DAY_PARTS.some((p) => p.key === d.part)) continue;
@@ -280,6 +300,7 @@ ${upcoming}
     const key = JSON.stringify(item);
     if (seen.has(key)) continue;
     seen.add(key);
+    if (d.ifNeeded === true) item.ifNeeded = true;
     days.push(item);
   }
   if (!days.length) throw new AiUnavailableError("Couldn't find any days in that description. Try mentioning when.");
