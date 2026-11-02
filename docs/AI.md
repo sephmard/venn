@@ -12,6 +12,20 @@ Venn can use Anthropic's Claude to make scheduling faster. Everything is optiona
 
 People always review the result: drafts fill a form, answers can be changed before saving, and nothing is picked or sent automatically. AI isn't offered on polls inside another website's frame (`/embed`) or on white-label polls.
 
+## How Use AI reads times
+
+On Create a Venn, Use AI picks how guests answer, the days and their times, by these rules (`src/days-draft.js`):
+
+- **Days** when the plan has no time-of-day limit: all-day plans and trips. A trip of several days sets Days in a row.
+- **Parts of day** when the words state or imply mornings, afternoons or evenings. Date night, dinner, drinks or a party imply evening; brunch implies morning; lunch afternoon.
+- **Hours** only for clock times, bounded windows ("between 9 and noon", "after 6pm") or a length that needs exact times. It uses the window given and never makes up a start time or a length.
+- What the person says beats what the plan implies ("date night, but only afternoons" is afternoons). "Only free", "except" and "busy" exclude; a preference keeps the less preferred days as _if needed_.
+- Dates come from the person's own date and time zone, in Monday-to-Sunday weeks. Days and today's times that are over are left out, and it says so.
+
+The model answers in a fixed shape (its reading first, then the mode, the usual parts of the day, and each day's own parts or window). The server settles that into the least precise mode that keeps every time it was given: a day with clock times makes it hours and a part of the day makes it parts, so an evening is never lost to "all day". The page then says what it picked ("Evenings: Wed, Nov 4 · Thu, Nov 5 · …") with any assumption, and Undo. Asking again replaces the draft; Undo puts back what was there, including days picked by hand.
+
+The full policy and acceptance matrix are tested in `test/days-draft.test.js` and `e2e/ai-days.spec.js`. To check the live model against the matrix, run `ANTHROPIC_API_KEY=… npm run ai:eval` (3 runs of each case, a fraction of a cent each).
+
 ## Who pays: a weekly allowance, then people's own keys
 
 The server's key pays for a set number of AI requests each week: per person (their account when signed in, otherwise their IP address) and for everyone together. Past either limit, the AI panel asks for the person's own Anthropic API key. It's kept in their browser (local storage), sent with each AI request in the `x-anthropic-key` header, used for that request only, and never stored or logged by the server. Requests with a key of their own don't count against the allowance.

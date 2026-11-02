@@ -7,6 +7,7 @@ import { DAY_PARTS, LIMITS, MINUTE } from './core.js';
 import { $, $$, api, esc, plural, reducedMotion, toast } from './ui.js';
 
 import { aiFailed, aiHeaders, keyLink, wireKeyLink } from './ai-key.js';
+import { describeDraft } from './draft-summary.js';
 
 const keyProblem = (ex) => ex.status === 402 || (ex.status === 400 && /key/i.test(ex.message));
 
@@ -46,7 +47,10 @@ document.head.insertAdjacentHTML(
   @keyframes ai-bob { to { transform: translateY(-3px) rotate(-5deg); } }
   .ai-done { display: flex; flex-wrap: wrap; align-items: center; gap: 0 12px; margin: 12px 0 0; padding: 4px 6px 4px 14px;
     border-radius: 14px; background: color-mix(in srgb, #7c5cff 10%, var(--surface)); font-weight: 600; }
-  .ai-done > span { flex: 1 1 12em; padding: 8px 0; overflow-wrap: anywhere; }
+  .ai-done > p { flex: 1 1 12em; margin: 0; padding: 8px 0; overflow-wrap: anywhere; }
+  .ai-done-head, .ai-done-when, .ai-done-note { display: block; }
+  .ai-done-when { font-weight: 500; }
+  .ai-done-note { margin-top: 2px; font-weight: 500; color: var(--muted); }
   .ai-done .link-btn { min-height: 44px; padding: 0 10px; }
   /* What AI filled in lights up, a field at a time, then the picked days in order. */
   .ai-lit { animation: ai-lit 1.4s ease-out both; animation-delay: calc(var(--ai-i, 0) * 70ms); }
@@ -109,12 +113,21 @@ function light(els) {
   });
 }
 
-/** One line under the box saying what AI did, with Undo, which puts the form back as it was. */
-function done(text, undo) {
+/**
+ * Under the box, what AI did, with Undo, which puts the form back as it was. `said` is a line, or
+ * { head, when, note }: the name, the dates and times it picked, and what it assumed.
+ */
+function done(said, undo) {
   $('#ai-done')?.remove();
+  const { head, when, note } = typeof said === 'string' ? { head: said } : said;
+  const lines = [
+    head && `<b class="ai-done-head">${esc(head)}</b>`,
+    when && `<span class="ai-done-when">${esc(when)}</span>`,
+    note && `<small class="ai-done-note">${esc(note)}</small>`,
+  ].filter(Boolean);
   $('#ai-draft').insertAdjacentHTML(
     'afterend',
-    `<p class="ai-done" id="ai-done" role="status"><span>${esc(text)}</span><button type="button" class="link-btn" id="ai-undo">Undo</button></p>`,
+    `<div class="ai-done" id="ai-done" role="status"><p>${lines.join(' ')}</p><button type="button" class="link-btn" id="ai-undo">Undo</button></div>`,
   );
   $('#ai-undo').onclick = async () => {
     await undo();
@@ -170,13 +183,21 @@ function wire(fill, button = BUTTON) {
     }
   };
   $('#ai-go').onclick = go;
+  // Ctrl or ⌘ + Enter in the box asks, as the button does; Enter alone is a new line.
+  $('#ai-prompt').addEventListener('keydown', (e) => {
+    if (e.key === 'Enter' && (e.ctrlKey || e.metaKey) && !$('#ai-go').disabled) {
+      e.preventDefault();
+      go();
+    }
+  });
 }
 
 /**
  * On /new: "Use AI" beside "When could it be?" opens the box. One sentence fills the whole poll for
- * review: its name, an emoji, the place, how people answer and the days (into `st`, as
- * create-free.js keeps them). Only while nothing is picked (`empty()`). Hooks from the page:
- * `setRow(n)`, `show(level)`, and the current `level()` and `row()`, so Undo can put it all back.
+ * review: its name, an emoji, the place, how people answer, days in a row and the days with their
+ * times (into `st`, as create-free.js keeps them). Asking again replaces what's picked, and Undo puts
+ * back exactly what was there before. Hooks from the page: `empty()`, `setRow(n)`, `show(level)`,
+ * and the current `level()` and `row()`.
  */
 export function aiDays(st, { empty, setRow, show, level, row }) {
   if (!$('#when-h')) return;
@@ -184,8 +205,12 @@ export function aiDays(st, { empty, setRow, show, level, row }) {
     $('#when-h'),
     box('ai-inline', 'Describe it, and AI fills in the poll', 'Friendsgiving at mine, a Saturday evening in late November'),
   );
+  // What AI itself filled in last time: asking again may replace those, never what was typed.
+  let filled = {};
+  let drafted = ''; // the picks AI made last time, to tell its own draft from days picked by hand
+  const sets = () => [st.days, st.parts, st.hours, st.maybe.days, st.maybe.parts, st.maybe.hours];
+  const key = (list) => JSON.stringify(list.map((set) => [...set].sort()));
   wire(async (prompt) => {
-    if (!empty()) throw new Error('Clear the days you’ve picked first, then describe it.');
     const draft = await api('ai/draft-days', {
       method: 'POST',
       body: { prompt, timezone: $('#tz').value },
@@ -201,24 +226,39 @@ export function aiDays(st, { empty, setRow, show, level, row }) {
       bg: iconBg(),
       level: level(),
       row: row(),
+      picks: sets().map((set) => new Set(set)),
+      filled,
+      drafted,
     };
+    const had = !empty();
+    const ours = (now, was) => !now.trim() || now === was;
     const changed = [];
-    if (draft.title && (!t.value.trim() || t.value === t.dataset.seed)) {
-      t.value = draft.title;
+    const next = {};
+    if (draft.title && (ours(t.value, filled.title) || t.value === t.dataset.seed)) {
+      t.value = next.title = draft.title;
       t.dispatchEvent(new Event('input'));
       changed.push(t);
     }
     const tile = $('#emoji-tile');
-    if (draft.emoji && !before.emoji && (await setIconEmoji(draft.emoji))) changed.push(tile);
+    if (draft.emoji && ours(before.emoji, filled.emoji) && (await setIconEmoji(draft.emoji))) {
+      next.emoji = draft.emoji;
+      changed.push(tile);
+    }
     // Its background, from Venn's own set (tile-styles.js), unless they picked one or it's a brand's poll.
-    if (draft.tile && !before.bg && (await setIconBg(draft.tile)) && !changed.includes(tile)) changed.push(tile);
-    if (draft.location && !where.value.trim()) {
-      where.value = draft.location;
+    if (draft.tile && ours(before.bg, filled.bg) && (await setIconBg(draft.tile))) {
+      next.bg = draft.tile;
+      if (!changed.includes(tile)) changed.push(tile);
+    }
+    if (draft.location && ours(where.value, filled.where)) {
+      where.value = next.where = draft.location;
       $('#more-box').open = true;
       changed.push(where);
     }
-    setRow(1);
-    // Each pick goes in the level's set, and in its "if needed" set too when the person called it optional.
+    filled = next;
+    // The days replace whatever was picked. Each pick goes in its level's set, and in its
+    // "if needed" set too when the person called it optional.
+    for (const set of sets()) set.clear();
+    setRow(draft.level === 'days' ? draft.row || 1 : 1);
     const pick = (key, ifNeeded) => {
       st[draft.level].add(key);
       if (ifNeeded) st.maybe[draft.level].add(key);
@@ -230,31 +270,31 @@ export function aiDays(st, { empty, setRow, show, level, row }) {
     await show(draft.level);
     closeBox();
     light([...changed, ...$$('#free-list .chip')]);
-    done(summary(draft, changed.includes(t) ? t.value : ''), async () => {
-      for (const set of [st.days, st.parts, st.hours, st.maybe.days, st.maybe.parts, st.maybe.hours]) set.clear();
+    const said = describeDraft(draft, changed.includes(t) ? t.value : '');
+    const replaced = !had
+      ? ''
+      : before.drafted === key(before.picks)
+        ? 'It replaced the last draft. Undo brings it back.'
+        : 'It replaced the days you had picked. Undo brings them back.';
+    drafted = key(sets());
+    if (replaced) said.note = [said.note, replaced].filter(Boolean).join(' ');
+    done(said, async () => {
+      sets().forEach((set, i) => {
+        set.clear();
+        for (const k of before.picks[i]) set.add(k);
+      });
+      filled = before.filled;
+      drafted = before.drafted;
       t.value = before.title;
       t.dataset.seed = before.seed ?? '';
       t.dispatchEvent(new Event('input')); // whatever follows the name (the link preview) follows it back
       where.value = before.where;
-      await setIconEmoji(before.emoji);
+      if (iconEmoji() !== before.emoji) await setIconEmoji(before.emoji);
       if (iconBg() !== before.bg) await setIconBg(before.bg);
       setRow(before.row);
       await show(before.level);
     });
   });
-}
-
-/** What AI filled in, in a line: "Friendsgiving 🦃 · At mine · 4 evenings". */
-function summary(draft, title) {
-  const dates = new Set(draft.days.map((d) => d.date)).size;
-  const parts = new Set(draft.days.map((d) => d.part));
-  const when =
-    draft.level === 'parts' && parts.size === 1
-      ? plural(draft.days.length, DAY_PARTS.find((p) => p.key === draft.days[0].part).label.toLowerCase())
-      : draft.level === 'days'
-        ? plural(dates, 'day')
-        : `${plural(draft.days.length, 'time')} on ${plural(dates, 'day')}`;
-  return [[title, draft.emoji].filter(Boolean).join(' '), draft.location, when].filter(Boolean).join(' · ');
 }
 
 /** On "vote on a few dates": "Use AI" beside "When could it be?"; `load(options, tz)` fills in the options. */

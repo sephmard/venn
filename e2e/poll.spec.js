@@ -1361,7 +1361,8 @@ test('AI: describe it instead on Create a Venn picks the days, with your own key
   await page.fill('#ai-prompt', 'Dinner, any Friday or Saturday evening');
   await page.click('#ai-go');
   expect((await sent).headers()['x-anthropic-key']).toMatch(/^sk-ant-x+$/);
-  await expect(page.locator('#ai-done')).toContainText(/^Dinner 🍝 · \d+ evenings?Undo$/);
+  await expect(page.locator('#ai-done .ai-done-head')).toHaveText('Dinner 🍝');
+  await expect(page.locator('#ai-done .ai-done-when')).toContainText(/^Evenings: /);
   await expect(page.locator('#title')).toHaveValue('Dinner');
   await expect(page.locator('[data-level="parts"]')).toHaveAttribute('aria-checked', 'true');
   await expect(page.locator('#free-list .chip').first()).toContainText('Evening');
@@ -1379,10 +1380,10 @@ test('AI: describe it instead on Create a Venn picks the days, with your own key
       .first(),
   ).toBeVisible();
   await expect(page.locator('#ai-draft')).toBeHidden();
-  // Once days are picked, it doesn't replace them, and says so in the box.
+  // Asking again replaces its own draft, and says so (more in ai-days.spec.js).
   await page.click('#ai-open');
   await page.click('#ai-go');
-  await expect(page.locator('#ai-err')).toHaveText('Clear the days you’ve picked first, then describe it.');
+  await expect(page.locator('#ai-done .ai-done-note')).toHaveText('It replaced the last draft. Undo brings it back.');
 });
 
 test('AI: one sentence fills the whole poll for review, shows what it did, and Undo puts it all back', async ({ page }) => {
@@ -1409,7 +1410,7 @@ test('AI: one sentence fills the whole poll for review, shows what it did, and U
   await expect(page.locator('#ai-err')).toBeEmpty();
   answer();
   // The name, the emoji, the place and the evenings, for review: nothing is created yet.
-  await expect(page.locator('#ai-done')).toContainText(/^Dinner 🍝 · Rosa’s · \d+ evenings?Undo$/);
+  await expect(page.locator('#ai-done .ai-done-head')).toHaveText('Dinner 🍝 · Rosa’s');
   await expect(page.locator('#ai-wait')).toBeHidden();
   await expect(page.locator('#title')).toHaveValue('Dinner');
   await expect(page.locator('#emoji-tile')).toHaveText('🍝');
