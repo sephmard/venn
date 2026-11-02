@@ -3514,17 +3514,17 @@ test('the organizer sees who they invited and whether each has answered', async 
   });
   await page.goto(`/e/${id}#admin=${adminToken}`);
   await openTools(page);
+  // Invite by email lists them (this server sends no email, so none was sent yet).
+  await page.click('#invite-open');
+  await expect(page.locator('#invitee-list li')).toHaveText(['ana@example.com Answered', 'lee@example.com Waiting Remove']);
+  // The Deadline panel reminds the same list, as often as chosen.
   await page.click('#deadline-open');
-  await expect(page.locator('#invitee-list li')).toHaveText(['ana@example.com Answered', 'lee@example.com Waiting']);
-  await expect(page.getByLabel('How often')).toHaveValue('2');
-  await expect(page.getByLabel(/Remind who hasn/)).toHaveValue('ana@example.com, lee@example.com');
-  // Inviting one more, reminded only the day before.
-  await page.getByLabel(/Remind who hasn/).fill('Ana <ana@example.com>, lee@example.com\nkim@example.com');
-  await page.getByLabel('How often').selectOption({ label: 'Only the day before' });
+  await expect(page.getByLabel(/Remind who hasn/)).toHaveValue('2');
+  await expect(page.locator('#dl-hint')).toHaveText(/the 1 person you emailed it to who haven/);
+  await page.getByLabel(/Remind who hasn/).selectOption({ label: 'Only the day before' });
   await page.getByRole('button', { name: 'Save deadline' }).click();
   await expect(page.locator('#toast')).toHaveText('Deadline saved');
-  await expect(page.locator('#invitee-list li')).toHaveCount(3);
   const saved = await (await request.get(`/api/events/${id}/deadline`, { headers: { 'x-admin-token': adminToken } })).json();
   expect(saved.remindEvery).toBe(0);
-  expect(saved.invitees.map((i) => i.email)).toEqual(['ana@example.com', 'lee@example.com', 'kim@example.com']);
+  expect(saved.invitees.map((i) => i.email)).toEqual(['ana@example.com', 'lee@example.com']);
 });

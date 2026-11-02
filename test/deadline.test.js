@@ -132,9 +132,9 @@ test('the organizer sets a deadline and who to remind; guests see only when answ
     deadline,
     remindEvery: 1,
     invitees: [
-      { email: 'ana@example.com', answered: true, reminded: 0, stopped: false },
-      { email: 'lee@example.com', answered: false, reminded: 0, stopped: false },
-      { email: 'kim@example.com', answered: false, reminded: 0, stopped: false },
+      { email: 'ana@example.com', answered: true, invited: true, reminded: 0, stopped: false },
+      { email: 'lee@example.com', answered: false, invited: true, reminded: 0, stopped: false },
+      { email: 'kim@example.com', answered: false, invited: true, reminded: 0, stopped: false },
     ],
   });
 
@@ -154,8 +154,14 @@ test('the organizer sets a deadline and who to remind; guests see only when answ
   // Bad input is refused; no deadline takes it off.
   const bad = await call(`/api/events/${id}/deadline`, { method: 'PUT', body: { deadline: START }, headers: admin });
   assert.equal(bad.status, 400);
+  // No deadline takes it off; the invite list stays (Invite by email changes it).
   const off = await call(`/api/events/${id}/deadline`, { method: 'PUT', body: { deadline: null }, headers: admin });
-  assert.deepEqual(off.data, { deadline: null, remindEvery: null, invitees: [] });
+  assert.equal(off.data.deadline, null);
+  assert.equal(off.data.remindEvery, null);
+  assert.deepEqual(
+    off.data.invitees.map((i) => i.email),
+    ['lee@example.com'],
+  );
   assert.equal((await call(`/api/events/${id}`)).data.deadline, undefined);
 });
 
@@ -177,6 +183,7 @@ test('a deadline alone needs no emails; invitees ask for them, and go when that 
     remindEvery: null,
     invitees: [],
   });
+  sent.length = 0; // the invitations, sent as the polls were made
   clock = START + 2 * DAY;
   await server.deadlines();
   assert.equal(emails().length, 0);

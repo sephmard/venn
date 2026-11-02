@@ -47,13 +47,15 @@ test('signed out, no deadline on the form; signed in, a vote closes answers and 
   await page.getByLabel(/Your name/).fill('Priya');
   if (await page.locator('#notify').isVisible()) await page.locator('#notify').fill('priya@example.com');
   await expect(page.locator('#deadline-opts')).toBeVisible();
+  // This Venn sends email: who to email it to, and (with a deadline) how often to remind them.
+  await page.locator('#invite-opts summary').click();
+  await page.locator('#inv-input').fill('ana@example.com, lee@example.com ');
+  await expect(page.locator('#p-email')).toBeChecked(); // reminders need to know who answered
   await page.locator('#deadline-opts summary').click();
   await page.getByRole('button', { name: 'In 3 days' }).click();
   await expect(page.getByRole('button', { name: 'In 3 days' })).toHaveAttribute('aria-pressed', 'true');
   await expect(page.locator('#dl-at')).toHaveValue(/T18:00$/);
-  // This Venn sends email: who to remind, and how often.
-  await page.getByLabel(/Remind who hasn/).fill('ana@example.com, lee@example.com');
-  await expect(page.locator('#p-email')).toBeChecked(); // reminders need to know who answered
+  await expect(page.getByLabel(/Remind who hasn/)).toBeVisible();
   await page.locator('#deadline-opts').scrollIntoViewIfNeeded();
   await shot(page, `${size}-create-deadline`);
   await page.click('#submit');
@@ -85,7 +87,7 @@ test('signed out, no deadline on the form; signed in, a vote closes answers and 
   await shot(page, `${size}-mypolls-menu`);
   await page.getByRole('link', { name: 'Change the deadline' }).click();
   await expect(page.locator('#deadline-h')).toBeVisible();
-  await expect(page.locator('#invitee-list li')).toHaveText(['ana@example.com Waiting', 'lee@example.com Waiting']);
+  await expect(page.locator('#dl-hint')).toHaveText(/the 2 people you emailed it to/);
   await page.locator('#deadline-box').scrollIntoViewIfNeeded();
   await shot(page, `${size}-organizer-panel`);
   await context.close();
