@@ -54,6 +54,20 @@ for (const width of [390, 1200]) {
   });
 }
 
+test('the logo and the menu stay in the same place going from the website into the app', async ({ page }) => {
+  for (const width of [390, 1200]) {
+    await page.setViewportSize({ width, height: 800 });
+    const where = async (path) => {
+      await page.goto(path);
+      await page.locator('h1').first().waitFor();
+      const logo = await page.locator('header.topbar .brand').boundingBox();
+      const menu = await page.locator('header.topbar').getByLabel('Menu').boundingBox();
+      return { logo: Math.round(logo.x), menu: Math.round(menu.x), bar: Math.round(logo.y) };
+    };
+    expect(await where('/new'), `${width}px`).toEqual(await where('/'));
+  }
+});
+
 test("the app's menu closes on a tap outside it, or one of its links", async ({ page }) => {
   await page.goto('/new');
   const toggle = page.getByLabel('Menu');

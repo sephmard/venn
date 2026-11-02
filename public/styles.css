@@ -213,11 +213,11 @@ button.final:focus-visible {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 8px;
-  max-width: 1080px;
+  gap: 16px;
+  max-width: 1168px; /* the website's .wrap: 1120px and its 24px gutters, so the logo stays put */
   height: 68px;
   margin: 0 auto;
-  padding: 0 16px;
+  padding: 0 24px;
 }
 .brand {
   display: inline-flex;
@@ -233,8 +233,17 @@ button.final:focus-visible {
 .nav-links {
   display: flex;
   align-items: center;
-  gap: 4px;
+  gap: 8px;
   min-width: 0;
+}
+@media (max-width: 640px) {
+  .nav {
+    gap: 8px;
+    padding: 0 16px;
+  }
+  .nav-links {
+    gap: 4px;
+  }
 }
 .menu {
   position: relative;
@@ -2210,6 +2219,11 @@ pre.code {
 .creating .btn-new {
   display: none;
 }
+@media (max-width: 640px) {
+  .btn-new {
+    padding: 0 16px;
+  }
+}
 @media (max-width: 374px) {
   .btn-new {
     padding-inline: 10px;
@@ -2217,6 +2231,9 @@ pre.code {
   }
   .nav {
     gap: 4px;
+  }
+  .nav-links {
+    gap: 2px;
   }
 }
 /* Blocks on the week: drag an edge to change the length; "if needed" options are amber. */

@@ -100,7 +100,10 @@ html.retro .topbar {
     0 1px 0 0 rgb(255 60 172 / 0.6),
     0 6px 24px -10px rgb(255 60 172 / 0.6);
 }
-/* The bar as on the website: chrome capitals, and Create a Venn in neon. */
+/* The bar as on the website: its 24px gutters at every width, chrome capitals, and Create a Venn in neon. */
+html.retro .nav {
+  padding: 0 24px;
+}
 html.retro .brand {
   font-family: var(--serif);
   font-weight: 900;
@@ -126,7 +129,7 @@ html.retro .menu-panel {
     letter-spacing: 0.03em;
   }
   html.retro .btn-new {
-    padding: 0 12px;
+    padding: 0 10px;
     font-size: 0.75rem;
     letter-spacing: 0.02em;
   }
