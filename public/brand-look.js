@@ -51,8 +51,8 @@ const BACKS = { light: ['#faf8f4', '#ffffff', '#f2eee6'], dark: ['#0f1112', '#17
 // The key's colours (styles.css), for a light or a dark background.
 const KEY = {
   light:
-    '--yes:#0b7a5c;--yes-ink:#ffffff;--maybe:#e0a12e;--maybe-ink:#241a04;--no-bg:#55585c;--no-ink:#ffffff;--no:#b42318;--no-cell:#f0b2a6;--danger:#b42318;--heat:11, 122, 92;',
-  dark: '--yes:#2fc497;--yes-ink:#06140f;--maybe:#e9b14a;--maybe-ink:#241a04;--no-bg:#c9c6bf;--no-ink:#0f1112;--no:#ff8577;--no-cell:#6a2e27;--danger:#ff8577;--heat:47, 196, 151;',
+    '--yes:#0b7a5c;--yes-ink:#ffffff;--maybe:#e0a12e;--maybe-ink:#241a04;--no-bg:#55585c;--no-ink:#ffffff;--no:#c2185b;--no-cell:#f5b5d0;--danger:#b42318;--heat:11, 122, 92;',
+  dark: '--yes:#2fc497;--yes-ink:#06140f;--maybe:#e9b14a;--maybe-ink:#241a04;--no-bg:#c9c6bf;--no-ink:#0f1112;--no:#ff7ab4;--no-cell:#6e2a4c;--danger:#ff8577;--heat:47, 196, 151;',
 };
 
 const isDark = (hex) => lum(hex) < 0.18;
@@ -100,7 +100,7 @@ export function scheme({ bg, surface, text, accent }) {
       `--bg:${bg};--surface:${card};--surface-2:${card2};--border:${mix(bg, ink, 0.16)};--text:${ink};--muted:${muted};` +
       `--accent:${acc};--accent-ink:${inkOn(acc)};--accent-soft:${mix(card, acc, dark ? 0.24 : 0.14)};` +
       `--cell-empty:${mix(card, ink, 0.08)};--cell-line:${readable(mix(ink, bg, 0.5), [card], 3)};` +
-      `--yes-soft:${mix(card, dark ? '#2fc497' : '#0b7a5c', 0.2)};--maybe-soft:${mix(card, '#e0a12e', 0.2)};--no-soft:${mix(card, dark ? '#ff8577' : '#b42318', 0.16)};` +
+      `--yes-soft:${mix(card, dark ? '#2fc497' : '#0b7a5c', 0.2)};--maybe-soft:${mix(card, '#e0a12e', 0.2)};--no-soft:${mix(card, dark ? '#ff7ab4' : '#c2185b', 0.16)};` +
       `--final:${ink};--final-ink:${bg};` +
       KEY[dark ? 'dark' : 'light'] +
       `color-scheme:${dark ? 'dark' : 'light'};`,

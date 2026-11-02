@@ -1460,12 +1460,10 @@ export async function renderEvent(id, navigate) {
   // ----- header, banners -----
   function renderHeader() {
     $('#ev-title').textContent = ev().title;
-    // The host is already "Hosted by": the count is everyone else who answered.
+    // The organizer is already named ("By Priya"): the count is everyone else who answered.
     const guests = ev().participants.filter((p) => p.id !== ev().hostId);
     const n = (ev().responses ?? ev().participants.length) - (ev().participants.length - guests.length);
-    const by = ev().organizer
-      ? `<span class="host">${avatar(ev().organizer, 'av-xs')}Hosted by ${esc(ev().organizer)}</span>`
-      : '';
+    const by = ev().organizer ? `<span class="host">${avatar(ev().organizer, 'av-xs')}By ${esc(ev().organizer)}</span>` : '';
     const count = n
       ? `<span class="answered">${avatarStack(
           guests.map((p) => p.name),

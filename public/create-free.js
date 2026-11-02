@@ -110,7 +110,7 @@ export function renderFree() {
         <div id="free-list" class="opt-list" aria-live="polite"></div>
       </section>
       ${youFields()}
-      ${createBar('Create Venn')}
+      ${createBar('Create a Venn')}
     </form>`;
 
   // A template shapes the calendar only while nothing is picked.
