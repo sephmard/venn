@@ -17,14 +17,19 @@ function reply(body) {
       slots: [1, 2, 3].map((n) => ({ date: day(n), time: '14:00' })),
     };
   }
-  // Describe it on /new: Friday and Saturday evenings in the next two weeks.
+  // Describe it on /new: Friday and Saturday evenings in the next two weeks, Saturdays only if needed.
   if (props.answerWith) {
     const today = prompt.match(/Today is \w+ (\d{4}-\d{2}-\d{2})/)[1];
-    const days = prompt.match(/^(Friday|Saturday) \d{4}-\d{2}-\d{2}$/gm).slice(0, 4);
+    const days = prompt.match(/^\s*(Friday|Saturday) \d{4}-\d{2}-\d{2}$/gm).slice(0, 4);
     return {
       title: 'Dinner',
       answerWith: 'parts',
-      days: days.map((l) => ({ date: l.split(' ')[1], part: 'evening', from: '', to: '' })).filter((d) => d.date > today),
+      firstDate: today,
+      lastDate: '',
+      days: days
+        .map((l) => l.trim().split(' '))
+        .map(([name, date]) => ({ date, part: 'evening', from: '', to: '', ifNeeded: name === 'Saturday' }))
+        .filter((d) => d.date > today),
     };
   }
   // A vote on /new/topic.

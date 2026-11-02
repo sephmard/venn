@@ -1346,6 +1346,19 @@ test('AI: describe it instead on Create a Venn picks the days, with your own key
   await expect(page.locator('#title')).toHaveValue('Dinner');
   await expect(page.locator('[data-level="parts"]')).toHaveAttribute('aria-checked', 'true');
   await expect(page.locator('#free-list .chip').first()).toContainText('Evening');
+  // Days described as optional are picked as if needed.
+  await expect(
+    page
+      .locator('#free-list')
+      .getByRole('button', { name: /^Sat.*if needed for you/ })
+      .first(),
+  ).toBeVisible();
+  await expect(
+    page
+      .locator('#free-list')
+      .getByRole('button', { name: /^Fri.*available for you/ })
+      .first(),
+  ).toBeVisible();
   await expect(page.locator('#ai-draft')).toBeHidden();
   // Once days are picked, it doesn't replace them.
   await page.click('#ai-open');

@@ -282,6 +282,30 @@ test('describe it on /new: days, parts of the day or hours, checked', async () =
   assert.equal((await call('/api/ai/draft-days', { body: { prompt: 'whenever', timezone: 'UTC' } })).status, 503);
 });
 
+test('describe the days: only the span the person gave, and optional days marked if needed', async () => {
+  nextOutput = {
+    title: 'Dinner',
+    answerWith: 'days',
+    firstDate: '2030-01-07',
+    lastDate: '2030-01-13', // "this week"
+    days: [
+      { date: '2030-01-10', part: '', from: '', to: '', ifNeeded: false },
+      { date: '2030-01-12', part: '', from: '', to: '', ifNeeded: true }, // "Saturday if needed"
+      { date: '2030-01-17', part: '', from: '', to: '', ifNeeded: false }, // past the span it read
+    ],
+  };
+  calls.length = 0;
+  const res = await call('/api/ai/draft-days', {
+    body: { prompt: 'dinner this week, Thursday, Saturday only if needed', timezone: 'UTC' },
+  });
+  assert.equal(res.status, 200);
+  assert.deepEqual(res.data.days, [{ date: '2030-01-10' }, { date: '2030-01-12', ifNeeded: true }]);
+  // The calendar it's given says which days are this week and next.
+  const sent = calls.at(-1).messages[0].content;
+  assert.match(sent, /^This week:$/m);
+  assert.match(sent, /^Next week:\n {2}Monday \d{4}-\d{2}-\d{2}$/m);
+});
+
 test('describe your organization: a template look, only known fonts and readable colours', async () => {
   nextOutput = {
     accent: '#2F6B3A',
