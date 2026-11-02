@@ -144,11 +144,11 @@ ${lines.join('\n')}
 }
 
 const isDate = (v) => typeof v === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(v) && addDays(v, 0) === v;
-/** "18:30" → 1110, rounded to the half hour the hours view paints; "24:00" is the end of the day. */
-function minutes(t) {
+/** "18:30" → 1110, on the half-hour grid the hours view paints; "24:00" is the end of the day. */
+function minutes(t, round = Math.round) {
   const m = /^(\d{1,2}):(\d{2})$/.exec(t || '');
   if (!m || +m[1] > 24 || +m[2] > 59) return null;
-  return Math.min(1440, +m[1] * 60 + Math.round(+m[2] / 30) * 30);
+  return Math.min(1440, round((+m[1] * 60 + +m[2]) / 30) * 30);
 }
 const partsIn = (list) => (Array.isArray(list) ? PART_KEYS.filter((k) => list.includes(k)) : []);
 const partRange = (key) => {
@@ -186,7 +186,8 @@ export function shapeDays(out, { today, nowMinutes = 0 }) {
     const named = [...(Array.isArray(d.parts) ? d.parts : []), ...(d.part ? [d.part] : [])];
     if (named.length && !partsIn(named).length) continue;
     // So is a window that doesn't make sense (ends before it starts, or 25:00).
-    const [start, end] = [minutes(d.from), minutes(d.to)];
+    // Starts round down and ends up, so the half-hour grid keeps the whole window given.
+    const [start, end] = [minutes(d.from, Math.floor), minutes(d.to, Math.ceil)];
     const timed = start != null && end != null && end > start;
     if ((d.from || d.to) && !timed) continue;
     const day = byDate.get(d.date) || { date: d.date, parts: [], windows: [], ifNeeded: true };

@@ -105,6 +105,9 @@ test('5-7: clock times stay as given, open ends run to midnight, and no length i
     ['2026-11-03', '840-960'],
     ['2026-11-05', '840-960'],
   ]);
+  // 6:45–8:10 keeps all of it on the half-hour grid: 6:30–8:30.
+  const odd = shape(answer([{ date: '2026-11-04', from: '18:45', to: '20:10' }], { timeOfDay: 'clock' }));
+  assert.deepEqual(pairs(odd), [['2026-11-04', '1110-1230']]);
   const after6 = shape(answer([{ date: '2026-11-04', from: '18:00', to: '24:00' }], { timeOfDay: 'clock' }));
   assert.deepEqual(pairs(after6), [['2026-11-04', '1080-1440']]);
   assert.match(describeDraft(after6).when, /midnight/);
