@@ -59,8 +59,8 @@ const RING =
   '.pv-spot{outline:2.5px dashed #d61f8c!important;outline-offset:3px;box-shadow:0 0 0 7px rgba(214,31,140,.14)!important;animation:pv-ring .7s ease-out}' +
   '@keyframes pv-ring{from{outline-offset:12px;outline-color:transparent}}' +
   '@media (prefers-reduced-motion:reduce){.pv-spot{animation:none}}' +
-  // A poll's page shows no Sign in (account-menu.js), so the preview doesn't either.
-  '.acct-slot{display:none!important}';
+  // A poll's page shows no Sign in in its bar (account-menu.js), so the preview doesn't either.
+  '.site-signin{display:none!important}';
 
 /** Ring what `focus` changes (at most two of each), and with `go`, bring the first into view. */
 function spotlight(focus, go) {

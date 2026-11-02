@@ -23,7 +23,10 @@ async function route() {
   for (const l of document.querySelectorAll('link[rel=icon]'))
     l.href = l.href.replace(/favicon[^.]*/, poll ? 'favicon-poll' : 'favicon');
   let off;
-  // The account's place in the top bar (account-menu.js), drawn for each page.
+  // The bar's Create a Venn shows on every page but the create pages, where the form is the way on
+  // (app-look.js sets this first, before the page is drawn).
+  document.documentElement.classList.toggle('creating', /^\/new(\/|$)/.test(path));
+  // The account's place in the top bar's menu (account-menu.js), drawn for each page.
   // Not in a frame (/embed), where Venn's cookie isn't sent.
   if (!embed) import('./account-menu.js').then(async (m) => m.accountMenu((await import('./ui.js')).getConfig)).catch(() => {});
   if (poll) off = await (await import('./event.js')).renderEvent(poll[1], navigate);
@@ -68,3 +71,5 @@ document.addEventListener('click', (e) => {
 addEventListener('popstate', route);
 
 route();
+// The top bar's menu closes on a pick, a tap outside, or Escape (loaded after the page).
+void import('./menu.js').catch(() => {});
