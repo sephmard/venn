@@ -458,9 +458,49 @@ Link: ${url}`,
  * together. Past either, people bring their own key. 0 turns the server's key off.
  */
 export function aiAllowance(env) {
-  if (!env.ANTHROPIC_API_KEY) return { perPerson: 0, total: 0 };
+  const budget = aiBudget(env);
+  if (!env.ANTHROPIC_API_KEY || !budget) return { perPerson: 0, total: 0, budget: 0 };
   const n = (v, fallback) => (v == null || v === '' ? fallback : Math.max(0, Math.floor(Number(v)) || 0));
-  return { perPerson: n(env.AI_WEEKLY_LIMIT, 20), total: n(env.AI_WEEKLY_TOTAL, 2000) };
+  return { perPerson: n(env.AI_WEEKLY_LIMIT, 20), total: n(env.AI_WEEKLY_TOTAL, 2000), budget };
+}
+
+/**
+ * The most the server's key may spend each week, in millionths of a dollar: AI_WEEKLY_BUDGET_USD,
+ * $5 unless set. 0 turns the server's key off. Spend is worked out from each answer's token counts.
+ */
+export function aiBudget(env) {
+  const v = env.AI_WEEKLY_BUDGET_USD;
+  const usd = v == null || v === '' ? 5 : Number(v);
+  return Number.isFinite(usd) && usd > 0 ? Math.round(usd * 1e6) : 0;
+}
+
+// Dollars per million input and output tokens, by model family. Anything unknown is priced as Opus,
+// so a new model can only make the estimate high, never low.
+const PRICES = { haiku: [0.1, 0.5], sonnet: [2, 10], opus: [4, 20], fable: [10, 50], mythos: [10, 50] };
+
+/** What one answer cost, in millionths of a dollar, from its usage. */
+export function costOf(model, usage = {}) {
+  const family = Object.keys(PRICES).find((f) => String(model).includes(f));
+  const [inPrice, outPrice] = PRICES[family] || PRICES.opus;
+  const input =
+    (usage.input_tokens || 0) + 1.25 * (usage.cache_creation_input_tokens || 0) + 0.1 * (usage.cache_read_input_tokens || 0);
+  return Math.ceil(input * inPrice + (usage.output_tokens || 0) * outPrice);
+}
+
+/** A client that reports what each answer cost to `spend(micros)`. For the server's own key. */
+export function meteredClient(anthropic, env, spend) {
+  return {
+    beta: {
+      messages: {
+        create: async (params) => {
+          const response = await anthropic.beta.messages.create(params);
+          const cost = costOf(response.model || params.model || env.AI_MODEL || DEFAULT_MODEL, response.usage);
+          await Promise.resolve(spend(cost)).catch((e) => console.error('Could not count AI spend', e?.message));
+          return response;
+        },
+      },
+    },
+  };
 }
 
 /** The Monday (UTC) starting the week `now` is in, as YYYY-MM-DD. */

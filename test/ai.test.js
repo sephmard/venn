@@ -2,19 +2,24 @@ import { test, before, after } from 'node:test';
 import assert from 'node:assert/strict';
 import { DatabaseSync } from 'node:sqlite';
 import { createApp } from '../server.js';
-import { allowanceKey, weekOf } from '../src/ai.js';
+import { aiAllowance, aiBudget, allowanceKey, costOf, weekOf } from '../src/ai.js';
 import { createStore, sqliteAdapter } from '../src/store.js';
 
 // A stand-in for the Anthropic client: records each request and returns the next canned output.
 const calls = [];
 let nextOutput = {};
 let nextStop = 'end_turn';
+let nextUsage = { input_tokens: 1000, output_tokens: 200 };
 const fakeAnthropic = {
   beta: {
     messages: {
       create: async (params) => {
         calls.push(params);
-        return { stop_reason: nextStop, content: [{ type: 'text', text: JSON.stringify(nextOutput) }] };
+        return {
+          stop_reason: nextStop,
+          usage: nextUsage,
+          content: [{ type: 'text', text: JSON.stringify(nextOutput) }],
+        };
       },
     },
   },
@@ -288,6 +293,41 @@ test('the server key has a weekly allowance; past it, people bring their own key
   // Next week starts again.
   clock += 7 * 24 * 3_600_000;
   assert.equal((await post()).status, 200);
+});
+
+test('a weekly dollar cap on the server key, worked out from each answer’s tokens', async (t) => {
+  // Haiku: $0.10 in and $0.50 out per million tokens, so 1M in + 1M out is 600,000 millionths.
+  assert.equal(costOf('claude-haiku-5-5', { input_tokens: 1e6, output_tokens: 1e6 }), 600_000);
+  assert.equal(costOf('claude-sonnet-5-5', { input_tokens: 1e6 }), 2_000_000);
+  assert.equal(costOf('some-new-model', { output_tokens: 1e6 }), 20_000_000); // unknown: priced as Opus
+  assert.equal(aiBudget({}), 5_000_000); // $5 a week unless set
+  assert.equal(aiBudget({ AI_WEEKLY_BUDGET_USD: '0.5' }), 500_000);
+  assert.deepEqual(aiAllowance({ ANTHROPIC_API_KEY: 'k', AI_WEEKLY_BUDGET_USD: '0' }), { perPerson: 0, total: 0, budget: 0 });
+
+  const s = createApp({
+    env: { ANTHROPIC_API_KEY: 'sk-test', AI_WEEKLY_BUDGET_USD: '1', AI_MODEL: 'claude-haiku-5-5' },
+    anthropic: fakeAnthropic,
+    now: () => Date.UTC(2030, 0, 8, 12),
+  });
+  await new Promise((r) => s.listen(0, r));
+  t.after(() => {
+    s.close();
+    nextUsage = { input_tokens: 1000, output_tokens: 200 };
+  });
+  const post = (headers = {}) =>
+    fetch(`http://localhost:${s.address().port}/api/ai/draft-poll`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json', ...headers },
+      body: JSON.stringify({ prompt: 'lunch', timezone: 'UTC' }),
+    });
+  nextOutput = { title: 'Lunch', description: '', durationMinutes: 60, slots: [{ date: '2030-02-09', time: '12:00' }] };
+  nextUsage = { input_tokens: 1e6, output_tokens: 1e6 }; // $0.60 each
+  assert.deepEqual([(await post()).status, (await post()).status], [200, 200]); // $1.20 spent: over $1
+  const over = await post();
+  assert.equal(over.status, 402);
+  assert.match((await over.json()).error, /used up for this week/);
+  // A key of your own still works, and isn't counted.
+  assert.equal((await post({ 'x-anthropic-key': `sk-ant-${'c'.repeat(30)}` })).status, 200);
 });
 
 test('with only AI_OWN_KEYS on, AI needs a key of your own', async (t) => {

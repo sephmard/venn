@@ -45,6 +45,7 @@ import {
   aiAllowance,
   aiClient,
   aiEnabled,
+  meteredClient,
   allowAiRequest,
   allowanceKey,
   answerForMe,
@@ -655,11 +656,16 @@ export async function handleApi(
         return error(400, "That doesn't look like an Anthropic API key. They start with sk-ant-.");
       ownKey = brought || null;
       if (!ownKey) {
-        const { perPerson, total } = aiAllowance(env);
+        const { perPerson, total, budget } = aiAllowance(env);
         const week = weekOf(now());
         const who = perPerson && total ? await allowanceKey(week, (await currentUser())?.id, clientIp) : null;
-        const used = who ? await store.takeAiAllowance(week, who, perPerson, total) : 'off';
-        if (!used) allowance = { week, who };
+        // The weekly dollar cap (AI_WEEKLY_BUDGET_USD): once this week's spend reaches it, people bring their own key.
+        const overBudget = who && (await store.aiSpend(week)) >= budget;
+        const used = !who ? 'off' : overBudget ? 'total' : await store.takeAiAllowance(week, who, perPerson, total);
+        if (!used) {
+          allowance = { week, who };
+          anthropic = meteredClient(anthropic ?? aiClient(env), env, (micros) => store.addAiSpend(week, micros));
+        }
         if (used)
           return error(
             402,

@@ -31,20 +31,21 @@ The weekly counts are kept in the `ai_allowance` table under a SHA-256 hash of t
 
 ### Settings
 
-| Setting             | Default            | Notes                                                                                                                                                             |
-| ------------------- | ------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `ANTHROPIC_API_KEY` | (off)              | Required to turn AI on. Keep it secret.                                                                                                                           |
-| `AI_MODEL`          | `claude-haiku-5-5` | Any Claude model ID. Haiku is quick and cheap; Sonnet and Opus cost more per request. Models other than Haiku retry a false-positive refusal on a fallback model. |
-| `AI_RATE_LIMIT`     | `10`               | AI requests per minute per visitor (IP address), counted on each server.                                                                                          |
-| `AI_WEEKLY_LIMIT`   | `20`               | AI requests the server's key pays for, per person each week. `0` turns the server's key off: everyone brings their own.                                           |
-| `AI_WEEKLY_TOTAL`   | `2000`             | AI requests the server's key pays for each week, for everyone together. A ceiling on the bill.                                                                    |
-| `AI_OWN_KEYS`       | (off)              | `on` turns AI on without a server key: everyone brings their own Anthropic key.                                                                                   |
+| Setting                | Default            | Notes                                                                                                                                                                                          |
+| ---------------------- | ------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `ANTHROPIC_API_KEY`    | (off)              | Required to turn AI on. Keep it secret.                                                                                                                                                        |
+| `AI_MODEL`             | `claude-haiku-5-5` | Any Claude model ID. Haiku is quick and cheap; Sonnet and Opus cost more per request. Models other than Haiku retry a false-positive refusal on a fallback model.                              |
+| `AI_RATE_LIMIT`        | `10`               | AI requests per minute per visitor (IP address), counted on each server.                                                                                                                       |
+| `AI_WEEKLY_LIMIT`      | `20`               | AI requests the server's key pays for, per person each week. `0` turns the server's key off: everyone brings their own.                                                                        |
+| `AI_WEEKLY_TOTAL`      | `2000`             | AI requests the server's key pays for each week, for everyone together. A ceiling on the bill.                                                                                                 |
+| `AI_WEEKLY_BUDGET_USD` | `5`                | The most the server's key spends each week, in US dollars, worked out from each answer's token counts. Past it, people bring their own key until Monday (UTC). `0` turns the server's key off. |
+| `AI_OWN_KEYS`          | (off)              | `on` turns AI on without a server key: everyone brings their own Anthropic key.                                                                                                                |
 
 On Cloudflare, each Worker instance counts separately. To enforce one limit everywhere, add a [rate limiting binding](https://developers.cloudflare.com/workers/runtime-apis/bindings/rate-limit/) named `AI_RATE_LIMITER` in `wrangler.toml`. Venn uses it automatically when present.
 
 ## Cost
 
-Each AI action is a single, short request. Effort is set to `low` for summaries, answers, messages and template looks, and `medium` for drafting polls and days, which needs a little date reasoning. On Haiku a request costs a small fraction of a cent, so the default weekly ceiling of 2,000 requests stays around a dollar or two a week. Watch the Usage page in the Claude Console after launch. The weekly allowance and the per-visitor rate limit stop anyone from running up your bill; a monthly spend limit on your Anthropic account is a good backstop.
+Each AI action is a single, short request. Effort is set to `low` for summaries, answers, messages and template looks, and `medium` for drafting polls and days, which needs a little date reasoning. On Haiku a request costs a small fraction of a cent, so the default weekly ceiling of 2,000 requests stays around a dollar or two a week. Watch the Usage page in the Claude Console after launch. The weekly dollar cap (`AI_WEEKLY_BUDGET_USD`, $5 by default), the weekly allowance and the per-visitor rate limit stop anyone from running up your bill; a monthly spend limit on your Anthropic account is a good backstop.
 
 ## Privacy and safety
 

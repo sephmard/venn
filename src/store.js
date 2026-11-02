@@ -895,6 +895,22 @@ export function createStore(db) {
       return null;
     },
 
+    /** What the server's AI key has spent this week, in millionths of a dollar (kept under who '$'). */
+    async aiSpend(week) {
+      await init();
+      const [row] = await db.all("SELECT count FROM ai_allowance WHERE week = ? AND who = '$'", [week]);
+      return row?.count || 0;
+    },
+
+    async addAiSpend(week, micros) {
+      if (!(micros > 0)) return;
+      await init();
+      await db.run(
+        "INSERT INTO ai_allowance (week, who, count) VALUES (?, '$', ?) ON CONFLICT(week, who) DO UPDATE SET count = count + excluded.count",
+        [week, Math.ceil(micros)],
+      );
+    },
+
     /** Give back a request taken from this week's allowance, when it failed before Claude answered. */
     async returnAiAllowance(week, who) {
       await init();
