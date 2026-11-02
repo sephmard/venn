@@ -1864,8 +1864,10 @@ test('the share sheet sends a short nudge with the link; a copy is just the link
   await expect(page.locator('#toast')).toContainText('Keep it private');
 });
 
-test('parts of the day: a day with one part is one compact row, and guests scroll half as far', async ({ page, request }) => {
-  await page.setViewportSize({ width: 375, height: 812 });
+test('parts of the day: a day with one part is one compact row, and guests scroll half as far', async ({ browser, request }) => {
+  // A phone's width, in the poll's own time zone (so the evenings are evenings in every project).
+  const context = await browser.newContext({ viewport: { width: 375, height: 812 }, timezoneId: 'UTC' });
+  const page = await context.newPage();
   // Five evenings, as a dinner poll often is, with three answers already in.
   const evening = (d) => ({ start: Date.UTC(2030, 10, d, 18), end: Date.UTC(2030, 10, d, 22) });
   const options = [4, 5, 6, 11, 12].map(evening);
@@ -1891,7 +1893,7 @@ test('parts of the day: a day with one part is one compact row, and guests scrol
   await expect(rows).toHaveCount(5);
   await expect(page.locator('#mine .parts-row')).toHaveCount(0);
   // The whole row is the button: its name has the day, its date and the part.
-  const first = page.getByRole('button', { name: /Monday.*4 November.*Evening\s*6 – 10 PM/ });
+  const first = page.getByRole('button', { name: /^Monday November 4,.*Evening\s*6 – 10 PM/ });
   await expect(first).toHaveAttribute('aria-pressed', 'false');
   const box = await first.boundingBox();
   expect(box.height).toBeGreaterThanOrEqual(44);
@@ -1903,7 +1905,8 @@ test('parts of the day: a day with one part is one compact row, and guests scrol
   });
   console.log(`five one-part options at 375px: first at ${top}px, spanning ${span}px`);
   expect(span).toBeLessThanOrEqual(420); // was 732
-  expect(top).toBeLessThanOrEqual(560); // was 581
+  // With AI on (as here), "Answer for me" sits above the options: 597px, was 643 (550 without AI, was 581).
+  expect(top).toBeLessThanOrEqual(600);
   // The tap key fits on one line.
   const key = page.locator('#panel-mine .legend');
   expect((await key.boundingBox()).height).toBeLessThan(30);
@@ -1917,6 +1920,7 @@ test('parts of the day: a day with one part is one compact row, and guests scrol
   await expect(first).toContainText('✕ Unavailable');
   await expect(first).toHaveAttribute('data-v', 'no');
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+  await context.close();
 });
 
 test('parts of the day: "All day" marks every part of a day in one tap', async ({ page, request }) => {
