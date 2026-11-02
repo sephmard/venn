@@ -95,6 +95,14 @@ export async function setIconEmoji(e) {
   icon ??= await import('./poll-image.js');
   return icon.setEmoji(e);
 }
+/** The tile's style ('' for plain), and setting one: never on a brand template's poll. */
+export const iconBg = () => icon?.bg() || '';
+export async function setIconBg(key) {
+  if (brand) return false;
+  icon ??= await import('./poll-image.js');
+  icon.setBg(key);
+  return true;
+}
 
 /** The poll to start from (see edit-poll.js), or null. */
 export async function loadSource(src) {
@@ -227,7 +235,7 @@ export function wirePlan(onOccasion) {
   $('#create').addEventListener('click', async (e) => {
     if (e.target.closest('#emoji-tile'))
       return void import('./poll-image.js').then(
-        (m) => (icon = m).toggle(),
+        (m) => (icon = m).toggle({ styles: !brand }),
         () => toast("Couldn't load that. Try again."),
       );
     const b = e.target.closest('[data-occasion]');
@@ -283,6 +291,7 @@ export async function submit(body, occasion, answer = null) {
   });
   const emoji = icon?.emoji() || occasion()?.emoji || brand?.emoji;
   if (emoji) body.emoji = emoji;
+  if (!brand && icon?.bg()) body.tile = icon.bg();
   for (const [key, el] of PRIVACY) body[key] = $(el).checked;
   // The look the page is in (an edit keeps the poll's own; a brand template's replaces it).
   if (!editing && !brand) body.retro = document.documentElement.classList.contains('retro');

@@ -213,3 +213,10 @@ test('relative times', () => {
   assert.match(ui.ago(now - 3 * 3_600_000), /3 hours ago/);
   assert.match(ui.ago(now - 2 * 86_400_000), /2 days ago/);
 });
+
+test("tileAttr: a poll's tile style is only ever a short word in its attribute", () => {
+  assert.equal(ui.tileAttr('sky'), ' data-tile="sky"');
+  assert.equal(ui.tileAttr('" onmouseover="x'), '');
+  assert.equal(ui.tileAttr('Sky'), '');
+  assert.equal(ui.tileAttr(undefined), '');
+});

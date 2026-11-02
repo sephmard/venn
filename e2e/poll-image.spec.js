@@ -159,3 +159,47 @@ test('organizers give a poll any emoji or their own picture, shown on the poll a
   expect((await (await request.get(`/api/events/${id}`)).json()).image).toBeUndefined();
   expect((await request.get(`/api/events/${id}/icon.jpg`)).status()).toBe(404);
 });
+
+test("a poll's tile gets one of Venn's own backgrounds: picked on the tile, shown on the poll, kept when edited", async ({
+  page,
+  request,
+}) => {
+  await page.goto('/new/pick');
+  await page.fill('#title', 'Picnic');
+  await page.fill('#organizer', 'Sam');
+  await addOptions(page, 2);
+  const tile = page.getByRole('button', { name: 'Change the icon' });
+  await tile.click();
+  const bgs = page.getByRole('group', { name: 'Background' });
+  await expect(bgs.getByRole('button')).toHaveCount(7); // plain, and six styles
+  await expect(bgs.getByRole('button', { name: 'Plain' })).toHaveAttribute('aria-pressed', 'true');
+  const sky = bgs.getByRole('button', { name: 'Sky' });
+  const box = await sky.boundingBox();
+  expect(Math.min(box.width, box.height)).toBeGreaterThanOrEqual(44);
+  await sky.click();
+  await expect(sky).toHaveAttribute('aria-pressed', 'true');
+  await expect(tile).toHaveAttribute('data-tile', 'sky');
+  // Drawn: a gradient behind the emoji, not the plain tint.
+  expect(await tile.evaluate((el) => getComputedStyle(el).backgroundImage)).toContain('gradient');
+  const scan = await new AxeBuilder({ page }).include('#icon-panel').withTags(['wcag2a', 'wcag2aa']).analyze();
+  expect(scan.violations.filter((v) => ['serious', 'critical'].includes(v.impact))).toEqual([]);
+
+  await page.click('#submit');
+  await page.getByRole('button', { name: /^(View poll|Open .+ →)$/ }).click();
+  await expect(page).toHaveURL(/\/e\/\w+$/);
+  const id = page.url().split('/e/')[1];
+  expect((await (await request.get(`/api/events/${id}`)).json()).tile).toBe('sky');
+  await expect(page.locator('.poll-head .emoji-tile')).toHaveAttribute('data-tile', 'sky');
+
+  // Editing keeps it, and Plain takes it away.
+  await page.goto(`/new/pick?edit=${id}`);
+  await expect(tile).toHaveAttribute('data-tile', 'sky');
+  await tile.click();
+  await expect(bgs.getByRole('button', { name: 'Sky' })).toHaveAttribute('aria-pressed', 'true');
+  await bgs.getByRole('button', { name: 'Plain' }).click();
+  await expect(tile).not.toHaveAttribute('data-tile', /.*/);
+  await page.click('#submit');
+  await expect(page).toHaveURL(`/e/${id}`);
+  expect((await (await request.get(`/api/events/${id}`)).json()).tile).toBeUndefined();
+  await expect(page.locator('.poll-head .emoji-tile')).not.toHaveAttribute('data-tile', /.*/);
+});

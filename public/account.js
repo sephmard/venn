@@ -3,7 +3,7 @@
 // it. Signing in is the server's (src/auth.js); this page lists what the account keeps and adds the
 // links this browser remembers.
 
-import { $, api, app, copy, esc, getConfig, plural, toast } from './ui.js';
+import { $, api, app, copy, esc, getConfig, plural, tileAttr, toast } from './ui.js';
 import { accountHint, refreshAccountMenu } from './account-menu.js';
 import { stickerStack, rotate } from './stickers.js';
 import {
@@ -212,7 +212,7 @@ const icon = (p) => esc(p.emoji || (isVote(p) ? '🗳️' : '📅'));
 // A poll's row: a tap opens it (as its organizer, for the ones they made); ⋯ manages it.
 const pollRow = (p) => `
   <li class="acct-item"><a class="acct-row" href="/e/${esc(p.id)}#organizer" data-link>
-    <span class="acct-icon" aria-hidden="true">${icon(p)}</span>
+    <span class="acct-icon"${tileAttr(p.tile)} aria-hidden="true">${icon(p)}</span>
     <span class="acct-text"><b>${esc(p.title)}</b><span class="muted">${esc(madeMeta(p))}</span></span>
     <span class="acct-when muted">${esc(whenShort(p.createdAt))}</span>
   </a><button type="button" class="acct-more" data-more="${esc(p.id)}" aria-label="Manage ${esc(p.title)}" aria-haspopup="dialog">${MORE}</button></li>`;
@@ -221,7 +221,7 @@ const answeredRow = (p) => {
   const can = canMake(p);
   return `
   <li class="acct-item"><a class="acct-row" href="/e/${esc(p.id)}" data-link>
-    <span class="acct-icon" aria-hidden="true">${icon(p)}</span>
+    <span class="acct-icon"${tileAttr(p.tile)} aria-hidden="true">${icon(p)}</span>
     <span class="acct-text"><b>${esc(p.title)}</b><span class="muted">${esc(answeredMeta(p))}</span></span>
     ${can ? `<span class="acct-can ${can[0]}">${can[1]}</span>` : `<span class="acct-when muted">${esc(whenShort(p.answeredAt))}</span>`}
   </a><button type="button" class="acct-more" data-more="${esc(p.id)}" aria-label="Manage ${esc(p.title)}" aria-haspopup="dialog">${MORE}</button></li>`;
@@ -570,7 +570,7 @@ function showMine(me, view) {
     const emailable = made && waiting && p.invitees && config.email;
     openSheet(
       `<div class="acct-sheet-head">
-         <span class="acct-icon" aria-hidden="true">${icon(p)}</span>
+         <span class="acct-icon"${tileAttr(p.tile)} aria-hidden="true">${icon(p)}</span>
          <span class="acct-text"><b>${esc(p.title)}</b><span class="muted">${esc(made ? madeMeta(p) : answeredMeta(p))}</span></span>
        </div>
        <div class="acct-acts" id="acct-acts">

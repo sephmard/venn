@@ -251,6 +251,7 @@ test('describe it on /new: days, parts of the day or hours, checked', async () =
   nextOutput = {
     title: 'Book club',
     emoji: '📚 books',
+    tile: 'dusk',
     location: '  Ana’s place  ',
     answerWith: 'parts',
     days: [
@@ -268,6 +269,7 @@ test('describe it on /new: days, parts of the day or hours, checked', async () =
   assert.equal(res.data.level, 'parts');
   // The rest of the poll, checked: one emoji, the place as named, a short title.
   assert.equal(res.data.emoji, '📚');
+  assert.equal(res.data.tile, 'dusk'); // a style Venn draws
   assert.equal(res.data.location, 'Ana’s place');
   assert.equal(res.data.title, 'Book club');
   assert.deepEqual(res.data.days, [
@@ -277,6 +279,7 @@ test('describe it on /new: days, parts of the day or hours, checked', async () =
   nextOutput = {
     title: 'A call about everything we need to plan for the trip, the food, the cars and who sleeps where',
     emoji: 'phone',
+    tile: '<svg onload=alert(1)>',
     location: '',
     answerWith: 'hours',
     days: [
@@ -287,6 +290,7 @@ test('describe it on /new: days, parts of the day or hours, checked', async () =
   const hours = await call('/api/ai/draft-days', { body: { prompt: 'call, Thursday 6 to 8', timezone: 'UTC' } });
   assert.deepEqual(hours.data.days, [{ date: '2030-01-10', start: 1080, end: 1230 }]);
   assert.equal(hours.data.emoji, ''); // not an emoji: the plan's own
+  assert.equal(hours.data.tile, ''); // not one of Venn's styles: the plain tile
   assert.equal(hours.data.title.length, 80);
   assert.equal(hours.data.location, '');
   nextOutput = { title: 'x', answerWith: 'days', days: [{ date: 'soon', part: '', from: '', to: '' }] };

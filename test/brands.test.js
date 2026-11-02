@@ -244,19 +244,21 @@ test('brand templates: make, share, manage, logo, polls in its look, delete', as
   assert.match(img.headers.get('content-security-policy'), /sandbox/);
 
   // A poll made from it shows its look to guests; the retro look gives way to it.
-  const created = await call('/api/events', { method: 'POST', body: { ...poll, brand: id, retro: true } });
+  const created = await call('/api/events', { method: 'POST', body: { ...poll, brand: id, retro: true, tile: 'berry' } });
   assert.equal(created.status, 201);
   const ev = (await call(`/api/events/${created.data.id}`)).data;
   assert.deepEqual(ev.brand, { id, name: 'Acme Inc.', accent: '#ffcc00', logo: up.data.logo });
   assert.equal(ev.retro, undefined);
+  assert.equal(ev.tile, undefined); // the organization's look, not a tile style
   // Editing the poll keeps its brand.
   const edit = await call(`/api/events/${created.data.id}`, {
     method: 'PUT',
-    body: { ...poll, title: 'Lunch!' },
+    body: { ...poll, title: 'Lunch!', tile: 'sky' },
     headers: { 'x-admin-token': created.data.adminToken },
   });
   assert.equal(edit.status, 200);
   assert.equal((await call(`/api/events/${created.data.id}`)).data.brand.id, id);
+  assert.equal((await call(`/api/events/${created.data.id}`)).data.tile, undefined);
 
   // No such template, no poll.
   assert.equal((await call('/api/events', { method: 'POST', body: { ...poll, brand: 'nope' } })).status, 400);

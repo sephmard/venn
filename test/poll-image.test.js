@@ -4,7 +4,15 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 
 // Just the elements the icon code looks up, by selector.
-const el = (extra = {}) => ({ isConnected: true, hidden: false, value: '', textContent: '', innerHTML: '', ...extra });
+const el = (extra = {}) => ({
+  isConnected: true,
+  hidden: false,
+  value: '',
+  textContent: '',
+  innerHTML: '',
+  dataset: {},
+  ...extra,
+});
 const page = {
   '#emoji-tile': el({ textContent: '🗓️' }),
   '#icon-remove': el(),
@@ -13,7 +21,11 @@ const page = {
   '#icon-hint': el(),
   '#icon-finn': el(),
 };
-globalThis.document = { getElementById: () => null, querySelector: (sel) => page[sel] ?? null };
+globalThis.document = {
+  getElementById: () => null,
+  querySelector: (sel) => page[sel] ?? null,
+  querySelectorAll: () => [],
+};
 const store = new Map();
 globalThis.localStorage = { getItem: (k) => store.get(k) ?? null, setItem: (k, v) => store.set(k, v) };
 // Blobs come back as data: URLs, as a browser's FileReader would.
@@ -70,4 +82,20 @@ test('poll image: a poll without a picture keeps its own emoji, and nothing is s
   const before = calls.length;
   assert.equal(await icon.upload('def', 'token', 'Cake'), null);
   assert.equal(calls.length, before); // no picture, and none to take away
+});
+
+test("poll image: the tile's style is one of Venn's own, or plain", () => {
+  icon.setBg('sky');
+  assert.equal(icon.bg(), 'sky');
+  assert.equal(page['#emoji-tile'].dataset.tile, 'sky');
+  icon.setBg('<svg onload=alert(1)>'); // not one of them: the plain tile
+  assert.equal(icon.bg(), '');
+  assert.equal(page['#emoji-tile'].dataset.tile, undefined);
+});
+
+test("poll image: an edited poll keeps its tile style, but a brand template's poll has none", async () => {
+  await icon.restore({ tile: 'berry' }, { id: 'p1', edit: true }, false);
+  assert.equal(icon.bg(), 'berry');
+  await icon.restore({ tile: 'berry', brand: { id: 'b1' } }, { id: 'p1', edit: true }, false);
+  assert.equal(icon.bg(), '');
 });

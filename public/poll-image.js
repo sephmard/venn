@@ -9,6 +9,7 @@
 import { $, api, esc, save, saved, toast } from './ui.js';
 import { STICKERS } from './finn-moments.js';
 import { firstEmoji } from './emoji.js';
+import { TILE_STYLES, isTileStyle } from './tile-styles.js';
 import { fitText, loadFonts, venn, roundRect } from './share-card.js';
 
 export const ICON_SIZE = 512;
@@ -33,6 +34,12 @@ const CSS = `
 .icon-finn h4{margin:0 0 8px;font-size:.95rem}
 .icon-stickers{display:flex;flex-wrap:wrap;gap:8px}
 .icon-stickers .pill{min-height:44px}
+.icon-bgs{display:flex;flex-wrap:wrap;gap:8px;margin-top:6px}
+.icon-bg{width:44px;height:44px;border-radius:12px;border:1.5px solid var(--border);padding:0;cursor:pointer;background:var(--accent-soft)}
+.icon-bg[aria-pressed=true]{outline:3px solid var(--accent);outline-offset:2px}
+.icon-bg:focus-visible{outline:3px solid var(--text);outline-offset:2px}
+.icon-bg-row{margin-top:12px}
+.icon-bg-row h4{margin:0;font-size:.95rem}
 .icon-preview{display:block;width:100%;height:auto;margin-top:12px;border:1px solid var(--border);border-radius:12px}
 `;
 
@@ -45,8 +52,16 @@ function state() {
   // `base` is the emoji the kind of plan gives (or the calendar); `emoji` one the organizer typed.
   // `had`: the poll being edited has a picture, so taking it away deletes it.
   // `sticker`: the key of the Finn sticker on the link preview, or '' for none. Finn is there unless
-  // they take him off.
-  return (S = { tile, base: tile?.textContent || '🗓️', emoji: '', picture: null, had: false, sticker: DEFAULT_STICKER });
+  // they take him off. `bg`: the tile's style (tile-styles.js), or '' for the plain one.
+  return (S = {
+    tile,
+    base: tile?.textContent || '🗓️',
+    emoji: '',
+    picture: null,
+    had: false,
+    sticker: DEFAULT_STICKER,
+    bg: tile?.dataset?.tile || '',
+  });
 }
 
 /**
@@ -72,6 +87,11 @@ function show() {
   s.emoji = icon.emoji;
   if (icon.picture) s.tile.innerHTML = `<img src="${esc(icon.picture.url)}" alt="">`;
   else s.tile.textContent = icon.text;
+  if (s.bg) s.tile.dataset.tile = s.bg;
+  else delete s.tile.dataset.tile;
+  for (const b of document.querySelectorAll('[data-bg]')) b.setAttribute('aria-pressed', String(b.dataset.bg === s.bg));
+  const bgs = $('#icon-bg-row');
+  if (bgs) bgs.hidden = !!icon.picture || bgs.dataset.off === '1';
   const remove = $('#icon-remove');
   if (remove) remove.hidden = !icon.picture;
   const row = $('#icon-emoji-row');
@@ -113,6 +133,16 @@ export async function preview() {
 
 /** The emoji they typed, or '' for the plan's own. */
 export const emoji = () => (live() ? S.emoji : '');
+/** The tile's style ('' for the plain one). */
+export const bg = () => (live() ? S.bg : '');
+
+/** Set the tile's style, as AI does (ai-draft.js): a known key, or '' for the plain one. */
+export function setBg(key) {
+  const s = state();
+  s.bg = isTileStyle(key) ? key : '';
+  show();
+}
+
 /** The picture as a data: URL, for the celebration, or null. */
 export const picture = () => (live() && S.picture?.url) || null;
 
@@ -137,8 +167,11 @@ export function setOccasion(o) {
 
 // ---------- the panel ----------
 
-/** Open the panel under the poll's name, or close it if it's open. */
-export function toggle() {
+/**
+ * Open the panel under the poll's name, or close it if it's open. `styles: false` leaves out the
+ * tile's backgrounds (a brand template's poll has its organization's look instead).
+ */
+export function toggle({ styles = true } = {}) {
   const s = state();
   if ($('#icon-panel')) return close();
   if (!document.getElementById('icon-css'))
@@ -153,6 +186,17 @@ export function toggle() {
     <div id="icon-emoji-row"${s.picture ? ' hidden' : ''}>
       <label for="icon-emoji">Any emoji</label>
       <input id="icon-emoji" type="text" autocomplete="off" spellcheck="false" enterkeyhint="done" placeholder="Type or paste one, like 🎂" aria-describedby="icon-hint" value="${esc(s.emoji)}">
+    </div>
+    <div class="icon-bg-row" id="icon-bg-row" data-off="${styles ? '' : '1'}"${s.picture || !styles ? ' hidden' : ''}>
+      <h4 id="icon-bg-h">Background</h4>
+      <div class="icon-bgs" role="group" aria-labelledby="icon-bg-h">
+        ${[{ key: '', name: 'Plain' }, ...TILE_STYLES]
+          .map(
+            (t) =>
+              `<button type="button" class="icon-bg" data-bg="${t.key}"${t.key ? ` data-tile="${t.key}"` : ''} aria-label="${t.name}" aria-pressed="${t.key === s.bg}"></button>`,
+          )
+          .join('')}
+      </div>
     </div>
     <p class="hint" id="icon-hint"></p>
     <div class="icon-btns">
@@ -186,6 +230,10 @@ export function toggle() {
   });
   $('#icon-upload').addEventListener('click', () => $('#icon-file').click());
   $('#icon-file').addEventListener('change', (e) => usePicture(e.target.files?.[0]));
+  panel.querySelector('.icon-bgs').addEventListener('click', (e) => {
+    const b = e.target.closest('[data-bg]');
+    if (b) setBg(b.dataset.bg);
+  });
   panel.querySelector('.icon-stickers').addEventListener('click', (e) => {
     const b = e.target.closest('[data-sticker]');
     if (!b) return;
@@ -491,6 +539,7 @@ async function previewCard(blob, title, stickerKey = '', retro = false) {
 export async function restore(ev, src, custom) {
   const s = state();
   if (custom && ev.emoji) s.emoji = ev.emoji;
+  s.bg = isTileStyle(ev.tile) && !ev.brand ? ev.tile : '';
   if (ev.image)
     try {
       const res = await fetch(`/api/events/${encodeURIComponent(src.id)}/icon.jpg?v=${ev.image.v}`);

@@ -526,6 +526,7 @@ export function createStore(db) {
           id: r.id,
           title: d.title,
           ...(d.emoji && { emoji: d.emoji }),
+          ...(d.tile && { tile: d.tile }),
           createdAt: r.created_at,
           finalStart: r.final_start ?? null,
           // A topic poll: what was decided, or null while it's open.
@@ -570,6 +571,7 @@ export function createStore(db) {
           answerId: r.answer_id,
           title: d.title,
           ...(d.emoji && { emoji: d.emoji }),
+          ...(d.tile && { tile: d.tile }),
           ...(d.organizer && { organizer: d.organizer }),
           ...(d.location && { location: d.location }),
           createdAt: r.created_at,
