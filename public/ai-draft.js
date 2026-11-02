@@ -207,7 +207,9 @@ export function aiDays(st, { empty, setRow, show, level, row }) {
   );
   // What AI itself filled in last time: asking again may replace those, never what was typed.
   let filled = {};
+  let drafted = ''; // the picks AI made last time, to tell its own draft from days picked by hand
   const sets = () => [st.days, st.parts, st.hours, st.maybe.days, st.maybe.parts, st.maybe.hours];
+  const key = (list) => JSON.stringify(list.map((set) => [...set].sort()));
   wire(async (prompt) => {
     const draft = await api('ai/draft-days', {
       method: 'POST',
@@ -226,6 +228,7 @@ export function aiDays(st, { empty, setRow, show, level, row }) {
       row: row(),
       picks: sets().map((set) => new Set(set)),
       filled,
+      drafted,
     };
     const had = !empty();
     const ours = (now, was) => !now.trim() || now === was;
@@ -268,13 +271,20 @@ export function aiDays(st, { empty, setRow, show, level, row }) {
     closeBox();
     light([...changed, ...$$('#free-list .chip')]);
     const said = describeDraft(draft, changed.includes(t) ? t.value : '');
-    if (had) said.note = [said.note, 'It replaced the days you had picked. Undo brings them back.'].filter(Boolean).join(' ');
+    const replaced = !had
+      ? ''
+      : before.drafted === key(before.picks)
+        ? 'It replaced the last draft. Undo brings it back.'
+        : 'It replaced the days you had picked. Undo brings them back.';
+    drafted = key(sets());
+    if (replaced) said.note = [said.note, replaced].filter(Boolean).join(' ');
     done(said, async () => {
       sets().forEach((set, i) => {
         set.clear();
         for (const k of before.picks[i]) set.add(k);
       });
       filled = before.filled;
+      drafted = before.drafted;
       t.value = before.title;
       t.dataset.seed = before.seed ?? '';
       t.dispatchEvent(new Event('input')); // whatever follows the name (the link preview) follows it back

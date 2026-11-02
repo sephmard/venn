@@ -1383,7 +1383,7 @@ test('AI: describe it instead on Create a Venn picks the days, with your own key
   // Asking again replaces its own draft, and says so (more in ai-days.spec.js).
   await page.click('#ai-open');
   await page.click('#ai-go');
-  await expect(page.locator('#ai-done .ai-done-note')).toContainText('It replaced the days you had picked');
+  await expect(page.locator('#ai-done .ai-done-note')).toHaveText('It replaced the last draft. Undo brings it back.');
 });
 
 test('AI: one sentence fills the whole poll for review, shows what it did, and Undo puts it all back', async ({ page }) => {

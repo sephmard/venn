@@ -83,7 +83,7 @@ test('AI: clock times become hours as given, and a trip becomes days in a row', 
   await expect(page.locator('#in-row')).toBeChecked();
   await expect(page.locator('#span')).toHaveValue('3');
   await expect(page.locator('#ai-done .ai-done-when')).toContainText(/^3 days in a row, from 4 days: /);
-  await expect(page.locator('#ai-done .ai-done-note')).toContainText('It replaced the days you had picked');
+  await expect(page.locator('#ai-done .ai-done-note')).toHaveText('It replaced the last draft. Undo brings it back.');
 
   // Undo goes back to the draft before: the hours and their title.
   await page.getByRole('button', { name: 'Undo' }).click();
