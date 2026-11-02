@@ -134,7 +134,6 @@ export async function renderTopicPoll(ctx) {
     app.innerHTML = `
       <article id="event-root" class="poll topic-poll">
         ${ev.brand && ctx.brandBar ? ctx.brandBar(ev.brand, esc) : ''}
-        ${guest || ev.brand ? '' : `<p class="retro-top"><label class="switch"><input type="checkbox" role="switch" id="retro-top"${ev.retro ? ' checked' : ''}> Retro look</label></p>`}
         <header class="poll-head">
           <span class="emoji-tile big" aria-hidden="true">${picture ? `<img src="${esc(picture)}" alt="">` : esc(ev.emoji || '🗳️')}</span>
           <div class="poll-head-text">
@@ -311,7 +310,6 @@ export async function renderTopicPoll(ctx) {
     $('#unpick')?.addEventListener('click', () => pick(null));
     for (const b of $$('[data-pick]')) b.onclick = () => askPick(ev.options.find((o) => o.id === +b.dataset.pick));
     if (!org) return;
-    org.retroSwitch?.({ id, headers: authHeaders(), ev });
     org.tools($('#org-tools'), {
       id,
       ev,

@@ -191,8 +191,8 @@ the same PR** (and CLAUDE.md if it's a rule that matters in review).
 - The **README and the developer docs** (docs.venn.day, `site-src/site.css`) are always retro and
   short: the README opens on the retro link-preview banner and the docs on their quickstart, retro screenshots (`npm run screenshots`), then only what a
   developer needs, longer detail folded away or left to the docs.
-- A poll in the **Retro look** (a new poll's look when the site is retro; the organizer's switch on top
-  of the poll changes it later): its page in neon
+- A poll in the **Retro look** (a new poll's look when the site is retro; it keeps it: **no look switch
+  on the poll page**, not even for the organizer, Seph 2026-11-02: "The style is defined by the poll creator"): its page in neon
   for everyone, its "Your Venn is ready!", arcade toasts, retro Finn, neon emails, and a retro link preview
   (Venn's retro image, or its own picture's card drawn in neon). Available stays green, if needed amber,
   unavailable pink.
