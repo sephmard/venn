@@ -56,7 +56,7 @@ const PAGES = {
   'vote on options page': ['create-topic.js', ['create.css'], 56],
   // +0.5 for a vote's deadline: when answers close, locked after it, and the organizer's Deadline panel.
   // +0.25 for invitations: the email an invitation's link fills in, and the Invite by email panel's place.
-  'topic poll page': [['event.js', 'topic-poll.js'], ['topic.css'], 60.5], // +0.25 for tile styles: Venn's own backgrounds behind a poll's emoji (shared styles), +0.25 for Poll not found in the visitor's look (retro unless Classic mode), +0.25 for a part of the day under its date in big type, and times that never break (keep() in ui.js), +0.25 for asking "Are you sure?" in the page instead of the browser's confirm() (the dialog's styles; its code loads when asked), +0.25 for compact rows: a day with one part is one row, the row its button (event.js),  +0.75 for the website's top bar and menu on every app page
+  'topic poll page': [['event.js', 'topic-poll.js'], ['topic.css'], 60.75], // +0.5 for tile styles: Venn's own backgrounds behind a poll's emoji (shared styles), +0.25 for Poll not found in the visitor's look (retro unless Classic mode), +0.25 for a part of the day under its date in big type, and times that never break (keep() in ui.js), +0.25 for asking "Are you sure?" in the page instead of the browser's confirm() (the dialog's styles; its code loads when asked), +0.25 for compact rows: a day with one part is one row, the row its button (event.js),  +0.75 for the website's top bar and menu on every app page
 };
 
 for (const [name, [entry, css, PAGE_KB]] of Object.entries(PAGES)) {
