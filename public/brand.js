@@ -595,7 +595,8 @@ function showForm(b, token, start, draft = null) {
         )}
         ${panel(
           'look',
-          `<div class="look-grid" id="looks">
+          `<div id="ai-look"></div>
+          <div class="look-grid" id="looks">
             ${lookCard('logo', 'Your logo’s colour', LOOKS.classic[1]).replace('<button', '<button id="look-logo" hidden')}
             ${Object.entries(LOOKS)
               .map(([k, [name, l]]) => lookCard(k, name, l))
@@ -929,6 +930,21 @@ function showForm(b, token, start, draft = null) {
   getConfig().then((c) => {
     providers = c.accounts || [];
     if (signedOut()) $('#submit').textContent = 'Sign in to save';
+    // Where the server has AI: a few words about the organization suggest a starting look.
+    if (c.ai)
+      import('./ai-draft.js')
+        .then(
+          (m) =>
+            $('#ai-look') &&
+            m.aiLook($('#ai-look'), {
+              name: () => $('#b-name').value.trim(),
+              apply: (look, title) => {
+                applyLook(look);
+                if (title && !$('#b-title').value.trim()) $('#b-title').value = title;
+              },
+            }),
+        )
+        .catch(() => {});
   });
   /** Signing in to save: the draft waits in this tab, and the page comes back to it. */
   const askToSignIn = () => {

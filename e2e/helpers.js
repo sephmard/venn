@@ -153,6 +153,8 @@ export async function mockContact(page, reply = { status: 204 }) {
 /** On the create page, how guests answer: 'days', 'parts' (of the day) or 'hours'. */
 export async function setLevel(page, level) {
   await page.click(`[data-level="${level}"]`);
+  // Parts and hours load their code first; the switch shows the level once its calendar is drawn.
+  await page.locator(`[data-level="${level}"][aria-checked="true"]`).waitFor();
 }
 
 /**

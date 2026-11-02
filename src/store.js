@@ -38,6 +38,14 @@ const SCHEMA = [
      count INTEGER NOT NULL,
      PRIMARY KEY (day, name, props)
    )`,
+  // AI requests paid for by the server's key this week (src/ai.js): a hashed person, or '*' for
+  // everyone, and a count. Earlier weeks are deleted as the next one starts.
+  `CREATE TABLE IF NOT EXISTS ai_allowance (
+     week TEXT NOT NULL,
+     who TEXT NOT NULL,
+     count INTEGER NOT NULL,
+     PRIMARY KEY (week, who)
+   )`,
   // A poll's own picture (src/images.js), in base64 so D1 and node:sqlite store it the same way: the
   // square icon, and the link-preview card. `updated_at` is its version, for the URLs that serve it.
   `CREATE TABLE IF NOT EXISTS event_images (
@@ -866,6 +874,47 @@ export function createStore(db) {
         'INSERT INTO participant_emails (participant_id, event_id, email) VALUES (?, ?, ?) ON CONFLICT(participant_id) DO UPDATE SET email = excluded.email',
         [id, eventId, email],
       );
+    },
+
+    /**
+     * Take one AI request from this week's allowance: null when it's taken, or 'person' or 'total'
+     * when that limit is already reached.
+     */
+    async takeAiAllowance(week, who, perPerson, total) {
+      await init();
+      const rows = await db.all('SELECT who, count FROM ai_allowance WHERE week = ? AND who IN (?, ?)', [week, who, '*']);
+      const used = (k) => rows.find((r) => r.who === k)?.count || 0;
+      if (used(who) >= perPerson) return 'person';
+      if (used('*') >= total) return 'total';
+      for (const k of [who, '*'])
+        await db.run(
+          'INSERT INTO ai_allowance (week, who, count) VALUES (?, ?, 1) ON CONFLICT(week, who) DO UPDATE SET count = count + 1',
+          [week, k],
+        );
+      if (!used('*')) await db.run('DELETE FROM ai_allowance WHERE week < ?', [week]);
+      return null;
+    },
+
+    /** What the server's AI key has spent this week, in millionths of a dollar (kept under who '$'). */
+    async aiSpend(week) {
+      await init();
+      const [row] = await db.all("SELECT count FROM ai_allowance WHERE week = ? AND who = '$'", [week]);
+      return row?.count || 0;
+    },
+
+    async addAiSpend(week, micros) {
+      if (!(micros > 0)) return;
+      await init();
+      await db.run(
+        "INSERT INTO ai_allowance (week, who, count) VALUES (?, '$', ?) ON CONFLICT(week, who) DO UPDATE SET count = count + excluded.count",
+        [week, Math.ceil(micros)],
+      );
+    },
+
+    /** Give back a request taken from this week's allowance, when it failed before Claude answered. */
+    async returnAiAllowance(week, who) {
+      await init();
+      await db.run('UPDATE ai_allowance SET count = count - 1 WHERE week = ? AND who IN (?, ?) AND count > 0', [week, who, '*']);
     },
 
     async countUsage(day, name, props) {

@@ -1,17 +1,25 @@
 import { test, before, after } from 'node:test';
 import assert from 'node:assert/strict';
+import { DatabaseSync } from 'node:sqlite';
 import { createApp } from '../server.js';
+import { aiAllowance, aiBudget, allowanceKey, costOf, weekOf } from '../src/ai.js';
+import { createStore, sqliteAdapter } from '../src/store.js';
 
 // A stand-in for the Anthropic client: records each request and returns the next canned output.
 const calls = [];
 let nextOutput = {};
 let nextStop = 'end_turn';
+let nextUsage = { input_tokens: 1000, output_tokens: 200 };
 const fakeAnthropic = {
   beta: {
     messages: {
       create: async (params) => {
         calls.push(params);
-        return { stop_reason: nextStop, content: [{ type: 'text', text: JSON.stringify(nextOutput) }] };
+        return {
+          stop_reason: nextStop,
+          usage: nextUsage,
+          content: [{ type: 'text', text: JSON.stringify(nextOutput) }],
+        };
       },
     },
   },
@@ -51,9 +59,10 @@ test('AI is reported and every request uses the expected model settings', async 
     body: { prompt: '45 min design review, Wednesday afternoon', timezone: 'America/New_York' },
   });
   const params = calls[0];
-  assert.equal(params.model, 'claude-opus-5-5');
-  assert.deepEqual(params.betas, ['server-side-fallback-2026-07-01']);
-  assert.equal(params.fallbacks, 'default');
+  // Haiku by default, which has no server-side fallback.
+  assert.equal(params.model, 'claude-haiku-5-5');
+  assert.equal(params.betas, undefined);
+  assert.equal(params.fallbacks, undefined);
   assert.equal(params.output_config.format.type, 'json_schema');
   assert.equal(params.output_config.format.schema.additionalProperties, false);
   assert.match(params.messages[0].content, /<user_text>45 min design review, Wednesday afternoon<\/user_text>/);
@@ -170,4 +179,191 @@ test('AI is off without a key, and rate limited per visitor', async (t) => {
   const statuses = [];
   for (let i = 0; i < 3; i++) statuses.push((await post(limited, '/api/ai/draft-poll')).status);
   assert.deepEqual(statuses, [200, 200, 429]);
+});
+
+test('other models keep the refusal fallback', async (t) => {
+  const s = createApp({ env: { ANTHROPIC_API_KEY: 'sk-test', AI_MODEL: 'claude-sonnet-5-5' }, anthropic: fakeAnthropic });
+  await new Promise((r) => s.listen(0, r));
+  t.after(() => s.close());
+  nextOutput = { title: 'Lunch', description: '', durationMinutes: 60, slots: [{ date: '2030-01-09', time: '12:00' }] };
+  calls.length = 0;
+  await fetch(`http://localhost:${s.address().port}/api/ai/draft-poll`, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ prompt: 'lunch', timezone: 'UTC' }),
+  });
+  assert.equal(calls[0].model, 'claude-sonnet-5-5');
+  assert.deepEqual(calls[0].betas, ['server-side-fallback-2026-07-01']);
+  assert.equal(calls[0].fallbacks, 'default');
+});
+
+test('describe it on /new: days, parts of the day or hours, checked', async () => {
+  nextOutput = {
+    title: 'Book club',
+    answerWith: 'parts',
+    days: [
+      { date: '2030-01-10', part: 'evening', from: '', to: '' },
+      { date: '2030-01-10', part: 'evening', from: '', to: '' }, // twice
+      { date: '2030-01-11', part: 'night', from: '', to: '' }, // not a part of the day
+      { date: '2020-01-11', part: 'evening', from: '', to: '' }, // past
+      { date: '2030-01-12', part: 'afternoon', from: '', to: '' },
+    ],
+  };
+  const res = await call('/api/ai/draft-days', {
+    body: { prompt: 'book club, Thursday evening or Saturday afternoon', timezone: 'UTC' },
+  });
+  assert.equal(res.status, 200);
+  assert.equal(res.data.level, 'parts');
+  assert.deepEqual(res.data.days, [
+    { date: '2030-01-10', part: 'evening' },
+    { date: '2030-01-12', part: 'afternoon' },
+  ]);
+  nextOutput = {
+    title: 'Call',
+    answerWith: 'hours',
+    days: [
+      { date: '2030-01-10', part: '', from: '18:00', to: '20:15' },
+      { date: '2030-01-11', part: '', from: '20:00', to: '19:00' }, // ends before it starts
+    ],
+  };
+  const hours = await call('/api/ai/draft-days', { body: { prompt: 'call, Thursday 6 to 8', timezone: 'UTC' } });
+  assert.deepEqual(hours.data.days, [{ date: '2030-01-10', start: 1080, end: 1230 }]);
+  nextOutput = { title: 'x', answerWith: 'days', days: [{ date: 'soon', part: '', from: '', to: '' }] };
+  assert.equal((await call('/api/ai/draft-days', { body: { prompt: 'whenever', timezone: 'UTC' } })).status, 503);
+});
+
+test('describe your organization: a template look, only known fonts and readable colours', async () => {
+  nextOutput = {
+    accent: '#2F6B3A',
+    ownPage: true,
+    bg: '#f3f1e8',
+    surface: '#fbfaf5',
+    text: 'black', // not a colour code: the page keeps Venn's
+    font: 'slab',
+    bodyFont: 'humanist',
+    corners: 'round',
+    buttons: 'pill',
+    title: 'Trail day',
+  };
+  calls.length = 0;
+  const res = await call('/api/ai/draft-template', {
+    body: { prompt: 'A hiking club, outdoorsy and friendly', name: 'Peak Club' },
+  });
+  assert.equal(res.status, 200);
+  assert.deepEqual(res.data, {
+    look: { accent: '#2f6b3a', font: 'slab', bodyFont: 'humanist', corners: 'round', buttons: 'pill' },
+    title: 'Trail day',
+  });
+  assert.match(calls[0].messages[0].content, /<user_text>Organization: Peak Club\nA hiking club/);
+});
+
+test('the server key has a weekly allowance; past it, people bring their own key', async (t) => {
+  let clock = Date.UTC(2030, 0, 8, 12); // a Tuesday
+  const s = createApp({
+    env: { ANTHROPIC_API_KEY: 'sk-test', AI_WEEKLY_LIMIT: '2' },
+    anthropic: fakeAnthropic,
+    now: () => clock,
+  });
+  await new Promise((r) => s.listen(0, r));
+  t.after(() => s.close());
+  const port = s.address().port;
+  const post = (headers = {}) =>
+    fetch(`http://localhost:${port}/api/ai/draft-poll`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json', ...headers },
+      body: JSON.stringify({ prompt: 'lunch', timezone: 'UTC' }),
+    });
+  nextOutput = { title: 'Lunch', description: '', durationMinutes: 60, slots: [{ date: '2030-02-09', time: '12:00' }] };
+  const config = await (await fetch(`http://localhost:${port}/api/config`)).json();
+  assert.equal(config.aiWeekly, 2);
+  // A request that fails before Claude answers gives its free request back.
+  const bad = await fetch(`http://localhost:${port}/api/ai/draft-poll`, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ prompt: 'lunch', timezone: 'Not/AZone' }),
+  });
+  assert.equal(bad.status, 400);
+  assert.deepEqual([(await post()).status, (await post()).status], [200, 200]);
+  const third = await post();
+  assert.equal(third.status, 402);
+  assert.match((await third.json()).error, /this week's free AI requests/);
+  // A key of your own is never counted, and never needs the allowance.
+  assert.equal((await post({ 'x-anthropic-key': `sk-ant-${'a'.repeat(30)}` })).status, 200);
+  assert.equal((await post({ 'x-anthropic-key': 'not-a-key' })).status, 400);
+  // Next week starts again.
+  clock += 7 * 24 * 3_600_000;
+  assert.equal((await post()).status, 200);
+});
+
+test('a weekly dollar cap on the server key, worked out from each answer’s tokens', async (t) => {
+  // Haiku: $0.10 in and $0.50 out per million tokens, so 1M in + 1M out is 600,000 millionths.
+  assert.equal(costOf('claude-haiku-5-5', { input_tokens: 1e6, output_tokens: 1e6 }), 600_000);
+  assert.equal(costOf('claude-sonnet-5-5', { input_tokens: 1e6 }), 2_000_000);
+  assert.equal(costOf('some-new-model', { output_tokens: 1e6 }), 20_000_000); // unknown: priced as Opus
+  assert.equal(aiBudget({}), 5_000_000); // $5 a week unless set
+  assert.equal(aiBudget({ AI_WEEKLY_BUDGET_USD: '0.5' }), 500_000);
+  assert.deepEqual(aiAllowance({ ANTHROPIC_API_KEY: 'k', AI_WEEKLY_BUDGET_USD: '0' }), { perPerson: 0, total: 0, budget: 0 });
+
+  const s = createApp({
+    env: { ANTHROPIC_API_KEY: 'sk-test', AI_WEEKLY_BUDGET_USD: '1', AI_MODEL: 'claude-haiku-5-5' },
+    anthropic: fakeAnthropic,
+    now: () => Date.UTC(2030, 0, 8, 12),
+  });
+  await new Promise((r) => s.listen(0, r));
+  t.after(() => {
+    s.close();
+    nextUsage = { input_tokens: 1000, output_tokens: 200 };
+  });
+  const post = (headers = {}) =>
+    fetch(`http://localhost:${s.address().port}/api/ai/draft-poll`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json', ...headers },
+      body: JSON.stringify({ prompt: 'lunch', timezone: 'UTC' }),
+    });
+  nextOutput = { title: 'Lunch', description: '', durationMinutes: 60, slots: [{ date: '2030-02-09', time: '12:00' }] };
+  nextUsage = { input_tokens: 1e6, output_tokens: 1e6 }; // $0.60 each
+  assert.deepEqual([(await post()).status, (await post()).status], [200, 200]); // $1.20 spent: over $1
+  const over = await post();
+  assert.equal(over.status, 402);
+  assert.match((await over.json()).error, /used up for this week/);
+  // A key of your own still works, and isn't counted.
+  assert.equal((await post({ 'x-anthropic-key': `sk-ant-${'c'.repeat(30)}` })).status, 200);
+});
+
+test('with only AI_OWN_KEYS on, AI needs a key of your own', async (t) => {
+  const seen = [];
+  const s = createApp({ env: { AI_OWN_KEYS: 'on' }, anthropic: fakeAnthropic });
+  await new Promise((r) => s.listen(0, r));
+  t.after(() => s.close());
+  const port = s.address().port;
+  const config = await (await fetch(`http://localhost:${port}/api/config`)).json();
+  assert.deepEqual([config.ai, config.aiWeekly], [true, 0]);
+  const post = (headers = {}) =>
+    fetch(`http://localhost:${port}/api/ai/draft-poll`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json', ...headers },
+      body: JSON.stringify({ prompt: 'lunch', timezone: 'UTC' }),
+    });
+  const res = await post();
+  seen.push(res.status);
+  assert.equal(res.status, 402);
+  assert.match((await res.json()).error, /Add your own Anthropic API key/);
+  assert.equal((await post({ 'x-anthropic-key': `sk-ant-${'b'.repeat(30)}` })).status, 200);
+});
+
+test('the weekly allowance: per person and for everyone, hashed, and last week is cleared', async () => {
+  const store = createStore(sqliteAdapter(new DatabaseSync(':memory:')));
+  assert.equal(weekOf(Date.UTC(2030, 0, 8, 12)), '2030-01-07'); // Tuesday → Monday
+  assert.equal(weekOf(Date.UTC(2030, 0, 13, 23)), '2030-01-07'); // Sunday → the Monday before
+  const [a, b] = [await allowanceKey('2030-01-07', null, '198.51.100.1'), await allowanceKey('2030-01-07', 'u1', '198.51.100.1')];
+  assert.match(a, /^[0-9a-f]{32}$/);
+  assert.notEqual(a, b);
+  assert.notEqual(a, await allowanceKey('2030-01-14', null, '198.51.100.1')); // a new week, a new hash
+  const take = (who) => store.takeAiAllowance('2030-01-07', who, 2, 3);
+  assert.deepEqual([await take(a), await take(a), await take(a)], [null, null, 'person']);
+  assert.deepEqual([await take(b), await take(b)], [null, 'total']);
+  assert.equal(await store.takeAiAllowance('2030-01-14', a, 2, 3), null);
+  assert.equal(await store.takeAiAllowance('2030-01-07', b, 2, 3), null); // last week's counts are gone
+  await store.returnAiAllowance('2030-01-07', b); // a failed request gives it back
+  assert.deepEqual([await take(b), await take(b), await take(b)], [null, null, 'person']);
 });

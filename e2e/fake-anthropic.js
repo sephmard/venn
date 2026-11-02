@@ -17,6 +17,30 @@ function reply(body) {
       slots: [1, 2, 3].map((n) => ({ date: day(n), time: '14:00' })),
     };
   }
+  // Describe it on /new: Friday and Saturday evenings in the next two weeks.
+  if (props.answerWith) {
+    const today = prompt.match(/Today is \w+ (\d{4}-\d{2}-\d{2})/)[1];
+    const days = prompt.match(/^(Friday|Saturday) \d{4}-\d{2}-\d{2}$/gm).slice(0, 4);
+    return {
+      title: 'Dinner',
+      answerWith: 'parts',
+      days: days.map((l) => ({ date: l.split(' ')[1], part: 'evening', from: '', to: '' })).filter((d) => d.date > today),
+    };
+  }
+  // A brand template's look.
+  if (props.ownPage)
+    return {
+      accent: '#c2410c',
+      ownPage: false,
+      bg: '',
+      surface: '',
+      text: '',
+      font: 'slab',
+      bodyFont: 'humanist',
+      corners: 'round',
+      buttons: 'corners',
+      title: 'Climb night',
+    };
   if (props.recommendedOption)
     return { summary: 'Most people can make the first option.', recommendedOption: 1, reason: 'Nobody is busy then.' };
   if (props.answers) {
@@ -38,12 +62,18 @@ createServer(async (req, res) => {
   for await (const chunk of req) raw += chunk;
   if (req.method !== 'POST' || !req.url.startsWith('/v1/messages')) return res.writeHead(404).end();
   const body = JSON.parse(raw);
-  const ok =
-    // SDK 1.x sends the key as a bearer token; older versions used x-api-key.
-    (req.headers.authorization === 'Bearer sk-test' || req.headers['x-api-key'] === 'sk-test') &&
-    String(req.headers['anthropic-beta']).includes('server-side-fallback-2026-07-01') &&
-    body.fallbacks === 'default' &&
-    body.output_config?.format?.type === 'json_schema';
+  // SDK 1.x sends the key as a bearer token; older versions used x-api-key. The server's key, or
+  // one someone brought (any sk-ant- key works, but sk-ant-bad… is turned down).
+  const key = req.headers.authorization?.replace(/^Bearer /, '') || req.headers['x-api-key'];
+  if (key?.startsWith('sk-ant-bad')) {
+    res.writeHead(401, { 'content-type': 'application/json' });
+    return res.end(JSON.stringify({ type: 'error', error: { type: 'authentication_error', message: 'invalid x-api-key' } }));
+  }
+  // Haiku has no server-side fallback; other models ask for it.
+  const fallback = body.model.includes('haiku')
+    ? body.fallbacks === undefined
+    : String(req.headers['anthropic-beta']).includes('server-side-fallback-2026-07-01') && body.fallbacks === 'default';
+  const ok = (key === 'sk-test' || key?.startsWith('sk-ant-')) && fallback && body.output_config?.format?.type === 'json_schema';
   if (!ok) {
     res.writeHead(400, { 'content-type': 'application/json' });
     return res.end(
