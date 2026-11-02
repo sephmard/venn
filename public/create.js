@@ -89,6 +89,13 @@ export function source() {
 let editPoll = null; // the code for editing and duplicating, loaded with the poll to start from
 let icon = null; // the poll's own emoji or picture (poll-image.js), once the icon tile is tapped
 
+/** The emoji picked for this poll ('' for the plan's own), and setting one, as AI does (ai-draft.js). */
+export const iconEmoji = () => icon?.emoji() || '';
+export async function setIconEmoji(e) {
+  icon ??= await import('./poll-image.js');
+  return icon.setEmoji(e);
+}
+
 /** The poll to start from (see edit-poll.js), or null. */
 export async function loadSource(src) {
   [editPoll, icon] = await Promise.all([import('./edit-poll.js'), import('./poll-image.js')]).catch(() => []);

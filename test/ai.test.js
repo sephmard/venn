@@ -250,6 +250,8 @@ test('other models keep the refusal fallback', async (t) => {
 test('describe it on /new: days, parts of the day or hours, checked', async () => {
   nextOutput = {
     title: 'Book club',
+    emoji: '📚 books',
+    location: '  Ana’s place  ',
     answerWith: 'parts',
     days: [
       { date: '2030-01-10', part: 'evening', from: '', to: '' },
@@ -264,12 +266,18 @@ test('describe it on /new: days, parts of the day or hours, checked', async () =
   });
   assert.equal(res.status, 200);
   assert.equal(res.data.level, 'parts');
+  // The rest of the poll, checked: one emoji, the place as named, a short title.
+  assert.equal(res.data.emoji, '📚');
+  assert.equal(res.data.location, 'Ana’s place');
+  assert.equal(res.data.title, 'Book club');
   assert.deepEqual(res.data.days, [
     { date: '2030-01-10', part: 'evening' },
     { date: '2030-01-12', part: 'afternoon' },
   ]);
   nextOutput = {
-    title: 'Call',
+    title: 'A call about everything we need to plan for the trip, the food, the cars and who sleeps where',
+    emoji: 'phone',
+    location: '',
     answerWith: 'hours',
     days: [
       { date: '2030-01-10', part: '', from: '18:00', to: '20:15' },
@@ -278,6 +286,9 @@ test('describe it on /new: days, parts of the day or hours, checked', async () =
   };
   const hours = await call('/api/ai/draft-days', { body: { prompt: 'call, Thursday 6 to 8', timezone: 'UTC' } });
   assert.deepEqual(hours.data.days, [{ date: '2030-01-10', start: 1080, end: 1230 }]);
+  assert.equal(hours.data.emoji, ''); // not an emoji: the plan's own
+  assert.equal(hours.data.title.length, 80);
+  assert.equal(hours.data.location, '');
   nextOutput = { title: 'x', answerWith: 'days', days: [{ date: 'soon', part: '', from: '', to: '' }] };
   assert.equal((await call('/api/ai/draft-days', { body: { prompt: 'whenever', timezone: 'UTC' } })).status, 503);
 });

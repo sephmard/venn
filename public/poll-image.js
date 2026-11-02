@@ -116,6 +116,16 @@ export const emoji = () => (live() ? S.emoji : '');
 /** The picture as a data: URL, for the celebration, or null. */
 export const picture = () => (live() && S.picture?.url) || null;
 
+/** Use this emoji (AI's pick, or '' for the plan's own). False when a picture is the icon. */
+export function setEmoji(e) {
+  const s = state();
+  if (s.picture) return false;
+  s.emoji = e || '';
+  if ($('#icon-emoji')) $('#icon-emoji').value = s.emoji;
+  show();
+  return true;
+}
+
 /** A kind of plan was picked (or unpicked): its emoji replaces one typed before. A picture stays. */
 export function setOccasion(o) {
   const s = state();

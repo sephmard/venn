@@ -4,9 +4,11 @@
 // and shape. AI is optional, so this loads only when the server has it switched on.
 
 import { DAY_PARTS, LIMITS, MINUTE } from './core.js';
-import { $, api, plural, toast } from './ui.js';
+import { $, $$, api, esc, plural, reducedMotion, toast } from './ui.js';
 
 import { aiFailed, aiHeaders, keyLink, wireKeyLink } from './ai-key.js';
+
+const keyProblem = (ex) => ex.status === 402 || (ex.status === 400 && /key/i.test(ex.message));
 
 // The "Use AI" button: a pill with a gradient edge and a sparkle, beside a section's heading. Its
 // look lives here, since only pages with AI on ever load it.
@@ -39,7 +41,24 @@ document.head.insertAdjacentHTML(
   .ai-use .ai-star { transform-origin: center; transform-box: fill-box; animation: ai-twinkle 2.8s ease-in-out 0.4s 2; }
   @keyframes ai-twinkle { 0%, 100% { transform: scale(1) rotate(0); } 50% { transform: scale(1.18) rotate(12deg); } }
   @media (prefers-color-scheme: dark) { .ai-use { --ai-b: #a68bff; } }
-  @media (prefers-reduced-motion: reduce) { .ai-use, .ai-use .ai-star { transition: none; animation: none; } }
+  .ai-wait { display: flex; align-items: center; gap: 10px; margin: 8px 0 0; font-weight: 600; }
+  .ai-wait img { width: 40px; height: 40px; object-fit: contain; animation: ai-bob 0.9s ease-in-out infinite alternate; }
+  @keyframes ai-bob { to { transform: translateY(-3px) rotate(-5deg); } }
+  .ai-done { display: flex; flex-wrap: wrap; align-items: center; gap: 0 12px; margin: 12px 0 0; padding: 4px 6px 4px 14px;
+    border-radius: 14px; background: color-mix(in srgb, #7c5cff 10%, var(--surface)); font-weight: 600; }
+  .ai-done > span { flex: 1 1 12em; padding: 8px 0; overflow-wrap: anywhere; }
+  .ai-done .link-btn { min-height: 44px; padding: 0 10px; }
+  /* What AI filled in lights up, a field at a time, then the picked days in order. */
+  .ai-lit { animation: ai-lit 1.4s ease-out both; animation-delay: calc(var(--ai-i, 0) * 70ms); }
+  @keyframes ai-lit {
+    0% { box-shadow: 0 0 0 0 rgb(124 92 255 / 0); }
+    25% { box-shadow: 0 0 0 4px rgb(124 92 255 / 0.55); }
+    100% { box-shadow: 0 0 0 10px rgb(124 92 255 / 0); }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .ai-use, .ai-use .ai-star, .ai-wait img { transition: none; animation: none; }
+    .ai-lit { animation: none; outline: 2px solid #7c5cff; outline-offset: 2px; }
+  }
   </style>`,
 );
 
@@ -79,6 +98,33 @@ function closeBox() {
   $('#ai-open')?.setAttribute('aria-expanded', false);
 }
 
+/** Show what AI changed: each element lights up in turn, then settles. */
+function light(els) {
+  els.filter(Boolean).forEach((el, i) => {
+    el.classList.remove('ai-lit');
+    el.style.setProperty('--ai-i', Math.min(i, 30));
+    void el.offsetWidth; // start again if it was lit before
+    el.classList.add('ai-lit');
+    setTimeout(() => el.classList.remove('ai-lit'), 1600 + Math.min(i, 30) * 70);
+  });
+}
+
+/** One line under the box saying what AI did, with Undo, which puts the form back as it was. */
+function done(text, undo) {
+  $('#ai-done')?.remove();
+  $('#ai-draft').insertAdjacentHTML(
+    'afterend',
+    `<p class="ai-done" id="ai-done" role="status"><span>${esc(text)}</span><button type="button" class="link-btn" id="ai-undo">Undo</button></p>`,
+  );
+  $('#ai-undo').onclick = async () => {
+    await undo();
+    $('#ai-done')?.remove();
+    $('#ai-open')?.focus();
+    toast('Put back as it was.');
+  };
+  $('#ai-done').scrollIntoView({ behavior: reducedMotion() ? 'auto' : 'smooth', block: 'center' });
+}
+
 /** The box's markup: a text area, its button, and where the key form opens. */
 const BUTTON = 'Fill it in';
 const box = (
@@ -93,6 +139,8 @@ const box = (
       <textarea id="ai-prompt" rows="2" maxlength="600" placeholder="${placeholder}"></textarea>
       <button type="button" class="btn ai-use" id="ai-go">${button}</button>
     </div>
+    <p class="ai-wait" id="ai-wait" role="status" hidden><img src="/img/dog.webp" alt="" width="40" height="40">Finn is on it. Thinking…</p>
+    <p class="field-err" id="ai-err" role="alert"></p>
     <p class="hint">Sent to Anthropic’s Claude. ${after} <span id="ai-key-link"></span></p>
     <div id="ai-key-box" hidden></div>
   </div>`;
@@ -107,35 +155,57 @@ function wire(fill, button = BUTTON) {
     const btn = $('#ai-go');
     btn.disabled = true;
     btn.textContent = 'Thinking…';
+    $('#ai-wait').hidden = false; // Finn, at once: the answer takes a few seconds
+    $('#ai-err').textContent = '';
     try {
       await fill(prompt);
     } catch (ex) {
-      aiFailed(ex, $('#ai-key-box'), go);
+      // A key problem opens the key form; anything else is said in the box, with what to do.
+      if (keyProblem(ex)) aiFailed(ex, $('#ai-key-box'), go);
+      else $('#ai-err').textContent = ex.message || 'AI didn’t answer. Try again in a moment.';
     } finally {
       btn.disabled = false;
       btn.textContent = button;
+      $('#ai-wait').hidden = true;
     }
   };
   $('#ai-go').onclick = go;
 }
 
 /**
- * On /new: "Use AI" beside "When could it be?" opens the box. It's only used while
- * nothing is picked (`empty()`): the days AI found go into the page's picked days, parts of the
- * day or hours (`st`, as create-free.js keeps them), and `show(level)` shows that level.
+ * On /new: "Use AI" beside "When could it be?" opens the box. One sentence fills the whole poll for
+ * review: its name, an emoji, the place, how people answer and the days (into `st`, as
+ * create-free.js keeps them). Only while nothing is picked (`empty()`). Hooks from the page:
+ * `setRow(n)`, `show(level)`, and the current `level()` and `row()`, so Undo can put it all back.
  */
-export function aiDays(st, empty, setRow, show) {
+export function aiDays(st, { empty, setRow, show, level, row }) {
   if (!$('#when-h')) return;
-  useAiButton($('#when-h'), box('ai-inline', 'Describe when it could be', 'Dinner, any Friday or Saturday evening this month'));
+  useAiButton(
+    $('#when-h'),
+    box('ai-inline', 'Describe it, and AI fills in the poll', 'Friendsgiving at mine, a Saturday evening in late November'),
+  );
   wire(async (prompt) => {
-    if (!empty()) return toast('Clear the days you’ve picked first, then describe it.');
+    if (!empty()) throw new Error('Clear the days you’ve picked first, then describe it.');
     const draft = await api('ai/draft-days', {
       method: 'POST',
       body: { prompt, timezone: $('#tz').value },
       headers: aiHeaders(),
     });
-    const t = $('#title');
-    if (draft.title && (!t.value.trim() || t.value === t.dataset.seed)) t.value = draft.title;
+    const { iconEmoji, setIconEmoji } = await import('./create.js'); // the page's own, already loaded
+    const [t, where] = [$('#title'), $('#location')];
+    const before = { title: t.value, seed: t.dataset.seed, where: where.value, emoji: iconEmoji(), level: level(), row: row() };
+    const changed = [];
+    if (draft.title && (!t.value.trim() || t.value === t.dataset.seed)) {
+      t.value = draft.title;
+      t.dispatchEvent(new Event('input'));
+      changed.push(t);
+    }
+    if (draft.emoji && !before.emoji && (await setIconEmoji(draft.emoji))) changed.push($('#emoji-tile'));
+    if (draft.location && !where.value.trim()) {
+      where.value = draft.location;
+      $('#more-box').open = true;
+      changed.push(where);
+    }
     setRow(1);
     // Each pick goes in the level's set, and in its "if needed" set too when the person called it optional.
     const pick = (key, ifNeeded) => {
@@ -148,9 +218,30 @@ export function aiDays(st, empty, setRow, show) {
       else pick(d.date, d.ifNeeded);
     await show(draft.level);
     closeBox();
-    $('#preview-h').scrollIntoView({ behavior: 'smooth', block: 'start' });
-    toast(`Picked ${plural(new Set(draft.days.map((d) => d.date)).size, 'day')}. Check them, then create the Venn.`);
+    light([...changed, ...$$('#free-list .chip')]);
+    done(summary(draft, changed.includes(t) ? t.value : ''), async () => {
+      for (const set of [st.days, st.parts, st.hours, st.maybe.days, st.maybe.parts, st.maybe.hours]) set.clear();
+      t.value = before.title;
+      t.dataset.seed = before.seed ?? '';
+      where.value = before.where;
+      await setIconEmoji(before.emoji);
+      setRow(before.row);
+      await show(before.level);
+    });
   });
+}
+
+/** What AI filled in, in a line: "Friendsgiving 🦃 · At mine · 4 evenings". */
+function summary(draft, title) {
+  const dates = new Set(draft.days.map((d) => d.date)).size;
+  const parts = new Set(draft.days.map((d) => d.part));
+  const when =
+    draft.level === 'parts' && parts.size === 1
+      ? plural(draft.days.length, DAY_PARTS.find((p) => p.key === draft.days[0].part).label.toLowerCase())
+      : draft.level === 'days'
+        ? plural(dates, 'day')
+        : `${plural(draft.days.length, 'time')} on ${plural(dates, 'day')}`;
+  return [[title, draft.emoji].filter(Boolean).join(' '), draft.location, when].filter(Boolean).join(' · ');
 }
 
 /** On "vote on a few dates": "Use AI" beside "When could it be?"; `load(options, tz)` fills in the options. */
@@ -182,9 +273,10 @@ export function aiDraft(form, load) {
 
 /**
  * On a vote (/new/topic): "Use AI" beside "What are you deciding?" writes the question and the
- * options. `fill({ question, yesNo, options })` puts them in the form.
+ * options. `fill({ question, yesNo, options })` puts them in the form; `snapshot()` returns a
+ * function that puts the form back as it was, for Undo.
  */
-export function aiTopic(fill) {
+export function aiTopic(fill, snapshot) {
   if (!$('#plan-h')) return;
   useAiButton(
     $('#plan-h'),
@@ -192,13 +284,11 @@ export function aiTopic(fill) {
   );
   wire(async (prompt) => {
     const draft = await api('ai/draft-topic', { method: 'POST', body: { prompt }, headers: aiHeaders() });
+    const undo = snapshot();
     fill(draft);
     closeBox();
-    toast(
-      draft.yesNo
-        ? 'Wrote your yes or no question. Check it, then create the Venn.'
-        : `Filled in ${plural(draft.options.length, 'option')}. Check them, then create the Venn.`,
-    );
+    light([$('#title'), ...(draft.yesNo ? [] : $$('#opts input'))]);
+    done(draft.yesNo ? `${draft.question} · Yes or no` : `${draft.question} · ${plural(draft.options.length, 'option')}`, undo);
   });
 }
 
