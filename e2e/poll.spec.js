@@ -1897,16 +1897,17 @@ test('parts of the day: a day with one part is one compact row, and guests scrol
   await expect(first).toHaveAttribute('aria-pressed', 'false');
   const box = await first.boundingBox();
   expect(box.height).toBeGreaterThanOrEqual(44);
-  // The measure (G2 on the UX polish board): first option at 812px tall, span of all five.
-  const [top, span] = await rows.evaluateAll((els) => {
+  // The measure (G2 on the UX polish board): at 375×812, the span of all five options, and the first
+  // option seen whole on arrival, above the sticky Submit bar, without scrolling.
+  const [top, span, firstBottom, visibleBottom] = await rows.evaluateAll((els) => {
     const a = els[0].getBoundingClientRect();
     const b = els.at(-1).getBoundingClientRect();
-    return [Math.round(a.top + scrollY), Math.round(b.bottom - a.top)];
+    const bar = document.querySelector('.save-bar')?.getBoundingClientRect();
+    return [Math.round(a.top + scrollY), Math.round(b.bottom - a.top), Math.round(a.bottom), Math.round(bar?.top ?? innerHeight)];
   });
   console.log(`five one-part options at 375px: first at ${top}px, spanning ${span}px`);
   expect(span).toBeLessThanOrEqual(420); // was 732
-  // With AI on (as here), "Answer for me" sits above the options: 597px, was 643 (550 without AI, was 581).
-  expect(top).toBeLessThanOrEqual(600);
+  expect(firstBottom).toBeLessThanOrEqual(visibleBottom);
   // The tap key fits on one line.
   const key = page.locator('#panel-mine .legend');
   expect((await key.boundingBox()).height).toBeLessThan(30);
