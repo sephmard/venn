@@ -248,7 +248,6 @@ export async function renderEvent(id, navigate) {
   app.innerHTML = `
     <article id="event-root" class="poll">
       ${ev().brand && brandJs ? brandJs.brandBar(ev().brand, esc) : ''}
-      ${guest || ev().brand ? '' : `<p class="retro-top"><label class="switch"><input type="checkbox" role="switch" id="retro-top"${ev().retro ? ' checked' : ''}> Retro look</label></p>`}
       <header class="poll-head">
         <span class="emoji-tile big" aria-hidden="true">${picture ? `<img src="${esc(picture)}" alt="">` : esc(ev().emoji || '🗓️')}</span>
         <div class="poll-head-text">
@@ -402,7 +401,6 @@ export async function renderEvent(id, navigate) {
     });
     navigator.share({ title, text, url: shareUrl }).catch(() => {});
   };
-  org?.retroSwitch({ id, headers: authHeaders(), ev: st.ev });
   $('#copy').onclick = () => {
     track('share', { how: 'copy', from: 'poll' });
     copy(shareUrl, 'Link copied');

@@ -20,7 +20,7 @@ const CARD_BYTES = 250_000;
 const SANS = 'system-ui, -apple-system, "Segoe UI", Roboto, sans-serif';
 const SERIF = '"Instrument Serif", "Iowan Old Style", "Palatino Linotype", Georgia, serif';
 const ORBITRON = `Orbitron, ${SANS}`;
-// The page is in the retro look (retro-look.js): the poll's, or the create page's switch.
+// The page is in the retro look (retro-look.js): the poll's, or the create page's.
 const retro = () => !!globalThis.document?.documentElement?.classList.contains('retro');
 
 const CSS = `
@@ -517,25 +517,5 @@ export async function upload(id, adminToken, title) {
   } catch (e) {
     toast(`Your poll is saved, but not its picture: ${e.message}`);
     return null;
-  }
-}
-
-/**
- * The organizer turned the retro look on or off on poll `ev`'s page: draw its link-preview card again
- * to match, with the Finn sticker it had (remembered on this device), and save it. Returns the
- * picture's new version, or null when there's no card to redraw or it couldn't be saved.
- */
-export async function restyle(ev, headers) {
-  if (!ev.image?.card) return null;
-  try {
-    const id = encodeURIComponent(ev.id);
-    const res = await fetch(`/api/events/${id}/icon.jpg?v=${ev.image.v}`);
-    if (!res.ok) throw new Error(res.statusText);
-    const blob = await res.blob();
-    const card = await previewCard(blob, ev.title, saved(ev.id).sticker ?? DEFAULT_STICKER, !!ev.retro);
-    const body = { icon: await dataUrl(blob), card: await dataUrl(card) };
-    return (await api(`events/${id}/image`, { method: 'PUT', body, headers })).image;
-  } catch {
-    return null; // the old card stays: a preview is never worth an error
   }
 }
