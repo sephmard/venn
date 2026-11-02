@@ -868,7 +868,9 @@ test('the date heading opens a month, to jump to any day ahead', async ({ page, 
   // The keyboard goes to the calendar; days gone by are off.
   await expect(jump.locator('.cal-day:focus')).toHaveCount(1);
   await expect(jump.locator(`[data-date="${today}"]`)).toBeEnabled();
-  if (!today.endsWith('-01')) await expect(jump.locator(`[data-date="${addDays(today, -1)}"]`)).toBeDisabled();
+  // Yesterday, when the calendar shows it (not always: on Nov 2, 2026, a Monday, it didn't).
+  const yesterday = jump.locator(`[data-date="${addDays(today, -1)}"]`);
+  if (await yesterday.count()) await expect(yesterday).toBeDisabled();
   // Three months on, in a few taps.
   for (let i = 0; i < 3; i++) await jump.locator('[data-nav="1"]').click();
   const target = await jump.locator('.cal-day').nth(9).getAttribute('data-date');
