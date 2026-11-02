@@ -277,7 +277,10 @@ async function finishSignIn(name, { request, url, env, store, fetchImpl, now, he
       name: who.name.slice(0, 100),
       now,
     }));
-  return addSession(redirect(safeNext(flow.next), headers, [clear]), user.id, { store, url, now });
+  // Back to My polls marked #signed-in, so it shows My polls loading rather than the sign-in page
+  // again while it asks the server who this is (that looked like the sign-in hadn't worked).
+  const next = safeNext(flow.next);
+  return addSession(redirect(next === '/me' ? '/me#signed-in' : next, headers, [clear]), user.id, { store, url, now });
 }
 
 // ---------- the account API ----------
