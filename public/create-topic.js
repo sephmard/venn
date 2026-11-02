@@ -54,7 +54,7 @@ export function renderTopic() {
       </section>
       ${youFields()}
       ${tzLine()}
-      ${createBar('Create Venn')}
+      ${createBar('Create a Venn')}
     </form>`;
   // A question, not a name, and no date-poll templates: the question comes first, typed in full.
   $('#plan-h').textContent = 'What are you deciding?';

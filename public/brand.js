@@ -22,7 +22,7 @@ const OWN = { bg: '#ffffff', surface: '#f4f4f5', text: '#16181a' };
 // Where a template's own dark mode starts: Venn's dark page, cards and text.
 const DARK = { darkBg: '#0f1112', darkSurface: '#171a1c', darkText: '#f1eee8', darkAccent: '#8fb0ff' };
 // Answers of its own start as Venn's: available, if needed, unavailable.
-const KEY = { yes: '#0b7a5c', maybe: '#e0a12e', no: '#f0b2a6' };
+const KEY = { yes: '#0b7a5c', maybe: '#e0a12e', no: '#f5b5d0' };
 // The logo: made small here, to fit a 320 × 160 box (the server takes at most 100 KB).
 const LOGO_BOX = [320, 160];
 const LOGO_MAX = 100_000;
