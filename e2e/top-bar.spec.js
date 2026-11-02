@@ -30,7 +30,7 @@ for (const width of [390, 1200]) {
       await page.goto(path);
       await page.locator('main h1, main h2').first().waitFor();
       const bar = page.locator('header.topbar');
-      await expect(bar.getByRole('link', { name: 'Venn' }), path).toHaveAttribute('href', '/');
+      await expect(bar.getByRole('link', { name: 'Venn', exact: true }), path).toHaveAttribute('href', '/');
       const button = bar.getByRole('link', { name: 'Create a Venn' });
       if (create) {
         await expect(button, path).toBeVisible();
