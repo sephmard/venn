@@ -303,7 +303,7 @@ export async function renderEvent(id, navigate) {
                       </div>`
               : ''
           }
-                ${partsMode ? '<p class="hint legend"><span class="sw sw-y"></span>Tap: available <span class="sw sw-m"></span>Tap again: if needed <span class="sw sw-n"></span>Tap again: unavailable</p>' : ''}
+                ${partsMode ? '<p class="hint legend legend-taps">Tap: <span><span class="sw sw-y"></span>Available</span> <span><span class="sw sw-m"></span>If needed</span> <span><span class="sw sw-n"></span>Unavailable</span></p>' : ''}
                 <div id="mine" class="rows"></div>
                 <div id="mine-cal" hidden></div>
           ${guest ? `<div class="quick-actions">${quickPills}</div>` : ''}
@@ -581,20 +581,34 @@ export async function renderEvent(id, navigate) {
     }
     return days;
   };
+  /** A part's name and times, as its button shows them. */
+  const partName = (w) => {
+    const p = partOf(w.start, w.end, st.tz);
+    return p
+      ? [p.label, shortRange(p.start, p.end)]
+      : allDaySpan(w.start, w.end, ev().timezone)
+        ? ['All day', '']
+        : [fmtTimeRange(w.start, w.end, st.tz), ''];
+  };
+  /** A day with one part: the whole day is one compact row, and the row is the button. */
+  const onePartRow = (d, w) => {
+    const [name, time] = partName(w);
+    const dt = dateParts(d);
+    return `<button type="button" class="part-vote part-row${w.start === ev().finalStart ? ' final' : ''}" data-opt="${w.start}">${dateBlock(d)}
+      <span class="pr-day"><b>${esc(fmtDowLong.format(dt))}</b><span class="sr-only"> ${esc(dt.toLocaleDateString(undefined, { day: 'numeric', month: 'long', timeZone: 'UTC' }))},</span> <span class="pv-state"></span></span>
+      <span class="pr-part"><b>${esc(name)}</b>${time ? `<small>${esc(time)}</small>` : ''}</span></button>`;
+  };
   function renderMineParts() {
     mineEl.innerHTML = [...byDay()]
-      .map(
-        ([d, ws]) => `<div class="row parts-row">${dateBlock(d)}
+      .map(([d, ws]) =>
+        ws.length === 1
+          ? onePartRow(d, ws[0])
+          : `<div class="row parts-row">${dateBlock(d)}
           <div class="row-main"><div class="row-when">${esc(fmtDowLong.format(dateParts(d)))}</div>
-            ${ws.length > 1 ? allDayBtn(`data-all-day="${d}"`, d) : ''}</div>
+            ${allDayBtn(`data-all-day="${d}"`, d)}</div>
           <div class="part-votes">${ws
             .map((w) => {
-              const p = partOf(w.start, w.end, st.tz);
-              const [name, time] = p
-                ? [p.label, shortRange(p.start, p.end)]
-                : allDaySpan(w.start, w.end, ev().timezone)
-                  ? ['All day', '']
-                  : [fmtTimeRange(w.start, w.end, st.tz), ''];
+              const [name, time] = partName(w);
               return `<button type="button" class="part-vote${w.start === ev().finalStart ? ' final' : ''}" data-opt="${w.start}"><b>${esc(name)}</b>${time ? `<small>${esc(time)}</small>` : ''}<span class="pv-state"></span></button>`;
             })
             .join('')}</div>

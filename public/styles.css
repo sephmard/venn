@@ -2026,6 +2026,40 @@ details.organizer > .danger {
 .part-vote.final {
   outline: 2.5px solid var(--final);
 }
+/* A day with one part (an evening, say): one compact row, the date, the day and its answer on the
+   left, the part and its times on the right, and the whole row is what you tap. */
+.part-row {
+  grid-template-columns: 52px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 2px 12px;
+  min-height: 60px;
+  padding: 8px 14px 8px 12px;
+  border-color: transparent;
+  border-radius: var(--radius);
+  background: var(--surface-2);
+}
+.part-row .date-block {
+  grid-row: auto;
+}
+.pr-day,
+.pr-part {
+  display: grid;
+  gap: 1px;
+  min-width: 0;
+}
+.pr-day b {
+  font-family: var(--display);
+  font-size: 1.05rem;
+  font-weight: 750;
+}
+.pr-part {
+  justify-items: end;
+  text-align: right;
+}
+.part-row .date-block small {
+  color: inherit;
+  opacity: 0.8;
+}
 .legend .sw {
   background: var(--yes);
 }
@@ -2060,6 +2094,10 @@ details.organizer > .danger {
 }
 .legend .sw:first-child {
   margin-left: 0;
+}
+/* What a tap does, on one line: each colour stays with its word. */
+.legend-taps > span {
+  white-space: nowrap;
 }
 
 /* ---------- guests: what I've picked, and calendar coming soon ---------- */

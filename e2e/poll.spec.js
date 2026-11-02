@@ -1864,6 +1864,61 @@ test('the share sheet sends a short nudge with the link; a copy is just the link
   await expect(page.locator('#toast')).toContainText('Keep it private');
 });
 
+test('parts of the day: a day with one part is one compact row, and guests scroll half as far', async ({ page, request }) => {
+  await page.setViewportSize({ width: 375, height: 812 });
+  // Five evenings, as a dinner poll often is, with three answers already in.
+  const evening = (d) => ({ start: Date.UTC(2030, 10, d, 18), end: Date.UTC(2030, 10, d, 22) });
+  const options = [4, 5, 6, 11, 12].map(evening);
+  const { id } = await (
+    await request.post('/api/events', {
+      data: {
+        title: 'Dinner at Rosa’s',
+        organizer: 'Priya',
+        location: 'Rosa’s Trattoria',
+        timezone: 'UTC',
+        mode: 'options',
+        layout: 'parts',
+        options,
+      },
+    })
+  ).json();
+  for (const name of ['Marcus', 'Ana', 'Jordan'])
+    await request.post(`/api/events/${id}/participants`, {
+      data: { name, availability: Object.fromEntries(options.map((o) => [o.start, 2])) },
+    });
+  await page.goto(`/e/${id}`);
+  const rows = page.locator('#mine > *');
+  await expect(rows).toHaveCount(5);
+  await expect(page.locator('#mine .parts-row')).toHaveCount(0);
+  // The whole row is the button: its name has the day, its date and the part.
+  const first = page.getByRole('button', { name: /Monday.*4 November.*Evening\s*6 – 10 PM/ });
+  await expect(first).toHaveAttribute('aria-pressed', 'false');
+  const box = await first.boundingBox();
+  expect(box.height).toBeGreaterThanOrEqual(44);
+  // The measure (G2 on the UX polish board): first option at 812px tall, span of all five.
+  const [top, span] = await rows.evaluateAll((els) => {
+    const a = els[0].getBoundingClientRect();
+    const b = els.at(-1).getBoundingClientRect();
+    return [Math.round(a.top + scrollY), Math.round(b.bottom - a.top)];
+  });
+  console.log(`five one-part options at 375px: first at ${top}px, spanning ${span}px`);
+  expect(span).toBeLessThanOrEqual(420); // was 732
+  expect(top).toBeLessThanOrEqual(560); // was 581
+  // The tap key fits on one line.
+  const key = page.locator('#panel-mine .legend');
+  expect((await key.boundingBox()).height).toBeLessThan(30);
+  // Tapping cycles available, if needed, unavailable, and the row says so in its colour.
+  await first.click();
+  await expect(first).toHaveAttribute('aria-pressed', 'true');
+  await expect(first).toContainText('✓ Available');
+  await first.click();
+  await expect(first).toHaveAttribute('aria-pressed', 'mixed');
+  await first.click();
+  await expect(first).toContainText('✕ Unavailable');
+  await expect(first).toHaveAttribute('data-v', 'no');
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+});
+
 test('parts of the day: "All day" marks every part of a day in one tap', async ({ page, request }) => {
   const day = (d, h) => Date.UTC(2030, 0, d, h);
   const options = [8, 9].flatMap((d) => [
@@ -1875,7 +1930,7 @@ test('parts of the day: "All day" marks every part of a day in one tap', async (
     await request.post('/api/events', { data: { title: 'Coffee', timezone: 'UTC', mode: 'options', layout: 'parts', options } })
   ).json();
   await page.goto(`/e/${id}`);
-  await expect(page.locator('#panel-mine .legend')).toHaveText(/Tap: available\s+Tap again: if needed\s+Tap again: unavailable/);
+  await expect(page.locator('#panel-mine .legend')).toHaveText(/^Tap:\s+Available\s+If needed\s+Unavailable$/);
   const allDay = page.getByRole('button', { name: /^All day\W+Tue, Jan 8$/ });
   const parts = page.locator('.parts-row').first().locator('.part-vote');
   await expect(allDay).toHaveAttribute('aria-pressed', 'false');
