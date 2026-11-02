@@ -17,26 +17,82 @@ function reply(body) {
       slots: [1, 2, 3].map((n) => ({ date: day(n), time: '14:00' })),
     };
   }
-  // Describe it on /new: Friday and Saturday evenings in the next two weeks, Saturdays only if needed.
-  if (props.answerWith) {
+  // Describe it on /new. "date night" reads as this week's Wednesday, Thursday and weekend
+  // evenings, as a model following the rules would; "2-4pm" as Tuesday and Thursday hours; "trip"
+  // as 3 days in a row; anything else as Friday and Saturday evenings in the next two weeks, with
+  // Saturdays only if needed.
+  if (props.timeOfDay) {
     const today = prompt.match(/Today is \w+ (\d{4}-\d{2}-\d{2})/)[1];
-    const days = prompt.match(/^\s*(Friday|Saturday) \d{4}-\d{2}-\d{2}$/gm).slice(0, 4);
     const text = prompt.match(/<user_text>([\s\S]*)<\/user_text>/)?.[1] || '';
+    const week = prompt.match(/This week:\n((?: {2}\w+ \d{4}-\d{2}-\d{2}\n?)+)/)[1];
+    const named = (names, from = prompt) =>
+      [...from.matchAll(/^\s*(\w+) (\d{4}-\d{2}-\d{2})$/gm)]
+        .filter(([, n]) => names.includes(n))
+        .map(([, n, date]) => ({ n, date }));
+    const base = { reading: '', emoji: '🍝', tile: 'sunny', location: text.match(/ at (.+?)(,|$)/)?.[1] || '' };
+    const day = (date, more = {}) => ({ date, parts: [], from: '', to: '', ifNeeded: false, ...more });
+    if (/date night/i.test(text))
+      return {
+        ...base,
+        title: 'Date night',
+        emoji: '💕',
+        tile: 'berry',
+        timeOfDay: 'parts',
+        usualParts: ['evening'],
+        firstDate: today,
+        lastDate: named(['Sunday'], week)[0]?.date || today,
+        daysInRow: 1,
+        days: named(['Wednesday', 'Thursday', 'Saturday', 'Sunday'], week).map(({ date }) => day(date)),
+        note: 'Took date night as evenings.',
+      };
+    if (/2-4pm/.test(text))
+      return {
+        ...base,
+        title: 'Team sync',
+        emoji: '💬',
+        tile: 'paper',
+        timeOfDay: 'clock',
+        usualParts: [],
+        firstDate: today,
+        lastDate: '',
+        daysInRow: 1,
+        days: named(['Tuesday', 'Thursday'])
+          .slice(0, 2)
+          .map(({ date }) => day(date, { from: '14:00', to: '16:00' })),
+        note: '',
+      };
+    if (/trip/i.test(text))
+      return {
+        ...base,
+        title: 'Lake trip',
+        emoji: '🏕️',
+        tile: 'sky',
+        timeOfDay: 'any',
+        usualParts: [],
+        firstDate: today,
+        lastDate: '',
+        daysInRow: 3,
+        days: named(['Friday', 'Saturday', 'Sunday', 'Monday'])
+          .slice(0, 4)
+          .map(({ date }) => day(date)),
+        note: '',
+      };
     return {
+      ...base,
       title: 'Dinner',
-      emoji: '🍝',
-      tile: 'sunny',
-      location: text.match(/ at (.+?)(,|$)/)?.[1] || '', // only a place the description names
-      answerWith: 'parts',
+      timeOfDay: 'parts',
+      usualParts: [],
       firstDate: today,
       lastDate: '',
+      daysInRow: 1,
       // "whenever": no days, so the page says what to do.
       days: /whenever/.test(text)
         ? []
-        : days
-            .map((l) => l.trim().split(' '))
-            .map(([name, date]) => ({ date, part: 'evening', from: '', to: '', ifNeeded: name === 'Saturday' }))
-            .filter((d) => d.date > today),
+        : named(['Friday', 'Saturday'])
+            .slice(0, 4)
+            .filter(({ date }) => date > today)
+            .map(({ n, date }) => day(date, { parts: ['evening'], ifNeeded: n === 'Saturday' })),
+      note: '',
     };
   }
   // A vote on /new/topic.

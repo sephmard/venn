@@ -5,9 +5,8 @@
 import Anthropic from '@anthropic-ai/sdk';
 import { BUTTONS, CORNERS, FONTS, isHex } from '../public/brand-look.js';
 import { firstEmoji } from '../public/emoji.js';
-import { TILE_KEYS, isTileStyle } from '../public/tile-styles.js';
+import { DAYS_SCHEMA, DAYS_SYSTEM, daysPrompt, shapeDays } from './days-draft.js';
 import {
-  DAY_PARTS,
   IF_NEEDED,
   LIMITS,
   ValidationError,
@@ -195,135 +194,24 @@ ${upcoming}
 
 // ---------- 1b. Describe it in words → the days on "Create a Venn" (/new) ----------
 
-const DAYS_SCHEMA = {
-  type: 'object',
-  properties: {
-    title: { type: 'string', description: 'Short poll title, under 60 characters' },
-    emoji: { type: 'string', description: 'One emoji that fits the plan, like 🦃 for Friendsgiving or 🍝 for dinner' },
-    location: { type: 'string', description: 'The place, only if the description names one, else empty' },
-    tile: {
-      type: 'string',
-      enum: TILE_KEYS,
-      description:
-        'The background behind the emoji: mint (fresh, outdoors), sunny (warm, celebrations), berry (parties, romance), sky (trips, water, calm), dusk (evenings, culture), paper (plain, work)',
-    },
-    answerWith: {
-      type: 'string',
-      enum: ['days', 'parts', 'hours'],
-      description: 'days: whole days. parts: mornings, afternoons or evenings. hours: specific times.',
-    },
-    firstDate: { type: 'string', description: 'YYYY-MM-DD: the first day the description allows' },
-    lastDate: {
-      type: 'string',
-      description: 'YYYY-MM-DD: the last day the description allows. "This week" ends on its Sunday.',
-    },
-    days: {
-      type: 'array',
-      items: {
-        type: 'object',
-        properties: {
-          date: { type: 'string', description: 'YYYY-MM-DD' },
-          part: { type: 'string', enum: ['', ...DAY_PARTS.map((p) => p.key)], description: 'For parts only, else empty' },
-          from: { type: 'string', description: 'For hours only: HH:MM, 24-hour, else empty' },
-          to: { type: 'string', description: 'For hours only: HH:MM, 24-hour, else empty' },
-          ifNeeded: {
-            type: 'boolean',
-            description: 'True when the person called this day optional, a maybe, a backup or only if needed',
-          },
-        },
-        required: ['date', 'part', 'from', 'to', 'ifNeeded'],
-        additionalProperties: false,
-      },
-    },
-  },
-  required: ['title', 'emoji', 'tile', 'location', 'answerWith', 'firstDate', 'lastDate', 'days'],
-  additionalProperties: false,
-};
-
 /**
  * The days (and parts of the day, or hours) that could work, for /new's calendar to show picked:
- * { title, emoji, tile, location, level: 'days' | 'parts' | 'hours', days: [{ date }] | [{ date, part }] | [{ date, start, end }] },
- * with start and end in minutes after midnight, and `ifNeeded: true` on days the person called optional.
+ * { title, emoji, tile, location, level: 'days' | 'parts' | 'hours', row, days, note }. The rules,
+ * the answer's shape and how it's checked live in days-draft.js.
  */
 export async function draftDays(env, { prompt, timezone }, { now, anthropic } = {}) {
   const text = cleanPrompt(prompt, 'Description');
-  const today = utcToZoned(now, timezone).date;
-  const NAMES = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
-  // Six weeks of dates in weeks that run Monday to Sunday, each labelled, so "this week" and
-  // "next week" are read off the list rather than worked out.
-  const weekLabel = (i) => (i === 0 ? 'This week' : i === 1 ? 'Next week' : `In ${i} weeks`);
-  const lines = [];
-  for (let i = 0, week = -1; i < 42; i++) {
-    const d = addDays(today, i);
-    if (i === 0 || weekdayOf(d) === 1) lines.push(`${weekLabel(++week)}:`);
-    lines.push(`  ${NAMES[weekdayOf(d)]} ${d}`);
-  }
-
+  const { date: today, minutes: nowMinutes } = utcToZoned(now, timezone);
   const out = await ask(env, {
     schema: DAYS_SCHEMA,
     anthropic,
     effort: 'medium', // "any weekend in March" needs a little date reasoning
-    system: `You help someone set up a group poll to find a day that works for everyone. Turn their description into a short title, one emoji that fits and a background for it, the place if they name one, and the days that could work.
-Rules:
-- The location is only a place the description names ("at mine", "Rosa's"); never invent one.
-- answerWith is "days" unless the description names times of day. Use "parts" for mornings, afternoons or evenings, and "hours" for specific times.
-- First decide the span the description allows, as firstDate and lastDate, and list only days inside it. Weeks run Monday to Sunday, as in the calendar given: "this week" is only the days under This week, "next week" only those under Next week, "this weekend" only the coming Saturday and Sunday. Never go past a span the person gave. With no span given, use the next three weeks.
-- List each day that fits, up to 31. Only use dates on or after today.
-- ifNeeded is true for days the person called optional, a maybe, a backup, a fallback or only if needed, and false for the rest. Those days are still listed.
-- With "parts", list one entry per part of the day. With "hours", give the time range for each day.
-- Times are in the person's own time zone; do not convert them.
-${DATA_NOTE}`,
-    prompt: `Time zone: ${timezone}
-Today is ${NAMES[weekdayOf(today)]} ${today}. The calendar:
-${lines.join('\n')}
-
-<user_text>${text}</user_text>`,
+    system: DAYS_SYSTEM,
+    prompt: daysPrompt(text, { today, timezone, nowMinutes }),
   });
-
-  // The span the AI read from the description: a day outside it never gets picked.
-  const isDate = (v) => typeof v === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(v) && addDays(v, 0) === v;
-  const first = isDate(out.firstDate) && out.firstDate > today ? out.firstDate : today;
-  const last = isDate(out.lastDate) && out.lastDate >= first ? out.lastDate : null;
-  const level = ['days', 'parts', 'hours'].includes(out.answerWith) ? out.answerWith : 'days';
-  const minutes = (t) => {
-    const m = /^(\d{1,2}):(\d{2})$/.exec(t || '');
-    if (!m || +m[1] > 24 || +m[2] > 59) return null;
-    return Math.min(1440, +m[1] * 60 + Math.round(+m[2] / 30) * 30);
-  };
-  const seen = new Set();
-  const days = [];
-  for (const d of out.days || []) {
-    if (!isDate(d.date) || d.date < first || (last && d.date > last)) continue;
-    let item = { date: d.date };
-    if (level === 'parts') {
-      if (!DAY_PARTS.some((p) => p.key === d.part)) continue;
-      item.part = d.part;
-    }
-    if (level === 'hours') {
-      const [start, end] = [minutes(d.from), minutes(d.to)];
-      if (start == null || end == null || end <= start) continue;
-      item = { ...item, start, end };
-    }
-    const key = JSON.stringify(item);
-    if (seen.has(key)) continue;
-    seen.add(key);
-    if (d.ifNeeded === true) item.ifNeeded = true;
-    days.push(item);
-  }
-  if (!days.length) throw new AiUnavailableError("Couldn't find any days in that description. Try mentioning when.");
-  days.sort((a, b) => (a.date < b.date ? -1 : a.date > b.date ? 1 : (a.start ?? 0) - (b.start ?? 0)));
-  return {
-    title: String(out.title || '')
-      .trim()
-      .slice(0, 80),
-    emoji: firstEmoji(out.emoji), // one emoji, or '' for the plan's own
-    tile: isTileStyle(out.tile) ? out.tile : '', // only a style Venn draws itself
-    location: String(out.location || '')
-      .trim()
-      .slice(0, LIMITS.location),
-    level,
-    days: days.slice(0, 62),
-  };
+  const draft = shapeDays(out, { today, nowMinutes });
+  if (!draft.days.length) throw new AiUnavailableError("Couldn't find any days in that description. Try mentioning when.");
+  return draft;
 }
 
 // ---------- 1d. Describe the decision → a vote's question and options (/new/topic) ----------
