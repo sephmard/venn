@@ -196,13 +196,25 @@ export function renderTopic() {
       (c) =>
         c.ai &&
         import('./ai-draft.js').then((m) =>
-          m.aiTopic(({ question, yesNo, options }) => {
-            $('#title').value = question;
-            if (yesNo) return setKind('yesno');
-            setKind('options');
-            $('#opts').innerHTML = options.map((w, i) => row(w, i + 1)).join('');
-            renumber();
-          }),
+          m.aiTopic(
+            ({ question, yesNo, options }) => {
+              $('#title').value = question;
+              if (yesNo) return setKind('yesno');
+              setKind('options');
+              $('#opts').innerHTML = options.map((w, i) => row(w, i + 1)).join('');
+              renumber();
+            },
+            // For Undo: the form as it was, put back exactly.
+            () => {
+              const [title, was, values] = [$('#title').value, kind, $$('#opts input').map((i) => i.value)];
+              return () => {
+                $('#title').value = title;
+                $('#opts').innerHTML = values.map((w, i) => row(w, i + 1)).join('');
+                renumber();
+                setKind(was);
+              };
+            },
+          ),
         ),
     );
   $('#title').focus();

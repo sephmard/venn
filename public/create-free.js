@@ -632,7 +632,9 @@ export function renderFree() {
     level = null;
     return setLevel(next);
   };
-  if (!src) getConfig().then((c) => c.ai && import('./ai-draft.js').then((m) => m.aiDays(st, empty, setRow, showLevel)));
+  const row = () => ($('#in-row').checked ? +$('#span').value : 1);
+  const hooks = { empty, setRow, show: showLevel, level: () => level, row };
+  if (!src) getConfig().then((c) => c.ai && import('./ai-draft.js').then((m) => m.aiDays(st, hooks)));
   $('#title').focus();
   return () => {
     painter?.cleanup();

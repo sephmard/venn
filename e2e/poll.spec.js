@@ -1255,18 +1255,23 @@ test('installable: manifest and icons are served', async ({ request }) => {
   }
 });
 
-test('AI on a vote: Use AI writes the question and the options', async ({ page }) => {
+test('AI on a vote: Use AI writes the question and the options, and Undo puts the form back', async ({ page }) => {
   await page.goto('/new/topic');
+  await page.locator('#opts input').first().fill('Pizza place');
   await expect(page.locator('#ai-draft')).toBeHidden();
   await page.click('#ai-open');
   await expect(page.locator('#ai-open')).toHaveAttribute('aria-expanded', 'true');
   await page.fill('#ai-prompt', 'Dinner Friday: Rosa’s, Luigi’s or Thai Garden');
   await page.click('#ai-go');
-  await expect(page.locator('#toast')).toContainText('Filled in 3 options');
+  await expect(page.locator('#ai-done')).toContainText('Where should we eat Friday? · 3 options');
   await expect(page.locator('#title')).toHaveValue('Where should we eat Friday?');
   await expect(page.locator('#opts input')).toHaveCount(3);
   await expect(page.locator('#opts input').nth(2)).toHaveValue('Thai Garden');
   await expect(page.locator('#ai-draft')).toBeHidden();
+  await page.getByRole('button', { name: 'Undo' }).click();
+  await expect(page.locator('#title')).toHaveValue('');
+  await expect(page.locator('#opts input').first()).toHaveValue('Pizza place');
+  await expect(page.locator('#ai-done')).toHaveCount(0);
 });
 
 test('AI: describe a poll in words, then summarize and write messages as the organizer', async ({ page }) => {
@@ -1342,15 +1347,58 @@ test('AI: describe it instead on Create a Venn picks the days, with your own key
   await page.fill('#ai-prompt', 'Dinner, any Friday or Saturday evening');
   await page.click('#ai-go');
   expect((await sent).headers()['x-anthropic-key']).toMatch(/^sk-ant-x+$/);
-  await expect(page.locator('#toast')).toContainText(/Picked \d+ days?/);
+  await expect(page.locator('#ai-done')).toContainText(/^Dinner 🍝 · \d+ evenings?Undo$/);
   await expect(page.locator('#title')).toHaveValue('Dinner');
   await expect(page.locator('[data-level="parts"]')).toHaveAttribute('aria-checked', 'true');
   await expect(page.locator('#free-list .chip').first()).toContainText('Evening');
   await expect(page.locator('#ai-draft')).toBeHidden();
-  // Once days are picked, it doesn't replace them.
+  // Once days are picked, it doesn't replace them, and says so in the box.
   await page.click('#ai-open');
   await page.click('#ai-go');
-  await expect(page.locator('#toast')).toContainText('Clear the days');
+  await expect(page.locator('#ai-err')).toHaveText('Clear the days you’ve picked first, then describe it.');
+});
+
+test('AI: one sentence fills the whole poll for review, shows what it did, and Undo puts it all back', async ({ page }) => {
+  await page.goto('/new');
+  await page.fill('#organizer', 'Sam');
+  await expect(page.locator('#emoji-tile')).toHaveText('🗓️');
+  await page.click('#ai-open');
+  // Nothing found: said in the box, with what to try.
+  await page.fill('#ai-prompt', 'Dinner, whenever');
+  await page.click('#ai-go');
+  await expect(page.locator('#ai-err')).toContainText('Try mentioning when');
+  await expect(page.locator('#ai-go')).toBeEnabled();
+  // Finn shows at once while it thinks, and the button can't be pressed twice.
+  let answer;
+  await page.route('**/api/ai/draft-days', async (route) => {
+    await new Promise((r) => (answer = r));
+    await route.continue();
+  });
+  await page.fill('#ai-prompt', 'Dinner at Rosa’s, any Friday or Saturday evening');
+  await page.click('#ai-go');
+  await expect(page.locator('#ai-wait')).toBeVisible();
+  await expect(page.locator('#ai-wait')).toContainText('Thinking…');
+  await expect(page.locator('#ai-go')).toBeDisabled();
+  await expect(page.locator('#ai-err')).toBeEmpty();
+  answer();
+  // The name, the emoji, the place and the evenings, for review: nothing is created yet.
+  await expect(page.locator('#ai-done')).toContainText(/^Dinner 🍝 · Rosa’s · \d+ evenings?Undo$/);
+  await expect(page.locator('#ai-wait')).toBeHidden();
+  await expect(page.locator('#title')).toHaveValue('Dinner');
+  await expect(page.locator('#emoji-tile')).toHaveText('🍝');
+  await expect(page.locator('#location')).toHaveValue('Rosa’s');
+  await expect(page.locator('[data-level="parts"]')).toHaveAttribute('aria-checked', 'true');
+  await expect(page.locator('#free-list .chip').first()).toContainText('Evening');
+  expect(page.url()).toMatch(/\/new$/);
+  // Undo: the form exactly as it was.
+  await page.getByRole('button', { name: 'Undo' }).click();
+  await expect(page.locator('#ai-done')).toHaveCount(0);
+  await expect(page.locator('#title')).not.toHaveValue('Dinner');
+  await expect(page.locator('#emoji-tile')).toHaveText('🗓️');
+  await expect(page.locator('#location')).toHaveValue('');
+  await expect(page.locator('[data-level="days"]')).toHaveAttribute('aria-checked', 'true');
+  await expect(page.locator('#free-list .chip')).toHaveCount(0);
+  await expect(page.locator('#ai-open')).toBeFocused();
 });
 
 test('AI: a key that does not work says so, and the key form stays open to fix it', async ({ page }) => {

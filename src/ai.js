@@ -4,6 +4,7 @@
 
 import Anthropic from '@anthropic-ai/sdk';
 import { BUTTONS, CORNERS, FONTS, isHex } from '../public/brand-look.js';
+import { firstEmoji } from '../public/emoji.js';
 import {
   DAY_PARTS,
   IF_NEEDED,
@@ -197,6 +198,8 @@ const DAYS_SCHEMA = {
   type: 'object',
   properties: {
     title: { type: 'string', description: 'Short poll title, under 60 characters' },
+    emoji: { type: 'string', description: 'One emoji that fits the plan, like 🦃 for Friendsgiving or 🍝 for dinner' },
+    location: { type: 'string', description: 'The place, only if the description names one, else empty' },
     answerWith: {
       type: 'string',
       enum: ['days', 'parts', 'hours'],
@@ -217,13 +220,13 @@ const DAYS_SCHEMA = {
       },
     },
   },
-  required: ['title', 'answerWith', 'days'],
+  required: ['title', 'emoji', 'location', 'answerWith', 'days'],
   additionalProperties: false,
 };
 
 /**
  * The days (and parts of the day, or hours) that could work, for /new's calendar to show picked:
- * { title, level: 'days' | 'parts' | 'hours', days: [{ date }] | [{ date, part }] | [{ date, start, end }] },
+ * { title, emoji, location, level: 'days' | 'parts' | 'hours', days: [{ date }] | [{ date, part }] | [{ date, start, end }] },
  * with start and end in minutes after midnight.
  */
 export async function draftDays(env, { prompt, timezone }, { now, anthropic } = {}) {
@@ -239,8 +242,9 @@ export async function draftDays(env, { prompt, timezone }, { now, anthropic } = 
     schema: DAYS_SCHEMA,
     anthropic,
     effort: 'medium', // "any weekend in March" needs a little date reasoning
-    system: `You help someone set up a group poll to find a day that works for everyone. Turn their description into a short title and the days that could work.
+    system: `You help someone set up a group poll to find a day that works for everyone. Turn their description into a short title, one emoji that fits, the place if they name one, and the days that could work.
 Rules:
+- The location is only a place the description names ("at mine", "Rosa's"); never invent one.
 - answerWith is "days" unless the description names times of day. Use "parts" for mornings, afternoons or evenings, and "hours" for specific times.
 - List every day that fits the description, up to 31. Only use dates on or after today, and within the next six weeks unless the description says otherwise.
 - With "parts", list one entry per part of the day. With "hours", give the time range for each day.
@@ -280,7 +284,17 @@ ${upcoming}
   }
   if (!days.length) throw new AiUnavailableError("Couldn't find any days in that description. Try mentioning when.");
   days.sort((a, b) => (a.date < b.date ? -1 : a.date > b.date ? 1 : (a.start ?? 0) - (b.start ?? 0)));
-  return { title: String(out.title || '').slice(0, LIMITS.title), level, days: days.slice(0, 62) };
+  return {
+    title: String(out.title || '')
+      .trim()
+      .slice(0, 80),
+    emoji: firstEmoji(out.emoji), // one emoji, or '' for the plan's own
+    location: String(out.location || '')
+      .trim()
+      .slice(0, LIMITS.location),
+    level,
+    days: days.slice(0, 62),
+  };
 }
 
 // ---------- 1d. Describe the decision → a vote's question and options (/new/topic) ----------
