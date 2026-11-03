@@ -4,7 +4,7 @@
 // so this costs Venn nothing in AI and needs no key. Stateless JSON-RPC over HTTP POST
 // ("Streamable HTTP", answered as plain JSON).
 
-import { isDaysPoll, isOptionsPoll, rankTimes } from '../public/core.js';
+import { isDaysPoll, rankTimes } from '../public/core.js';
 
 const VERSIONS = ['2025-11-25', '2025-06-18', '2025-03-26', '2024-11-05'];
 const MAX_BODY = 64 * 1024;
@@ -150,9 +150,9 @@ function span(start, end, ev) {
 /**
  * The best days or times, ranked exactly as the poll page ranks them (rankTimes in public/core.js:
  * most people who can make it, then most yeses, then the earliest; a trip's or meeting's length
- * counts every day or hour of it). Times nobody can make are left out. Ties are said only where
- * each time stands alone (whole days, or listed times), as on the page; a trip's or meeting's
- * ranked stretches overlap one another.
+ * counts every day or hour of it). Times nobody can make are left out. Ties are named only for
+ * whole days, as on the page (public/event.js): a trip's or meeting's ranked stretches overlap
+ * one another, and the page doesn't name ties on specific times yet (backlog P10).
  */
 function bestTimes(ev, people, answers) {
   const ranked = rankTimes(ev, ev.slots || [], people, Infinity);
@@ -181,7 +181,7 @@ function bestTimes(ev, people, answers) {
         ? `all ${n} can make it if needed`
         : `${can} of ${n} can make it${first.ifNeeded.length ? `, ${first.ifNeeded.length} if needed` : ''}`;
   const same = (r) => r.yes.length === first.yes.length && r.ifNeeded.length === first.ifNeeded.length;
-  const alone = (isOptionsPoll(ev) || days) && (ev.durationMinutes ?? 0) <= (ev.slotMinutes ?? 0);
+  const alone = days && ev.durationMinutes <= ev.slotMinutes;
   const top = alone ? ranked.filter(same) : [first];
   const leading = top.map((r) => span(r.start, r.end, ev));
   if (top.length > 1)
