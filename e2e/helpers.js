@@ -127,13 +127,25 @@ const PLACES = {
   ],
 };
 
+/**
+ * Switch optional features on (or off) in the page's /api/config. Only keys the real /api/config
+ * sends are allowed, so a misspelt key fails here instead of making a test pass (as `emailAvailable`
+ * once did, #267).
+ */
+export async function mockConfig(page, config) {
+  const real = await (await page.request.get('/api/config')).json();
+  const unknown = Object.keys(config).filter((key) => !(key in real));
+  if (unknown.length) throw new Error(`/api/config sends no ${unknown.join(', ')}`);
+  await page.route('**/api/config', async (route) => {
+    const res = await route.fetch();
+    await route.fulfill({ response: res, json: { ...(await res.json()), ...config } });
+  });
+}
+
 /** Place search on, with `provider`; returns the searches the page made. */
 export async function mockPlaces(page, provider = 'photon') {
   const searches = [];
-  await page.route('**/api/config', async (route) => {
-    const res = await route.fetch();
-    await route.fulfill({ response: res, json: { ...(await res.json()), places: provider } });
-  });
+  await mockConfig(page, { places: provider });
   await page.route('**/api/places?*', (route) => {
     const params = new URL(route.request().url()).searchParams;
     searches.push(Object.fromEntries(params));
@@ -146,10 +158,7 @@ export async function mockPlaces(page, provider = 'photon') {
 /** The home page's contact form on (the test server has no email); returns the messages sent. */
 export async function mockContact(page, reply = { status: 204 }) {
   const sent = [];
-  await page.route('**/api/config', async (route) => {
-    const res = await route.fetch();
-    await route.fulfill({ response: res, json: { ...(await res.json()), contact: true } });
-  });
+  await mockConfig(page, { contact: true });
   await page.route('**/api/contact', (route) => {
     sent.push(route.request().postDataJSON());
     route.fulfill(reply);
