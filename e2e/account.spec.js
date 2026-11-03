@@ -252,6 +252,8 @@ test('a sign-in that doesn’t finish says so', async ({ page }) => {
 test('For organizations needs an account: sign in first, then make a template; a draft survives a session ending', async ({
   browser,
 }, info) => {
+  // A long journey (two templates, a poll, a session ending): about 20s alone, past 30s on a busy runner.
+  test.slow();
   const context = await browser.newContext({ extraHTTPHeaders: { 'x-test-user': `brand-${info.project.name}-${Date.now()}` } });
   const page = await context.newPage();
   // Signed out, For organizations shows what a template is, and asks to sign in to make one.

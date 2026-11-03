@@ -210,6 +210,8 @@ export async function draftDays(env, { prompt, timezone }, { now, anthropic } = 
     prompt: daysPrompt(text, { today, timezone, nowMinutes }),
   });
   const draft = shapeDays(out, { today, nowMinutes });
+  // A choice with no days ("Italian, Thai or Mexican?"): the page offers to make it a vote.
+  if (!draft.days.length && draft.vote && !draft.vote.both) return draft;
   if (!draft.days.length) throw new AiUnavailableError("Couldn't find any days in that description. Try mentioning when.");
   return draft;
 }
