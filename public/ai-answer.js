@@ -1,7 +1,7 @@
 // "Answer for me" on the poll page: a guest says what works for them in words, and Claude fills in
 // their answers to review. Only servers with AI switched on offer it, so it loads when it's opened.
 
-import { aiFailed, aiHeaders, keyLink, wireKeyLink } from './ai-key.js';
+import { aiFailed, aiHeaders, keyHint } from './ai-key.js';
 import { $, api, toast } from './ui.js';
 
 /**
@@ -20,8 +20,7 @@ export function answerForMe({ id, st, done }) {
       </div>
       <p class="hint" id="ai-replace" hidden>This replaces the answers you’ve marked.</p>
       <div id="ai-key-box" hidden></div>`;
-    $('#ai-answer-key').innerHTML = keyLink();
-    wireKeyLink(panel, $('#ai-key-box'));
+    keyHint(panel, $('#ai-answer-key'), $('#ai-key-box'));
     const go = async () => {
       const btn = $('#ai-answer-go');
       const preferences = $('#ai-prefs').value.trim();
