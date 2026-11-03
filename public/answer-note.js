@@ -32,6 +32,7 @@ export function mountNotes(id, ev, mine) {
   const closed = !ev.isAdmin && ev.deadline != null && Date.now() >= ev.deadline;
   if (closed || ev.finalStart != null || ev.picked != null) {
     slot.innerHTML = sent ? `<p class="hint">Your note: ${esc(sent)}</p>` : '';
+    if (!sent) slot.style.minHeight = 0; // no link coming: no room kept for it
     return;
   }
   const open = (focus) => {

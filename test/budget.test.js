@@ -113,5 +113,5 @@ test('app-look.js fetches each page’s modules up front: exactly the ones the p
 test('page weight: a topic poll’s organizer-only code loads only for the organizer', () => {
   const guest = closure('topic-poll.js');
   for (const f of ['topic-organizer.js', 'organizer.js', 'topic-templates.js']) assert.ok(!guest.has(f), f);
-  assert.match(read('topic-poll.js').toString(), /ev\.isAdmin\s*\?\s*await import\('\.\/topic-organizer\.js'\)/);
+  assert.match(read('topic-poll.js').toString(), /ev\.isAdmin \? import\('\.\/topic-organizer\.js'\) : null/);
 });
