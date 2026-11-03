@@ -1564,6 +1564,11 @@ ol.best .when {
   margin: 0 0 8px;
   color: var(--muted);
 }
+.draft-note .link-btn {
+  min-height: 0;
+  padding-block: 12px;
+  margin-block: -12px;
+}
 details.organizer {
   border-radius: var(--radius-lg);
   padding: 8px 20px 16px;
