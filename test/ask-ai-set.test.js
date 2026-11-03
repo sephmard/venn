@@ -93,13 +93,21 @@ const CASES = [
       lastDate: '2026-11-08',
       days: ['2026-11-04', '2026-11-05', '2026-11-07', '2026-11-08'],
     }),
-    // No part is made up from the model's free text: whole days, and the note says so (D5, #254).
-    level: 'days',
-    want: W(['2026-11-04', '2026-11-05', '2026-11-07', '2026-11-08'], 'all'),
-    note: /No part of the day was given, so it asks about whole days\./,
-    // The words alone still read date night as evenings.
+    // The person's own words imply the part: date night is evenings, on the allowed days, said (D5).
+    level: 'parts',
+    want: W(['2026-11-04', '2026-11-05', '2026-11-07', '2026-11-08'], 'evening'),
+    note: /Took date night as evenings\./,
+    when: 'Evenings: Wed, Nov 4 · Thu, Nov 5 · Sat, Nov 7 · Sun, Nov 8',
     words: 'same',
-    wordsExpect: { level: 'parts', want: W(['2026-11-04', '2026-11-05', '2026-11-07', '2026-11-08'], 'evening') },
+  },
+  {
+    id: 'Q1c model slip: says parts, names none, and the words imply none',
+    prompt: 'Catch up with Sam on Wednesday or Thursday',
+    model: answer({ title: 'Catch up with Sam', timeOfDay: 'parts', usualParts: [], days: ['2026-11-04', '2026-11-05'] }),
+    level: 'days',
+    want: W(['2026-11-04', '2026-11-05'], 'all'),
+    note: /No part of the day was given, so it asks about whole days\./,
+    words: 'same',
   },
   {
     id: 'Q2 format: a choice is a vote',
@@ -490,10 +498,9 @@ for (const c of CASES) {
       assert.equal(draft, null, 'no draft rather than a wrong one');
       return assert.equal(unsureOf(c.prompt), c.unsure, 'and why, so the box says what to change');
     }
-    const expect = { ...c, ...c.wordsExpect };
-    if (c.words === null) return assert.ok(!draft || checkDraft(draft, expect) === undefined, 'no draft, or a right one');
+    if (c.words === null) return assert.ok(!draft || checkDraft(draft, c) === undefined, 'no draft, or a right one');
     assert.ok(draft, 'a draft from the words');
-    checkDraft(draft, expect);
+    checkDraft(draft, c);
   });
   if (c.wordsNote)
     test(`${c.id} · B no AI, the note`, { todo: c.todoWordsNote }, () => {

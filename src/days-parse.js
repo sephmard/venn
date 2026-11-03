@@ -6,7 +6,7 @@
 // they review AI's.
 
 import { addDays, weekdayOf } from '../public/core.js';
-import { shapeDays } from './days-draft.js';
+import { PART_WORDS, shapeDays } from './days-draft.js';
 
 const WEEKDAYS = {
   sun: 0,
@@ -62,11 +62,7 @@ const TITLES = [
   'meeting',
   'party',
 ];
-const PARTS = [
-  ['morning', /\bmornings?\b/, /\b(breakfast|brunch)\b/],
-  ['afternoon', /\bafternoons?\b/, /\b(lunch)\b/],
-  ['evening', /\b(evenings?|tonight)\b/, /\b(dinner|supper|drinks|date night|game night|movie night|party)\b/],
-];
+const PARTS = PART_WORDS;
 
 const sundayOf = (d) => addDays(d, (7 - weekdayOf(d)) % 7);
 const mondayAfter = (d) => addDays(sundayOf(d), 1);
