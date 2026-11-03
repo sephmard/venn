@@ -50,6 +50,8 @@ It leaves alone anything it can't read for sure: clock times, dates by number, "
 
 The server's key pays for a set number of AI requests each week: per person (their account when signed in, otherwise their IP address) and for everyone together. Past either limit, the AI panel asks for the person's own Anthropic API key. It's kept in their browser (local storage), sent with each AI request in the `x-anthropic-key` header, used for that request only, and never stored or logged by the server. Requests with a key of their own don't count against the allowance.
 
+Before asking, the app can check `GET /api/ai/allowance`, which answers `{ "allowance": "available" | "used" | "off" }` for this visitor this week. `used` means their share, everyone's, or the dollar cap is used up, and it doesn't say which. `off` means AI is off or the server's key pays for nothing. It never returns a count or a dollar figure, and it takes nothing from the allowance. It only says who would pay: whichever key pays, an AI request still sends its text to Anthropic.
+
 The weekly counts are kept in the `ai_allowance` table under a SHA-256 hash of the week and the account or IP address, so nothing readable is stored and one week can't be matched to the next. Earlier weeks are deleted when a new one starts.
 
 ## Turning it on
