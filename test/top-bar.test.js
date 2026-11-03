@@ -7,13 +7,9 @@ import { readFileSync } from 'node:fs';
 const read = (f) => readFileSync(new URL(`../${f}`, import.meta.url), 'utf8');
 const links = (html) =>
   [...html.match(/<div class="menu-panel">([\s\S]*?)<\/div>/)[1].matchAll(/<a href="([^"]+)"[^>]*>([\s\S]*?)<\/a\s*>/g)].map(
-    // What a screen reader hears: the text, without what's hidden from it (↗).
+    // What a screen reader hears: the text before any tag, then the screen-reader-only words (the ↗ is hidden).
     ([, href, text]) =>
-      `${text
-        .replace(/<span aria-hidden="true">[^<]*<\/span>/g, ' ')
-        .replace(/<[^>]+>/g, '')
-        .replace(/\s+/g, ' ')
-        .trim()} ${href}`,
+      `${`${text.split('<')[0]} ${text.match(/<span class="sr-only">([^<]*)<\/span>/)?.[1] ?? ''}`.replace(/\s+/g, ' ').trim()} ${href}`,
   );
 
 const WEBSITE = ['public/index.html', 'public/templates.html', 'public/privacy.html', 'public/terms.html', 'public/404.html'];
