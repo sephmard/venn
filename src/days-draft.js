@@ -187,7 +187,9 @@ export function shapeDays(out, { today, nowMinutes = 0 }) {
     if (named.length && !partsIn(named).length) continue;
     // So is a window that doesn't make sense (ends before it starts, or 25:00).
     // Starts round down and ends up, so the half-hour grid keeps the whole window given.
-    const [start, end] = [minutes(d.from, Math.floor), minutes(d.to, Math.ceil)];
+    const start = minutes(d.from, Math.floor);
+    let end = minutes(d.to, Math.ceil);
+    if (end === 0) end = 1440; // ending at "00:00" is midnight at the day's end, as "24:00" is
     const timed = start != null && end != null && end > start;
     if ((d.from || d.to) && !timed) continue;
     const day = byDate.get(d.date) || { date: d.date, parts: [], windows: [], ifNeeded: true };
