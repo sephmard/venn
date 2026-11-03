@@ -3,7 +3,8 @@ import AxeBuilder from '@axe-core/playwright';
 import { TOPIC_TEMPLATES } from '../public/topic-templates.js';
 
 // Starters for a vote (public/topic-templates.js): the pill row on /new/topic, the ?template= link
-// that presses one, the draft that keeps it, and the "Vote on what to do" cards on /templates.
+// that presses one, the draft that keeps it, the "Vote on what to do" cards on /templates, and the
+// date poll "Find a date for it" starts.
 
 const starter = (page, name) => page.getByRole('group', { name: 'Starters' }).getByRole('button', { name });
 const option = (page, n) => page.getByLabel(`Option ${n}`, { exact: true });
@@ -57,9 +58,9 @@ test('vote starters: they fill the question, kind and hints, and never what was 
   await expect(option(page, 2)).toHaveValue('Piranesi');
   await expect(page.locator('#emoji-tile')).toHaveText('🗳️');
 
-  // Yes or no switches the kind and waits for the question.
+  // Are we in? (yes or no) switches the kind and waits for the question.
   await page.locator('#title').fill('');
-  await starter(page, 'Yes or no').click();
+  await starter(page, 'Are we in?').click();
   await expect(page.getByRole('radio', { name: 'Yes or no' })).toHaveAttribute('aria-checked', 'true');
   await expect(page.locator('#yesno')).toBeVisible();
   await expect(page.locator('#title')).toBeFocused();
@@ -67,7 +68,7 @@ test('vote starters: they fill the question, kind and hints, and never what was 
   await expect(page.locator('#title')).toHaveAttribute('placeholder', 'Should we…?');
   // Switching back to options by hand lets go of it.
   await page.getByRole('radio', { name: 'Pick from options' }).click();
-  await expect(starter(page, 'Yes or no')).toHaveAttribute('aria-pressed', 'false');
+  await expect(starter(page, 'Are we in?')).toHaveAttribute('aria-pressed', 'false');
 });
 
 test('vote starters: a link presses one, a reload keeps it, and the poll is what was typed', async ({ page, browser }) => {
@@ -122,4 +123,36 @@ test('/templates: "Vote on what to do" starts each vote on the form, pressed', a
   await expect(page).toHaveURL(/\/new\/topic$/);
   await expect(starter(page, 'Next book')).toHaveAttribute('aria-pressed', 'true');
   await expect(page.locator('#title')).toHaveValue('Which book should we read next?');
+});
+
+test('vote starters: "Find a date for it" keeps what the vote was about', async ({ page, browser }) => {
+  await page.goto('/new/topic?template=where-to-eat');
+  await expect(starter(page, 'Where to eat')).toHaveAttribute('aria-pressed', 'true');
+  for (const [i, p] of ['Rosa’s', 'Taco Loco'].entries()) await option(page, i + 1).fill(p);
+  await page.getByLabel(/Your name/).fill('Priya');
+  await page.click('#submit');
+  await page.locator('.party-go').click();
+  await page.locator('.party').waitFor({ state: 'detached' });
+  await expect(page).toHaveURL(/\/e\/\w+$/);
+
+  const ctx = await browser.newContext();
+  const g = await ctx.newPage();
+  await g.goto(page.url());
+  await g.locator('.topic-row', { hasText: 'Taco Loco' }).getByRole('radio', { name: 'Yes' }).click();
+  await g.getByLabel('Your name').fill('Marcus');
+  await g.getByRole('button', { name: 'Submit' }).click();
+  await expect(g.locator('#toast')).toContainText('your answer is in');
+  await ctx.close();
+
+  await page.reload();
+  await page.getByRole('button', { name: 'Pick Taco Loco' }).click();
+  await page.getByRole('button', { name: 'Pick it' }).click();
+  await page.getByRole('link', { name: 'Find a date for it' }).click();
+  await expect(page).toHaveURL(/\/new$/);
+  // Dinner at the place picked, from the Dinner template, at that place.
+  await expect(page.locator('#title')).toHaveValue('Dinner at Taco Loco');
+  await expect(page.locator('[data-occasion][aria-pressed="true"]')).toHaveText(/Dinner/);
+  await expect(page.locator('[data-occasion][aria-pressed="true"]')).toBeInViewport();
+  await expect(page.locator('#location')).toHaveValue('Taco Loco');
+  await noSideways(page);
 });

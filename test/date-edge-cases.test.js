@@ -461,14 +461,21 @@ test('Use AI: a window "to 00:00" means until midnight, not an empty window', ()
   assert.deepEqual(shapeDays(out, { today: '2026-11-02' }).days, [{ date: '2026-11-07', start: 1200, end: 1440 }]);
 });
 
-test.todo('Use AI: a window across midnight ("22:00" to "02:00") keeps the day, at least until midnight', () => {
+test('Use AI: a window across midnight ("22:00" to "02:00") keeps the day until midnight, and says so', () => {
   const out = {
     title: 'Party',
     timeOfDay: 'clock',
     usualParts: [],
     days: [{ date: '2026-11-07', parts: [], from: '22:00', to: '02:00', ifNeeded: false }],
   };
-  assert.equal(shapeDays(out, { today: '2026-11-02' }).days.length, 1);
+  const draft = shapeDays(out, { today: '2026-11-02' });
+  assert.equal(draft.level, 'hours');
+  assert.deepEqual(draft.days, [{ date: '2026-11-07', start: 1320, end: 1440 }]);
+  assert.match(draft.note, /Times past midnight are cut at midnight\./);
+  // A window that ends at midnight isn't cut, and says nothing.
+  const night = shapeDays({ ...out, days: [{ ...out.days[0], to: '00:00' }] }, { today: '2026-11-02' });
+  assert.deepEqual(night.days, [{ date: '2026-11-07', start: 1320, end: 1440 }]);
+  assert.doesNotMatch(night.note, /midnight/);
 });
 
 test('keySlot and slot instants agree for every half hour over a year of clock changes', () => {

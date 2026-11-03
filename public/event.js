@@ -906,7 +906,7 @@ export async function renderEvent(id, navigate) {
     if (!c.ai || embedded || whiteLabel) return;
     aiOn = true;
     if (optionsMode) $('#ai-answer-btn').hidden = $('#quick-top').hidden = false;
-    if (ev().isAdmin) $('#ai-summary-btn').hidden = false;
+    if (ev().isAdmin) $('#ai-summary-btn').hidden = alone();
     renderBanners();
   });
 
@@ -1202,7 +1202,8 @@ export async function renderEvent(id, navigate) {
     };
 
   function renderGroup() {
-    $('#group-count').textContent = ev().responses ?? (ev().participants.length || '');
+    $('#group-count').textContent = guestCount() || '';
+    $('#group-h').closest('.sheet').hidden = hideAll || alone();
     showGroupView();
     renderOverlap();
     if (listMode || st.gview !== 'grid') return;
@@ -1368,6 +1369,11 @@ export async function renderEvent(id, navigate) {
     }
   });
 
+  /** Answers but the organizer's (named already). */
+  const guestCount = () =>
+    (ev().responses ?? ev().participants.length) - ev().participants.filter((p) => p.id === ev().hostId).length;
+  const alone = () => ev().isAdmin && !guestCount() && !st.pickAnyway;
+
   // ----- best options -----
   function renderBest() {
     // Once the date is picked, the banner at the top says it: no need for the ranking too.
@@ -1377,13 +1383,16 @@ export async function renderEvent(id, navigate) {
     const people = others();
     const best = rankTimes(ev(), ev().slots, people, listMode ? Infinity : 1);
     const n = people.length;
-    // Until a guest answers, the only answer is the organizer's own.
-    const guests = people.some((p) => p.id !== ev().hostId);
-    if (!n) {
+    if (aiOn && ev().isAdmin) $('#ai-summary-btn').hidden = alone();
+    // No answers, or (no guest yet) nothing to rank or summarize: no "Best date" yet either.
+    // Answers collected some other way (by text, say)? Pick anyway, quietly, under sharing.
+    const empty = !n || alone();
+    $('#best-h').hidden = empty;
+    if (empty) {
       $('#best').innerHTML = `<div class="empty-state">
-        <div class="venn-art" aria-hidden="true"><i></i><i></i><i></i></div>
-        <p><b>No answers yet.</b></p>
+        ${n ? '<h3>Only your answer so far</h3><p class="hint">Share the link to see where everyone overlaps.</p>' : '<div class="venn-art" aria-hidden="true"><i></i><i></i><i></i></div><p><b>No answers yet.</b></p>'}
         <button class="btn" data-share>${canShare ? 'Share the poll' : 'Copy invite link'}</button>
+        ${n ? `<div><button type="button" class="link-btn" id="pick-anyway">Pick ${listMode ? 'a date' : 'a time'} anyway</button></div>` : ''}
       </div>`;
       return;
     }
@@ -1432,16 +1441,22 @@ export async function renderEvent(id, navigate) {
     $('#best').innerHTML = `
       <div class="best-hero${ev().finalStart === first.start ? ' final' : ''}">
         <div class="best-when">${bigWhen(first.start, first.end)}${esc(lenNote)}</div>
-        ${ev().isAdmin && !guests ? `<p class="hint only-you">Only your answer so far.</p>` : tie}
+        ${tie}
         <div class="best-who">${avatarStack([...first.yes, ...first.ifNeeded], 7)}<span>${esc(who(first))}</span></div>
         ${whoList(first)}
-        ${pick(first) ? `<div class="btn-row">${pick(first).replace('btn btn-sm', guests ? 'btn btn-primary' : 'btn')}</div>` : ''}
+        ${pick(first) ? `<div class="btn-row">${pick(first).replace('btn btn-sm', 'btn btn-primary')}</div>` : ''}
       </div>`;
   }
 
   // ----- picking the final time -----
   $('#event-root').addEventListener('click', async (e) => {
     if (e.target.closest('[data-share]')) return canShare ? shareSheet() : $('#copy').click();
+    if (e.target.closest('#pick-anyway')) {
+      st.pickAnyway = true;
+      renderGroup();
+      renderBest();
+      return $('#best [data-pick]')?.focus();
+    }
     // Change the date: the next best dates, right in the banner, each with Pick.
     if (e.target.closest('#change-date, #change-cancel')) {
       st.changing = !!e.target.closest('#change-date');
@@ -1533,7 +1548,7 @@ export async function renderEvent(id, navigate) {
     $('#ev-title').textContent = ev().title;
     // The organizer is already named ("By Priya"): the count is everyone else who answered.
     const guests = ev().participants.filter((p) => p.id !== ev().hostId);
-    const n = (ev().responses ?? ev().participants.length) - (ev().participants.length - guests.length);
+    const n = guestCount();
     const by = ev().organizer ? `<span class="host">${avatar(ev().organizer, 'av-xs')}By ${esc(ev().organizer)}</span>` : '';
     const count = n
       ? `<span class="answered">${avatarStack(

@@ -6,12 +6,46 @@ The server's address is `https://venn.day/api/mcp` (or `/api/mcp` on your own se
 
 ## Tools
 
-| Tool               | What it does                                                                                                                                                                                               |
-| ------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `create_venn`      | Makes a poll from a `title`, the organizer's `timezone`, and either whole `days` (`YYYY-MM-DD`) or specific `times` (`{ start, end }` in ISO 8601). Returns the share link and the private organizer link. |
-| `get_venn_results` | Takes a poll link or id. Returns how many people answered, the best days or times with how many are available or available if needed (and who, unless the organizer hid names), and the picked date.       |
+| Tool               | What it does                                                                                                                                                                                                                                                                                                                                                                                                       |
+| ------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `create_venn`      | Makes a poll from a `title`, the organizer's `timezone`, and exactly one of: whole `days` (`YYYY-MM-DD`) or specific `times` (`{ start, end }` in ISO 8601) to find a date, or `options` (1 to 20 labels, up to 120 characters each, no two the same) to vote on what or where, with `single: true` for pick one. Returns the share link and the private organizer link.                                           |
+| `get_venn_results` | Takes a poll link or id. For a date poll: how many people answered, the best days or times with how many are available or available if needed (and who, unless the organizer hid names), and the picked date. For a vote: each option's yes and if-needed counts (and who), the `leading` option or options, a one-line `summary` that says when nobody has answered or options are tied, and the `picked` option. |
+
+A date poll suits "which weekend works?" or "an evening next week"; a vote suits "Italian, Thai or Mexican?" or "which book next?". A vote is the same as a [topic poll](API.md#topic-polls) made at `/new/topic`, and its organizer can find a date for the winner from the poll page.
+
+Results come from the same view of the poll anyone with the link gets: when the organizer hides names, they are left out; when the organizer hides the answers, only the count (and anything picked) comes back.
+
+### Example
+
+A vote, made by calling the tool directly (an assistant sends the same request):
+
+```sh
+curl -X POST https://venn.day/api/mcp \
+  -H 'content-type: application/json' \
+  -d '{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"create_venn","arguments":{"title":"Dinner on Friday","timezone":"Europe/London","options":["Italian","Thai","Mexican"]}}}'
+```
+
+Once people have answered, `get_venn_results` with the link returns, for example:
+
+```json
+{
+  "title": "Dinner on Friday",
+  "link": "https://venn.day/e/abc123",
+  "kind": "vote",
+  "answers": 3,
+  "summary": "Tied: Italian and Thai, 2 of 3 would go to each. No single favourite yet.",
+  "leading": ["Italian", "Thai"],
+  "options": [
+    { "option": "Italian", "yes": 2, "ifNeeded": 0, "who": { "yes": ["Ana", "Bo"], "ifNeeded": [] } },
+    { "option": "Thai", "yes": 2, "ifNeeded": 0, "who": { "yes": ["Bo", "Cy"], "ifNeeded": [] } },
+    { "option": "Mexican", "yes": 0, "ifNeeded": 1, "who": { "yes": [], "ifNeeded": ["Ana"] } }
+  ]
+}
+```
 
 Polls made this way are ordinary polls: the same limits, the same links, and the organizer link manages them in the app.
+
+`get_venn_results` ranks days and times the way the poll page does: most people who can make it first, then most yeses, then the earliest. Days and times nobody can make are left out of `best`. For a trip or a meeting longer than one slot, each entry in `best` is the whole stretch, from `start` to `end`. `summary` gives the result in one line, including when nobody has answered or the best days are tied, and `leading` lists the best day or time, or every day tied for it.
 
 ## Connecting it
 
@@ -23,4 +57,4 @@ The menus move from time to time; each assistant's help pages have the current s
 
 ## Privacy
 
-Through MCP, Venn sees only what the tools send: the poll's title, days or times, and the optional organizer name, details and place. It never sees the conversation. The assistant sees what the tools return, including names in the answers unless the organizer hid them.
+Through MCP, Venn sees only what the tools send: the poll's title, days, times or options, and the optional organizer name, details and place. It never sees the conversation. The assistant sees what the tools return, including names in the answers unless the organizer hid them.
