@@ -12,6 +12,7 @@ import {
   kindSwitch,
   loadSource,
   nameAndEmail,
+  planEmoji,
   planFields,
   prefillTitle,
   setReady,
@@ -23,15 +24,18 @@ import {
   wirePlan,
   youFields,
 } from './create.js';
+import { TOPIC_TEMPLATES, topicTemplate } from './topic-templates.js';
 import { $, $$, app, esc, getConfig, plural, track } from './ui.js';
 
 const YES_NO = ['Yes', 'No'];
 // What the question box suggests: something to choose between, or something to say yes or no to.
 const ASK = { options: 'Where should we eat?', yesno: 'Should we do a book swap?' };
 
-const row = (value = '', n = 1) => `
+// An option's hint: a starter's, or these.
+const hintFor = (n, hint = '') => hint || (n === 1 ? "Rosa's" : n === 2 ? 'Luigi’s' : 'Another option');
+const row = (value = '', n = 1, hint = '') => `
   <li class="topic-opt">
-    <input type="text" maxlength="${LIMITS.title}" value="${esc(value)}" aria-label="Option ${n}" placeholder="${n === 1 ? "Rosa's" : n === 2 ? 'Luigi’s' : 'Another option'}" enterkeyhint="next">
+    <input type="text" maxlength="${LIMITS.title}" value="${esc(value)}" aria-label="Option ${n}" placeholder="${esc(hintFor(n, hint))}" enterkeyhint="next">
     <button type="button" class="icon-btn" data-remove aria-label="Remove option ${n}">✕</button>
   </li>`;
 
@@ -58,9 +62,14 @@ export function renderTopic() {
       ${tzLine()}
       ${createBar('Create a Venn')}
     </form>`;
-  // A question, not a name, and no date-poll templates: the question comes first, typed in full.
+  // A question, not a name: it comes first, typed in full. In place of the date templates, starters
+  // for a vote (topic-templates.js), the same pills.
   $('#plan-h').textContent = 'What are you deciding?';
-  $('.occasions').remove();
+  $('.occasions').setAttribute('aria-label', 'Starters');
+  $('.occasions').innerHTML = TOPIC_TEMPLATES.map(
+    (t) =>
+      `<button type="button" class="pill tpl" data-starter="${t.id}" aria-pressed="false"><span class="tpl-emoji" aria-hidden="true">${t.emoji}</span>${esc(t.label)}</button>`,
+  ).join('');
   $('#emoji-tile').textContent = '🗳️';
   Object.assign($('#title'), { value: '', placeholder: ASK.options });
   $('#title').dataset.seed = '';
@@ -79,7 +88,7 @@ export function renderTopic() {
     `<p class="topic-yesno" id="yesno" hidden><span class="muted">Everyone answers</span>${YES_NO.map((l) => `<span class="yn-chip yn-${l.toLowerCase()}">${l}</span>`).join('')}</p>`,
   );
 
-  const occasion = wirePlan(() => {});
+  wirePlan(() => {});
   const inputs = () => $$('#opts input');
   const labels = () =>
     kind === 'yesno'
@@ -102,7 +111,7 @@ export function renderTopic() {
     update();
   }
   function addRow(value = '', focus = true) {
-    $('#opts').insertAdjacentHTML('beforeend', row(value, inputs().length + 1));
+    $('#opts').insertAdjacentHTML('beforeend', row(value, inputs().length + 1, current?.hint));
     renumber();
     if (focus) inputs().at(-1).focus();
   }
@@ -146,7 +155,43 @@ export function renderTopic() {
   }
   $('.topic-kind').addEventListener('click', (e) => {
     const b = e.target.closest('[data-kind]');
-    if (b) setKind(b.dataset.kind);
+    if (!b) return;
+    setKind(b.dataset.kind);
+    // A starter for the other kind of question no longer fits.
+    if (current && !!current.yesNo !== (b.dataset.kind === 'yesno')) mark(null);
+  });
+
+  // ---------- starters (topic-templates.js): they fill what's empty, never what was typed ----------
+  let current = null; // the starter pressed
+  /** Show `t` (or none) as pressed, with its hints and emoji, filling nothing in. */
+  function mark(t) {
+    current = t;
+    for (const b of $$('[data-starter]')) b.setAttribute('aria-pressed', String(b.dataset.starter === t?.id));
+    inputs().forEach((el, i) => (el.placeholder = hintFor(i + 1, t?.hint)));
+    $('#title').placeholder = t?.ask || ASK[kind];
+    planEmoji(t?.emoji || '🗳️');
+    update();
+  }
+  /** Press a starter: its question if the box is empty (or holds another starter's), its kind, three rows. */
+  function press(t) {
+    const title = $('#title');
+    const asked = current?.question;
+    if (!title.value.trim() || title.value === asked) title.value = t.question;
+    setKind(t.yesNo ? 'yesno' : 'options');
+    if (!t.yesNo) {
+      while (inputs().length < 3) addRow('', false);
+      while (inputs().length > 3 && !inputs().at(-1).value.trim()) inputs().at(-1).closest('li').remove();
+      renumber();
+    }
+    mark(t);
+    if (t.yesNo) title.focus();
+  }
+  $('.occasions').addEventListener('click', (e) => {
+    const b = e.target.closest('[data-starter]');
+    if (!b) return;
+    const t = topicTemplate(b.dataset.starter);
+    if (current?.id === t.id) mark(null);
+    else press(t);
   });
 
   function update() {
@@ -174,7 +219,7 @@ export function renderTopic() {
     if (explainNotReady()) return;
     const body = { mode: 'topic', options: labels().map((label) => ({ label })) };
     if (kind === 'yesno' || $('#single').checked) body.single = true;
-    submit(body, occasion);
+    submit(body, () => current);
   };
 
   /** Start from an existing topic poll: its options, and whether it's yes or no. */
@@ -193,11 +238,18 @@ export function renderTopic() {
   showConfig(update);
   if (src) prefill();
   else {
+    // ?template=next-book: that starter, pressed once the form (and any draft of it) is in place.
+    const linked = topicTemplate(new URLSearchParams(location.search).get('template'));
     prefillTitle();
-    // A half-made vote comes back after a reload or Back (create.js).
+    if (linked) {
+      const left = new URLSearchParams(location.search);
+      left.delete('template');
+      history.replaceState(null, '', location.pathname + (left.size ? `?${left}` : ''));
+    }
+    // A half-made vote comes back after a reload or Back (create.js), with its starter.
     keepDraft(
       'topic',
-      () => ({ kind, options: inputs().map((i) => i.value), single: $('#single').checked }),
+      () => ({ kind, options: inputs().map((i) => i.value), single: $('#single').checked, starter: current?.id || '' }),
       (d) => {
         if (d.options.length) {
           $('#opts').innerHTML = d.options.map((w, i) => row(w, i + 1)).join('');
@@ -205,8 +257,9 @@ export function renderTopic() {
         }
         $('#single').checked = d.single;
         setKind(d.kind);
+        mark(topicTemplate(d.starter));
       },
-    );
+    ).then(() => linked && $('#create') && press(linked));
   }
   // Where the server has AI, "Use AI" (ai-draft.js) writes the question and the options.
   if (!src)
@@ -216,6 +269,7 @@ export function renderTopic() {
         import('./ai-draft.js').then((m) =>
           m.aiTopic(
             ({ question, yesNo, options }) => {
+              mark(null); // what AI wrote isn't a starter's
               $('#title').value = question;
               if (yesNo) return setKind('yesno');
               setKind('options');
