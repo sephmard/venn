@@ -16,7 +16,7 @@ import { buildIcs, googleCalendarUrl, outlookCalendarUrl } from '../public/calen
 import { setLabel } from './preview.js';
 import { applyDeadline, closesLabel, deadlineView, isClosed, normalizeDeadline, remindNow, stopReminders } from './deadline.js';
 import { inviteRoom, newInvitees, normalizeInvitees, sendInvites } from './invites.js';
-import { checkSingle, normalizeAvailability, normalizeEventInput, normalizeName } from './validate.js';
+import { checkSingle, normalizeAnswer, normalizeAvailability, normalizeEventInput, normalizeName } from './validate.js';
 import { SECURITY_HEADERS } from './security-headers.js';
 import { IMAGE_FILES, IMAGE_LIMITS, MAX_IMAGE_BODY, imagePath, imageResponse, parseImage } from './images.js';
 import { BRAND_ID_RE, BRAND_ROLES, MAX_BRAND_INVITES, normalizeBrand, publicBrand } from './brands.js';
@@ -179,6 +179,9 @@ function publicEvent(ev, participants, { isAdmin, ownHash = null, ownId = null, 
  * The organizer's own answer: what they marked for each time (`hostAvailability`, yes or if
  * needed), or yes to every time they offered.
  */
+// Answer keys that weren't one of the poll's slots, said back so the client can see they were left out.
+const ignoredKeys = ({ ignored }) => (ignored.length ? { ignored } : {});
+
 const hostAvailability = (ev, marked) =>
   marked != null
     ? checkSingle(ev, normalizeAvailability(marked, buildSlots(ev)))
@@ -1344,7 +1347,8 @@ async function route(
       if (!(await allowed('answer'))) return error(429, TOO_FAST);
       const body = await readJson(request);
       const name = normalizeName(body.name);
-      const availability = checkSingle(ev, normalizeAvailability(body.availability, slots));
+      const answer = normalizeAnswer(body.availability, slots, isTopicPoll(ev));
+      const availability = checkSingle(ev, answer.availability);
       const copyTo = normalizeEmail(body.copyTo);
       const email = participantEmail(ev, body);
       if ((await store.countParticipants(ev.id)) >= LIMITS.participants)
@@ -1372,7 +1376,7 @@ async function route(
         // Signed in, it's kept with the account: My polls lists it under Answered.
         if (!isAdmin) await keepWithAccount('answer', id);
       }
-      return json({ id, editToken }, 201);
+      return json({ id, editToken, ...ignoredKeys(answer) }, 201);
     }
 
     // PUT|DELETE /api/events/:id/participants/:pid
@@ -1387,7 +1391,8 @@ async function route(
         if (!isOwner) return error(403, 'You can only edit your own response');
         const body = await readJson(request);
         const name = normalizeName(body.name);
-        const availability = checkSingle(ev, normalizeAvailability(body.availability, slots));
+        const answer = normalizeAnswer(body.availability, slots, isTopicPoll(ev));
+        const availability = checkSingle(ev, answer.availability);
         const copyTo = normalizeEmail(body.copyTo);
         const email = isHost ? null : participantEmail(ev, body);
         await store.updateParticipant({ id: p.id, eventId: ev.id, name, availability, now: now() });
@@ -1402,7 +1407,7 @@ async function route(
           notify(ev, 'response.updated', p.id, name);
           count('answer.updated', kindOf(ev));
         }
-        return json({ ok: true });
+        return json({ ok: true, ...ignoredKeys(answer) });
       }
       if (method === 'DELETE') {
         if (!isOwner && !isAdmin) return error(403, 'You can only remove your own response');

@@ -252,6 +252,26 @@ export function normalizeAvailability(av, slots) {
   return out;
 }
 
+/**
+ * A guest's answer, as sent to /participants: the kept answers, and the keys that aren't one of
+ * the poll's `slots` (`ignored`), so a client keying by the wrong thing hears about it. When
+ * keys were sent and none match, nothing would be kept, so it's refused: the page was opened
+ * before the poll changed, or the client keys answers by something else (a label, an ISO date).
+ */
+export function normalizeAnswer(av, slots, topic) {
+  const availability = normalizeAvailability(av, slots);
+  const keys = Object.keys(av ?? {});
+  const valid = new Set(slots.map(String));
+  const ignored = keys.filter((k) => !valid.has(k));
+  if (keys.length && ignored.length === keys.length)
+    throw new ValidationError(
+      topic
+        ? "None of these answers match the poll's options. Answer each by its id (1, 2…), as listed in slots, or reload the poll if it changed."
+        : "None of these answers match the poll's times. Answer each by its start in UTC milliseconds, as listed in slots, or reload the poll if it changed.",
+    );
+  return { availability, ignored };
+}
+
 export function normalizeName(name) {
   return cleanText(name, LIMITS.name, 'Name', true);
 }
