@@ -1162,8 +1162,17 @@ export async function renderEvent(id, navigate) {
           parts: partsMode,
           list: listMode,
           when,
+          you: me()?.id,
+          run: bestRun(people),
         })
       : '';
+  }
+  /** Days in a row (a trip): the best run, as the card above shows it, for everyone's answers to mark. */
+  function bestRun(people) {
+    const days = Math.round(ev().durationMinutes / 1440);
+    if (!daysMode || days < 2 || people.length < 2) return null;
+    const [b] = rankTimes(ev(), ev().slots, people, 1);
+    return b ? { ...b, days, label: when(b.start, b.end) } : null;
   }
   $('#overlap').addEventListener('click', (e) => {
     const b = e.target.closest('[data-ov]');
@@ -1360,7 +1369,7 @@ export async function renderEvent(id, navigate) {
     sheet.hidden = hideAll || ev().finalStart != null;
     if (sheet.hidden) return;
     const people = others();
-    const best = rankTimes(ev(), ev().slots, people, 1);
+    const best = rankTimes(ev(), ev().slots, people, listMode ? Infinity : 1);
     const n = people.length;
     // Until a guest answers, the only answer is the organizer's own.
     const guests = people.some((p) => p.id !== ev().hostId);
@@ -1403,10 +1412,20 @@ export async function renderEvent(id, navigate) {
         ? `<details class="reveal who-list"><summary>See who</summary>${names(b)}${missing(b)}</details>`
         : names(b) + missing(b);
     const lenNote = !optionsMode && ev().durationMinutes > ev().slotMinutes ? ` (${lengthLabel(ev().durationMinutes)})` : '';
+    // Others just as good, named, so the organizer knows there's a choice. Only where each option
+    // stands alone (not hours or days in a row, whose ranked times overlap one another).
+    const same = (b) => b.yes.length === first.yes.length && b.ifNeeded.length === first.ifNeeded.length;
+    const tied = listMode && ev().durationMinutes <= ev().slotMinutes ? best.slice(1).filter(same) : [];
+    const tie = tied.length
+      ? `<p class="best-tie">Tied with ${tied
+          .slice(0, 2)
+          .map((b) => `<b class="nowrap">${esc(when(b.start, b.end).replace(/, all day$/, ''))}</b>`)
+          .join(' and ')}${tied.length > 2 ? ` and ${tied.length - 2} more` : ''}</p>`
+      : '';
     $('#best').innerHTML = `
-      ${ev().isAdmin && !guests ? `<p class="hint only-you">Only your answer so far.</p>` : ''}
       <div class="best-hero${ev().finalStart === first.start ? ' final' : ''}">
         <div class="best-when">${bigWhen(first.start, first.end)}${esc(lenNote)}</div>
+        ${ev().isAdmin && !guests ? `<p class="hint only-you">Only your answer so far.</p>` : tie}
         <div class="best-who">${avatarStack([...first.yes, ...first.ifNeeded], 7)}<span>${esc(who(first))}</span></div>
         ${whoList(first)}
         ${pick(first) ? `<div class="btn-row">${pick(first).replace('btn btn-sm', guests ? 'btn btn-primary' : 'btn')}</div>` : ''}
