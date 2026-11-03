@@ -73,8 +73,11 @@ export function finalBanner({ id, ev, tz, shareUrl, canShare, picture, people, w
   const end = meetingEnd(ev, start);
   const info = {
     title: ev.title,
-    // The event's own note says where it was planned: how the next organizer finds Venn.
-    description: [ev.description, shareUrl, `Planned with Venn: ${location.origin}/new`].filter(Boolean).join('\n\n'),
+    // The event's own note says where it was planned: how the next organizer finds Venn. Not on
+    // white label, whose guests never see Venn.
+    description: [ev.description, shareUrl, !ev.brand?.hideVenn && `Planned with Venn: ${location.origin}/new`]
+      .filter(Boolean)
+      .join('\n\n'),
     location: ev.location,
     start,
     end,
