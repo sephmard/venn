@@ -19,7 +19,7 @@ import { inviteRoom, newInvitees, normalizeInvitees, sendInvites } from './invit
 import { checkSingle, normalizeAvailability, normalizeEventInput, normalizeName } from './validate.js';
 import { SECURITY_HEADERS } from './security-headers.js';
 import { IMAGE_FILES, IMAGE_LIMITS, MAX_IMAGE_BODY, imagePath, imageResponse, parseImage } from './images.js';
-import { BRAND_ID_RE, BRAND_ROLES, MAX_BRAND_INVITES, normalizeBrand, publicBrand } from './brands.js';
+import { BRAND_ID_RE, BRAND_ROLES, MAX_BRAND_INVITES, hidesVenn, whiteLabelOf, normalizeBrand, publicBrand } from './brands.js';
 import {
   MAX_COPIES_PER_ANSWER,
   MAX_COPIES_PER_POLL,
@@ -486,6 +486,7 @@ async function route(
       editUrl: `${pollUrl}#edit=${participantId}.${editToken}`,
       seeAnswers: !ev.hideResults,
       retro: ev.retro,
+      whiteLabel: await whiteLabelOf(store, ev),
     });
     waitUntil(sendEmail(env, { to, ...msg, headers }, { fetchImpl }).catch((e) => console.error('answer copy failed', e)));
   }
@@ -530,9 +531,11 @@ async function route(
     await store.setNotify(ev.id, { ...settings, datesEmailed: [...sent, start] });
     const pollUrl = `${origin}/e/${ev.id}`;
     const end = meetingEnd(ev, start);
+    const whiteLabel = await whiteLabelOf(store, ev);
     const info = {
       title: ev.title,
-      description: [ev.description, `Planned with Venn: ${pollUrl}`].filter(Boolean).join('\n\n'),
+      // A white-label poll's calendar entry has only the poll's link: no "Planned with Venn".
+      description: [ev.description, whiteLabel ? pollUrl : `Planned with Venn: ${pollUrl}`].filter(Boolean).join('\n\n'),
       location: ev.location,
       start,
       end,
@@ -549,6 +552,7 @@ async function route(
         ['Apple (iCal)', `${pollUrl.replace('/e/', '/api/events/')}/event.ics`],
       ],
       retro: ev.retro,
+      whiteLabel,
     });
     for (const [pid, to] of emails) {
       const headers = unsubscribeHeaders(unsubscribeLink(origin, ev.id, tokens.get(pid)));
@@ -699,6 +703,21 @@ async function route(
       const draft = typeof prompt === 'string' && draftFromWords(prompt, { today, nowMinutes, ai: aiEnabled(env) });
       return draft ? json(draft) : otherwise();
     }
+    // GET /api/ai/allowance — whether this visitor's free AI requests (the server's key) are there
+    // this week: 'available', 'used' (their own share, everyone's, or the dollar cap: it doesn't say
+    // which) or 'off' (no AI, or no server key: people bring their own). Never a count or a dollar
+    // figure, and nothing is taken. It only says who pays; any AI request still goes to Anthropic.
+    if (parts.length === 2 && parts[0] === 'ai' && parts[1] === 'allowance' && method === 'GET') {
+      const { perPerson, total, budget } = aiAllowance(env);
+      if (!aiEnabled(env) || !perPerson || !total) return json({ allowance: 'off' });
+      const limited = await allowed('allowance');
+      if (!limited.ok) return tooFast(limited);
+      const week = weekOf(now());
+      const who = await allowanceKey(week, (await currentUser())?.id, clientIp);
+      const used = (await store.aiSpend(week)) >= budget || (await store.peekAiAllowance(week, who, perPerson, total));
+      return json({ allowance: used ? 'used' : 'available' });
+    }
+
     // Paid for by the key the person brought (kept in their browser, never stored), or by the
     // server's key within this week's allowance.
     if (isAi) {
@@ -1038,7 +1057,12 @@ async function route(
       const body = buildIcs({
         id: ev.id,
         title: ev.title,
-        description: [ev.description, `Planned with Venn: ${url.origin}/new`].filter(Boolean).join('\n\n'),
+        description: [
+          ev.description,
+          (await hidesVenn(store, ev)) ? `${url.origin}/e/${ev.id}` : `Planned with Venn: ${url.origin}/new`,
+        ]
+          .filter(Boolean)
+          .join('\n\n'),
         location: ev.location,
         start: ev.finalStart,
         end,
