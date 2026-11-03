@@ -150,7 +150,7 @@ test('white label, organizer is the template’s owner or member: the answer cop
       assert.match(m.html, />Acme<\/div>/);
       assert.match(m.html, /Sent for the organizer of “Book club”\./);
       // From the template's name, at the server's own address.
-      assert.equal(m.from, '"Acme" <notify@venn.example>', `${organizer}: ${m.subject}`);
+      assert.equal(m.from, '"Acme via Venn" <notify@venn.example>', `${organizer}: ${m.subject}`);
     }
   }
 });
@@ -213,7 +213,7 @@ test('a white-label vote: the decision email to a guest who asked carries no Ven
     if (organizer === 'u-member') {
       assert.equal(vennOutsideLink(readable(m)), null);
       assert.match(m.html, />Acme<\/div>/);
-      assert.equal(m.from, '"Acme" <notify@venn.example>');
+      assert.equal(m.from, '"Acme via Venn" <notify@venn.example>');
     } else {
       assert.match(m.text, /Planned with Venn\. No sign-up needed/);
       assert.equal(m.from, 'Venn <notify@venn.example>');

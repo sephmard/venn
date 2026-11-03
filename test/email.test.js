@@ -87,8 +87,10 @@ test('a white-label From name: the template’s name at the server’s own addre
   assert.equal(cleanFromName(' \t '), '');
   assert.equal(cleanFromName('x'.repeat(100)).length, 64);
   assert.equal(cleanFromName('x'.repeat(63) + '🎉🎉'), 'x'.repeat(63) + '🎉'); // never half an emoji
-  assert.deepEqual(fromAddress({ EMAIL_FROM: 'Venn <hi@venn.day>' }, 'Acme'), { name: 'Acme', email: 'hi@venn.day' });
-  assert.deepEqual(fromAddress({ EMAIL_FROM: 'hi@venn.day' }, 'Acme'), { name: 'Acme', email: 'hi@venn.day' });
+  assert.deepEqual(fromAddress({ EMAIL_FROM: 'Venn <hi@venn.day>' }, 'Acme'), { name: 'Acme via Venn', email: 'hi@venn.day' });
+  assert.deepEqual(fromAddress({ EMAIL_FROM: 'hi@venn.day' }, 'Acme'), { name: 'Acme via Venn', email: 'hi@venn.day' });
+  // A server with its own sender name keeps it in the sender.
+  assert.deepEqual(fromAddress({ EMAIL_FROM: 'Polls <p@x.org>' }, 'Acme'), { name: 'Acme via Polls', email: 'p@x.org' });
   // Nothing usable: the server's own name stays.
   assert.deepEqual(fromAddress({ EMAIL_FROM: 'Venn <hi@venn.day>' }, '""<>'), { name: 'Venn', email: 'hi@venn.day' });
 });
@@ -101,7 +103,7 @@ test('both providers send a white-label email under its From name, and every oth
   await sendEmail({ EMAIL_FROM: 'hi@venn.day', EMAIL: cf }, { ...message, fromName: '<>' });
   assert.deepEqual(
     cf.sent.map((m) => m.from),
-    [{ name: 'Acme', email: 'hi@venn.day' }, { name: 'Venn', email: 'hi@venn.day' }, 'hi@venn.day'],
+    [{ name: 'Acme via Venn', email: 'hi@venn.day' }, { name: 'Venn', email: 'hi@venn.day' }, 'hi@venn.day'],
   );
   const bodies = [];
   const fetchImpl = async (url, init) => (bodies.push(JSON.parse(init.body)), new Response('{}', { status: 200 }));
@@ -110,7 +112,7 @@ test('both providers send a white-label email under its From name, and every oth
   await sendEmail(rEnv, message, { fetchImpl });
   assert.deepEqual(
     bodies.map((b) => b.from),
-    ['"Acme Inc" <hi@venn.day>', 'Venn <hi@venn.day>'],
+    ['"Acme Inc via Venn" <hi@venn.day>', 'Venn <hi@venn.day>'],
   );
   assert.ok(bodies.every((b) => !('fromName' in b)));
 });

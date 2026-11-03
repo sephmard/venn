@@ -60,7 +60,7 @@ Friendly, plain and short, like a helpful friend in the group chat.
 - **Green (classic):** `public/favicon.svg`, green gradients. Used for the classic tab icon, the app icon and link previews in the classic look.
 - **Wordmark:** the mark beside "Venn" in the page's heading font, at 28px in the top bar.
 - **Other organizations' logos** (brand templates) sit beside the poll, never in place of Venn's.
-- **White label** is the one exception: a template with **Hide Venn's name and logo** switched on (off by default) shows its polls with no Venn mark, top bar, footer or Finn, and only such polls. Emails to its guests who answered (when the organizer is one of the template's own people) go out under the organization's name as the sender's name, at the server's own address; invitations and reminders keep Venn's (Seph, 2026-11-03: the lead decides the From name; the name only, never the address, so nobody can send as the organization's domain). See [docs/EMBED.md](docs/EMBED.md).
+- **White label** is the one exception: a template with **Hide Venn's name and logo** switched on (off by default) shows its polls with no Venn mark, top bar, footer or Finn, and only such polls. Emails to its guests who answered (when the organizer is one of the template's own people) go out as "Acme via Venn" at the server's own address; invitations and reminders stay "Venn" (Seph, 2026-11-03: the lead decides the From name. Venn's name always stays in the sender and the address never changes, because anyone can name a template anything). See [docs/EMBED.md](docs/EMBED.md).
 - Tab icons, the home-screen icon and link previews: see [DESIGN.md](DESIGN.md#imagery-and-motion).
 
 ## The two looks

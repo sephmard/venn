@@ -17,7 +17,7 @@ export function parseAddress(value) {
 }
 
 /**
- * The display name a white-label poll's guest emails are sent under: the template's name, made safe
+ * The organization's part of a white-label email's sender name: the template's name, made safe
  * for a From header (see below for what goes; at most 64 characters). Empty when nothing usable
  * is left. The address stays EMAIL_FROM's own, so the sending domain is never anyone's but the
  * server's.
@@ -36,12 +36,17 @@ export function cleanFromName(name) {
   return Array.from(clean).slice(0, 64).join('').trim(); // whole characters, never half an emoji
 }
 
-/** EMAIL_FROM, with its display name swapped for `fromName` when one is given: as { name, email }. */
+/**
+ * EMAIL_FROM, with the organization's name put in front of the server's own: "Acme via Venn".
+ * Anyone can make a template with any name, so the server's name always stays in the sender, the
+ * pattern calendar and ticketing services use when they send on someone's behalf. As { name, email }.
+ */
 export function fromAddress(env, fromName) {
   const from = parseAddress(env.EMAIL_FROM);
   const email = typeof from === 'string' ? from : from.email;
+  const own = (typeof from === 'string' ? '' : cleanFromName(from.name)) || 'Venn';
   const name = cleanFromName(fromName);
-  if (name) return { name, email };
+  if (name) return { name: `${name} via ${own}`, email };
   return typeof from === 'string' ? { name: '', email } : from;
 }
 
