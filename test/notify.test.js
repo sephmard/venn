@@ -746,6 +746,11 @@ test('the decision email in each look: retro is the same email in neon', () => {
   assert.equal(plain.subject, retro.subject);
   assert.notEqual(plain.html, retro.html);
   assert.match(plain.html, /See the poll/);
+  // Guests on a poll that asks everyone for an email didn't ask for it: the footer doesn't say they did.
+  for (const part of [plain.text, plain.html]) {
+    assert.match(part, /You get this because you answered “Dinner” with this address\./);
+    assert.doesNotMatch(part, /asked to hear/);
+  }
   const long = decidedEmail({ ...args, option: 'x'.repeat(80), title: 'y'.repeat(80), changed: true });
   assert.equal(long.subject, `Change of plan: ${'x'.repeat(59)}… for “${'y'.repeat(59)}…”`);
 });

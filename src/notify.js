@@ -471,7 +471,8 @@ const clip = (s, n = 60) => (s.length > n ? `${s.slice(0, n - 1).trimEnd()}…` 
  */
 export function decidedEmail({ title, option, pollUrl, retro = false, changed = false, whiteLabel = null }) {
   const subject = `${changed ? 'Change of plan' : 'Decided'}: ${clip(option)} for “${clip(title)}”`;
-  const why = `You get this because you asked to hear when “${title}” was decided. You won't get more than this one, unless the organizer changes their mind.`;
+  // Neutral: on a poll that asks everyone for an email, guests get it without having asked.
+  const why = `You get this because you answered “${title}” with this address. You won't get more than this one, unless the organizer changes their mind.`;
   let text = `${changed ? 'Change of plan' : 'It’s decided! 🎉'}\n\n${option}\nfor “${title}”\n\nSee the poll: ${pollUrl}\n\n${why}\n`;
   text += `\n${signature(pollUrl, false, whiteLabel)}\n`;
   const html = emailLayout(
