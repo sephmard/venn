@@ -292,6 +292,9 @@ test('after voting, a guest is offered a vote of their own; never the organizer,
   expect(await yours(g).getAttribute('href')).toBe('/new/topic?from=guest');
   expect((await yours(g).boundingBox()).height).toBeGreaterThanOrEqual(44);
   await expect(yours(g)).toHaveClass('link-btn');
+  // Under the group's results, not in the answer card.
+  await expect(g.locator('section[aria-labelledby="group-h"] #make-yours')).toHaveCount(1);
+  await expect(g.locator('[aria-labelledby="mine-h"] #make-yours')).toHaveCount(0);
   await noBlockingA11y(g, 'vote, guest after voting, Make yours');
   await yours(g).click();
   await expect(g).toHaveURL(/\/new\/topic\?from=guest$/);
