@@ -10,6 +10,8 @@ export const WRITE_LIMITS = {
   // Enough for a 100-person poll shared on one office or school network.
   answer: { env: 'ANSWER_RATE_LIMIT', fallback: 200 },
   mcp: { env: 'MCP_RATE_LIMIT', fallback: 600 },
+  // Not a write, but a database read anyone can loop on: GET /api/ai/allowance, asked once per AI panel.
+  allowance: { env: 'AI_ALLOWANCE_RATE_LIMIT', fallback: 120 },
   // Anonymous usage counts from the browser (src/usage.js): each one is a database write.
   usage: { env: 'USAGE_RATE_LIMIT', fallback: 300 },
 };

@@ -18,6 +18,7 @@ import {
   unsubscribeLink,
 } from './notify.js';
 import { setLabel } from './preview.js';
+import { whiteLabelOf } from './brands.js';
 import { normalizeInvitees } from './invites.js';
 
 export { MAX_INVITEES } from './invites.js';
@@ -155,6 +156,7 @@ export function stopReminders(settings, value, timingSafeEqual) {
 async function remindRound({ store, env, fetchImpl, ev, r, site, last, mail }) {
   const pollUrl = `${site}/e/${ev.id}`;
   const answered = new Set((await store.listEmails(ev.id)).values());
+  const whiteLabel = await whiteLabelOf(store, ev);
   const invitees = [];
   let sent = 0;
   for (const i of r.invitees || []) {
@@ -169,6 +171,7 @@ async function remindRound({ store, env, fetchImpl, ev, r, site, last, mail }) {
         answerUrl: invitedUrl(pollUrl, i.email),
         last,
         retro: ev.retro,
+        whiteLabel,
       });
       const headers = unsubscribeHeaders(unsubscribeLink(site, ev.id, unsubscribeToken));
       try {
