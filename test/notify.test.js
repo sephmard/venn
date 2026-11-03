@@ -7,6 +7,7 @@ import {
   MASCOT_PATH,
   MAX_ORGANIZER_EMAILS,
   answerCopyEmail,
+  decidedEmail,
   isPrivateAddress,
   notifyResponse,
   pollReadyEmail,
@@ -615,6 +616,141 @@ test('no "It\'s happening" email for polls that didn\'t ask for emails', async (
   });
   assert.equal(emails().length, 0);
 });
+
+// ---------- votes: what was decided ----------
+
+const vote = {
+  title: 'Where <b>& when</b>',
+  timezone: 'UTC',
+  mode: 'topic',
+  options: ['Thai Palace', 'Rosa’s', 'Taco Loco', 'Pho 24'],
+};
+
+/** A vote with Ana and Lee, who gave their emails, and the organizer, who didn't answer. */
+async function voteWithGuests(extra = {}) {
+  const { data } = await call('/api/events', {
+    method: 'POST',
+    body: { ...vote, organizer: 'Sam', requireEmail: true, ...extra },
+  });
+  const { id, adminToken } = data;
+  const pids = {};
+  for (const [name, email] of [
+    ['Ana', 'ana@example.com'],
+    ['Lee', 'lee@example.com'],
+  ])
+    pids[name] = (
+      await call(`/api/events/${id}/participants`, { method: 'POST', body: { name, email, availability: { 1: 2 } } })
+    ).data;
+  const pick = (option) =>
+    call(`/api/events/${id}/finalize`, { method: 'POST', body: { option }, headers: { 'x-admin-token': adminToken } });
+  return { id, adminToken, pids, pick };
+}
+
+test('a vote decided: each guest with an email hears it once, escaped, with the poll and no calendar', async () => {
+  const { id, pick } = await voteWithGuests();
+  sent = [];
+  assert.deepEqual((await pick(1)).data, { ok: true, picked: 1 });
+  const mails = emails();
+  assert.deepEqual(mails.map((m) => m.body.to[0]).sort(), ['ana@example.com', 'lee@example.com']);
+  const m = mails[0].body;
+  assert.equal(m.subject, 'Decided: Thai Palace for “Where <b>& when</b>”');
+  assert.ok(m.text.includes(`${base}/e/${id}`));
+  assert.ok(hasLine(m.text, signature(`${base}/e/${id}`)));
+  assert.doesNotMatch(m.html, /<b>&/);
+  assert.match(m.html, /Where &lt;b&gt;&amp; when/);
+  assert.doesNotMatch(m.text, /Google Calendar|Outlook|iCal/);
+  assert.ok(m.headers['List-Unsubscribe']);
+
+  // The same option again, after clearing it, sends nothing more.
+  sent = [];
+  await pick(null);
+  await pick(1);
+  assert.equal(emails().length, 0);
+});
+
+test('a vote decided again: a change of plan for each new option, up to the cap, and never to those who stopped', async () => {
+  const { id, pick } = await voteWithGuests();
+  await pick(1);
+  const toLee = emails().find((m) => m.body.to[0] === 'lee@example.com');
+  const token = new URL(toLee.body.headers['List-Unsubscribe'].slice(1, -1)).searchParams.get('token');
+  sent = [];
+  await pick(2);
+  assert.equal(emails().length, 2);
+  assert.match(emails()[0].body.subject, /^Change of plan: Rosa’s for/);
+  // Lee stops the emails: the next pick goes to Ana only.
+  assert.equal((await call(`/api/events/${id}/notifications/unsubscribe`, { method: 'POST', body: { token } })).status, 200);
+  sent = [];
+  await pick(3);
+  assert.deepEqual(
+    emails().map((m) => m.body.to[0]),
+    ['ana@example.com'],
+  );
+  // Three options emailed: a fourth sends nothing.
+  sent = [];
+  await pick(4);
+  assert.equal(emails().length, 0);
+});
+
+test('a vote without everyone’s email: no decision email for an answer copy, but one for a guest who asked', async () => {
+  const { data } = await call('/api/events', { method: 'POST', body: vote });
+  const { id, adminToken } = data;
+  await call(`/api/events/${id}/participants`, {
+    method: 'POST',
+    body: { name: 'Ana', availability: { 1: 2 }, copyTo: 'ana@example.com' },
+  });
+  const lee = (await call(`/api/events/${id}/participants`, { method: 'POST', body: { name: 'Lee', availability: { 2: 2 } } }))
+    .data;
+  // Ana's copy of her answer names the option she said yes to.
+  assert.match(emails().find((m) => m.body.to[0] === 'ana@example.com').body.text, /Thai Palace: yes/);
+  const pick = (option) =>
+    call(`/api/events/${id}/finalize`, { method: 'POST', body: { option }, headers: { 'x-admin-token': adminToken } });
+  // Lee asks to hear what's decided: the email alone, without the organizer hearing of a changed answer.
+  const lees = { 'x-edit-token': lee.editToken };
+  assert.equal(
+    (await call(`/api/events/${id}/participants/${lee.id}`, { method: 'PUT', body: { email: 'nope' }, headers: lees })).status,
+    400,
+  );
+  sent = [];
+  const set = await call(`/api/events/${id}/participants/${lee.id}`, {
+    method: 'PUT',
+    body: { email: 'Lee@Example.com' },
+    headers: lees,
+  });
+  assert.deepEqual(set.data, { ok: true });
+  assert.equal(sent.length, 0);
+  const ev = (await call(`/api/events/${id}`)).data;
+  assert.deepEqual(ev.participants.find((p) => p.id === lee.id).availability, { 2: 2 }, 'the answer is untouched');
+  // Someone else's answer can't be changed this way.
+  assert.equal(
+    (await call(`/api/events/${id}/participants/${lee.id}`, { method: 'PUT', body: { email: 'x@example.com' } })).status,
+    403,
+  );
+
+  sent = [];
+  await pick(1);
+  assert.deepEqual(
+    emails().map((m) => m.body.to[0]),
+    ['lee@example.com'],
+  );
+  // Turned off: no more.
+  await call(`/api/events/${id}/participants/${lee.id}`, { method: 'PUT', body: { email: '' }, headers: lees });
+  sent = [];
+  await pick(2);
+  assert.equal(emails().length, 0);
+});
+
+test('the decision email in each look: retro is the same email in neon', () => {
+  const args = { title: 'Dinner', option: 'Thai Palace', pollUrl: 'https://venn.day/e/abc' };
+  const plain = decidedEmail(args);
+  const retro = decidedEmail({ ...args, retro: true });
+  assert.equal(plain.subject, retro.subject);
+  assert.notEqual(plain.html, retro.html);
+  assert.match(plain.html, /See the poll/);
+  const long = decidedEmail({ ...args, option: 'x'.repeat(80), title: 'y'.repeat(80), changed: true });
+  assert.equal(long.subject, `Change of plan: ${'x'.repeat(59)}… for “${'y'.repeat(59)}…”`);
+});
+
+test.todo('a white-label vote’s decision email says nothing of Venn (after O2)');
 
 test('the "Text message" link: an sms: link in the form each phone wants', () => {
   const body = 'When works for you? “Dinner & drinks”: https://venn.example/e/abc';
