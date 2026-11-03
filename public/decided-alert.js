@@ -23,7 +23,7 @@ export async function decidedAlert(box, ctx) {
   const config = await getConfig();
   const pushCtx = { id: ctx.id, participantId: ctx.participantId, headers: ctx.headers, topic: true };
   // Email off: the notification button is all there is, where this device can show one.
-  if (!config.emailAvailable) {
+  if (!config.email) {
     if (config.push) import('./guest-push.js').then((m) => m.guestPush(box, pushCtx)).catch(() => {});
     return;
   }
