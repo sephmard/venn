@@ -104,3 +104,85 @@ test('through the API: answer copies and the date email stop at the cap, the org
   // The date goes to the two already counted today, not to a third.
   assert.deepEqual(to().sort(), ['ana@example.com', 'ben@example.com']);
 });
+
+test('invitations and reminders past the cap: left unsent, not counted as reminded, and Remind now says why', async () => {
+  const store = createStore(sqliteAdapter(new DatabaseSync(':memory:')));
+  const sent = [];
+  const pending = [];
+  const clock = Date.UTC(2026, 10, 1, 12);
+  const env = {
+    RESEND_API_KEY: 're_test',
+    EMAIL_FROM: 'Venn <notify@venn.example>',
+    EMAIL_SIGNIN: 'off',
+    POLL_RECIPIENTS_PER_DAY: '1',
+  };
+  const fetchImpl = async (url, init) => {
+    sent.push({ url: String(url), body: JSON.parse(init.body) });
+    return new Response('{}', { status: 200 });
+  };
+  const call = async (path, { method = 'GET', body, headers = {} } = {}) => {
+    const res = await handleApi(
+      new Request(`https://venn.day${path}`, {
+        method,
+        headers: { 'content-type': 'application/json', ...headers },
+        body: body && JSON.stringify(body),
+      }),
+      store,
+      { env, fetchImpl, now: () => clock, waitUntil: (p) => pending.push(p), clientIp: '127.0.0.1' },
+    );
+    const data = await res.json();
+    await Promise.all(pending.splice(0));
+    return { status: res.status, data };
+  };
+  const to = () => sent.filter((s) => s.url.endsWith('/emails')).map((s) => s.body.to[0]);
+  const slot = Date.UTC(2026, 10, 10, 23);
+  const make = async (invitees) => {
+    const { status, data } = await call('/api/events', {
+      method: 'POST',
+      body: {
+        title: 'Book club',
+        timezone: 'UTC',
+        mode: 'options',
+        options: [{ start: slot, end: slot + 3_600_000 }],
+        requireEmail: true,
+        hostAvailability: {},
+        deadline: clock + 4 * DAY,
+        remindEvery: 1,
+        invitees,
+      },
+    });
+    assert.equal(status, 201, JSON.stringify(data));
+    return { id: data.id, admin: { 'x-admin-token': data.adminToken } };
+  };
+  const view = async (p) => (await call(`/api/events/${p.id}/deadline`, { headers: p.admin })).data.invitees;
+
+  // Invitations: the first goes out; the rest wait, not marked invited.
+  const one = await make(['ana@example.com', 'lee@example.com']);
+  assert.deepEqual(to(), ['ana@example.com']);
+  assert.deepEqual(
+    (await view(one)).map((i) => [i.email, i.invited]),
+    [
+      ['ana@example.com', true],
+      ['lee@example.com', false],
+    ],
+  );
+
+  // A reminder round: Ana (already emailed today) gets one; Lee, past the cap, isn't counted as reminded.
+  sent.length = 0;
+  assert.deepEqual((await call(`/api/events/${one.id}/remind`, { method: 'POST', headers: one.admin })).data, { sent: 1 });
+  assert.deepEqual(to(), ['ana@example.com']);
+  assert.deepEqual(
+    (await view(one)).map((i) => i.reminded),
+    [1, 0],
+  );
+
+  // When the cap is the only reason nothing went out, Remind now says so.
+  const two = await make(['kim@example.com', 'max@example.com']);
+  await call(`/api/events/${two.id}/participants`, {
+    method: 'POST',
+    body: { name: 'Kim', email: 'kim@example.com', availability: { [slot]: YES } },
+  });
+  const capped = await call(`/api/events/${two.id}/remind`, { method: 'POST', headers: two.admin });
+  assert.equal(capped.status, 400);
+  assert.match(capped.data.error, /emailed 1 different people today, its limit for a day/);
+});
