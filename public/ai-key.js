@@ -2,7 +2,7 @@
 // people always bring one). It's kept in this browser only and sent with each AI request; Venn's
 // server uses it for that request and never stores it. Loaded only when AI needs it.
 
-import { $, esc, toast } from './ui.js';
+import { $, api, esc, toast } from './ui.js';
 
 const CONSOLE = 'https://platform.claude.com/settings/keys';
 const AI_KEY = 'venn:anthropic-key';
@@ -24,6 +24,7 @@ document.head.insertAdjacentHTML(
   'beforeend',
   `<style>
   .ai-key { margin-top: 10px; }
+  .hint [data-ai-key] { min-height: 0; padding-block: 12px; margin-block: -12px; } /* 44px to tap, inline in the hint */
   .ai-key p:first-child { margin: 0 0 8px; }
   .ai-row { display: flex; gap: 8px; align-items: flex-start; }
   .ai-row > :first-child { flex: 1; min-width: 0; }
@@ -85,10 +86,38 @@ export function keyForm(box, { why = '', done, byHand } = {}) {
 export const keyLink = () =>
   `<button type="button" class="link-btn" data-ai-key>${ownAiKey() ? 'Your key' : 'Use your own key'}</button>`;
 
-/** Wire the panel's "Use your own key" button to open the form in `box`. */
-export function wireKeyLink(panel, box) {
+/** Wire the panel's "Use your own key" button to open the form in `box`; `done()` runs once a key is saved. */
+export function wireKeyLink(panel, box, done) {
   const b = panel.querySelector('[data-ai-key]');
-  if (b) b.onclick = () => (box.hidden || !box.firstChild ? keyForm(box) : (box.hidden = true));
+  if (b) b.onclick = () => (box.hidden || !box.firstChild ? keyForm(box, { done }) : (box.hidden = true));
+}
+
+let allowance;
+/**
+ * This week's free AI requests (the server's key), asked once a page: 'available', 'used', or 'off'
+ * when the server has none and people bring their own. 'available' when it can't tell, so the hint
+ * stays as it is: a 402 still opens the key form.
+ */
+export const aiAllowance = () =>
+  (allowance ??= api('ai/allowance').then(
+    (r) => r?.allowance || 'available',
+    () => 'available',
+  ));
+
+const USED = 'This week’s free AI requests are used up.';
+
+/**
+ * The end of an AI panel's hint, in `span`. While the free requests last, nothing: a key is an
+ * explanation nobody needs yet. Once they're used up, it says so plainly, then "Use your own key";
+ * with none on this server, or a key already saved, just the link. `say(state)` is the line before
+ * the link. Returns the state ('own' with a saved key).
+ */
+export async function keyHint(panel, span, box, say = (state) => (state === 'used' ? USED : '')) {
+  const state = ownAiKey() ? 'own' : await aiAllowance();
+  const line = say(state);
+  span.innerHTML = state === 'available' ? '' : `${line ? `${esc(line)} ` : ''}${keyLink()}`;
+  wireKeyLink(panel, box, () => keyHint(panel, span, box, say));
+  return state;
 }
 
 /**
@@ -97,6 +126,7 @@ export function wireKeyLink(panel, box) {
  * "Fill it in yourself" for people with no key.
  */
 export function aiFailed(ex, box, retry, byHand) {
+  if (ex.status === 402) allowance = Promise.resolve('used');
   if ((ex.status === 402 || (ex.status === 400 && /key/i.test(ex.message))) && box)
     return keyForm(box, { why: ex.message, done: retry, byHand });
   toast(ex.message);
