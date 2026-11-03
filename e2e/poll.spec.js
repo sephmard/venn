@@ -118,6 +118,15 @@ test('vote on a few dates: collect votes, pick the final date', async ({ page, r
   expect(await ics.text()).toContain('SUMMARY:Dinner');
 });
 
+/** A guest answers as the organizer did, so the organizer's group has someone to rank and pick for. */
+async function guestLikeHost(page) {
+  const id = page.url().split('/e/')[1].split('#')[0];
+  const ev = await (await page.request.get(`/api/events/${id}`)).json();
+  const host = ev.participants.find((p) => p.id === ev.hostId) ?? ev.participants[0];
+  await page.request.post(`/api/events/${id}/participants`, { data: { name: 'Lee', availability: host.availability } });
+  await page.reload();
+}
+
 test('a trip: options that last several days become all-day calendar events', async ({ page, request }) => {
   await page.goto('/new/pick');
   await page.fill('#organizer', 'Sam');
@@ -145,6 +154,7 @@ test('a trip: options that last several days become all-day calendar events', as
   await page.click('#fill');
   await page.fill('#name', 'Sam');
   await submit(page);
+  await guestLikeHost(page);
   await page.locator('.best-hero [data-pick]').click();
   await page.click('#pc-yes');
   await expect(page.locator('.banner-final')).toBeVisible(); // the date is saved
@@ -177,8 +187,9 @@ test('ask when people are free: days, looking for a run of days', async ({ page 
   await page.locator('#mine .row').nth(4).locator('[data-vote="1"]').click();
   await page.fill('#name', 'Sam');
   await submit(page);
+  await guestLikeHost(page);
   await expect(page.locator('.best-hero')).toContainText('(2 days)');
-  await expect(page.locator('.best-hero')).toContainText('1 of 1 can make it, 1 if needed');
+  await expect(page.locator('.best-hero')).toContainText('All 2 can make it if needed');
 });
 
 test('ask when people are free: days that never make the run asked for can’t be created', async ({ page }) => {
@@ -392,7 +403,8 @@ test('ask when people are free: paint hours and see the best time', async ({ pag
 
   await page.fill('#name', 'Sam');
   await submit(page);
-  await expect(page.locator('.best-hero')).toContainText('Works for the one person so far');
+  // The organizer's own answer, and no guest yet: nothing to rank.
+  await expect(page.locator('#best')).toContainText('Only your answer so far');
 });
 
 test('page never scrolls sideways', async ({ page }) => {
@@ -402,6 +414,7 @@ test('page never scrolls sideways', async ({ page }) => {
   await page.click('#fill');
   await page.fill('#name', 'Sam');
   await submit(page);
+  await guestLikeHost(page);
   await expect(page.locator('.ov-list')).toBeVisible();
   // Against the device's width: on a phone, content that's too wide makes the browser zoom out instead.
   const overflow = await page.evaluate(() => document.documentElement.scrollWidth - screen.width);
@@ -1311,6 +1324,9 @@ test('AI: describe a poll in words, then summarize and write messages as the org
   await page.fill('#name', 'Sam');
   await submit(page);
   await expect(page.locator('#save-state')).toHaveText('Submitted');
+  // Summarize waits for a guest's answer.
+  await expect(page.locator('#ai-summary-btn')).toBeHidden();
+  await guestLikeHost(page);
 
   await page.click('#ai-summary-btn');
   await expect(page.locator('.ai-card')).toContainText('Most people can make the first option.');
@@ -1779,6 +1795,39 @@ test('ask when people are free: zoom from whole days to parts of the day to hour
   await expect(page.locator('.part-vote')).toHaveCount(5);
 });
 
+test('the organizer alone can still pick: answers collected by text, then Pick a date anyway', async ({ page, request }) => {
+  const t0 = Date.UTC(2031, 0, 7, 18);
+  const H = 3_600_000;
+  const { id, adminToken } = await (
+    await request.post('/api/events', {
+      data: {
+        title: 'Book club',
+        organizer: 'Sam',
+        timezone: 'UTC',
+        mode: 'options',
+        hostAnswers: true,
+        options: [
+          { start: t0, end: t0 + 2 * H },
+          { start: t0 + 24 * H, end: t0 + 26 * H },
+        ],
+      },
+    })
+  ).json();
+  await page.goto(`/e/${id}#admin=${adminToken}`);
+  const best = page.locator('#best');
+  await expect(best).toContainText('Only your answer so far');
+  await best.getByRole('button', { name: 'Pick a date anyway' }).click();
+  // The usual ranking and Pick, ready to tap.
+  await expect(page.locator('#best-h')).toBeVisible();
+  const pick = page.locator('.best-hero [data-pick]');
+  await expect(pick).toBeFocused();
+  await pick.click();
+  await page.click('#pc-yes');
+  await expect(page.locator('.banner-final')).toBeVisible();
+  const ev = await (await request.get(`/api/events/${id}`)).json();
+  expect(ev.finalStart).toBe(t0);
+});
+
 test('on a phone, a new poll leads with sharing: one share button, the group, and the answer as one line', async ({
   page,
   browser,
@@ -1811,11 +1860,16 @@ test('on a phone, a new poll leads with sharing: one share button, the group, an
   // It opens on the group, where Pick and the results are.
   await expect(page.locator('#tab-group')).toHaveAttribute('aria-selected', 'true');
   await expect(page.locator('#panel-group')).toBeVisible();
-  // Only their own answer so far: it says so, and nothing says "everyone".
-  await expect(page.locator('#best .only-you')).toHaveText('Only your answer so far.');
-  await expect(page.locator('.ov-summary')).toHaveText('Your answer so far.');
-  await expect(page.locator('#overlap .ov-count').first()).toContainText('✓ You');
-  await expect(page.locator('#overlap')).not.toContainText('Everyone');
+  // Only their own answer so far: one line and a link, and nothing that counts it as a guest's.
+  const best = page.locator('#best');
+  await expect(best.getByRole('heading', { name: 'Only your answer so far' })).toBeVisible();
+  await expect(best).toContainText('Share the link to see where everyone overlaps.');
+  await expect(best.locator('[data-share]')).not.toHaveClass(/btn-primary/);
+  await expect(page.locator('#ev-meta')).toContainText('No answers yet');
+  await expect(page.locator('#group-count')).toHaveText('');
+  for (const gone of ['#best-h', '.best-hero', '[data-pick]', '#overlap', '#ai-summary-btn'])
+    await expect(page.locator(gone)).toBeHidden();
+  await expect(best.getByRole('button', { name: 'Pick a date anyway' })).toHaveClass('link-btn');
 
   // Their own tab shows the options in their poll, nothing to submit: their answer came with it.
   await page.click('#tab-mine');
@@ -1864,6 +1918,15 @@ test('on a phone, a new poll leads with sharing: one share button, the group, an
   await expect(g.locator('#ev-title')).toHaveText('Book club');
   await expect(g.locator('#tab-mine')).toHaveAttribute('aria-selected', 'true');
   await guest.close();
+
+  // Once a guest has answered, the organizer's group is back: the count, the best date and Pick.
+  await page.reload();
+  await expect(page.locator('#group-count')).toHaveText('1');
+  await expect(page.locator('#ev-meta')).toContainText('1 person answered');
+  await expect(page.locator('.best-hero')).toBeVisible();
+  await expect(page.locator('.best-hero [data-pick]')).toHaveClass(/btn-primary/);
+  await expect(page.locator('#overlap')).toBeVisible();
+  await expect(page.locator('#best')).not.toContainText('Only your answer so far');
 });
 
 // ---------- the picked date, sharing, and answering one way at a time ----------
@@ -2848,7 +2911,7 @@ test('a whole-day poll: guests answer on the list; on the calendar of its days, 
   const ev = await (await request.get(`/api/events/${id}`, { headers: { 'x-admin-token': adminToken } })).json();
   const ana = ev.participants.find((p) => p.name === 'Ana');
   expect(ana.availability).toEqual({ [dayKey('2030-01-08')]: 2, [dayKey('2030-01-09')]: 2, [dayKey('2030-01-10')]: 1 });
-  await expect(page.locator('.best-hero')).toContainText('Jan 8');
+  await expect(page.locator('#best')).toContainText('Only your answer so far'); // the organizer's own, no guest yet
 
   // The organizer answers on the list, as before.
   await page.goto(`/e/${id}#admin=${adminToken}`);
