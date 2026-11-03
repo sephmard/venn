@@ -10,6 +10,7 @@
 
 import { ValidationError, isTopicPoll } from '../public/core.js';
 import { whiteLabelOf } from './brands.js';
+import { mayEmail } from './recipients.js';
 import { closesLabel, invitedUrl, isClosed, isDecided } from './deadline.js';
 import { emailEnabled, inviteEmail, normalizeEmail, sendEmail, unsubscribeHeaders, unsubscribeLink } from './notify.js';
 
@@ -109,6 +110,8 @@ export async function sendInvites({ store, env = {}, fetchImpl = fetch, id, user
       whiteLabel,
     });
     const headers = unsubscribeHeaders(unsubscribeLink(site, id, unsubscribeToken));
+    // Past the poll's daily cap (src/recipients.js), left unsent: it can go out another day.
+    if (!(await mayEmail(store, env, id, i.email, now))) continue;
     try {
       await sendEmail(env, { to: i.email, ...msg, headers }, { fetchImpl });
       sentTo.add(i.id);

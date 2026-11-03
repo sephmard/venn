@@ -19,6 +19,7 @@ import {
 } from './notify.js';
 import { setLabel } from './preview.js';
 import { whiteLabelOf } from './brands.js';
+import { mayEmail } from './recipients.js';
 import { normalizeInvitees } from './invites.js';
 
 export { MAX_INVITEES } from './invites.js';
@@ -153,7 +154,7 @@ export function stopReminders(settings, value, timingSafeEqual) {
 }
 
 /** One round of reminders to the invitees who haven't answered: { sent, invitees } (with their counts). */
-async function remindRound({ store, env, fetchImpl, ev, r, site, last, mail }) {
+async function remindRound({ store, env, fetchImpl, ev, r, site, last, mail, now = Date.now() }) {
   const pollUrl = `${site}/e/${ev.id}`;
   const answered = new Set((await store.listEmails(ev.id)).values());
   const whiteLabel = await whiteLabelOf(store, ev);
@@ -174,6 +175,11 @@ async function remindRound({ store, env, fetchImpl, ev, r, site, last, mail }) {
         whiteLabel,
       });
       const headers = unsubscribeHeaders(unsubscribeLink(site, ev.id, unsubscribeToken));
+      // Past the poll's daily cap (src/recipients.js): not sent, and not counted as a reminder.
+      if (!(await mayEmail(store, env, ev.id, i.email, now))) {
+        invitees.push(i);
+        continue;
+      }
       try {
         await sendEmail(env, { to: i.email, ...msg, headers }, { fetchImpl });
         invitees.push({ ...i, sent: i.sent + 1 });
@@ -210,7 +216,7 @@ export async function remindNow({ store, env = {}, ev, now = Date.now(), fetchIm
   if (!r?.invitees?.length) return { error: 'This poll has no invite list to remind' };
   if (r.lastManual && now - r.lastManual < 12 * HOUR) return { error: 'Reminders went out less than 12 hours ago' };
   const site = (r.origin || origin || env.PUBLIC_URL || '').replace(/\/+$/, '');
-  const round = await remindRound({ store, env, fetchImpl, ev, r, site, last: false, mail: true });
+  const round = await remindRound({ store, env, fetchImpl, ev, r, site, last: false, mail: true, now });
   if (!round.sent) return { error: 'Everyone invited has answered or stopped reminders' };
   await store.setNotify(ev.id, { ...settings, remind: { ...r, invitees: round.invitees, lastManual: now } });
   return { sent: round.sent };
@@ -281,7 +287,7 @@ export async function sendDeadlines({ store, env = {}, now = Date.now(), fetchIm
     const periodic = r.every > 0 && now >= (r.lastRound ?? r.since) + r.every * DAY;
     const last = r.every != null && !r.lastSent && now >= ev.deadline - DAY;
     if ((periodic || last) && r.invitees?.length) {
-      const round = await remindRound({ store, env, fetchImpl, ev, r, site, last: !!last, mail });
+      const round = await remindRound({ store, env, fetchImpl, ev, r, site, last: !!last, mail, now });
       n += round.sent;
       Object.assign(r, { invitees: round.invitees, lastRound: now, ...(last && { lastSent: true }) });
     }

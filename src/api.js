@@ -75,6 +75,7 @@ import { handleMcp } from './mcp.js';
 import { pollResults } from './results.js';
 import { draftFromWords, unsureOf } from './days-parse.js';
 import { checkWrite, limitHeaders, writeWindows as newWriteWindows } from './limits.js';
+import { mayEmail } from './recipients.js';
 import { MAX_GUEST_DEVICES, MAX_PUSH_DEVICES, checkSubscription, pushEnabled, sendPush } from './push.js';
 
 const sharedPlaces = placesState();
@@ -505,6 +506,7 @@ async function route(
       retro: ev.retro,
       whiteLabel: await whiteLabelOf(store, ev),
     });
+    if (!(await mayEmail(store, env, ev.id, to, now()))) return;
     waitUntil(sendEmail(env, { to, ...msg, headers }, { fetchImpl }).catch((e) => console.error('answer copy failed', e)));
   }
 
@@ -572,6 +574,7 @@ async function route(
       whiteLabel: await whiteLabelOf(store, ev),
     });
     for (const [pid, to] of emails) {
+      if (!(await mayEmail(store, env, ev.id, to, now()))) continue;
       const headers = unsubscribeHeaders(unsubscribeLink(origin, ev.id, tokens.get(pid)));
       waitUntil(sendEmail(env, { to, ...msg, headers }, { fetchImpl }).catch((e) => console.error('decided email failed', e)));
     }
@@ -617,6 +620,7 @@ async function route(
       whiteLabel,
     });
     for (const [pid, to] of emails) {
+      if (!(await mayEmail(store, env, ev.id, to, now()))) continue;
       const headers = unsubscribeHeaders(unsubscribeLink(origin, ev.id, tokens.get(pid)));
       waitUntil(sendEmail(env, { to, ...msg, headers }, { fetchImpl }).catch((e) => console.error('date email failed', e)));
     }
