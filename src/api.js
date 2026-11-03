@@ -175,13 +175,14 @@ function publicEvent(ev, participants, { isAdmin, ownHash = null, ownId = null, 
   };
 }
 
+// Answer keys that weren't one of the poll's slots, said back so the client can see they were left
+// out: the first 20, which is enough to see what went wrong without echoing a huge body.
+const ignoredKeys = ({ ignored }) => (ignored.length ? { ignored: ignored.slice(0, 20) } : {});
+
 /**
  * The organizer's own answer: what they marked for each time (`hostAvailability`, yes or if
  * needed), or yes to every time they offered.
  */
-// Answer keys that weren't one of the poll's slots, said back so the client can see they were left out.
-const ignoredKeys = ({ ignored }) => (ignored.length ? { ignored } : {});
-
 const hostAvailability = (ev, marked) =>
   marked != null
     ? checkSingle(ev, normalizeAvailability(marked, buildSlots(ev)))
@@ -1425,7 +1426,7 @@ async function route(
 
     return error(404, 'Not found');
   } catch (e) {
-    if (e instanceof ValidationError) return error(400, e.message);
+    if (e instanceof ValidationError) return json({ error: e.message, ...(e.detail && { detail: e.detail }) }, 400);
     if (e instanceof AiKeyError || e instanceof AiUnavailableError) {
       // Why Anthropic said no, in the Worker's logs and the usage stats, so a broken server key or
       // model shows up. Counted even for browsers that opt out: it's about the server, not them.

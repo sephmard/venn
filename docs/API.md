@@ -99,7 +99,7 @@ Its organizer can then bring last time's group back from the new poll's page. Po
 { "name": "Ana", "availability": { "1793804400000": 2, "1793818800000": 1 } }
 ```
 
-A key that isn't one of the poll's `slots` (a time a few milliseconds off, an ISO date, an option's label) isn't saved. The answer is saved without it, and the response says which keys were left out: `{ id, editToken, ignored: ["1793804400005"] }`, or `{ ok: true, ignored: […] }` when changing an answer. When keys were sent and none of them match, the answer is refused with `400`, which is also what a page opened before the organizer changed the poll's times gets. An empty `availability` (`{}`, no to everything) is still fine.
+A key that isn't one of the poll's `slots` (a time a few milliseconds off, an ISO date, an option's label) isn't saved. The answer is saved without it, and the response says which keys were left out: `{ id, editToken, ignored: ["1793804400005"] }` (the first 20 such keys), or `{ ok: true, ignored: […] }` when changing an answer. When keys were sent and none of them match, the answer is refused with `400`, which is also what a page opened before the organizer changed the poll's times gets: `error` is the message for the person answering ("This poll's times changed after you opened it. Reload the page, then answer again.", or "options" on a topic poll), and `detail` says how to key the answers. An empty `availability` (`{}`, no to everything) is still fine.
 
 ## The poll's picture
 

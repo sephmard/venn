@@ -205,7 +205,8 @@ test('a topic answer keyed by option labels, not ids, is refused with the ids to
     body: { name: 'Ana', availability: { Pizza: YES } },
   });
   assert.equal(res.status, 400);
-  assert.match(res.data.error, /None of these answers match the poll's options\. Answer each by its id \(1, 2…\)/);
+  assert.equal(res.data.error, "This poll's options changed after you opened it. Reload the page, then answer again.");
+  assert.match(res.data.detail, /option id \(1, 2…\), as listed in slots/);
   const ok = await call(`/api/events/${data.id}/participants`, {
     method: 'POST',
     body: { name: 'Ana', availability: { 1: YES, Tacos: YES } },

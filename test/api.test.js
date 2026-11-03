@@ -629,6 +629,10 @@ test('answers keyed by something that is not a slot are said back as ignored, an
   const mixed = await answer({ [s0]: YES, [s1 + 5]: YES });
   assert.equal(mixed.status, 201);
   assert.deepEqual(mixed.data.ignored, [String(s1 + 5)]);
+  // At most 20 are said back.
+  const many = await answer({ [s0]: YES, ...Object.fromEntries(Array.from({ length: 30 }, (_, i) => [`x${i}`, YES])) });
+  assert.equal(many.status, 201);
+  assert.equal(many.data.ignored.length, 20);
   // All keys match, nothing sent, or an explicit no to everything: no `ignored`.
   for (const availability of [{ [s0]: YES, [s1]: 0 }, {}, undefined]) {
     const ok = await answer(availability);
@@ -640,7 +644,8 @@ test('answers keyed by something that is not a slot are said back as ignored, an
   for (const availability of [{ [s0 + 5]: YES }, { [new Date(s0).toISOString()]: YES }, { '2026-11-02': IF_NEEDED }]) {
     const bad = await answer(availability);
     assert.equal(bad.status, 400);
-    assert.match(bad.data.error, /None of these answers match the poll's times\. .*UTC milliseconds, as listed in slots/);
+    assert.equal(bad.data.error, "This poll's times changed after you opened it. Reload the page, then answer again.");
+    assert.match(bad.data.detail, /UTC milliseconds, as listed in slots/);
   }
   assert.equal((await call(path)).data.participants.length, before);
 
@@ -673,7 +678,7 @@ test('a page opened before the organizer changed the times: its answer is refuse
 
   const guest = await call(`${path}/participants`, { method: 'POST', body: { name: 'Bo', availability: stale } });
   assert.equal(guest.status, 400);
-  assert.match(guest.data.error, /reload the poll if it changed/);
+  assert.match(guest.data.error, /^This poll's times changed after you opened it\. Reload the page/);
   // The organizer's own page, also opened before the change.
   const host = await call(`${path}/participants/${participant.id}`, {
     method: 'PUT',

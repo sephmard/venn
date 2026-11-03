@@ -264,10 +264,16 @@ export function normalizeAnswer(av, slots, topic) {
   const valid = new Set(slots.map(String));
   const ignored = keys.filter((k) => !valid.has(k));
   if (keys.length && ignored.length === keys.length)
-    throw new ValidationError(
-      topic
-        ? "None of these answers match the poll's options. Answer each by its id (1, 2…), as listed in slots, or reload the poll if it changed."
-        : "None of these answers match the poll's times. Answer each by its start in UTC milliseconds, as listed in slots, or reload the poll if it changed.",
+    // `error` is shown to the guest in the page; `detail` is for a developer calling the API.
+    throw Object.assign(
+      new ValidationError(
+        `This poll's ${topic ? 'options' : 'times'} changed after you opened it. Reload the page, then answer again.`,
+      ),
+      {
+        detail: topic
+          ? 'None of the availability keys match the poll. Key each answer by its option id (1, 2…), as listed in slots.'
+          : 'None of the availability keys match the poll. Key each answer by its start in UTC milliseconds, as listed in slots.',
+      },
     );
   return { availability, ignored };
 }
