@@ -2623,6 +2623,26 @@ pre.code {
   outline-offset: 2px;
 }
 /* The picked date, on its row. */
+.ov-run {
+  margin-left: 6px;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: var(--accent);
+  color: var(--accent-ink);
+  font-size: 0.8rem;
+  white-space: nowrap;
+}
+/* Days in a row: the best run's days, marked by a bar down their left edge. */
+.ov-item.in-run > .ov-row {
+  box-shadow: inset 4px 0 0 var(--accent);
+}
+.best-tie {
+  margin: 0 0 8px;
+  color: var(--muted);
+}
+.solo-state p {
+  margin: 0 0 6px;
+}
 .ov-picked {
   margin-left: 6px;
   padding: 2px 8px;

@@ -118,6 +118,12 @@ the same PR** (and CLAUDE.md if it's a rule that matters in review).
 - An open row lists **who answered what**, a labelled line per answer, coloured as in the key.
 - A row everyone can make, but some only if needed, is **amber** and says **"Everyone, if needed"**,
   never "2 of 2" or green: "✓ Everyone" and green are only for everyone available.
+- **One answer is one answer.** With only one person in, rows say "✓ You" or "✓ Ana", never
+  "✓ Everyone"; and when only the organizer has answered, the best spot says "Only your answer so far"
+  with Copy link, not a best date. Pick stays on each row.
+- **A trip's best run is one run.** Days-in-a-row results mark the best stretch's days together
+  ("Best 3 days") and the summary counts days in a row, not separate dates.
+- **Ties are said.** When other dates are just as good as the best, a quiet "Tied with …" line says so.
 - Hours results: one smooth track a day on a shared time scale; on phones, no timeline, just each
   day's best stretches. Calm tints, never solid slabs.
 - No × on every person's name: the organizer taps a person, then removes their answer.

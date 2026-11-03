@@ -34,15 +34,28 @@ const bar = (yes, maybe, no) =>
  * kind: 'all' (everyone's free), 'best' (the most overlap) or ''. Everyone can, some only if needed:
  * 'ifn', amber as in the key.
  */
-function row(r, n, { kind, open, final, pick, mine }) {
+function row(r, n, { kind, open, final, pick, mine, solo, run }) {
   const [yes, maybe, no] = [r.yes.length, r.maybe.length, r.no.length];
   if (maybe && yes + maybe === n) kind = 'ifn';
+  // One answer so far isn't "everyone": it's that one person (You, for the person themselves).
+  const count = solo
+    ? yes
+      ? `✓ ${solo}`
+      : maybe
+        ? `${solo}, if needed`
+        : `0 of ${n}`
+    : kind === 'all'
+      ? '✓ Everyone'
+      : kind === 'ifn'
+        ? 'Everyone, if needed'
+        : `${yes + maybe} of ${n}`;
+  if (solo) kind = '';
   const whole = kind === 'all' || kind === 'ifn';
   const said = `${yes} of ${n} available${maybe ? `, ${maybe} if needed` : ''}${no ? `, ${no} unavailable` : ''}${kind === 'all' ? ". Everyone's free" : kind === 'ifn' ? '. Everyone can, some only if needed' : kind === 'best' ? '. The most overlap' : ''}`;
-  return `<li class="ov-item${open ? ' open' : ''}">
+  return `<li class="ov-item${open ? ' open' : ''}${run ? ' in-run' : ''}">
     <button type="button" class="ov-row${kind ? ` ${kind}` : ''}${final ? ' final' : ''}" data-ov="${r.start}" aria-expanded="${open}">
-      <span class="ov-when">${r.day ? `<span class="sr-only">${esc(dayName(r.day))}, </span>` : ''}${esc(r.label).replace(/\S*\u00a0[\S\u00a0]*/g, (m) => `<span class="nowrap">${m}</span>`)}${final ? ' <span class="ov-picked">✓ Picked</span>' : ''}</span>
-      <span class="ov-count">${kind === 'all' ? '✓ Everyone' : kind === 'ifn' ? 'Everyone, if needed' : `${yes + maybe} of ${n}`}${mine ? ` <span class="ov-mine">${esc(mine)}</span>` : ''}<span class="sr-only">. ${esc(said)}</span><span class="ov-chev" aria-hidden="true"></span></span>
+      <span class="ov-when">${r.day ? `<span class="sr-only">${esc(dayName(r.day))}, </span>` : ''}${esc(r.label).replace(/\S*\u00a0[\S\u00a0]*/g, (m) => `<span class="nowrap">${m}</span>`)}${final ? ' <span class="ov-picked">✓ Picked</span>' : ''}${typeof run === 'string' ? ` <span class="ov-run">${esc(run)}</span>` : ''}</span>
+      <span class="ov-count">${count}${mine ? ` <span class="ov-mine">${esc(mine)}</span>` : ''}<span class="sr-only">. ${esc(said)}</span><span class="ov-chev" aria-hidden="true"></span></span>
       ${whole ? '' : `<span class="ov-bar" aria-hidden="true">${bar(yes, maybe, no)}</span>`}
     </button>
     ${open ? `<div class="ov-who">${group(r.yes, 'yes', 'Available')}${group(r.maybe, 'maybe', 'If needed')}${group(r.no, 'no', 'Unavailable')}${pick ? `<div class="ov-pick">${pick}</div>` : ''}</div>` : ''}
@@ -64,8 +77,14 @@ export function overlapHtml(ctx) {
   return ctx.list ? listHtml(ctx) : hoursHtml(ctx);
 }
 
-function listHtml({ ev, people, tz, inspect, focus, windows, days, parts, when }) {
+/** Only one person has answered: "You" (the person looking) or their name; null once there are more. */
+const soloName = (people, you) => (people.length === 1 ? (people[0].id === you ? 'You' : people[0].name) : null);
+/** The summary while only one person has answered: nobody to overlap with yet. */
+const soloSummary = (solo) => (solo === 'You' ? '<b>Your answer so far.</b>' : `<b>Only ${esc(solo)} has answered so far.</b>`);
+
+function listHtml({ ev, people, tz, inspect, focus, windows, days, parts, when, you, run }) {
   const n = people.length;
+  const solo = soloName(people, you);
   const timed = parts || windows.every((w) => !allDaySpan(w.start, w.end, tz));
   const rows = windows.map((w) => {
     const p = parts && partOf(w.start, w.end, tz);
@@ -95,7 +114,11 @@ function listHtml({ ev, people, tz, inspect, focus, windows, days, parts, when }
     .map((r) => {
       const v = focus?.availability[r.start];
       const head = r.day && r.day !== day ? `<li class="ov-day"><h3>${esc(dayName((day = r.day)))}</h3></li>` : '';
+      // Days in a row: the best run's days are marked, the first with how long it is.
+      const inRun = run && r.start >= run.start && r.start < run.end;
       return `${head}${row(r, n, {
+        solo,
+        run: inRun && (r.start === run.start ? `Best ${run.days} days` : true),
         kind: r.yes.length === n ? 'all' : top && can(r) === top ? 'best' : '',
         open: String(r.start) === String(inspect),
         final: r.start === ev.finalStart,
@@ -104,18 +127,28 @@ function listHtml({ ev, people, tz, inspect, focus, windows, days, parts, when }
       })}`;
     })
     .join('');
-  const summary = everyone
-    ? `<b>Everyone's free</b> on ${plural(everyone, what)}.`
-    : top === n
-      ? `<b>Everyone can make it</b> on ${plural(rows.filter((r) => can(r) === n).length, what)}, some only if needed.`
-      : top
-        ? `The most that overlap: <b>${top} of ${n}</b>.`
-        : 'No overlap yet.';
+  const runCan = run && run.yes.length + run.ifNeeded.length;
+  const summary = solo
+    ? soloSummary(solo)
+    : run
+      ? run.yes.length === n
+        ? `<b>Everyone's free</b> for ${run.days} days in a row: ${esc(run.label)}.`
+        : runCan === n
+          ? `<b>Everyone can make it</b> for ${run.days} days in a row, some only if needed: ${esc(run.label)}.`
+          : `The most that overlap for ${run.days} days in a row: <b>${runCan} of ${n}</b>, ${esc(run.label)}.`
+      : everyone
+        ? `<b>Everyone's free</b> on ${plural(everyone, what)}.`
+        : top === n
+          ? `<b>Everyone can make it</b> on ${plural(rows.filter((r) => can(r) === n).length, what)}, some only if needed.`
+          : top
+            ? `The most that overlap: <b>${top} of ${n}</b>.`
+            : 'No overlap yet.';
   return `<p class="ov-summary">${summary}</p>${KEY}<ol class="ov-list" aria-label="Everyone's answers">${items}</ol>`;
 }
 
-function hoursHtml({ ev, people, tz, inspect }) {
+function hoursHtml({ ev, people, tz, inspect, you }) {
   const n = people.length;
+  const solo = soloName(people, you);
   const ranked = rankTimes(ev, ev.slots, people, Infinity);
   const score = (b) => b.yes.length + b.ifNeeded.length;
   const topCan = ranked[0] ? score(ranked[0]) : 0;
@@ -184,6 +217,7 @@ function hoursHtml({ ev, people, tz, inspect }) {
             },
             n,
             {
+              solo,
               kind: all ? 'all' : score(sp) === topCan ? 'best' : '',
               open: String(sp.start) === String(inspect),
               final: sp.start === final,
@@ -200,12 +234,14 @@ function hoursHtml({ ev, people, tz, inspect }) {
         ${rows ? `<ol class="ov-list">${rows}</ol>` : '<p class="hint">Nobody is free this day yet.</p>'}</li>`;
     })
     .join('');
-  const summary = ranked.some((b) => b.yes.length === n)
-    ? "<b>Everyone's free</b> at the times in green."
-    : topCan === n
-      ? '<b>Everyone can make it</b> at the times outlined, some only if needed.'
-      : topCan
-        ? `The most that overlap: <b>${topCan} of ${n}</b>.`
-        : 'No overlap yet.';
+  const summary = solo
+    ? soloSummary(solo)
+    : ranked.some((b) => b.yes.length === n)
+      ? "<b>Everyone's free</b> at the times in green."
+      : topCan === n
+        ? '<b>Everyone can make it</b> at the times outlined, some only if needed.'
+        : topCan
+          ? `The most that overlap: <b>${topCan} of ${n}</b>.`
+          : 'No overlap yet.';
   return `<p class="ov-summary">${summary}</p>${KEY}<ol class="ov-days" aria-label="Everyone's answers, day by day">${cards}</ol>`;
 }

@@ -234,7 +234,9 @@ for (const scheme of ['light', 'dark']) {
       await expect(page.locator('.ov-list')).toBeVisible();
       await page.locator('.ov-row').first().click(); // who's free, and Pick
       await audit(page, "everyone's answers, a row open");
-      await page.locator('.best-hero [data-pick]').click();
+      // Only the organizer has answered: the best spot asks for the link to go out; Pick is on the row.
+      await expect(page.locator('#best .solo-state')).toBeVisible();
+      await page.locator('.ov-item.open .ov-pick-btn').click();
       await audit(page, 'pick this date?');
       await page.click('#pc-yes');
       await expect(page.locator('.banner-final')).toBeVisible();

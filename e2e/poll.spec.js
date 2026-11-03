@@ -392,7 +392,9 @@ test('ask when people are free: paint hours and see the best time', async ({ pag
 
   await page.fill('#name', 'Sam');
   await submit(page);
-  await expect(page.locator('.best-hero')).toContainText('Works for the one person so far');
+  // Only the organizer has answered: no "best time" yet, just a nudge to share the link.
+  await expect(page.locator('#best .solo-state')).toContainText('Only your answer so far');
+  await expect(page.locator('.best-hero')).toHaveCount(0);
 });
 
 test('page never scrolls sideways', async ({ page }) => {
@@ -1499,6 +1501,12 @@ test('ask when people are free: parts of the day', async ({ page, request }) => 
   const { id } = await (
     await request.post('/api/events', { data: { title: 'Coffee', timezone: 'UTC', mode: 'options', layout: 'parts', options } })
   ).json();
+  // Ana answered first, as Sam will: so the rows show the group, not one person's answer.
+  const ana = Object.fromEntries([
+    [day(8, 12), 2],
+    [day(8, 18), 1],
+  ]);
+  await request.post(`/api/events/${id}/participants`, { data: { name: 'Ana', availability: ana } });
   await page.goto(`/e/${id}`);
 
   await expect(page.locator('.part-vote')).toHaveCount(6);
@@ -1533,7 +1541,7 @@ test('ask when people are free: parts of the day', async ({ page, request }) => 
     await page.locator('.ov-legend .sw-m').evaluate((el) => getComputedStyle(el).backgroundColor),
   );
   await expect(rows.nth(2).locator('.ov-bar i')).toHaveClass(['n']);
-  await expect(rows.nth(2)).toHaveAccessibleName(/1 unavailable/);
+  await expect(rows.nth(2)).toHaveAccessibleName(/2 unavailable/);
   await expect(rows.nth(0)).toContainText('✓ Everyone');
   await expect(page.locator('#panel-group .legend', { hasText: 'Unavailable' })).toBeVisible();
   // Just the three answers in the key: "✓ Everyone" on a row says itself.
@@ -1546,11 +1554,11 @@ test('ask when people are free: parts of the day', async ({ page, request }) => 
   const said = page.locator('.ov-item.open .ov-group');
   await expect(said).toHaveCount(1);
   await expect(said.locator('.ov-group-h')).toHaveText('Available');
-  await expect(said.locator('.chip.yes')).toContainText('Sam');
+  await expect(said.locator('.chip.yes')).toContainText(['Ana', 'Sam']);
   // And on a time Sam can't make: under Unavailable.
   await rows.nth(2).click();
   await expect(said.locator('.ov-group-h')).toHaveText('Unavailable');
-  await expect(said.locator('.chip.no')).toContainText('Sam');
+  await expect(said.locator('.chip.no')).toContainText(['Ana', 'Sam']);
 });
 
 test('guests answer on the list; organizers can also answer on a calendar', async ({ page, request }) => {
@@ -1800,7 +1808,12 @@ test('on a phone, a new poll leads with sharing: one share button, the group, an
   // It opens on the group, where Pick and the results are.
   await expect(page.locator('#tab-group')).toHaveAttribute('aria-selected', 'true');
   await expect(page.locator('#panel-group')).toBeVisible();
-  await expect(page.locator('#best .only-you')).toHaveText('Only your answer so far.');
+  // Only their own answer so far: it says so, and asks for the link to go out, not "everyone's free".
+  await expect(page.locator('#best .solo-state')).toContainText('Only your answer so far');
+  await expect(page.locator('#best .solo-state [data-share]')).toBeVisible();
+  await expect(page.locator('.ov-summary')).toHaveText('Your answer so far.');
+  await expect(page.locator('#overlap .ov-count').first()).toContainText('✓ You');
+  await expect(page.locator('#overlap')).not.toContainText('Everyone');
 
   // Their own tab shows the options in their poll, nothing to submit: their answer came with it.
   await page.click('#tab-mine');
