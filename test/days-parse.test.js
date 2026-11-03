@@ -135,6 +135,22 @@ test('what’s said beats what the plan implies: “date night, but only afterno
   assert.equal(draft('Breakfast or dinner this week').days.length, 14);
 });
 
+test('short day names are days, not plurals, and "the sun" is not Sunday', () => {
+  assert.deepEqual(dates(draft('Dinner weds or thurs this week')), ['2026-11-04', '2026-11-05']);
+  assert.deepEqual(dates(draft('Coffee tues or fri next week')), ['2026-11-10', '2026-11-13']);
+  assert.deepEqual(dates(draft('Picnic in the sun on Saturday')), ['2026-11-07']);
+  assert.deepEqual(dates(draft('Sat or Sun')), ['2026-11-07', '2026-11-08']);
+  assert.deepEqual(dates(draft('Fridays next month')), ['2026-12-04', '2026-12-11', '2026-12-18', '2026-12-25']);
+  // Lunch implies afternoons, and the note names it.
+  const lunch = draft('Lunch Wednesday or Friday');
+  assert.deepEqual(pairs(lunch), [
+    ['2026-11-04', 'afternoon'],
+    ['2026-11-06', 'afternoon'],
+  ]);
+  assert.match(lunch.note, /Took lunch as afternoons\./);
+  assert.doesNotMatch(lunch.note, /undefined/);
+});
+
 test('what it can’t read plainly is left alone, never guessed', () => {
   for (const words of [
     '', // nothing
