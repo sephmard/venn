@@ -131,7 +131,7 @@ export async function copy(text, done = 'Link copied') {
 let standIn = null;
 export const useStandIn = (fn) => (standIn = fn);
 
-export async function api(path, { method = 'GET', body, headers = {} } = {}) {
+export async function api(path, { method = 'GET', body, headers = {}, keepalive = false } = {}) {
   if (standIn) return standIn(path, { method, body, headers });
   const fail = (status, message, cause) => Object.assign(new Error(message, { cause }), { status });
   let res;
@@ -140,6 +140,7 @@ export async function api(path, { method = 'GET', body, headers = {} } = {}) {
       method,
       headers: { ...(body ? { 'content-type': 'application/json' } : {}), ...headers },
       body: body ? JSON.stringify(body) : undefined,
+      keepalive,
     });
   } catch (e) {
     throw fail(0, "Can't reach Venn. Check your connection and try again.", e);

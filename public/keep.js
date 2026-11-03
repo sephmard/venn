@@ -33,7 +33,10 @@ export function keepThisBrowser({ all = false, quiet = false } = {}) {
     const { links, keys } = unkept(rememberedLinks(), all ? new Set() : kept);
     if (!keys.length) return null;
     try {
-      const { added } = await api('me/claim', { method: 'POST', body: links });
+      // keepalive: leaving the page right away (answer, then off) doesn't cut it off. Browsers allow
+      // that only for small bodies (64 KB in all), which a long list of links can pass.
+      const keepalive = JSON.stringify(links).length < 32_000;
+      const { added } = await api('me/claim', { method: 'POST', body: links, keepalive });
       // Sent, so not again: the ones added, and the ones that are someone else's or gone.
       try {
         localStorage.setItem(KEPT, JSON.stringify([...new Set([...kept, ...keys])].slice(-600)));
