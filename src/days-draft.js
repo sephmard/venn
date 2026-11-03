@@ -175,6 +175,7 @@ export function shapeDays(out, { today, nowMinutes = 0 }) {
   // Each day once, with what the AI gave it: its own parts, its own window, and whether it's optional.
   const byDate = new Map();
   const past = new Set();
+  let cut = false; // a window was cut at midnight
   for (const d of Array.isArray(out.days) ? out.days : []) {
     if (!d || !isDate(d.date)) continue;
     if (d.date < today) {
@@ -190,6 +191,9 @@ export function shapeDays(out, { today, nowMinutes = 0 }) {
     const start = minutes(d.from, Math.floor);
     let end = minutes(d.to, Math.ceil);
     if (end === 0) end = 1440; // ending at "00:00" is midnight at the day's end, as "24:00" is
+    // One that runs past midnight ("22:00" to "02:00", half a day at most) is cut there: the day
+    // stays, and the note says so. One that ends long before it starts ("20:00" to "19:00") goes.
+    if (start != null && end != null && end < start && end + 1440 - start <= 720) [end, cut] = [1440, true];
     const timed = start != null && end != null && end > start;
     if ((d.from || d.to) && !timed) continue;
     const day = byDate.get(d.date) || { date: d.date, parts: [], windows: [], ifNeeded: true };
@@ -240,6 +244,7 @@ export function shapeDays(out, { today, nowMinutes = 0 }) {
   // What it left out because it's over, in words.
   const over = [...past].filter((d) => d >= addDays(today, -6) && !byDate.has(d));
   if (over.length) notes.push(`${listNames(over.sort().map(dayName))} ${over.length > 1 ? 'have' : 'has'} already passed.`);
+  if (cut && level === 'hours') notes.push('Times past midnight are cut at midnight.');
   if ([...gone].some((d) => !days.some((x) => x.date === d)))
     notes.push('Today’s times have already passed, so today is left out.');
   const note = String(out.note || '')
