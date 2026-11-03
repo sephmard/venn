@@ -98,3 +98,25 @@ test('a tie for the best date is said under it', async ({ page, request, isMobil
   await showGroup(page, isMobile);
   await expect(page.locator('#best .best-tie')).toHaveText(/^Tied with .*Mar.* and .*Mar/);
 });
+
+test('a tie between proposed times is said under the best one', async ({ page, request, isMobile }) => {
+  // Three times on Mar 1 (UTC); both people can make 6 PM and 8 PM, so those two tie.
+  const options = [18, 19, 20].map((h) => ({ start: Date.UTC(2030, 2, 1, h), end: Date.UTC(2030, 2, 1, h + 1) }));
+  const { id, adminToken } = await (
+    await request.post('/api/events', { data: { title: 'Book club', timezone: 'UTC', mode: 'options', options } })
+  ).json();
+  const both = { [options[0].start]: 2, [options[2].start]: 2 };
+  for (const name of ['Ana', 'Ben']) await request.post(`/api/events/${id}/participants`, { data: { name, availability: both } });
+
+  await page.goto(`/e/${id}#admin=${adminToken}`);
+  await showGroup(page, isMobile);
+  // The second of the two, in this browser's time zone, and only that one: 7 PM can't be made by everyone.
+  const second = await page.evaluate(
+    ([s, e]) => new Intl.DateTimeFormat(undefined, { hour: 'numeric', minute: '2-digit' }).formatRange(s, e),
+    [options[2].start, options[2].end],
+  );
+  const tie = page.locator('#best .best-tie');
+  await expect(tie).toHaveText(/^Tied with .*Mar\s1/);
+  await expect(tie).toContainText(second.split(/\s[–-]\s/)[0]);
+  await expect(tie).not.toContainText(' and ');
+});
