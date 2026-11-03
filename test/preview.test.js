@@ -369,7 +369,10 @@ test("Worker: when making a page fails, Venn's own page instead of Cloudflare's 
     failures = 2;
     const home = await fetchPath('/classic');
     assert.equal(home.status, 503);
-    assert.match(await home.text(), /Try again in a minute/);
+    const page = await home.text();
+    assert.match(page, /Try again in a minute/);
+    assert.doesNotMatch(page, /Venn/); // it also shows on white-label and embedded polls
+    assert.match(page, /color-scheme" content="light dark"/);
     assert.equal(home.headers.get('x-frame-options'), 'SAMEORIGIN');
     failures = 1;
     const missing = await fetchPath('/nope', { method: 'HEAD' });

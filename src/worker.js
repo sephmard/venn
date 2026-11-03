@@ -72,7 +72,8 @@ async function servePage(request, env, url) {
   return res;
 }
 
-const UNAVAILABLE = `<!doctype html><html lang="en"><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Venn</title><body style="font:16px/1.5 system-ui,sans-serif;max-width:32rem;margin:15vh auto;padding:0 16px"><h1>Venn is having a moment</h1><p>Something went wrong on our side. Try again in a minute.</p></body></html>`;
+// No product name: the same page shows on white-label and embedded polls.
+const UNAVAILABLE = `<!doctype html><html lang="en"><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="color-scheme" content="light dark"><title>Something went wrong</title><body style="font:16px/1.5 system-ui,sans-serif;max-width:32rem;margin:15vh auto;padding:0 16px"><h1>Something went wrong</h1><p>It's on our side, not yours. Try again in a minute.</p></body></html>`;
 
 /**
  * When making a page failed: the plain app (it loads the poll itself, just without the link
