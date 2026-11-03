@@ -65,7 +65,7 @@ import { allowPlacesRequest, placesProvider, placesState, searchPlaces } from '.
 import { handleAccount, sessionUser, signInProviders } from './auth.js';
 import { handleMcp } from './mcp.js';
 import { draftFromWords } from './days-parse.js';
-import { allowWrite, writeWindows as newWriteWindows } from './limits.js';
+import { checkWrite, limitHeaders, writeWindows as newWriteWindows } from './limits.js';
 import { MAX_GUEST_DEVICES, MAX_PUSH_DEVICES, checkSubscription, pushEnabled, sendPush } from './push.js';
 
 const sharedPlaces = placesState();
@@ -300,8 +300,15 @@ async function route(
   // Per-visitor limits on new polls, templates and answers (src/limits.js). An app with a key
   // (APP_KEYS) makes them for all its users from one server, so it isn't limited by address.
   const allowed = async (kind) =>
-    (await appKeyMatches(request.headers.get('authorization'), env.APP_KEYS)) ||
-    allowWrite(env, via === 'mcp' ? 'mcp' : kind, clientIp, now(), writeWindows);
+    (await appKeyMatches(request.headers.get('authorization'), env.APP_KEYS))
+      ? { ok: true }
+      : checkWrite(env, via === 'mcp' ? 'mcp' : kind, clientIp, now(), writeWindows);
+  // Refused: the 429, with Retry-After (and the count, where it's known) so a script can wait.
+  const tooFast = (limited) => {
+    const res = error(429, TOO_FAST);
+    for (const [k, v] of Object.entries(limitHeaders(limited))) res.headers.set(k, v);
+    return res;
+  };
   // Tell the organizer (if they asked) once the response is safely stored. Never blocks the reply.
   const notify = (ev, kind, participantId, name) =>
     waitUntil(notifyResponse({ store, env, fetchImpl, now, origin, ev, kind, participantId, name }));
@@ -647,7 +654,7 @@ async function route(
     if (parts.length === 1 && parts[0] === 'usage' && method === 'POST') {
       const { name, props } = await readJson(request);
       // Over the per-visitor limit, counts are dropped quietly: the browser doesn't need to know.
-      if (!optedOut && usageEnabled(env) && (await allowed('usage')))
+      if (!optedOut && usageEnabled(env) && (await allowed('usage')).ok)
         await recordUsage(store, env, now(), name, props, { client: true });
       return new Response(null, { status: 204, headers: SECURITY_HEADERS });
     }
@@ -766,7 +773,8 @@ async function route(
 
     // POST /api/events
     if (parts.length === 1 && parts[0] === 'events' && method === 'POST') {
-      if (!(await allowed('create'))) return error(429, TOO_FAST);
+      const limited = await allowed('create');
+      if (!limited.ok) return tooFast(limited);
       const body = await readJson(request);
       const event = applyPrivacy(normalizeEventInput(body), body);
       // The next one of a plan: the poll it follows on from must still be there.
@@ -844,7 +852,8 @@ async function route(
 
     // POST /api/brands  { name, accent?, font?, title?, note?, where?, emoji? }: a brand template
     if (parts.length === 1 && parts[0] === 'brands' && method === 'POST') {
-      if (!(await allowed('create'))) return error(429, TOO_FAST);
+      const limited = await allowed('create');
+      if (!limited.ok) return tooFast(limited);
       // Saving a template needs an account, where the server has sign-in (src/auth.js); without it,
       // templates are kept by their manage link alone. Templates made before keep working either way.
       // An app with a key (APP_KEYS) makes them for its own users from its server instead.
@@ -1341,7 +1350,8 @@ async function route(
 
     // POST /api/events/:id/participants
     if (parts.length === 3 && method === 'POST') {
-      if (!(await allowed('answer'))) return error(429, TOO_FAST);
+      const limited = await allowed('answer');
+      if (!limited.ok) return tooFast(limited);
       const body = await readJson(request);
       const name = normalizeName(body.name);
       const availability = checkSingle(ev, normalizeAvailability(body.availability, slots));

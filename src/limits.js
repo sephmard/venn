@@ -21,25 +21,49 @@ const MAX_KEYS = 10_000;
 export const writeWindows = () => new Map();
 
 /**
- * Whether this IP may make one more write of `kind` ('create', 'answer', 'mcp' or 'usage'). Uses Cloudflare's rate
- * limiting binding WRITE_RATE_LIMITER when the server has one (counted across every isolate),
- * otherwise a sliding ten-minute window kept in memory. A limit of 0 turns it off.
+ * Whether this IP may make one more write of `kind` ('create', 'answer', 'mcp' or 'usage'), and
+ * what to tell the caller: `{ ok, limit, remaining, reset }`, with `reset` the seconds until the
+ * oldest write in the window ages out (when refused, the wait until one more is allowed). Uses
+ * Cloudflare's rate limiting binding WRITE_RATE_LIMITER when the server has one (counted across
+ * every isolate; it says only yes or no), otherwise a sliding ten-minute window kept in memory.
+ * A limit of 0 turns it off.
  */
-export async function allowWrite(env, kind, ip, now, windows) {
+export async function checkWrite(env, kind, ip, now, windows) {
   const rule = WRITE_LIMITS[kind];
   const key = `${kind}:${ip || 'unknown'}`;
-  if (env.WRITE_RATE_LIMITER) return (await env.WRITE_RATE_LIMITER.limit({ key })).success;
+  // The binding counts over at most a minute, so a minute is always long enough to wait.
+  if (env.WRITE_RATE_LIMITER) {
+    const ok = (await env.WRITE_RATE_LIMITER.limit({ key })).success;
+    return ok ? { ok } : { ok, reset: 60 };
+  }
   const set = env[rule.env];
   const n = Math.floor(Number(set));
   const limit = set == null || set === '' || !Number.isFinite(n) ? rule.fallback : Math.max(0, n);
-  if (!limit) return true;
+  if (!limit) return { ok: true };
   const recent = (windows.get(key) || []).filter((t) => now - t < WINDOW_MS);
-  if (recent.length >= limit) {
-    windows.set(key, recent);
-    return false;
-  }
-  recent.push(now);
+  const ok = recent.length < limit;
+  if (ok) recent.push(now);
   if (!windows.has(key) && windows.size >= MAX_KEYS) windows.clear();
   windows.set(key, recent);
-  return true;
+  const reset = Math.max(1, Math.ceil((recent[0] + WINDOW_MS - now) / 1000));
+  return { ok, limit, remaining: limit - recent.length, reset };
+}
+
+/** Whether this IP may make one more write of `kind` (see checkWrite). */
+export const allowWrite = async (...args) => (await checkWrite(...args)).ok;
+
+/**
+ * Headers for a refused write: Retry-After (seconds), and where the count is known, the limit, how
+ * many are left (none) and when the window frees up, as RateLimit-Limit, -Remaining and -Reset.
+ */
+export function limitHeaders({ ok, limit, remaining, reset } = {}) {
+  if (ok || reset == null) return {};
+  return {
+    'retry-after': String(reset),
+    ...(limit != null && {
+      'ratelimit-limit': String(limit),
+      'ratelimit-remaining': String(remaining),
+      'ratelimit-reset': String(reset),
+    }),
+  };
 }

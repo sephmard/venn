@@ -175,7 +175,7 @@ Errors come back as JSON with an HTTP status: `{ "error": "This poll does not ex
 
 ### Too many requests (`429`)
 
-When a visitor (an IP address) sends too much too fast, the request is refused with `429` and the same JSON shape, with a message that says roughly when to try again, for example `{ "error": "You're going a bit fast. Try again in a few minutes." }`. There is no `Retry-After` header, so wait and retry with backoff rather than at once. These are the default limits; a server can change them (see [hosting a public instance](MAINTAINING.md#hosting-a-public-instance)):
+When a visitor (an IP address) sends too much too fast, the request is refused with `429` and the same JSON shape, with a message that says roughly when to try again, for example `{ "error": "You're going a bit fast. Try again in a few minutes." }`. A refused new poll, template or answer also says how long to wait: `Retry-After` is the seconds until one more is allowed, and `RateLimit-Limit`, `RateLimit-Remaining` (`0`) and `RateLimit-Reset` (the same seconds) give the count, so wait that long and retry once. (Where the server uses Cloudflare's rate limiting binding, only `Retry-After: 60` comes back.) The other limits below send no such headers yet, so back off before retrying them. These are the default limits; a server can change them (see [hosting a public instance](MAINTAINING.md#hosting-a-public-instance)):
 
 | What                                                             | Default limit                                                                                     |
 | ---------------------------------------------------------------- | ------------------------------------------------------------------------------------------------- |
