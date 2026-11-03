@@ -19,7 +19,7 @@ import { inviteRoom, newInvitees, normalizeInvitees, sendInvites } from './invit
 import { checkSingle, normalizeAvailability, normalizeEventInput, normalizeName } from './validate.js';
 import { SECURITY_HEADERS } from './security-headers.js';
 import { IMAGE_FILES, IMAGE_LIMITS, MAX_IMAGE_BODY, imagePath, imageResponse, parseImage } from './images.js';
-import { BRAND_ID_RE, BRAND_ROLES, MAX_BRAND_INVITES, whiteLabelOf, normalizeBrand, publicBrand } from './brands.js';
+import { BRAND_ID_RE, BRAND_ROLES, MAX_BRAND_INVITES, hidesVenn, whiteLabelOf, normalizeBrand, publicBrand } from './brands.js';
 import {
   MAX_COPIES_PER_ANSWER,
   MAX_COPIES_PER_POLL,
@@ -1044,7 +1044,7 @@ async function route(
         title: ev.title,
         description: [
           ev.description,
-          (await whiteLabelOf(store, ev)) ? `${url.origin}/e/${ev.id}` : `Planned with Venn: ${url.origin}/new`,
+          (await hidesVenn(store, ev)) ? `${url.origin}/e/${ev.id}` : `Planned with Venn: ${url.origin}/new`,
         ]
           .filter(Boolean)
           .join('\n\n'),
