@@ -37,7 +37,9 @@ export function prefillTitle() {
   const title = titleFromUrl();
   const t = templateFromUrl();
   linkFilled = !!(title || t >= 0 || q.get('where') || q.get('after'));
-  if (t >= 0) $(`[data-occasion="${t}"]`)?.click(); // (a topic poll has no templates)
+  const b = t >= 0 ? $(`[data-occasion="${t}"]`) : null; // (a topic poll has no templates)
+  b?.click();
+  b?.scrollIntoView({ block: 'nearest', inline: 'center' }); // in view in its row too
   if (title) $('#title').value = title;
   if (q.get('where')) $('#more-box').open = !!($('#location').value = q.get('where').slice(0, 200));
   after = /^[A-Za-z0-9]{1,32}$/.test(q.get('after') ?? '') ? q.get('after') : null;
