@@ -119,8 +119,7 @@ the same PR** (and CLAUDE.md if it's a rule that matters in review).
 - A row everyone can make, but some only if needed, is **amber** and says **"Everyone, if needed"**,
   never "2 of 2" or green: "✓ Everyone" and green are only for everyone available.
 - **One answer is one answer.** With only one person in, rows say "✓ You" or "✓ Ana", never
-  "✓ Everyone"; and when only the organizer has answered, the best spot says "Only your answer so far"
-  with Copy link, not a best date. Pick stays on each row.
+  "✓ Everyone", and the summary says whose answer it is ("Only Ana has answered so far.").
 - **A trip's best run is one run.** Days-in-a-row results mark the best stretch's days together
   ("Best 3 days") and the summary counts days in a row, not separate dates.
 - **Ties are said.** When other dates are just as good as the best, a quiet "Tied with …" line says so.

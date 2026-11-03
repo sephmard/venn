@@ -392,9 +392,7 @@ test('ask when people are free: paint hours and see the best time', async ({ pag
 
   await page.fill('#name', 'Sam');
   await submit(page);
-  // Only the organizer has answered: no "best time" yet, just a nudge to share the link.
-  await expect(page.locator('#best .solo-state')).toContainText('Only your answer so far');
-  await expect(page.locator('.best-hero')).toHaveCount(0);
+  await expect(page.locator('.best-hero')).toContainText('Works for the one person so far');
 });
 
 test('page never scrolls sideways', async ({ page }) => {
@@ -1808,9 +1806,8 @@ test('on a phone, a new poll leads with sharing: one share button, the group, an
   // It opens on the group, where Pick and the results are.
   await expect(page.locator('#tab-group')).toHaveAttribute('aria-selected', 'true');
   await expect(page.locator('#panel-group')).toBeVisible();
-  // Only their own answer so far: it says so, and asks for the link to go out, not "everyone's free".
-  await expect(page.locator('#best .solo-state')).toContainText('Only your answer so far');
-  await expect(page.locator('#best .solo-state [data-share]')).toBeVisible();
+  // Only their own answer so far: it says so, and nothing says "everyone".
+  await expect(page.locator('#best .only-you')).toHaveText('Only your answer so far.');
   await expect(page.locator('.ov-summary')).toHaveText('Your answer so far.');
   await expect(page.locator('#overlap .ov-count').first()).toContainText('✓ You');
   await expect(page.locator('#overlap')).not.toContainText('Everyone');

@@ -1381,15 +1381,6 @@ export async function renderEvent(id, navigate) {
       </div>`;
       return;
     }
-    // Only the organizer's own answer: nothing to overlap with, or to pick between, yet.
-    if (ev().isAdmin && !guests) {
-      $('#best').innerHTML = `<div class="empty-state solo-state">
-        <p><b>Only your answer so far</b></p>
-        <p class="muted">Share the link to see where everyone overlaps.</p>
-        <button class="btn" data-share>${canShare ? 'Share the poll' : 'Copy link'}</button>
-      </div>`;
-      return;
-    }
     if (!best.length) {
       $('#best').innerHTML = '<p class="hint">Nothing works for anyone yet.</p>';
       return;
@@ -1428,16 +1419,16 @@ export async function renderEvent(id, navigate) {
     const tie = tied.length
       ? `<p class="best-tie">Tied with ${tied
           .slice(0, 2)
-          .map((b) => `<b class="nowrap">${esc(when(b.start, b.end))}</b>`)
+          .map((b) => `<b class="nowrap">${esc(when(b.start, b.end).replace(/, all day$/, ''))}</b>`)
           .join(' and ')}${tied.length > 2 ? ` and ${tied.length - 2} more` : ''}</p>`
       : '';
     $('#best').innerHTML = `
       <div class="best-hero${ev().finalStart === first.start ? ' final' : ''}">
         <div class="best-when">${bigWhen(first.start, first.end)}${esc(lenNote)}</div>
-        ${tie}
+        ${ev().isAdmin && !guests ? `<p class="hint only-you">Only your answer so far.</p>` : tie}
         <div class="best-who">${avatarStack([...first.yes, ...first.ifNeeded], 7)}<span>${esc(who(first))}</span></div>
         ${whoList(first)}
-        ${pick(first) ? `<div class="btn-row">${pick(first).replace('btn btn-sm', 'btn btn-primary')}</div>` : ''}
+        ${pick(first) ? `<div class="btn-row">${pick(first).replace('btn btn-sm', guests ? 'btn btn-primary' : 'btn')}</div>` : ''}
       </div>`;
   }
 

@@ -2640,9 +2640,6 @@ pre.code {
   margin: 0 0 8px;
   color: var(--muted);
 }
-.solo-state p {
-  margin: 0 0 6px;
-}
 .ov-picked {
   margin-left: 6px;
   padding: 2px 8px;
