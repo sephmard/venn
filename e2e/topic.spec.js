@@ -142,3 +142,30 @@ test('the Date · Vote switch is the same on both forms, and Back goes between t
   const widths = await page.evaluate(() => document.documentElement.scrollWidth - innerWidth);
   expect(widths).toBeLessThanOrEqual(0);
 });
+
+test('a leader on "if needed" alone isn’t called the favourite', async ({ page }) => {
+  // Taco Spot: both would go, but only if needed; Rosa's and Luigi's have a yes each.
+  const made = await (
+    await page.request.post('/api/events', {
+      data: {
+        title: 'Where should we eat?',
+        organizer: 'Priya',
+        timezone: 'UTC',
+        mode: 'topic',
+        options: [{ label: 'Rosa’s' }, { label: 'Luigi’s' }, { label: 'Taco Spot' }],
+      },
+    })
+  ).json();
+  const ev = await (await page.request.get(`/api/events/${made.id}`)).json();
+  const [rosa, luigi, taco] = ev.options.map((o) => o.id);
+  for (const [name, availability] of [
+    ['Ana', { [rosa]: 2, [taco]: 1 }],
+    ['Ben', { [luigi]: 2, [taco]: 1 }],
+  ])
+    await page.request.post(`/api/events/${made.id}/participants`, { data: { name, availability } });
+  await page.goto(`/e/${made.id}`);
+  const hero = page.locator('.best-hero');
+  await expect(hero.locator('.best-when')).toHaveText('Taco Spot');
+  await expect(hero.locator('.kicker')).toHaveText('Everyone could go');
+  await expect(hero).toContainText('2 of 2 would go (2 if needed)');
+});
