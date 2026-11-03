@@ -148,12 +148,28 @@ export function kindSwitch(on) {
   return `<nav class="seg kind-switch" aria-label="Kind of Venn">${link('date', '/new', '📅 Date')}${link('topic', '/new/topic', '🗳️ Vote')}</nav>`;
 }
 
-// Date or Vote, tapped: the form being left takes no typing while the next one loads.
+// Date or Vote, tapped: the form being left takes no typing while the next one loads, and comes
+// back if that one can't (the router's import of it fails too).
 addEventListener('click', (e) => {
   const a = e.defaultPrevented && e.target.closest?.('.kind-switch a');
   if (!a) return;
-  for (const l of a.parentNode.children) l.ariaCurrent = l === a ? 'page' : null; // the new kind, at once
-  Object.assign(a.closest('form'), { inert: true, ariaBusy: true });
+  const was = a.parentNode.querySelector('[aria-current]');
+  const vote = a.pathname === '/new/topic';
+  const set = (on, busy) => {
+    was.ariaCurrent = a.ariaCurrent = null;
+    on.ariaCurrent = 'page';
+    Object.assign(a.closest('form'), { inert: busy, ariaBusy: busy });
+  };
+  set(a, true);
+  $('#switch-err')?.remove();
+  import(vote ? './create-topic.js' : './create-free.js').catch(() => {
+    set(was, false);
+    history.replaceState(null, '', was.href); // the form's own address, so its draft is kept
+    a.parentNode.insertAdjacentHTML(
+      'afterend',
+      `<p class="error" id="switch-err" role="alert">Couldn't open the ${vote ? 'Vote' : 'Date'} form. Check your connection and try again.</p>`,
+    );
+  });
 });
 
 export function planFields(kind) {
