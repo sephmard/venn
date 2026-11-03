@@ -10,6 +10,7 @@ import {
   buildSlots,
   meetingEnd,
   overlapEnd,
+  utcToZoned,
 } from '../public/core.js';
 import { buildIcs, googleCalendarUrl, outlookCalendarUrl } from '../public/calendar-export.js';
 import { setLabel } from './preview.js';
@@ -63,6 +64,7 @@ import { allowContactRequest, contactEmail, contactEnabled, contactInbox, normal
 import { allowPlacesRequest, placesProvider, placesState, searchPlaces } from './places.js';
 import { handleAccount, sessionUser, signInProviders } from './auth.js';
 import { handleMcp } from './mcp.js';
+import { draftFromWords } from './days-parse.js';
 import { allowWrite, writeWindows as newWriteWindows } from './limits.js';
 import { MAX_GUEST_DEVICES, MAX_PUSH_DEVICES, checkSubscription, pushEnabled, sendPush } from './push.js';
 
@@ -680,13 +682,27 @@ async function route(
 
     // Every AI endpoint: switched on, and rate limited per visitor (each call costs money).
     const isAi = (parts[0] === 'ai' && parts.length === 2) || (parts[0] === 'events' && parts[2] === 'ai' && parts.length === 4);
+    // The days on /new can also be read from plain words, with no AI (src/days-parse.js), where AI
+    // can't answer: the server has none, or there's no key and no allowance left. Never ahead of AI.
+    const daysDraft = parts[0] === 'ai' && parts[1] === 'draft-days' && parts.length === 2;
+    async function byWords(otherwise) {
+      const { prompt, timezone } = await readJson(request);
+      if (!isValidTimeZone(timezone)) throw new ValidationError('Unknown time zone');
+      const { date: today, minutes: nowMinutes } = utcToZoned(now(), timezone);
+      const draft = typeof prompt === 'string' && draftFromWords(prompt, { today, nowMinutes });
+      return draft ? json(draft) : otherwise();
+    }
     // Paid for by the key the person brought (kept in their browser, never stored), or by the
     // server's key within this week's allowance.
     if (isAi) {
       if (method !== 'POST') return error(405, 'Method not allowed');
-      if (!aiEnabled(env)) return error(404, "AI features aren't turned on for this server");
+      if (!aiEnabled(env) && !daysDraft) return error(404, "AI features aren't turned on for this server");
       if (!(await allowAiRequest(env, clientIp, now(), aiWindows)))
         return error(429, "You're going a bit fast. Try again in a minute.");
+      if (!aiEnabled(env))
+        return await byWords(() =>
+          error(400, 'Venn couldn’t tell which days from that. Name them, like “Fridays next month”, or pick them below.'),
+        );
       const brought = request.headers.get(OWN_KEY_HEADER);
       if (brought && !validOwnKey(brought))
         return error(400, "That doesn't look like an Anthropic API key. They start with sk-ant-.");
@@ -702,15 +718,18 @@ async function route(
           ctx.allowance = { week, who }; // given back by handleApi if no answer comes of it
           anthropic = meteredClient(anthropic ?? aiClient(env), env, (micros) => store.addAiSpend(week, micros));
         }
-        if (used)
-          return error(
-            402,
-            used === 'off'
-              ? 'Add your own Anthropic API key to use AI here.'
-              : used === 'person'
-                ? "You've used this week's free AI requests. Add your own Anthropic API key to keep going."
-                : 'Free AI requests are used up for this week. Add your own Anthropic API key to keep going.',
-          );
+        if (used) {
+          const noAi = () =>
+            error(
+              402,
+              used === 'off'
+                ? 'Add your own Anthropic API key to use AI here.'
+                : used === 'person'
+                  ? "You've used this week's free AI requests. Add your own Anthropic API key to keep going."
+                  : 'Free AI requests are used up for this week. Add your own Anthropic API key to keep going.',
+            );
+          return daysDraft ? await byWords(noAi) : noAi();
+        }
       }
       anthropic ??= aiClient(env, ownKey);
     }
