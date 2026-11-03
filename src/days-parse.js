@@ -34,6 +34,15 @@ const DEFAULT_DAYS = 21; // with no span, the next three weeks, as AI does (DAYS
 // Words it can't read safely: a limit or a preference it would lose, or a choice to vote on.
 const UNSURE =
   /\b(except|not|no|can'?t|cannot|won'?t|busy|ideally|rather|prefer|maybe|backup|optional|needed|unless|vote|choose|decide|between|where|what)\b/;
+// A correction ("actually make it Wednesday", "instead of Saturday", "scratch that"): which day
+// stands is AI's to read. "Who can make it Friday?" is no correction.
+const CORRECTION =
+  /\b(actually|instead|scratch that|change it|changed|(?<!\b(?:can|could|will|would|to) )make it (?:mon|tue|wed|thu|fri|sat|sun)[a-z]*)\b/;
+// A day with its own time ("Friday evening or Saturday afternoon", "Saturday any time"): the
+// reader gives every day the same parts, so two different ones are AI's (or the calendar's) to keep.
+const DAY_NAMES = Object.keys(WEEKDAYS).join('|');
+const DAY_PART = new RegExp(`\\b(?:${DAY_NAMES})s? (morning|afternoon|evening|night)s?\\b`, 'g');
+const ANY_TIME = /\b(any ?time|all day)\b/;
 // The plan's name, when it's one of these: what AI would call it.
 const TITLES = [
   'date night',
@@ -64,18 +73,35 @@ const mondayAfter = (d) => addDays(sundayOf(d), 1);
 const monthEnd = (y, m) => addDays(`${m === 12 ? y + 1 : y}-${String((m % 12) + 1).padStart(2, '0')}-01`, -1);
 const cap = (s) => s[0].toUpperCase() + s.slice(1);
 
+/** The words, lower case, with only letters, digits, apostrophes and dashes, padded with spaces. */
+const wordsOf = (raw) =>
+  ` ${raw
+    .toLowerCase()
+    .replace(/[‘’]/g, "'")
+    .replace(/[^a-z0-9' -]+/g, ' ')
+    .replace(/\s+/g, ' ')} `;
+/** Different times for different days, or "any time" beside a part of the day. */
+const mixedTimes = (t) =>
+  new Set([...t.matchAll(DAY_PART)].map((m) => (m[1] === 'night' ? 'evening' : m[1]))).size > 1 ||
+  (ANY_TIME.test(t) && PARTS.some(([, said, implied]) => said.test(t) || implied.test(t)));
+
+/**
+ * Why the words gave no draft, when it's one the person can fix by saying it differently:
+ * 'correction' ("actually make it Wednesday"), 'parts' (a different time for each day), or null.
+ */
+export function unsureOf(text) {
+  const t = wordsOf(String(text || '').slice(0, 600));
+  return CORRECTION.test(t) ? 'correction' : mixedTimes(t) ? 'parts' : null;
+}
+
 /**
  * The words read into an answer shaped as the model's (DAYS_SCHEMA), or null when they don't say
  * plainly which days. `today` is YYYY-MM-DD in the person's time zone.
  */
 export function parseDays(text, { today }) {
   const raw = String(text || '').slice(0, 600);
-  const t = ` ${raw
-    .toLowerCase()
-    .replace(/[‘’]/g, "'")
-    .replace(/[^a-z0-9' -]+/g, ' ')
-    .replace(/\s+/g, ' ')} `;
-  if (UNSURE.test(t)) return null;
+  const t = wordsOf(raw);
+  if (UNSURE.test(t) || CORRECTION.test(t) || mixedTimes(t)) return null;
   // Numbers only as lengths ("3-day trip", "30-minute call", "next 2 weeks"); a date or a clock time
   // ("Dec 5", "7pm") is for AI or the calendar.
   const lengths = /\b(\d+)[- ]?(days?|nights?|weeks?|minutes?|mins?|hours?|hrs?)\b/g;
@@ -89,10 +115,12 @@ export function parseDays(text, { today }) {
   if (len && trip) row = (+len[1] || NUMBERS[len[1]]) + (len[2] === 'night' ? 1 : 0);
 
   // Which part of the day: said ("evenings"), or what the plan implies ("dinner": evening).
+  // What's said beats what the plan implies: "date night, but only afternoons" is afternoons.
   const parts = [];
-  for (const [key, said, implied] of PARTS) {
-    if (said.test(t) && !(key === 'evening' && len?.[2] === 'night')) parts.push(key);
-    else if (implied.test(t)) {
+  const said = PARTS.filter(([key, words]) => words.test(t) && !(key === 'evening' && len?.[2] === 'night'));
+  for (const [key, , implied] of PARTS) {
+    if (said.some(([k]) => k === key)) parts.push(key);
+    else if (!said.length && implied.test(t)) {
       parts.push(key);
       notes.push(`Took ${implied.exec(t)[1]} as ${key}s.`);
     }

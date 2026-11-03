@@ -3,7 +3,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { createApp } from '../server.js';
-import { draftFromWords, parseDays } from '../src/days-parse.js';
+import { draftFromWords, parseDays, unsureOf } from '../src/days-parse.js';
 import { DAYS_SCHEMA } from '../src/days-draft.js';
 
 const MON = '2026-11-02'; // Monday
@@ -93,6 +93,46 @@ test('weekdays, weekends, parts of the day, and spans', () => {
   assert.equal(trip.row, 3);
   assert.equal(trip.level, 'days');
   assert.equal(draft('two nights away next month').row, 3);
+});
+
+test('when it can’t be sure, no draft rather than a wrong one: corrections, and days with their own times', () => {
+  for (const words of [
+    'Dinner Tuesday evening, actually make it Wednesday', // a later correction
+    'Dinner Friday instead of Saturday',
+    'Lunch on Wednesday or Friday, scratch that, only Friday',
+    'Friday evening or Saturday afternoon', // each day its own part
+    'Friday night or Saturday morning',
+    'Saturday any time or Sunday evening', // any time one day, a part the other
+  ])
+    assert.equal(draft(words), null, words);
+  // Why, so the page can say what to change.
+  assert.equal(unsureOf('Friday evening or Saturday afternoon'), 'parts');
+  assert.equal(unsureOf('Saturday any time or Sunday evening'), 'parts');
+  assert.equal(unsureOf('Dinner Tuesday evening, actually make it Wednesday'), 'correction');
+  assert.equal(unsureOf('Dinner Tuesday, make it Wednesday'), 'correction');
+  assert.equal(unsureOf('Dinner Friday instead of Saturday'), 'correction');
+  assert.equal(unsureOf('whenever suits'), null);
+  // "Make it" as in coming along is no correction.
+  assert.deepEqual(dates(draft('Who can make it Friday or Saturday?')), ['2026-11-06', '2026-11-07']);
+  assert.equal(unsureOf('Who can make it Friday or Saturday?'), null);
+  // One part for every day named is still read, as before.
+  assert.deepEqual(pairs(draft('Friday or Saturday evening')), [
+    ['2026-11-06', 'evening'],
+    ['2026-11-07', 'evening'],
+  ]);
+  assert.deepEqual(dates(draft('Saturday any time')), ['2026-11-07']);
+});
+
+test('what’s said beats what the plan implies: “date night, but only afternoons” is afternoons', () => {
+  const d = draft('Date night, but only afternoons, Friday or Saturday');
+  assert.deepEqual(pairs(d), [
+    ['2026-11-06', 'afternoon'],
+    ['2026-11-07', 'afternoon'],
+  ]);
+  assert.doesNotMatch(d.note, /evening/);
+  assert.equal(d.note, 'Read from your words. Check the days.'); // still says it was read from the words
+  // Nothing said: the plan's own parts, as before.
+  assert.equal(draft('Breakfast or dinner this week').days.length, 14);
 });
 
 test('short day names are days, not plurals, and "the sun" is not Sunday', () => {
@@ -196,6 +236,19 @@ test('a server without AI reads plain words, in the person’s time zone, across
   const no = await post({ prompt: 'whenever', timezone: 'UTC' });
   assert.equal(no.status, 400);
   assert.match((await no.json()).error, /Name them, like “Fridays next month”, or pick them below/);
+  // Days named, but a different time for each, or a correction: what to say differently.
+  const mixed = await post({ prompt: 'Friday evening or Saturday afternoon', timezone: 'UTC' });
+  assert.equal(mixed.status, 400);
+  assert.equal(
+    (await mixed.json()).error,
+    'Venn couldn’t be sure from that. Say one time for all the days, like “Friday or Saturday evening”, or pick them below.',
+  );
+  const corrected = await post({ prompt: 'Dinner Tuesday evening, actually make it Wednesday', timezone: 'UTC' });
+  assert.equal(corrected.status, 400);
+  assert.equal(
+    (await corrected.json()).error,
+    'Venn couldn’t be sure from that. Say it in one go, like “Wednesday evening”, or pick the days below.',
+  );
   assert.equal((await post({ prompt: 'Fridays', timezone: 'Mars/Base' })).status, 400);
   // Other AI requests are still off.
   const poll = await fetch(new URL('/api/ai/draft-poll', (await post({})).url), {

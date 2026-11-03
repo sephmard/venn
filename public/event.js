@@ -420,12 +420,15 @@ export async function renderEvent(id, navigate) {
     navigator.share({ title, text, url: shareUrl }).catch(() => {});
   };
   // Said on the button too (the toast is for screen readers).
+  const copied = (b) => {
+    const was = b.textContent;
+    b.textContent = 'Link copied ✓';
+    setTimeout(() => (b.textContent = was), 2e3);
+  };
   $('#copy').onclick = ({ target: b }) => {
     track('share', { how: 'copy', from: 'poll' });
     copy(shareUrl, 'Link copied');
-    if (guest) return;
-    b.textContent = 'Link copied ✓';
-    setTimeout(() => (b.textContent = 'Copy link'), 2e3);
+    if (!guest && b.textContent !== 'Link copied ✓') copied(b);
   };
   if ($('#share-sheet')) $('#share-sheet').onclick = shareSheet;
   $('#name').value = me()?.name || host?.name || lastName();
@@ -1453,13 +1456,14 @@ export async function renderEvent(id, navigate) {
         ${tie}
         <div class="best-who">${avatarStack([...first.yes, ...first.ifNeeded], 7)}<span>${esc(who(first))}</span></div>
         ${whoList(first)}
-        ${pick(first) ? `<div class="btn-row">${pick(first).replace('btn btn-sm', 'btn btn-primary')}</div>` : ''}
+        ${pick(first) ? `<div class="btn-row">${pick(first).replace('btn btn-sm', 'btn')}</div>` : ''}
       </div>`;
   }
 
   // ----- picking the final time -----
   $('#event-root').addEventListener('click', async (e) => {
-    if (e.target.closest('[data-share]')) return canShare ? shareSheet() : $('#copy').click();
+    const sharing = e.target.closest('[data-share]');
+    if (sharing) return canShare ? shareSheet() : ($('#copy').click(), sharing.closest('.final-tell') && copied(sharing));
     if (e.target.closest('#pick-anyway')) {
       st.pickAnyway = true;
       renderGroup();

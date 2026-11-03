@@ -17,8 +17,9 @@ const keyProblem = (ex) => ex.status === 402 || (ex.status === 400 && /key/i.tes
 document.head.insertAdjacentHTML(
   'beforeend',
   `<style>
-  .ai-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
-  .ai-head > h2 { margin-bottom: 0; min-width: 0; }
+  .ai-head { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px 12px; }
+  /* The heading keeps one line: when the pill doesn't fit beside it, the pill goes under it. */
+  .ai-head > h2 { margin-bottom: 0; flex: 1 0 auto; max-width: 100%; }
   .ai-head > .ai-use { flex: none; }
   .ai-draft .ai-use { justify-content: center; padding: 0 18px; }
   .ai-head + * { margin-top: 12px; }
