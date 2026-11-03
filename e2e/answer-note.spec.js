@@ -160,3 +160,15 @@ test('notes pass the accessibility checks in both looks, light and dark', async 
       await ctx.close();
     }
 });
+
+test('once a poll is decided, an answer with no note keeps no empty room for one', async ({ page, request }) => {
+  const { id, adminToken, keys } = await makePoll(request, 'date');
+  const { id: pid, editToken } = await (
+    await request.post(`/api/events/${id}/participants`, { data: { name: 'Ana', availability: { [keys[0]]: 2 } } })
+  ).json();
+  await request.post(`/api/events/${id}/finalize`, { data: { start: +keys[0] }, headers: { 'x-admin-token': adminToken } });
+  await page.goto(`/e/${id}#edit=${pid}.${editToken}`);
+  await expect(page.locator('#name')).toHaveValue('Ana');
+  await expect(page.locator('#note-slot')).toHaveAttribute('style', /min-height: 0/);
+  expect((await page.locator('#note-slot').boundingBox()).height).toBe(0);
+});

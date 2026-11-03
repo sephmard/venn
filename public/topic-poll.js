@@ -81,6 +81,8 @@ export function leaderLabel(rows, { single = false, total = 0 } = {}) {
 /** ctx: { id, ev, navigate, load, authHeaders, embedded, whiteLabel, hash } */
 export async function renderTopicPoll(ctx) {
   const { id, navigate, authHeaders } = ctx;
+  // The organizer's side starts loading now, alongside the styles, not after them.
+  const orgJs = ctx.ev.isAdmin ? import('./topic-organizer.js') : null;
   await styled;
   let ev = ctx.ev;
   const host = ctx.embedded
@@ -120,7 +122,7 @@ export async function renderTopicPoll(ctx) {
   const invited = [(ctx.hash?.get('invited') || '').toLowerCase()].find(isEmail) || '';
   // The organizer's side (sharing, picking, their tools) loads only for them: topic-organizer.js.
   const org = ev.isAdmin
-    ? await import('./topic-organizer.js')
+    ? await orgJs
         .then((m) => m.organize({ id, ctx, st, shareUrl, host, reload, render, ev: () => ev, headers: authHeaders }))
         .catch(() => null)
     : null;
@@ -162,7 +164,7 @@ export async function renderTopicPoll(ctx) {
         </header>
         ${guest && saved(id).adminToken ? `<p class="org-switch"><span>You made this poll. This is what your guests see.</span><button type="button" class="btn btn-sm" id="org-view">Organizer view</button></p>` : ''}
         ${picked ? decided(picked, guest) : ''}
-        <div id="org-tools">${ev.isAdmin && !org ? '<p class="hint" role="alert">Couldn’t load the organizer tools. Reload the page.</p>' : ''}</div>
+        <div id="org-tools">${ev.isAdmin && !org ? '<p class="hint">Couldn’t load the organizer tools. Reload the page.</p>' : ''}</div>
         <div id="notify-box"></div>
         <div id="invite-box"></div>
         <div id="deadline-box"></div>
