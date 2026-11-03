@@ -1,7 +1,8 @@
 // "Use AI": describe it, and AI fills it in. On "Create a Venn" (/new) it picks the days on the
 // calendar, on "vote on a few dates" it fills in the form, on a vote (/new/topic) it writes the
 // question and options, and on a brand template's "Starting look" it suggests the colours, fonts
-// and shape. AI is optional, so this loads only when the server has it switched on.
+// and shape. AI is optional, so this loads only when the server has it switched on, except on /new,
+// where a server without AI offers "Describe it": Venn reads plain words itself (src/days-parse.js).
 
 import { DAY_PARTS, LIMITS, MINUTE } from './core.js';
 import { $, $$, api, esc, plural, reducedMotion, toast } from './ui.js';
@@ -77,14 +78,14 @@ const SPARKLE = `<svg viewBox="0 0 24 24" aria-hidden="true">
  * "Use AI" beside the section heading `h2`, opening the AI box (put in after it, hidden at first).
  * Returns the box.
  */
-function useAiButton(h2, boxHtml) {
+function useAiButton(h2, boxHtml, label = `${SPARKLE}Use AI`) {
   const head = document.createElement('div');
   head.className = 'ai-head';
   h2.before(head);
   head.append(h2);
   head.insertAdjacentHTML(
     'beforeend',
-    `<button type="button" class="ai-use" id="ai-open" aria-expanded="false" aria-controls="ai-draft">${SPARKLE}Use AI</button>`,
+    `<button type="button" class="ai-use" id="ai-open" aria-expanded="false" aria-controls="ai-draft">${label}</button>`,
   );
   head.insertAdjacentHTML('afterend', boxHtml);
   const panel = $('#ai-draft');
@@ -147,6 +148,7 @@ const box = (
   placeholder,
   button = BUTTON,
   after = 'Check everything before you create the poll.',
+  sent = 'Sent to Anthropic’s Claude.',
 ) => `<div class="ai-draft ${cls}" id="ai-draft">
     <label for="ai-prompt">${label}</label>
     <div class="ai-row">
@@ -155,7 +157,7 @@ const box = (
     </div>
     <p class="ai-wait" id="ai-wait" role="status" hidden><img src="/img/dog.webp" alt="" width="40" height="40">Finn is on it. Thinking…</p>
     <p class="field-err" id="ai-err" role="alert"></p>
-    <p class="hint">Sent to Anthropic’s Claude. ${after} <span id="ai-key-link"></span></p>
+    <p class="hint">${sent} ${after} <span id="ai-key-link"></span></p>
     <div id="ai-key-box" hidden></div>
   </div>`;
 
@@ -210,12 +212,27 @@ function wire(fill, button = BUTTON) {
  * back exactly what was there before. Hooks from the page: `empty()`, `setRow(n)`, `show(level)`,
  * and the current `level()` and `row()`.
  */
-export function aiDays(st, { empty, setRow, show, level, row }) {
+export function aiDays(st, { empty, setRow, show, level, row }, { ai } = { ai: true }) {
   if (!$('#when-h')) return;
-  useAiButton(
-    $('#when-h'),
-    box('ai-inline', 'Describe it, and AI fills in the poll', 'Friendsgiving at mine, a Saturday evening in late November'),
-  );
+  // With no AI on the server, Venn reads plain words itself (src/days-parse.js): "Fridays next month".
+  if (ai)
+    useAiButton(
+      $('#when-h'),
+      box('ai-inline', 'Describe it, and AI fills in the poll', 'Friendsgiving at mine, a Saturday evening in late November'),
+    );
+  else
+    useAiButton(
+      $('#when-h'),
+      box(
+        'ai-inline',
+        'Say when, and Venn picks the days',
+        'Fridays next month, or evenings this week',
+        BUTTON,
+        'Check the days before you create the poll.',
+        'Venn reads this itself.',
+      ),
+      'Describe it',
+    );
   // What AI itself filled in last time: asking again may replace those, never what was typed.
   let filled = {};
   let drafted = ''; // the picks AI made last time, to tell its own draft from days picked by hand
@@ -311,6 +328,7 @@ export function aiDays(st, { empty, setRow, show, level, row }) {
     });
     if (both) voteLink($('#ai-done > p'), both, 'Vote on it first');
   });
+  if (!ai) $('#ai-key-link').replaceChildren(); // no AI here, so no key to add
 }
 
 /** Choices to name in a line: "Italian, Thai or Mexican". */

@@ -137,16 +137,40 @@ const SEED = 'Get-together';
 /** The poll still has the name Venn gave it (data-seed). */
 const seeded = () => $('#title').value === $('#title').dataset.seed;
 
+let failed = ''; // a form that couldn't open, said by the next switch drawn
+
 /**
  * Which kind of Venn: find a date (/new) or vote on what or where (/new/topic). The same switch on
  * both forms, in the same place, so going between them feels like one page. A brand template stays.
  */
 export function kindSwitch(on) {
+  const err =
+    failed &&
+    `<p class="error" id="switch-err" role="alert">Couldn't open the ${failed} form. Check your connection and try again.</p>`;
+  failed = '';
   const brand = new URLSearchParams(location.search).get('brand');
   const q = brand ? `?brand=${encodeURIComponent(brand)}` : '';
   const link = (k, href, label) => `<a href="${href}${q}" data-link${k === on ? ' aria-current="page"' : ''}>${label}</a>`;
-  return `<nav class="seg kind-switch" aria-label="Kind of Venn">${link('date', '/new', '📅 Date')}${link('topic', '/new/topic', '🗳️ Vote')}</nav>`;
+  return `<nav class="seg kind-switch" aria-label="Kind of Venn">${link('date', '/new', '📅 Date')}${link('topic', '/new/topic', '🗳️ Vote')}</nav>${err}`;
 }
+
+// Date or Vote, tapped: the form being left takes no typing while the next one loads. If that one
+// can't, the router redraws the one left (its calendar was already unhooked) from its draft.
+addEventListener('click', (e) => {
+  const a = e.defaultPrevented && e.target.closest?.('.kind-switch a');
+  if (!a) return;
+  const was = a.parentNode.querySelector('[aria-current]');
+  const vote = a.pathname === '/new/topic';
+  was.ariaCurrent = null;
+  a.ariaCurrent = 'page';
+  Object.assign(a.closest('form'), { inert: true, ariaBusy: true });
+  $('#switch-err')?.remove();
+  import(vote ? './create-topic.js' : './create-free.js').catch(() => {
+    failed = vote ? 'Vote' : 'Date';
+    history.replaceState(null, '', was.href);
+    dispatchEvent(new PopStateEvent('popstate'));
+  });
+});
 
 export function planFields(kind) {
   // Templates as a row of cards to scroll: what's in season first (see templates.js).
