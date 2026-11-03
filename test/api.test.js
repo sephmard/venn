@@ -691,3 +691,13 @@ test('a page opened before the organizer changed the times: its answer is refuse
   assert.equal(again.status, 201);
   assert.equal(again.data.ignored, undefined);
 });
+
+test('a new poll comes back with its links: url to share, adminUrl to manage it', async () => {
+  const { status, data } = await call('/api/events', { method: 'POST', body: newEvent });
+  assert.equal(status, 201);
+  assert.equal(data.url, `${baseUrl}/e/${data.id}`);
+  assert.equal(data.adminUrl, `${baseUrl}/e/${data.id}#admin=${data.adminToken}`);
+  // The organizer link works: its token is the poll's.
+  const ev = await call(`/api/events/${data.id}`, { headers: { 'x-admin-token': new URL(data.adminUrl).hash.slice(7) } });
+  assert.equal(ev.data.isAdmin, true);
+});
