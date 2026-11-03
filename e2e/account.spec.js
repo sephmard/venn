@@ -325,9 +325,12 @@ test('For organizations needs an account: sign in first, then make a template; a
   await page.fill('#notify', 'robin@example.com');
   await page.click('#submit');
   await expect(page.locator('.party [role=status]')).toContainText('Your Venn is ready!');
+  // Its private link joins the account from the poll's page (keep.js): wait for it before leaving.
+  const claimed = page.waitForResponse((r) => r.url().endsWith('/api/me/claim'));
   await page.locator('.party-go').click();
   await expect(page).toHaveURL(/\/e\/[A-Za-z0-9]+$/);
   await expect(page.locator('.brand-bar')).toHaveText('Acme Inc.');
+  await claimed;
 
   // A second one, whose session ends while it's made: Save asks to sign in, and the draft is saved
   // on the way back.
@@ -449,10 +452,14 @@ test('polls answered signed in are in My polls, to search, sort and group, and t
   await page.getByRole('tab', { name: 'Answered' }).click();
   await expect(page.locator('.acct-empty')).toContainText('Polls you answer while signed in show up here.');
 
-  // Two polls someone else made, answered here while signed in.
-  for (const title of ['Supper club', 'Cabin trip']) {
+  // Two polls someone else made, answered here while signed in. Each answer joins the account on the
+  // next page this browser opens (keep.js): wait for that, so leaving at once never races it.
+  const claimed = () => page.waitForResponse((r) => r.url().endsWith('/api/me/claim'));
+  for (const [i, title] of ['Supper club', 'Cabin trip'].entries()) {
     const ev = await (await page.request.post('/api/events', { data: poll(title) })).json();
+    const claim = i && claimed();
     await page.goto(`/e/${ev.id}`);
+    await claim;
     await page.locator('#mine .row [data-vote="2"]').first().click();
     await page.fill('#name', 'Kit');
     // This Venn sends email (for email sign-in), so the answer offers a copy by email.
@@ -460,7 +467,9 @@ test('polls answered signed in are in My polls, to search, sort and group, and t
     await submit(page);
     await expect(page.locator('#save-err')).toBeEmpty();
   }
+  const last = claimed();
   await page.goto('/me');
+  await last;
   // The tab you were on is remembered.
   await expect(page.getByRole('tab', { name: /Answered/ })).toHaveAttribute('aria-selected', 'true');
   await expect(page.getByRole('tab', { name: /Answered/ })).toContainText('2');

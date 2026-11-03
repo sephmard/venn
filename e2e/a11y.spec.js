@@ -231,6 +231,15 @@ for (const scheme of ['light', 'dark']) {
       await page.click('[data-mine-view="list"]');
       await page.fill('#name', 'Sam');
       await submit(page);
+      // No guest yet: one line and a link.
+      await expect(page.locator('#best')).toContainText('Only your answer so far');
+      await audit(page, 'event page (organizer, no guest yet)');
+      // A guest answers as Sam did: everyone's answers and Pick.
+      const id = page.url().split('/e/')[1].split('#')[0];
+      const ev = await (await page.request.get(`/api/events/${id}`)).json();
+      const { availability } = ev.participants[0];
+      await page.request.post(`/api/events/${id}/participants`, { data: { name: 'Lee', availability } });
+      await page.reload();
       await expect(page.locator('.ov-list')).toBeVisible();
       await page.locator('.ov-row').first().click(); // who's free, and Pick
       await audit(page, "everyone's answers, a row open");
