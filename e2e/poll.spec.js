@@ -5,6 +5,7 @@ import {
   addHours,
   addOptions,
   changeAnswer,
+  mockConfig,
   nextMonth,
   pickDays,
   showDate,
@@ -659,10 +660,7 @@ test('switching lengths keeps the days picked, and organizers are asked before o
 });
 
 test('organizers give their email when this server sends email', async ({ page }) => {
-  await page.route('**/api/config', async (route) => {
-    const res = await route.fetch();
-    await route.fulfill({ response: res, json: { ...(await res.json()), email: true } });
-  });
+  await mockConfig(page, { email: true });
   await page.goto('/new/free');
   await page.fill('#organizer', 'Sam');
   await page.fill('#title', 'Cabin');
@@ -1189,10 +1187,7 @@ test('guests are told before answering twice, and a bad email is caught on the p
 });
 
 test('"Email me a copy" starts ticked and then needs an email; unticked, the email is optional', async ({ page, request }) => {
-  await page.route('**/api/config', async (route) => {
-    const res = await route.fetch();
-    await route.fulfill({ response: res, json: { ...(await res.json()), email: true } });
-  });
+  await mockConfig(page, { email: true });
   const t0 = Date.UTC(2030, 0, 8, 18);
   const { id } = await (
     await request.post('/api/events', {
@@ -2283,10 +2278,7 @@ test('half day: pick mornings, afternoons and evenings on days, and edit them ag
 });
 
 test('your name and email are at the bottom, required, and missing fields say so', async ({ page }) => {
-  await page.route('**/api/config', async (route) => {
-    const res = await route.fetch();
-    await route.fulfill({ response: res, json: { ...(await res.json()), email: true } });
-  });
+  await mockConfig(page, { email: true });
   await page.goto('/new/free');
   // Both in "About you", the name directly above the email, each marked as required.
   const about = page.locator('section[aria-labelledby="you-h"]');
@@ -2343,10 +2335,7 @@ test('without email on the server, only the name is required', async ({ page }) 
 });
 
 test('the bar under the form names what’s still needed, and each one goes to its field', async ({ page }) => {
-  await page.route('**/api/config', async (route) => {
-    const res = await route.fetch();
-    await route.fulfill({ response: res, json: { ...(await res.json()), email: true } });
-  });
+  await mockConfig(page, { email: true });
   await page.goto('/new/pick');
   const bar = page.locator('#summary');
   await expect(bar).toHaveAttribute('aria-live', 'polite');
@@ -2718,7 +2707,7 @@ test('guests are one tap from making their own poll: from the celebration, and o
   const go = page.locator('.party-go');
   await expect(go).toHaveText('See everyone’s answers');
   await expect(go).toBeFocused();
-  const own = page.getByRole('link', { name: 'Planning something? Make yours in 30 seconds' });
+  const own = page.getByRole('link', { name: 'Planning something? Make yours in a minute' });
   await expect(own).toBeVisible();
   // Straight to a new Venn, with the same template.
   await expect(own).toHaveAttribute('href', `/new?from=guest&template=${encodeURIComponent('🍝')}`);
@@ -3798,10 +3787,7 @@ test('a poll can close answers at a deadline', async ({ page, browser }) => {
 });
 
 test('the organizer sees who they invited and whether each has answered', async ({ page, request }) => {
-  await page.route('**/api/config', async (route) => {
-    const res = await route.fetch();
-    await route.fulfill({ response: res, json: { ...(await res.json()), email: true } });
-  });
+  await mockConfig(page, { email: true });
   const options = [8, 9].map((d) => ({ start: Date.UTC(2030, 0, d, 18), end: Date.UTC(2030, 0, d, 20) }));
   const deadline = Date.now() + 3 * 86_400_000;
   const { id, adminToken } = await (

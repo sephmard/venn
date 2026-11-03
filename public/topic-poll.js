@@ -205,7 +205,7 @@ export async function renderTopicPoll(ctx) {
               ${
                 // A guest who's voted may have a plan of their own (as date polls' #grow)
                 guest && me() && !ctx.embedded && !ctx.whiteLabel
-                  ? '<p class="grow-line"><a class="link-btn" data-link id="make-yours" href="/new/topic?from=guest">Planning something? Make yours in 30 seconds</a></p>'
+                  ? '<p class="grow-line"><a class="link-btn" data-link id="make-yours" href="/new/topic?from=guest">Planning something? Make yours in a minute</a></p>'
                   : ''
               }
             </div>

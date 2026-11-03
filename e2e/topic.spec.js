@@ -1,5 +1,6 @@
 import { test, expect } from '@playwright/test';
 import AxeBuilder from '@axe-core/playwright';
+import { mockConfig } from './helpers.js';
 
 // Topic polls: decide what or where (not when), then find a date for it.
 
@@ -134,13 +135,7 @@ async function voteFor(page, config) {
       data: { title: 'Where to?', organizer: 'Priya', timezone: 'UTC', mode: 'topic', options: ['Park', 'Beach'] },
     })
   ).json();
-  // Only keys the real /api/config sends, so a misspelt one can't make these tests pass.
-  const real = await (await page.request.get('/api/config')).json();
-  expect(Object.keys(config).filter((key) => !(key in real))).toEqual([]);
-  await page.route('**/api/config', async (route) => {
-    const res = await route.fetch();
-    await route.fulfill({ response: res, json: { ...(await res.json()), ...config } });
-  });
+  await mockConfig(page, config); // only keys the real /api/config sends
   return { id, adminToken };
 }
 
@@ -208,7 +203,7 @@ test('after answering, a guest sees both: Tell me under their answer, Make yours
   await page.getByLabel('Your name').fill('Ana');
   await page.getByRole('button', { name: 'Submit' }).click();
   const tell = page.getByRole('button', { name: "🔔 Tell me when it's decided" });
-  const yours = page.getByRole('link', { name: 'Planning something? Make yours in 30 seconds' });
+  const yours = page.getByRole('link', { name: 'Planning something? Make yours in a minute' });
   await expect(tell).toBeVisible();
   await expect(yours).toBeVisible();
   // Each in its own place: Tell me with the guest's answer, Make yours with the group's results.
@@ -541,7 +536,7 @@ test('after voting, a guest is offered a vote of their own; never the organizer,
         data: { title: 'Where to?', organizer: 'Priya', timezone: 'UTC', mode: 'topic', options: ['Park', 'Beach'], ...data },
       })
       .then((r) => r.json());
-  const yours = (p) => p.getByRole('link', { name: 'Planning something? Make yours in 30 seconds' });
+  const yours = (p) => p.getByRole('link', { name: 'Planning something? Make yours in a minute' });
   const made = await vote();
   const g = await (
     await browser.newContext(isMobile ? { hasTouch: true, isMobile: true, viewport: { width: 390, height: 844 } } : {})
