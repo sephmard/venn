@@ -997,6 +997,7 @@ button.emoji-tile:focus-visible {
   min-height: 44px;
   margin-bottom: 8px;
   font-size: 1rem;
+  font-weight: 400;
   cursor: pointer;
 }
 .leave-out input {
