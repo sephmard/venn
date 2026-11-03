@@ -117,6 +117,25 @@ test('5-7: clock times stay as given, open ends run to midnight, and no length i
   const none = shape(answer(['2026-11-04'], { timeOfDay: 'clock' }));
   assert.equal(none.level, 'days');
   assert.match(none.note, /No times were given/);
+  // "parts" with no parts on any day (a slip: date night, but usualParts empty): whole days, said.
+  const noParts = shape(answer(['2026-11-04', '2026-11-05'], { timeOfDay: 'parts', note: 'Took date night as evenings.' }));
+  assert.equal(noParts.level, 'days');
+  assert.match(noParts.note, /^Took date night as evenings\. No part of the day was given, so it asks about whole days\./);
+  // With the person's words, the parts they imply: "date night" is evenings, said once.
+  const slip = answer(['2026-11-04', '2026-11-05'], { timeOfDay: 'parts', note: 'Took date night as evenings.' });
+  const evenings = shapeDays(slip, { today: MON, text: 'Date night Wed or Thu' });
+  assert.equal(evenings.level, 'parts');
+  assert.deepEqual(
+    evenings.days.map((d) => `${d.date} ${d.part}`),
+    ['2026-11-04 evening', '2026-11-05 evening'],
+  );
+  assert.equal(evenings.note, 'Took date night as evenings.');
+  // Parts the words say beat what the plan implies: "date night, only afternoons".
+  const said = shapeDays(slip, { today: MON, text: 'Date night, only afternoons, Wed or Thu' });
+  assert.deepEqual([...new Set(said.days.map((d) => d.part))], ['afternoon']);
+  // A trip of days in a row is whole days on purpose, so nothing is said.
+  const trip = shape(answer(['2026-11-06', '2026-11-07'], { timeOfDay: 'parts', daysInRow: 2 }));
+  assert.doesNotMatch(trip.note, /part of the day/);
 });
 
 test('8-9: all-day plans are whole days, and a trip is days in a row', () => {

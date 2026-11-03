@@ -16,7 +16,7 @@ import { buildIcs, googleCalendarUrl, outlookCalendarUrl } from '../public/calen
 import { setLabel } from './preview.js';
 import { applyDeadline, closesLabel, deadlineView, isClosed, normalizeDeadline, remindNow, stopReminders } from './deadline.js';
 import { inviteRoom, newInvitees, normalizeInvitees, sendInvites } from './invites.js';
-import { checkSingle, normalizeAvailability, normalizeEventInput, normalizeName } from './validate.js';
+import { checkSingle, normalizeAnswer, normalizeAvailability, normalizeEventInput, normalizeName } from './validate.js';
 import { SECURITY_HEADERS } from './security-headers.js';
 import { IMAGE_FILES, IMAGE_LIMITS, MAX_IMAGE_BODY, imagePath, imageResponse, parseImage } from './images.js';
 import { BRAND_ID_RE, BRAND_ROLES, MAX_BRAND_INVITES, hidesVenn, whiteLabelOf, normalizeBrand, publicBrand } from './brands.js';
@@ -65,6 +65,7 @@ import { allowContactRequest, contactEmail, contactEnabled, contactInbox, normal
 import { allowPlacesRequest, placesProvider, placesState, searchPlaces } from './places.js';
 import { handleAccount, sessionUser, signInProviders } from './auth.js';
 import { handleMcp } from './mcp.js';
+import { pollResults } from './results.js';
 import { draftFromWords, unsureOf } from './days-parse.js';
 import { checkWrite, limitHeaders, writeWindows as newWriteWindows } from './limits.js';
 import { MAX_GUEST_DEVICES, MAX_PUSH_DEVICES, checkSubscription, pushEnabled, sendPush } from './push.js';
@@ -175,6 +176,10 @@ function publicEvent(ev, participants, { isAdmin, ownHash = null, ownId = null, 
     ...(ownId && { yourAnswer: ownId }),
   };
 }
+
+// Answer keys that weren't one of the poll's slots, said back so the client can see they were left
+// out: the first 20, which is enough to see what went wrong without echoing a huge body.
+const ignoredKeys = ({ ignored }) => (ignored.length ? { ignored: ignored.slice(0, 20) } : {});
 
 /**
  * The organizer's own answer: what they marked for each time (`hostAvailability`, yes or if
@@ -1014,7 +1019,16 @@ async function route(
         // Signed in, an answer given with the account is theirs on any device, as its edit link is.
         const ownId = await answerByAccount(ev.id);
         const emails = isAdmin || ownHash || ownId ? await store.listEmails(ev.id) : undefined;
+        // ?results=1: the counts and leaders worked out here (src/results.js), as the page and MCP
+        // work them out. Not when the organizer hides the answers from this visitor: they get none.
+        // A big poll's ranking costs real CPU, so asking has a per-address limit (src/limits.js).
+        const wantsResults = url.searchParams.get('results') === '1';
+        if (wantsResults) {
+          const limited = await allowed('results');
+          if (!limited.ok) return tooFast(limited);
+        }
         const out = publicEvent(ev, await store.listParticipants(ev.id), { isAdmin, ownHash, ownId, emails });
+        if (wantsResults && !('responses' in out)) out.results = pollResults(ev, out.slots, out.participants);
         // Its brand template's look, while the template lasts (deleted, the poll is plain Venn again).
         const brand = ev.brand && (await store.getBrand(ev.brand));
         if (brand) out.brand = publicBrand(brand);
@@ -1438,7 +1452,8 @@ async function route(
       if (!limited.ok) return tooFast(limited);
       const body = await readJson(request);
       const name = normalizeName(body.name);
-      const availability = checkSingle(ev, normalizeAvailability(body.availability, slots));
+      const answer = normalizeAnswer(body.availability, slots, isTopicPoll(ev));
+      const availability = checkSingle(ev, answer.availability);
       const copyTo = normalizeEmail(body.copyTo);
       const email = participantEmail(ev, body);
       if ((await store.countParticipants(ev.id)) >= LIMITS.participants)
@@ -1466,7 +1481,7 @@ async function route(
         // Signed in, it's kept with the account: My polls lists it under Answered.
         if (!isAdmin) await keepWithAccount('answer', id);
       }
-      return json({ id, editToken }, 201);
+      return json({ id, editToken, ...ignoredKeys(answer) }, 201);
     }
 
     // PUT|DELETE /api/events/:id/participants/:pid
@@ -1488,7 +1503,8 @@ async function route(
           return json({ ok: true });
         }
         const name = normalizeName(body.name);
-        const availability = checkSingle(ev, normalizeAvailability(body.availability, slots));
+        const answer = normalizeAnswer(body.availability, slots, isTopicPoll(ev));
+        const availability = checkSingle(ev, answer.availability);
         const copyTo = normalizeEmail(body.copyTo);
         const email = isHost ? null : participantEmail(ev, body);
         await store.updateParticipant({ id: p.id, eventId: ev.id, name, availability, now: now() });
@@ -1503,7 +1519,7 @@ async function route(
           notify(ev, 'response.updated', p.id, name);
           count('answer.updated', kindOf(ev));
         }
-        return json({ ok: true });
+        return json({ ok: true, ...ignoredKeys(answer) });
       }
       if (method === 'DELETE') {
         if (!isOwner && !isAdmin) return error(403, 'You can only remove your own response');
@@ -1521,7 +1537,7 @@ async function route(
 
     return error(404, 'Not found');
   } catch (e) {
-    if (e instanceof ValidationError) return error(400, e.message);
+    if (e instanceof ValidationError) return json({ error: e.message, ...(e.detail && { detail: e.detail }) }, 400);
     if (e instanceof AiKeyError || e instanceof AiUnavailableError) {
       // Why Anthropic said no, in the Worker's logs and the usage stats, so a broken server key or
       // model shows up. Counted even for browsers that opt out: it's about the server, not them.

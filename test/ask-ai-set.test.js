@@ -93,9 +93,20 @@ const CASES = [
       lastDate: '2026-11-08',
       days: ['2026-11-04', '2026-11-05', '2026-11-07', '2026-11-08'],
     }),
+    // The person's own words imply the part: date night is evenings, on the allowed days, said (D5).
     level: 'parts',
     want: W(['2026-11-04', '2026-11-05', '2026-11-07', '2026-11-08'], 'evening'),
-    todoA: 'D5: "parts" with no parts named becomes whole days, silently; the evening is lost',
+    note: /Took date night as evenings\./,
+    when: 'Evenings: Wed, Nov 4 · Thu, Nov 5 · Sat, Nov 7 · Sun, Nov 8',
+    words: 'same',
+  },
+  {
+    id: 'Q1c model slip: says parts, names none, and the words imply none',
+    prompt: 'Catch up with Sam on Wednesday or Thursday',
+    model: answer({ title: 'Catch up with Sam', timeOfDay: 'parts', usualParts: [], days: ['2026-11-04', '2026-11-05'] }),
+    level: 'days',
+    want: W(['2026-11-04', '2026-11-05'], 'all'),
+    note: /No part of the day was given, so it asks about whole days\./,
     words: 'same',
   },
   {
