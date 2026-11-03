@@ -14,7 +14,7 @@ import assert from 'node:assert/strict';
 import Anthropic from '@anthropic-ai/sdk';
 import { createApp } from '../server.js';
 import { DAY_PARTS, IF_NEEDED, YES, hostAnswer, zonedToUtc } from '../public/core.js';
-import { draftFromWords } from '../src/days-parse.js';
+import { draftFromWords, unsureOf } from '../src/days-parse.js';
 
 globalThis.document ??= { getElementById: () => null };
 const { describeDraft } = await import('../public/draft-summary.js');
@@ -228,7 +228,8 @@ const CASES = [
     }),
     level: 'parts',
     want: ['2026-11-04 evening'],
-    words: 'D2: the correction is ignored; Tuesday stays in',
+    words: null, // no draft, and the box says to say it in one go
+    unsure: 'correction',
   },
   {
     id: 'Q11 contradiction: what is stated beats what the plan implies',
@@ -241,7 +242,7 @@ const CASES = [
     }),
     level: 'parts',
     want: W(['2026-11-06', '2026-11-07'], 'afternoon'),
-    words: 'D2: "only afternoons" still adds evenings, from "date night"',
+    words: 'same',
   },
   {
     id: 'Q12 constraint: each day keeps its own part',
@@ -255,7 +256,8 @@ const CASES = [
     }),
     level: 'parts',
     want: ['2026-11-06 evening', '2026-11-07 afternoon'],
-    words: 'D1: every part goes on every day: Friday afternoon and Saturday evening are added',
+    words: null, // no draft, and the box says to say one time for all the days
+    unsure: 'parts',
   },
   {
     id: 'Q12b constraint: any time one day, one part the other',
@@ -269,7 +271,8 @@ const CASES = [
     }),
     level: 'parts',
     want: [...W(['2026-11-07'], 'morning'), ...W(['2026-11-07'], 'afternoon'), '2026-11-07 evening', '2026-11-08 evening'],
-    words: 'D1: Saturday morning and afternoon are lost',
+    words: null,
+    unsure: 'parts',
   },
   {
     id: 'Q13 ambiguity: "next weekend" on a Tuesday, the reading said',
@@ -327,6 +330,14 @@ const CASES = [
     model: answer({ title: 'Picnic', days: ['2026-11-07'] }),
     level: 'days',
     want: ['2026-11-07 all'],
+    words: 'same',
+  },
+  {
+    id: 'Q18 "make it" as in coming along is no correction',
+    prompt: 'Who can make it Friday or Saturday?',
+    model: answer({ title: 'Get-together', days: ['2026-11-06', '2026-11-07'] }),
+    level: 'days',
+    want: W(['2026-11-06', '2026-11-07'], 'all'),
     words: 'same',
   },
 ];
@@ -472,6 +483,10 @@ for (const c of CASES) {
   const knownWrong = typeof c.words === 'string' && c.words !== 'same' ? c.words : undefined;
   test(`${c.id} · B no AI`, { todo: knownWrong }, () => {
     const draft = draftFromWords(c.prompt, { today: '2026-11-03', nowMinutes: 600, ai: true });
+    if (c.unsure) {
+      assert.equal(draft, null, 'no draft rather than a wrong one');
+      return assert.equal(unsureOf(c.prompt), c.unsure, 'and why, so the box says what to change');
+    }
     if (c.words === null) return assert.ok(!draft || checkDraft(draft, c) === undefined, 'no draft, or a right one');
     assert.ok(draft, 'a draft from the words');
     checkDraft(draft, c);
