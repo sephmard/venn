@@ -43,6 +43,12 @@ const PLANS = {
   '🏡': 'family-reunion',
   '🥳': 'bachelor-party',
   '🏢': 'team-offsite',
+  // Vote starters (public/topic-templates.js); 📚 Next book counts as a book club's.
+  '🍜': 'where-to-eat',
+  '🎳': 'what-to-do',
+  '🗂️': 'team-decision',
+  '🧭': 'where-to-go',
+  '👍': 'yes-or-no',
 };
 
 /**

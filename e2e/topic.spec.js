@@ -112,8 +112,9 @@ test('a yes or no question takes one pick each', async ({ page, browser }) => {
 
 test('the topic form says what is missing', async ({ page }) => {
   await page.goto('/new/topic');
-  // No date-poll templates, no made-up name: the question is typed in full.
-  await expect(page.locator('.occasions')).toHaveCount(0);
+  // No date-poll templates (vote starters instead), no made-up name: the question is typed in full.
+  await expect(page.locator('[data-occasion]')).toHaveCount(0);
+  await expect(page.locator('[data-starter]').first()).toBeVisible();
   await expect(page.locator('#title')).toHaveValue('');
   await page.getByLabel(/Your name/).fill('Lee');
   await page.getByLabel('Option 1', { exact: true }).fill('Dune');
