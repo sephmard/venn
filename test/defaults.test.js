@@ -170,7 +170,7 @@ test('the site’s own address: PUBLIC_URL when set, else the request’s; other
   const env = { PUBLIC_URL: 'https://venn.day' };
   const at = (u, method = 'GET') => canonicalRedirect(new Request(u, { method }), env);
   const moved = at('https://venn.acct.workers.dev/new?brand=Acme1');
-  assert.equal(moved.status, 308);
+  assert.equal(moved.status, 307);
   assert.equal(moved.headers.get('location'), 'https://venn.day/new?brand=Acme1');
   assert.equal(at('https://venn.day/new'), null);
   assert.equal(at('http://localhost:8787/new'), null);

@@ -38,7 +38,6 @@ const SCHEMA = [
      PRIMARY KEY (event_id, day, recipient_hash)
    )`,
   `CREATE INDEX IF NOT EXISTS email_recipients_day ON email_recipients(day)`,
-  // A one-line note on an answer ("Can only stay till 9"). Shown with the answer, never sent anywhere.
   // A signed-in account's default template for each kind of poll ('date' or 'vote'): a brand
   // template it owns or was given (src/defaults.js). Checked again whenever it's read.
   `CREATE TABLE IF NOT EXISTS user_defaults (
@@ -49,6 +48,7 @@ const SCHEMA = [
      PRIMARY KEY (user_id, format)
    )`,
   `CREATE INDEX IF NOT EXISTS user_defaults_brand ON user_defaults(brand_id)`,
+  // A one-line note on an answer ("Can only stay till 9"). Shown with the answer, never sent anywhere.
   `CREATE TABLE IF NOT EXISTS participant_notes (
      participant_id TEXT PRIMARY KEY,
      event_id TEXT NOT NULL,
@@ -622,10 +622,6 @@ export function createStore(db) {
       });
     },
 
-    /**
-     * An account's brand templates, newest first: the ones it keeps (role 'owner') and the ones
-     * shared with it ('admin' can change it, 'user' makes polls with it).
-     */
     /** An account's default templates: [{ format, brandId }]. */
     async listDefaults(userId) {
       await init();
@@ -644,6 +640,10 @@ export function createStore(db) {
       );
     },
 
+    /**
+     * An account's brand templates, newest first: the ones it keeps (role 'owner') and the ones
+     * shared with it ('admin' can change it, 'user' makes polls with it).
+     */
     async listOwnedBrands(userId) {
       await init();
       const rows = await db.all(

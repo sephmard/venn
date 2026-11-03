@@ -22,9 +22,10 @@ export function publicOrigin(env = {}) {
 export const siteOrigin = (env, url) => publicOrigin(env) || new URL(url).origin;
 
 /**
- * For a page (not /api/) opened by GET or HEAD on another address than PUBLIC_URL's: a permanent
- * redirect to the same path and query there. Null when there's nothing to do: no PUBLIC_URL, the
- * right address already, this machine (local development), or anything but a page.
+ * For a page (not /api/) opened by GET or HEAD on another address than PUBLIC_URL's: a redirect
+ * to the same path and query there. A 307 while PUBLIC_URL settles, since browsers don't keep it.
+ * Null when there's nothing to do: no PUBLIC_URL, the right address already, this machine (local
+ * development), or anything but a page.
  */
 export function canonicalRedirect(request, env) {
   const target = publicOrigin(env);
@@ -34,7 +35,7 @@ export function canonicalRedirect(request, env) {
   if (request.method !== 'GET' && request.method !== 'HEAD') return null;
   if (url.pathname.startsWith('/api/')) return null;
   return new Response(null, {
-    status: 308,
+    status: 307,
     headers: { location: `${target}${url.pathname}${url.search}`, 'cache-control': 'no-store' },
   });
 }

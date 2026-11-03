@@ -18,7 +18,7 @@ npx wrangler deploy
 
 Tables are created automatically on the first request.
 
-Set `PUBLIC_URL` in `[vars]` (for example `https://polls.example.com`) once the site has its own address. Links in emails, calendars and new polls then always use it, and pages opened on another address of the Worker (like its `workers.dev` one) move there.
+Set `PUBLIC_URL` in `[vars]` (for example `https://polls.example.com`) once the site has its own address. Links in emails, calendars and new polls then always use it, and on Cloudflare, pages opened on another address of the Worker (like its `workers.dev` one) move there. The Node server only uses it for links.
 
 ### Deploy from GitHub Actions
 
