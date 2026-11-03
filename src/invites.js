@@ -9,6 +9,7 @@
 // reminders, and nothing the organizer writes beyond the poll's own name and title.
 
 import { ValidationError, isTopicPoll } from '../public/core.js';
+import { whiteLabelOf } from './brands.js';
 import { closesLabel, invitedUrl, isClosed, isDecided } from './deadline.js';
 import { emailEnabled, inviteEmail, normalizeEmail, sendEmail, unsubscribeHeaders, unsubscribeLink } from './notify.js';
 
@@ -91,6 +92,7 @@ export async function sendInvites({ store, env = {}, fetchImpl = fetch, id, user
   if (userId) room = Math.min(room, INVITES_PER_DAY - (await store.sendsOn(userId, day(now))));
   const pollUrl = `${site}/e/${id}`;
   const closes = ev.deadline != null ? closesLabel(ev) : null;
+  const whiteLabel = await whiteLabelOf(store, ev);
   const sentTo = new Set();
   for (const i of due(r.invitees, answered)) {
     if (sentTo.size >= room) break;
@@ -104,6 +106,7 @@ export async function sendInvites({ store, env = {}, fetchImpl = fetch, id, user
       answerUrl: invitedUrl(pollUrl, i.email),
       unsubscribeUrl: `${pollUrl}#unsubscribe=${unsubscribeToken}`,
       retro: ev.retro,
+      whiteLabel,
     });
     const headers = unsubscribeHeaders(unsubscribeLink(site, id, unsubscribeToken));
     try {

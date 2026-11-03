@@ -19,7 +19,7 @@ import { inviteRoom, newInvitees, normalizeInvitees, sendInvites } from './invit
 import { checkSingle, normalizeAnswer, normalizeAvailability, normalizeEventInput, normalizeName } from './validate.js';
 import { SECURITY_HEADERS } from './security-headers.js';
 import { IMAGE_FILES, IMAGE_LIMITS, MAX_IMAGE_BODY, imagePath, imageResponse, parseImage } from './images.js';
-import { BRAND_ID_RE, BRAND_ROLES, MAX_BRAND_INVITES, normalizeBrand, publicBrand } from './brands.js';
+import { BRAND_ID_RE, BRAND_ROLES, MAX_BRAND_INVITES, hidesVenn, whiteLabelOf, normalizeBrand, publicBrand } from './brands.js';
 import {
   MAX_COPIES_PER_ANSWER,
   MAX_COPIES_PER_POLL,
@@ -65,7 +65,7 @@ import { allowPlacesRequest, placesProvider, placesState, searchPlaces } from '.
 import { handleAccount, sessionUser, signInProviders } from './auth.js';
 import { handleMcp } from './mcp.js';
 import { draftFromWords } from './days-parse.js';
-import { allowWrite, writeWindows as newWriteWindows } from './limits.js';
+import { checkWrite, limitHeaders, writeWindows as newWriteWindows } from './limits.js';
 import { MAX_GUEST_DEVICES, MAX_PUSH_DEVICES, checkSubscription, pushEnabled, sendPush } from './push.js';
 
 const sharedPlaces = placesState();
@@ -304,8 +304,15 @@ async function route(
   // Per-visitor limits on new polls, templates and answers (src/limits.js). An app with a key
   // (APP_KEYS) makes them for all its users from one server, so it isn't limited by address.
   const allowed = async (kind) =>
-    (await appKeyMatches(request.headers.get('authorization'), env.APP_KEYS)) ||
-    allowWrite(env, via === 'mcp' ? 'mcp' : kind, clientIp, now(), writeWindows);
+    (await appKeyMatches(request.headers.get('authorization'), env.APP_KEYS))
+      ? { ok: true }
+      : checkWrite(env, via === 'mcp' ? 'mcp' : kind, clientIp, now(), writeWindows);
+  // Refused: the 429, with Retry-After (and the count, where it's known) so a script can wait.
+  const tooFast = (limited) => {
+    const res = error(429, TOO_FAST);
+    for (const [k, v] of Object.entries(limitHeaders(limited))) res.headers.set(k, v);
+    return res;
+  };
   // Tell the organizer (if they asked) once the response is safely stored. Never blocks the reply.
   const notify = (ev, kind, participantId, name) =>
     waitUntil(notifyResponse({ store, env, fetchImpl, now, origin, ev, kind, participantId, name }));
@@ -483,6 +490,7 @@ async function route(
       editUrl: `${pollUrl}#edit=${participantId}.${editToken}`,
       seeAnswers: !ev.hideResults,
       retro: ev.retro,
+      whiteLabel: await whiteLabelOf(store, ev),
     });
     waitUntil(sendEmail(env, { to, ...msg, headers }, { fetchImpl }).catch((e) => console.error('answer copy failed', e)));
   }
@@ -527,9 +535,11 @@ async function route(
     await store.setNotify(ev.id, { ...settings, datesEmailed: [...sent, start] });
     const pollUrl = `${origin}/e/${ev.id}`;
     const end = meetingEnd(ev, start);
+    const whiteLabel = await whiteLabelOf(store, ev);
     const info = {
       title: ev.title,
-      description: [ev.description, `Planned with Venn: ${pollUrl}`].filter(Boolean).join('\n\n'),
+      // A white-label poll's calendar entry has only the poll's link: no "Planned with Venn".
+      description: [ev.description, whiteLabel ? pollUrl : `Planned with Venn: ${pollUrl}`].filter(Boolean).join('\n\n'),
       location: ev.location,
       start,
       end,
@@ -546,6 +556,7 @@ async function route(
         ['Apple (iCal)', `${pollUrl.replace('/e/', '/api/events/')}/event.ics`],
       ],
       retro: ev.retro,
+      whiteLabel,
     });
     for (const [pid, to] of emails) {
       const headers = unsubscribeHeaders(unsubscribeLink(origin, ev.id, tokens.get(pid)));
@@ -651,7 +662,7 @@ async function route(
     if (parts.length === 1 && parts[0] === 'usage' && method === 'POST') {
       const { name, props } = await readJson(request);
       // Over the per-visitor limit, counts are dropped quietly: the browser doesn't need to know.
-      if (!optedOut && usageEnabled(env) && (await allowed('usage')))
+      if (!optedOut && usageEnabled(env) && (await allowed('usage')).ok)
         await recordUsage(store, env, now(), name, props, { client: true });
       return new Response(null, { status: 204, headers: SECURITY_HEADERS });
     }
@@ -696,6 +707,21 @@ async function route(
       const draft = typeof prompt === 'string' && draftFromWords(prompt, { today, nowMinutes, ai: aiEnabled(env) });
       return draft ? json(draft) : otherwise();
     }
+    // GET /api/ai/allowance — whether this visitor's free AI requests (the server's key) are there
+    // this week: 'available', 'used' (their own share, everyone's, or the dollar cap: it doesn't say
+    // which) or 'off' (no AI, or no server key: people bring their own). Never a count or a dollar
+    // figure, and nothing is taken. It only says who pays; any AI request still goes to Anthropic.
+    if (parts.length === 2 && parts[0] === 'ai' && parts[1] === 'allowance' && method === 'GET') {
+      const { perPerson, total, budget } = aiAllowance(env);
+      if (!aiEnabled(env) || !perPerson || !total) return json({ allowance: 'off' });
+      const limited = await allowed('allowance');
+      if (!limited.ok) return tooFast(limited);
+      const week = weekOf(now());
+      const who = await allowanceKey(week, (await currentUser())?.id, clientIp);
+      const used = (await store.aiSpend(week)) >= budget || (await store.peekAiAllowance(week, who, perPerson, total));
+      return json({ allowance: used ? 'used' : 'available' });
+    }
+
     // Paid for by the key the person brought (kept in their browser, never stored), or by the
     // server's key within this week's allowance.
     if (isAi) {
@@ -770,7 +796,8 @@ async function route(
 
     // POST /api/events
     if (parts.length === 1 && parts[0] === 'events' && method === 'POST') {
-      if (!(await allowed('create'))) return error(429, TOO_FAST);
+      const limited = await allowed('create');
+      if (!limited.ok) return tooFast(limited);
       const body = await readJson(request);
       const event = applyPrivacy(normalizeEventInput(body), body);
       // The next one of a plan: the poll it follows on from must still be there.
@@ -848,7 +875,8 @@ async function route(
 
     // POST /api/brands  { name, accent?, font?, title?, note?, where?, emoji? }: a brand template
     if (parts.length === 1 && parts[0] === 'brands' && method === 'POST') {
-      if (!(await allowed('create'))) return error(429, TOO_FAST);
+      const limited = await allowed('create');
+      if (!limited.ok) return tooFast(limited);
       // Saving a template needs an account, where the server has sign-in (src/auth.js); without it,
       // templates are kept by their manage link alone. Templates made before keep working either way.
       // An app with a key (APP_KEYS) makes them for its own users from its server instead.
@@ -1033,7 +1061,12 @@ async function route(
       const body = buildIcs({
         id: ev.id,
         title: ev.title,
-        description: [ev.description, `Planned with Venn: ${url.origin}/new`].filter(Boolean).join('\n\n'),
+        description: [
+          ev.description,
+          (await hidesVenn(store, ev)) ? `${url.origin}/e/${ev.id}` : `Planned with Venn: ${url.origin}/new`,
+        ]
+          .filter(Boolean)
+          .join('\n\n'),
         location: ev.location,
         start: ev.finalStart,
         end,
@@ -1345,7 +1378,8 @@ async function route(
 
     // POST /api/events/:id/participants
     if (parts.length === 3 && method === 'POST') {
-      if (!(await allowed('answer'))) return error(429, TOO_FAST);
+      const limited = await allowed('answer');
+      if (!limited.ok) return tooFast(limited);
       const body = await readJson(request);
       const name = normalizeName(body.name);
       const answer = normalizeAnswer(body.availability, slots, isTopicPoll(ev));
