@@ -2638,7 +2638,8 @@ pre.code {
 }
 .best-tie {
   margin: 0 0 8px;
-  color: var(--muted);
+  /* The card's own ink: a brand's card colour can make muted grey too faint. */
+  color: inherit;
 }
 .ov-picked {
   margin-left: 6px;
