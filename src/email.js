@@ -18,20 +18,22 @@ export function parseAddress(value) {
 
 /**
  * The display name a white-label poll's guest emails are sent under: the template's name, made safe
- * for a From header (no quotes, angle brackets, backslashes or control characters; at most 64
- * characters). Empty when nothing usable is left. The address stays EMAIL_FROM's own, so the
- * sending domain is never anyone's but the server's.
+ * for a From header (see below for what goes; at most 64 characters). Empty when nothing usable
+ * is left. The address stays EMAIL_FROM's own, so the sending domain is never anyone's but the
+ * server's.
  */
 export function cleanFromName(name) {
-  return (
-    String(name || '')
-      // eslint-disable-next-line no-control-regex -- control characters are exactly what goes
-      .replace(/[\u0000-\u001f\u007f"<>\\]/g, ' ')
-      .replace(/\s+/g, ' ')
-      .trim()
-      .slice(0, 64)
-      .trim()
-  );
+  const clean = String(name || '')
+    // Control characters (C0 and C1), bidi overrides and zero-width characters, quotes, angle
+    // brackets, backslashes and @: nothing that can break the header, hide what the name says, or
+    // make it look like an address. And no encoded-word start (=?), so the name can't decode to
+    // something else in a mail app.
+    // eslint-disable-next-line no-control-regex -- control characters are exactly what goes
+    .replace(/[\u0000-\u001f\u007f-\u009f\u200b-\u200f\u202a-\u202e\u2060-\u2069\ufeff"<>\\@]/g, ' ')
+    .replace(/=\?/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+  return Array.from(clean).slice(0, 64).join('').trim(); // whole characters, never half an emoji
 }
 
 /** EMAIL_FROM, with its display name swapped for `fromName` when one is given: as { name, email }. */

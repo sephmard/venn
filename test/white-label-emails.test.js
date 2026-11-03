@@ -220,3 +220,17 @@ test('a white-label vote: the decision email to a guest who asked carries no Ven
     }
   }
 });
+
+test('white-label From name: on mail to guests who answered, never on invitations or reminders', () => {
+  const whiteLabel = { name: 'Acme', title: 'Book club' };
+  for (const name of ['answerCopyEmail', 'dateSetEmail']) {
+    const [fn, args] = builders[name];
+    assert.equal(fn({ ...args, whiteLabel }).fromName, 'Acme', name);
+    assert.equal('fromName' in fn(args), false, name);
+  }
+  // Anyone can name a template anything, so mail nobody asked for keeps the server's own name.
+  for (const name of ['inviteEmail', 'deadlineReminderEmail']) {
+    const [fn, args] = builders[name];
+    assert.equal('fromName' in fn({ ...args, whiteLabel }), false, name);
+  }
+});

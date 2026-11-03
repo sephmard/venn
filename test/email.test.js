@@ -77,10 +77,16 @@ test('parseAddress', () => {
 
 test('a white-label From name: the template’s name at the server’s own address, made safe for the header', () => {
   assert.equal(cleanFromName('Acme Book Club'), 'Acme Book Club');
-  assert.equal(cleanFromName('Evil" <boss@bank.com>\r\nBcc: x@y.z'), 'Evil boss@bank.com Bcc: x@y.z');
+  assert.equal(cleanFromName('Evil" <boss@bank.com>\r\nBcc: x@y.z'), 'Evil boss bank.com Bcc: x y.z');
   assert.equal(cleanFromName('a\\b'), 'a b');
+  assert.equal(cleanFromName('support@paypal.com'), 'support paypal.com');
+  assert.equal(cleanFromName('Acme\u0085\u009bX'), 'Acme X');
+  assert.equal(cleanFromName('Acme\u202eemaN\u202c'), 'Acme emaN');
+  assert.equal(cleanFromName('Ac\u200bme\u2060\ufeff'), 'Ac me');
+  assert.equal(cleanFromName('=?utf-8?B?UGF5UGFs?='), 'utf-8?B?UGF5UGFs?=');
   assert.equal(cleanFromName(' \t '), '');
   assert.equal(cleanFromName('x'.repeat(100)).length, 64);
+  assert.equal(cleanFromName('x'.repeat(63) + '🎉🎉'), 'x'.repeat(63) + '🎉'); // never half an emoji
   assert.deepEqual(fromAddress({ EMAIL_FROM: 'Venn <hi@venn.day>' }, 'Acme'), { name: 'Acme', email: 'hi@venn.day' });
   assert.deepEqual(fromAddress({ EMAIL_FROM: 'hi@venn.day' }, 'Acme'), { name: 'Acme', email: 'hi@venn.day' });
   // Nothing usable: the server's own name stays.

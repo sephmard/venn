@@ -201,14 +201,19 @@ export const MASCOT_PATH = '/img/venn-dog.png';
 const mascotUrl = (pageUrl) => `${new URL(MASCOT_PATH, pageUrl).href}?v=2`;
 
 /**
+ * A white-label email to a guest who answered goes out under the template's name (see whiteLabelOf
+ * in brands.js). Invitations and reminders, which reach people who haven't answered, keep the
+ * server's own name: anyone can make a template with any name, so an unasked-for email must not
+ * arrive from it.
+ */
+const fromNameOf = (whiteLabel) => (whiteLabel?.name ? { fromName: whiteLabel.name } : {});
+
+/**
  * `signed`: end with "Planned with Venn… make your own", for guests. Organizers already use Venn.
  * `whiteLabel`: a guest email for a white-label poll, `{ name, title }` from whiteLabelOf() in
  * src/brands.js: the template's name as plain text in place of the dog and "Venn", and a neutral
  * signature, so members never see Venn. Any guest email builder takes it and passes it on here.
  */
-/** A white-label guest email goes out under the template's name (see whiteLabelOf in brands.js). */
-const fromNameOf = (whiteLabel) => (whiteLabel?.name ? { fromName: whiteLabel.name } : {});
-
 export function emailLayout(bodyHtml, footerHtml, pageUrl, { signed = true, whiteLabel = null } = {}) {
   const top = whiteLabel
     ? whiteLabel.name
@@ -382,7 +387,7 @@ export function deadlineReminderEmail({
     pollUrl,
     { whiteLabel },
   );
-  return { subject, text, html: styled(html, retro), ...fromNameOf(whiteLabel) };
+  return { subject, text, html: styled(html, retro) };
 }
 
 /**
@@ -417,7 +422,7 @@ export function inviteEmail({
     pollUrl,
     { whiteLabel },
   );
-  return { subject, text, html: styled(html, retro), ...fromNameOf(whiteLabel) };
+  return { subject, text, html: styled(html, retro) };
 }
 
 /**

@@ -119,7 +119,7 @@ A new sending domain has no reputation yet, so the first emails can land in spam
 - Check that the domain passes SPF, DKIM and DMARC: in Gmail, open the email, then **⋮ → Show original**. Each should say `PASS`.
 - Keep a DMARC record on the domain, for example `v=DMARC1; p=quarantine; rua=mailto:dmarc@example.com`, to get reports on what's failing.
 - Send from a stable address, such as `notifications@`, with a clear name in `EMAIL_FROM`, and set `EMAIL_REPLY_TO` to an inbox someone reads.
-- Guest emails about a white-label poll whose organizer is one of the template's own people swap only the sender's name for the organization's (`"Acme" <notifications@…>`). The address stays `EMAIL_FROM`'s, so SPF, DKIM and DMARC are unchanged. See [Embedding](EMBED.md).
+- Emails to guests who answered a white-label poll whose organizer is one of the template's own people swap only the sender's name for the organization's (`"Acme" <notifications@…>`). The address stays `EMAIL_FROM`'s, so SPF, DKIM and DMARC are unchanged. Invitations and reminders keep `EMAIL_FROM`'s own name. See [Embedding](EMBED.md).
 - Watch your domain's reputation with Gmail in [Google Postmaster Tools](https://postmaster.google.com/). It shows data once a domain sends enough mail to Gmail each day.
 
 ### How email stays safe
