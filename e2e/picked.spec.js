@@ -154,3 +154,31 @@ test('the organizer picks the whole overlap, and the timeline marks all of it', 
   // Two hours, so four half hours marked picked, not just the first.
   await expect(page.locator('.ov-slot.final')).toHaveCount(4);
 });
+
+test('Pick still asks first when the organizer’s tools didn’t load with the page, and says so if they can’t', async ({
+  page,
+  request,
+}) => {
+  const { id, adminToken } = await datesPoll(request, [['Ana', dates]]);
+  await page.route('**/organizer.js*', (route) => route.abort());
+  await page.goto(`/e/${id}#admin=${adminToken}`);
+  const pick = page.locator('[data-pick]').first();
+  await pick.click();
+  await expect(page.locator('#toast')).toContainText("Couldn't load that. Try again.");
+  await expect(page.locator('#pick-check')).toHaveCount(0);
+  // Back online: the dialog loads now, and Pick it picks the date.
+  await page.unroute('**/organizer.js*');
+  await pick.click();
+  await expect(page.locator('#pick-check h2')).toBeVisible();
+  await page.click('#pc-yes');
+  await expect(page.locator('#final-h')).toHaveText(/Thu, Jan 10/);
+});
+
+test('the picked date shows even when the calendar buttons can’t load', async ({ page, request }) => {
+  const { id, adminToken } = await datesPoll(request, [['Ana', dates]]);
+  await finalize(request, id, adminToken, day(dates[0]));
+  await page.route('**/add-to-calendar.js*', (route) => route.abort());
+  await page.goto(`/e/${id}`);
+  await expect(page.locator('.banner-final .kicker')).toHaveText("It's happening");
+  await expect(page.locator('#final-h')).toHaveText(/Thu, Jan 10/);
+});

@@ -15,7 +15,7 @@ import {
   utcToZoned,
   zonedToUtc,
 } from './core.js';
-import { monthView, timeView, tinyTime } from './picker.js';
+import { monthView, tinyTime } from './picker.js';
 import { $, $$, app, dateParts, dayLabel, esc, fmtDay, getConfig, plural, rove, shortTime, track } from './ui.js';
 
 import {
@@ -58,7 +58,8 @@ const LEVELS = [
 // whole-day polls never load it.
 let pt = null;
 const loadPaint = async () => (pt ??= await import('./paint.js'));
-const loadEdit = () => import('./block-edit.js');
+// Hours: the week of half hours (time-view.js) and dragging its blocks (block-edit.js).
+const loadEdit = () => Promise.all([import('./time-view.js'), import('./block-edit.js')]);
 
 export function renderFree() {
   document.title = 'Create a Venn';
@@ -225,10 +226,10 @@ export function renderFree() {
     const set = st[level];
     // Parts and hours need the painter.
     // The calendar on show stays until the next is ready.
-    const [{ paintView, datesOf }, { editBlocks }] = await Promise.all([loadPaint(), loadEdit()]);
+    const [{ paintView, datesOf }, [{ timeView }, { editBlocks }]] = await Promise.all([loadPaint(), loadEdit()]);
     if (at !== mounts || !root.isConnected) return;
     root.innerHTML = '';
-    if (!parts) return mountHours(root, datesOf(set)[0], editBlocks);
+    if (!parts) return mountHours(root, datesOf(set)[0], timeView, editBlocks);
     painter = paintView(root, {
       selected: set,
       onChange: update,
@@ -242,7 +243,7 @@ export function renderFree() {
   }
 
   /** Hours: tap or drag to add, drag to move or stretch, tap to go round. Kept as half hours. */
-  function mountHours(root, first, editBlocks) {
+  function mountHours(root, first, timeView, editBlocks) {
     const slots = (from, to) => Array.from({ length: Math.max(0, (to - from) / 30) }, (_, i) => from + i * 30);
     const keyOf = (w) => `${w.date}|${w.start}|${w.end}`;
     const find = (k) => pt.windowsAt(st, 'hours').find((w) => keyOf(w) === k);
