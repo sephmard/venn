@@ -94,6 +94,12 @@ export function zonedToUtc(dateStr, minutes, tz) {
   return t;
 }
 
+/** Midnight of `date` in `tz`, or the clock jump that skips it. */
+export function dayStart(date, tz) {
+  const t = zonedToUtc(date, 0, tz);
+  return utcToZoned(t, tz).date < date ? Date.parse(date) - tzOffsetMs(t, tz) : t;
+}
+
 /** Wall-clock view of a UTC instant in `tz`. */
 export function utcToZoned(ms, tz) {
   const p = zonedParts(ms, tz);
@@ -144,7 +150,8 @@ export function dayRuns(dates) {
  */
 export function keySlot(key, tz) {
   const [date, m] = key.split('|');
-  const minutes = +m || 0;
+  if (m == null) return dayStart(date, tz);
+  const minutes = +m;
   const t = zonedToUtc(date, minutes, tz);
   const back = utcToZoned(t, tz);
   return back.date === date && back.minutes === minutes ? t : null;
@@ -186,7 +193,7 @@ export const isTopicPoll = (ev) => ev.mode === 'topic';
 export const isDaysPoll = (ev) => !isOptionsPoll(ev) && ev.slotMinutes === DAY_MINUTES;
 
 function midnightAfter(ms, n, tz) {
-  return zonedToUtc(addDays(utcToZoned(ms, tz).date, n), 0, tz);
+  return dayStart(addDays(utcToZoned(ms, tz).date, n), tz);
 }
 
 /** End of the slot that starts at `s`. Whole-day slots end at the next midnight, whatever DST does. */
@@ -220,7 +227,7 @@ export function meetingEnd(ev, start) {
 export function allDaySpan(start, end, tz) {
   const a = utcToZoned(start, tz),
     b = utcToZoned(end, tz);
-  if (a.minutes || b.minutes || b.date <= a.date) return null;
+  if (start !== dayStart(a.date, tz) || end !== dayStart(b.date, tz) || b.date <= a.date) return null;
   return { startDate: a.date, endDate: b.date };
 }
 
@@ -243,16 +250,13 @@ export function buildSlots(ev) {
   const ranges = ev.windows || ev.dates.map((date) => ({ date, start: ev.startMinute, end: ev.endMinute }));
   for (const { date, start, end } of ranges) {
     for (let m = start; m < end; m += ev.slotMinutes) {
-      const t = zonedToUtc(date, m, ev.timezone);
-      // Skip wall-clock times that don't exist (spring-forward gap).
-      const back = utcToZoned(t, ev.timezone);
-      if (back.date === date && back.minutes === m) set.add(t);
+      const t = keySlot(isDaysPoll(ev) ? date : `${date}|${m}`, ev.timezone);
+      if (t != null) set.add(t);
     }
   }
   return [...set].sort((a, b) => a - b);
 }
 
-/** Validate a participant's availability map against the event's slots. */
 /**
  * Rank every possible meeting start by how many people can make the whole meeting.
  * Returns [{start, end, yes:[names], ifNeeded:[names], no:[names]}], best first.

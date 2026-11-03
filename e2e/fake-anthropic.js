@@ -31,6 +31,60 @@ function reply(body) {
         .map(([, n, date]) => ({ n, date }));
     const base = { reading: '', emoji: '🍝', tile: 'sunny', location: text.match(/ at (.+?)(,|$)/)?.[1] || '' };
     const day = (date, more = {}) => ({ date, parts: [], from: '', to: '', ifNeeded: false, ...more });
+    // A choice, not a time: "choose between …" names the choices and no days; "where and when"
+    // is a vote about where plus this week's evenings.
+    const plain = { decide: 'when', question: '', choices: [] };
+    if (/choose between/i.test(text))
+      return {
+        ...base,
+        ...plain,
+        title: 'Dinner',
+        timeOfDay: 'any',
+        usualParts: [],
+        firstDate: today,
+        lastDate: '',
+        daysInRow: 1,
+        days: [],
+        decide: 'what',
+        question: 'Where should we eat?',
+        choices: text
+          .replace(/.*choose between/i, '')
+          .replace(/ for .*/, '')
+          .split(/,\s*(?:and\s+)?|\s+and\s+/)
+          .map((c) => c.trim())
+          .filter(Boolean),
+        note: '',
+      };
+    if (/vote on our next book/i.test(text))
+      return {
+        ...base,
+        title: 'Book club',
+        timeOfDay: 'any',
+        usualParts: [],
+        firstDate: today,
+        lastDate: '',
+        daysInRow: 1,
+        days: [],
+        decide: 'what',
+        question: 'What should we read next?',
+        choices: [],
+        note: '',
+      };
+    if (/where and when/i.test(text))
+      return {
+        ...base,
+        title: 'Dinner',
+        timeOfDay: 'parts',
+        usualParts: ['evening'],
+        firstDate: today,
+        lastDate: '',
+        daysInRow: 1,
+        days: [1, 2, 3].map((n) => day(new Date(Date.parse(today) + n * 86_400_000).toISOString().slice(0, 10))),
+        decide: 'both',
+        question: 'Where should we have dinner?',
+        choices: [],
+        note: '',
+      };
     if (/date night/i.test(text))
       return {
         ...base,
