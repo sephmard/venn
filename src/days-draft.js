@@ -191,9 +191,12 @@ export function shapeDays(out, { today, nowMinutes = 0 }) {
     const start = minutes(d.from, Math.floor);
     let end = minutes(d.to, Math.ceil);
     if (end === 0) end = 1440; // ending at "00:00" is midnight at the day's end, as "24:00" is
+<<<<<<< HEAD
     // One that runs past midnight ("22:00" to "02:00", half a day at most) is cut there: the day
     // stays, and the note says so. One that ends long before it starts ("20:00" to "19:00") goes.
     if (start != null && end != null && end < start && end + 1440 - start <= 720) [end, cut] = [1440, true];
+=======
+>>>>>>> origin/main
     const timed = start != null && end != null && end > start;
     if ((d.from || d.to) && !timed) continue;
     const day = byDate.get(d.date) || { date: d.date, parts: [], windows: [], ifNeeded: true };
