@@ -54,6 +54,11 @@ document.head.insertAdjacentHTML(
   .ai-done-when { font-weight: 500; }
   .ai-done-note { margin-top: 2px; font-weight: 500; color: var(--muted); }
   .ai-done .link-btn { min-height: 44px; padding: 0 10px; }
+  /* The last draft, under words that couldn't be read: still what's picked, but not their result.
+     Dimmed with the muted colour and a fainter tint, not opacity, so its text keeps AA contrast; Undo as before. */
+  .ai-done.stale { background: color-mix(in srgb, #7c5cff 4%, var(--surface)); }
+  .ai-done.stale > p { color: var(--muted); }
+  .ai-done-kicker { display: block; font-size: 0.8rem; font-weight: 600; color: var(--muted); }
   .ai-by-hand .link-btn { min-height: 0; padding-block: 12px; margin-block: -12px; }
   /* What AI filled in lights up, a field at a time, then the picked days in order. */
   .ai-lit { animation: ai-lit 1.4s ease-out both; animation-delay: calc(var(--ai-i, 0) * 70ms); }
@@ -135,10 +140,32 @@ function done(said, undo) {
   $('#ai-undo').onclick = async () => {
     await undo();
     $('#ai-done')?.remove();
+    unstale();
     ($('#ai-open') || $('#ai-prompt'))?.focus();
     toast('Put back as it was.');
   };
   $('#ai-done').scrollIntoView({ behavior: reducedMotion() ? 'auto' : 'smooth', block: 'center' });
+}
+
+const STILL = 'Your last draft is still below, unchanged.';
+
+/**
+ * A fill was refused with `message`: say so in the box, and when an earlier draft (with Undo) is
+ * showing, say it's still there and mark it as the last one, so it isn't read as the new words' result.
+ */
+function refused(message) {
+  const card = $('#ai-done');
+  const last = !!card?.querySelector('#ai-undo');
+  $('#ai-err').textContent = last ? `${message} ${STILL}` : message;
+  if (!last || card.classList.contains('stale')) return;
+  card.classList.add('stale');
+  card.querySelector('p').insertAdjacentHTML('afterbegin', '<small class="ai-done-kicker">Last draft</small>');
+}
+
+/** On Undo: the refusal no longer says the draft is still below (the card itself is gone). */
+function unstale() {
+  const err = $('#ai-err');
+  if (err?.textContent.endsWith(STILL)) err.textContent = err.textContent.slice(0, -STILL.length).trimEnd();
 }
 
 /** The box's markup: a text area, its button, and where the key form opens. */
@@ -197,7 +224,7 @@ function wire(fill, button = BUTTON) {
       // A key problem opens the key form; anything else is said in the box, with what to do.
       // "Fill it in yourself" only where Use AI opened the box and the form is right below it.
       if (keyProblem(ex)) aiFailed(ex, $('#ai-key-box'), go, $('#ai-open') ? byHand : undefined);
-      else $('#ai-err').textContent = ex.message || 'AI didn’t answer. Try again in a moment.';
+      else refused(ex.message || 'AI didn’t answer. Try again in a moment.');
     } finally {
       btn.disabled = false;
       btn.textContent = button;

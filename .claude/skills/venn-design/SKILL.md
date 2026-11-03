@@ -94,6 +94,10 @@ the same PR** (and CLAUDE.md if it's a rule that matters in review).
   (Date, vote on a few dates, Vote), with a sparkle and a gradient edge from the accent to violet.
   Excited but elegant: no fill, no loud animation (the sparkle twinkles twice, none with reduced
   motion). It opens the describe box under the heading; it never takes over the form.
+- **A refused description under an earlier draft** (Ivy, 2026-11-03): the reason ends "Your last
+  draft is still below, unchanged.", and the card says "Last draft" and dims with the muted colour
+  and a fainter tint (not opacity, which broke AA in Classic). Undo stays as it was. Both go on the
+  next good fill or on Undo; the draft is never hidden, since it's still what's picked.
 - **Create a Venn sits at the end of the form**, never stuck to the bottom of the screen.
 - **Nobody loses work** (journey polish, 2026-11-02): a half-made poll comes back after a reload, Back
   or the Date / Vote switch (kept in the tab), with one quiet line, "Picked up where you left off.
