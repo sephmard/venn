@@ -252,7 +252,7 @@ export async function renderTopicPoll(ctx) {
           <button type="button" class="btn" id="copy">Copy link</button>
         </div>
         <button type="button" class="link-btn" id="unpick">Change</button>
-        <p class="final-more"><a class="link-btn" data-link id="vote-again" href="/new/topic?copy=${esc(id)}&next">Vote again next time</a></p>`
+        ${ctx.embedded ? '' : `<p class="final-more"><a class="link-btn" data-link id="vote-again" href="/new/topic?copy=${esc(id)}&next">Vote again next time</a></p>`}`
       }
     </section>`;
   }

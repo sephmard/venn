@@ -281,6 +281,13 @@ test('vote again next time: the organizer of a decided vote starts the next one 
   await expect(again).toBeVisible();
   expect((await again.boundingBox()).height).toBeGreaterThanOrEqual(44);
   await noBlockingA11y(page, 'decided vote, organizer, with Vote again');
+  // Nor in a frame on another website, even for the organizer.
+  const framed = await (await browser.newContext()).newPage();
+  await framed.goto(`/embed/${made.id}#admin=${made.adminToken}`);
+  await expect(framed.locator('.banner-final')).toBeVisible();
+  await expect(framed.locator('#unpick')).toBeVisible(); // the organizer's view
+  await expect(framed.locator('#vote-again')).toHaveCount(0);
+  await framed.context().close();
   // Guests never see it.
   const g = await (await browser.newContext()).newPage();
   await g.goto(`/e/${made.id}`);
@@ -325,4 +332,27 @@ test('vote again next time: a yes or no question copies with nothing to leave ou
   await expect(page.locator('#create h1')).toHaveText('Plan the next one');
   await expect(page.locator('#yesno')).toBeVisible();
   await expect(page.locator('#leave-out')).toHaveCount(0);
+});
+
+test('vote again next time: a white-label vote’s organizer still has it', async ({ page }) => {
+  const brand = await (await page.request.post('/api/brands', { data: { name: 'Acme', hideVenn: true } })).json();
+  const made = await (
+    await page.request.post('/api/events', {
+      data: {
+        title: 'Where to?',
+        organizer: 'Priya',
+        timezone: 'UTC',
+        mode: 'topic',
+        options: ['Park', 'Beach'],
+        brand: brand.id,
+      },
+    })
+  ).json();
+  await page.request.post(`/api/events/${made.id}/finalize`, {
+    data: { option: 1 },
+    headers: { 'x-admin-token': made.adminToken },
+  });
+  await page.goto(`/e/${made.id}#admin=${made.adminToken}`);
+  await expect(page.locator('.banner-final')).toBeVisible();
+  await expect(page.getByRole('link', { name: 'Vote again next time' })).toBeVisible();
 });
