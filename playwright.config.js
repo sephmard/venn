@@ -40,6 +40,7 @@ export default defineConfig({
         ANSWER_RATE_LIMIT: '0',
         USAGE_RATE_LIMIT: '0',
         RESULTS_RATE_LIMIT: '0',
+        AI_ALLOWANCE_RATE_LIMIT: '0',
         // Usage stats on, so the stats page (and every count the app sends) is tested.
         STATS_TOKEN: 'test-stats',
       },

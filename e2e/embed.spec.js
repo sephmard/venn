@@ -110,3 +110,28 @@ test('a website the template doesn’t list can’t show its polls', async ({ pa
   const drawn = frame ? await frame.locator('.brand-bar').count() : 0;
   expect(drawn).toBe(0);
 });
+
+test('a white-label poll’s Google and Outlook links carry the poll’s link, not "Planned with Venn"', async ({ page }) => {
+  const links = async (brand) => {
+    const b = brand && (await (await page.request.post('/api/brands', { data: { name: 'Acme', ...brand } })).json());
+    const ev = await (
+      await page.request.post('/api/events', {
+        data: { title: 'Team lunch', timezone: 'UTC', mode: 'options', options, ...(b && { brand: b.id }) },
+      })
+    ).json();
+    await page.request.post(`/api/events/${ev.id}/finalize`, {
+      data: { start: options[0].start },
+      headers: { 'x-admin-token': ev.adminToken },
+    });
+    await page.goto(`/e/${ev.id}`);
+    const hrefs = [];
+    for (const name of ['Google Calendar', 'Outlook'])
+      hrefs.push(await page.locator('.banner-final a', { hasText: name }).first().getAttribute('href'));
+    return { id: ev.id, text: decodeURIComponent(hrefs.join(' ').replace(/\+/g, ' ')) };
+  };
+  const plain = await links(null);
+  expect(plain.text).toContain('Planned with Venn');
+  const wl = await links({ hideVenn: true });
+  expect(wl.text).toContain(`/e/${wl.id}`);
+  expect(wl.text).not.toContain('Planned with Venn');
+});

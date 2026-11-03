@@ -175,3 +175,16 @@ test('asking for results has its own per-address limit, with Retry-After; plain 
     limited.close();
   }
 });
+
+test("results show where answers lean; the organizer's pick stays in picked", async () => {
+  const { id, adminToken } = await poll({ mode: 'topic', options: ['Italian', 'Thai', 'Mexican'] }, [
+    ['Ana', { 1: YES, 3: IF_NEEDED }],
+    ['Bo', { 1: YES }],
+  ]);
+  const admin = { 'x-admin-token': adminToken };
+  const fin = await call(`/api/events/${id}/finalize`, { method: 'POST', body: { option: 3 }, headers: admin });
+  assert.equal(fin.status, 200);
+  const { data } = await call(`/api/events/${id}?results=1`);
+  assert.equal(data.picked, 3);
+  assert.deepEqual(data.results.leaders, [1]);
+});

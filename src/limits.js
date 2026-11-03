@@ -13,6 +13,8 @@ export const WRITE_LIMITS = {
   // Not a write, but the costliest read: a poll's results worked out on the server
   // (GET /api/events/:id?results=1), which on the biggest polls takes seconds of CPU.
   results: { env: 'RESULTS_RATE_LIMIT', fallback: 120 },
+  // Not a write, but a database read anyone can loop on: GET /api/ai/allowance, asked once per AI panel.
+  allowance: { env: 'AI_ALLOWANCE_RATE_LIMIT', fallback: 120 },
   // Anonymous usage counts from the browser (src/usage.js): each one is a database write.
   usage: { env: 'USAGE_RATE_LIMIT', fallback: 300 },
 };
@@ -24,7 +26,7 @@ const MAX_KEYS = 10_000;
 export const writeWindows = () => new Map();
 
 /**
- * Whether this IP may make one more write of `kind` ('create', 'answer', 'mcp', 'results' or 'usage'), and
+ * Whether this IP may make one more write of `kind` ('create', 'answer', 'mcp', 'results', 'allowance' or 'usage'), and
  * what to tell the caller: `{ ok, limit, remaining, reset }`, with `reset` the seconds until the
  * oldest write in the window ages out (when refused, the wait until one more is allowed). Uses
  * Cloudflare's rate limiting binding WRITE_RATE_LIMITER when the server has one (counted across
