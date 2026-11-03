@@ -231,6 +231,12 @@ export async function renderTopicPoll(ctx) {
             <div class="sheet">
               <h2 class="panel-title" id="group-h">The group</h2>
               ${hideAll ? `<p>🔒 ${privacy} You'll see what's decided at the top once they pick.</p>` : results(guest)}
+              ${
+                // A guest who's voted may have a plan of their own (as date polls' #grow)
+                guest && me() && !ctx.embedded && !ctx.whiteLabel
+                  ? '<p class="grow-line"><a class="link-btn" data-link id="make-yours" href="/new/topic?from=guest">Planning something? Make yours in 30 seconds</a></p>'
+                  : ''
+              }
             </div>
           </section>
         </div>
