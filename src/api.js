@@ -564,6 +564,18 @@ async function route(
         ),
       );
 
+    // GET /api/health — for uptime monitors: 200 when the database answers, 503 when it doesn't.
+    // Says nothing about the server beyond that, and is never cached.
+    if (parts.length === 1 && parts[0] === 'health' && method === 'GET') {
+      let ok = false;
+      try {
+        ok = await store.ping();
+      } catch (e) {
+        console.error('health check: database unreachable', e?.message);
+      }
+      return json({ ok }, ok ? 200 : 503);
+    }
+
     // GET /api/config — which optional features this server has switched on
     if (parts.length === 1 && parts[0] === 'config' && method === 'GET') {
       return json({
