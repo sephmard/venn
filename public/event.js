@@ -1429,9 +1429,9 @@ export async function renderEvent(id, navigate) {
     const lenNote =
       !optionsMode && ev().durationMinutes > ev().slotMinutes ? ` (${keep(lengthLabel(ev().durationMinutes))})` : '';
     // Others just as good, named, so the organizer knows there's a choice. Only where each option
-    // stands alone (not hours or days in a row, whose ranked times overlap one another).
+    // stands alone (proposed times, or single days; not hours or days in a row, which overlap).
     const same = (b) => b.yes.length === first.yes.length && b.ifNeeded.length === first.ifNeeded.length;
-    const tied = listMode && ev().durationMinutes <= ev().slotMinutes ? best.slice(1).filter(same) : [];
+    const tied = listMode && !(ev().durationMinutes > ev().slotMinutes) ? best.slice(1).filter(same) : [];
     const tie = tied.length
       ? `<p class="best-tie">Tied with ${tied
           .slice(0, 2)
