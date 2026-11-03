@@ -933,7 +933,7 @@ button.emoji-tile:focus-visible {
   height: 20px;
   border-radius: 999px;
   background: radial-gradient(circle at 10px 50%, var(--muted) 6px, transparent 6.5px) var(--surface-2);
-  box-shadow: inset 0 0 0 1.5px var(--border);
+  box-shadow: inset 0 0 0 1.5px var(--muted); /* 3:1 against the page, in both looks */
 }
 .footer .classic-switch[aria-checked='true']::after {
   background: radial-gradient(circle at 26px 50%, #fff 6px, transparent 6.5px) var(--accent);
