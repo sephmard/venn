@@ -597,3 +597,24 @@ test('editing a poll keeps its picked date while that date is still in it', asyn
   await call(`/api/events/${data.id}`, { method: 'PUT', body: { ...body, dates: ['2030-01-07'] }, headers: admin });
   assert.equal((await call(`/api/events/${data.id}`)).data.finalStart, null);
 });
+
+test('GET /api/health: 200 while the database answers, 503 when it does not, never cached', async () => {
+  const res = await fetch(`${baseUrl}/api/health`);
+  assert.equal(res.status, 200);
+  assert.deepEqual(await res.json(), { ok: true });
+  assert.equal(res.headers.get('cache-control'), 'no-store');
+  assert.equal((await fetch(`${baseUrl}/api/health`, { method: 'POST' })).status, 404);
+  const { handleApi } = await import('../src/api.js');
+  const broken = { ping: async () => Promise.reject(new Error('D1 is down')) };
+  const errors = [];
+  const log = console.error;
+  console.error = (...a) => errors.push(a.join(' '));
+  try {
+    const down = await handleApi(new Request('http://x/api/health'), broken);
+    assert.equal(down.status, 503);
+    assert.deepEqual(await down.json(), { ok: false });
+  } finally {
+    console.error = log;
+  }
+  assert.match(errors.join('\n'), /database unreachable/);
+});
