@@ -184,7 +184,8 @@ function wire(fill, button = BUTTON) {
       await fill(prompt);
     } catch (ex) {
       // A key problem opens the key form; anything else is said in the box, with what to do.
-      if (keyProblem(ex)) aiFailed(ex, $('#ai-key-box'), go, byHand);
+      // "Fill it in yourself" only where Use AI opened the box and the form is right below it.
+      if (keyProblem(ex)) aiFailed(ex, $('#ai-key-box'), go, $('#ai-open') ? byHand : undefined);
       else $('#ai-err').textContent = ex.message || 'AI didn’t answer. Try again in a moment.';
     } finally {
       btn.disabled = false;
