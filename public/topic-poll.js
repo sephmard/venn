@@ -318,7 +318,7 @@ export async function renderTopicPoll(ctx) {
           <p class="kicker">${leaderLabel(rows, { single: ev.single, total })}</p>
           <div class="best-when">${top.map((r) => esc(r.o.label)).join(' <span class="muted">and</span> ')}</div>
           <div class="best-who">${top[0].yes.length + top[0].maybe.length} of ${total} ${ev.single ? 'picked it' : 'would go'}${top[0].maybe.length ? ` (${top[0].maybe.length} if needed)` : ''}</div>
-          ${guest || top.length > 1 ? '' : `<button type="button" class="btn btn-primary" data-pick="${top[0].o.id}">Pick ${esc(top[0].o.label)}</button>`}
+          ${guest || top.length > 1 ? '' : `<button type="button" class="btn" data-pick="${top[0].o.id}">Pick ${esc(top[0].o.label)}</button>`}
         </div>`;
     const list = rows
       .map((r) => {
@@ -375,7 +375,13 @@ export async function renderTopicPoll(ctx) {
         next.focus();
       });
     if ($('#save')) $('#save').onclick = send;
-    $('#copy')?.addEventListener('click', () => copy(shareUrl, 'Invite link copied. Paste it in your group chat.'));
+    $('#copy')?.addEventListener('click', ({ target: b }) => {
+      copy(shareUrl, 'Invite link copied. Paste it in your group chat.');
+      if (b.textContent === 'Link copied ✓') return;
+      const was = b.textContent;
+      b.textContent = 'Link copied ✓'; // for sighted people too
+      setTimeout(() => (b.textContent = was), 2e3);
+    });
     $('#share-sheet')?.addEventListener('click', () =>
       navigator.share({ title: ev.title, text: inviteText({ ...ev }), url: shareUrl }).catch(() => {}),
     );
