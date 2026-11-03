@@ -10,6 +10,7 @@ import { dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import * as prettier from 'prettier';
 import { ORIGIN, PAGES, TEMPLATE_PAGES } from '../pages/pages.js';
+import { TOPIC_TEMPLATES } from '../public/topic-templates.js';
 
 const root = new URL('..', import.meta.url);
 
@@ -216,7 +217,7 @@ function hub() {
 <main id="main">
 <div class="wrap page tpl-page tpl-list">
 <h1>Templates for <em>every get-together.</em></h1>
-<p class="lede">Start a poll with the plan already filled in: how long it is, the time of day, and a note for everyone. Then suggest a few dates and share one link.</p>
+<p class="lede">Start with the plan already filled in. Find a date that works, or vote on what to do. Then share one link.</p>
 <section aria-labelledby="season">
 <h2 id="season">For the holidays</h2>
 <ul class="tpl-cards">
@@ -227,6 +228,12 @@ ${group('season').join('\n')}
 <h2 id="everyday">For any time of year</h2>
 <ul class="tpl-cards">
 ${group('everyday').join('\n')}
+</ul>
+</section>
+<section aria-labelledby="vote">
+<h2 id="vote">Vote on what to do</h2>
+<ul class="tpl-cards">
+${TOPIC_TEMPLATES.map((t) => `<li><a class="tpl-card" href="/new/topic?template=${t.id}"><strong>${esc(t.label)}</strong><span>${esc(t.card)}</span><em>Start this vote →</em></a></li>`).join('\n')}
 </ul>
 </section>
 <section aria-labelledby="team">
@@ -294,7 +301,7 @@ ${TEMPLATE_PAGES.map((p) => `- [${p.name}](${ORIGIN}/templates/${p.slug}): ${p.c
 
 ## For AI assistants and agents
 
-- MCP server: \`${ORIGIN}/api/mcp\` (Streamable HTTP, no sign-in or key). Tools: \`create_venn\` makes a poll from whole days or specific times and returns its share link and private organizer link; \`get_venn_results\` reads who answered and which days work best. [Connecting it](https://docs.venn.day/mcp.html).
+- MCP server: \`${ORIGIN}/api/mcp\` (Streamable HTTP, no sign-in or key). Tools: \`create_venn\` makes a poll from whole days or specific times (to find a date) or from options (to vote on what or where, optionally pick one) and returns its share link and private organizer link; \`get_venn_results\` reads who answered and which days or options work best, saying plainly when nobody has answered or options are tied. [Connecting it](https://docs.venn.day/mcp.html).
 - JSON API, no key needed: \`POST ${ORIGIN}/api/events\` with \`{ "title", "timezone", "dates": ["YYYY-MM-DD", …], "startMinute": 0, "endMinute": 1440, "slotMinutes": 1440, "durationMinutes": 1440 }\` for whole days, or \`{ "title", "timezone", "mode": "options", "options": [{ "start", "end" }] }\` for times (UTC milliseconds), returns \`{ id, adminToken }\`. Share \`${ORIGIN}/e/<id>\`; \`${ORIGIN}/e/<id>#admin=<adminToken>\` manages it. \`GET ${ORIGIN}/api/events/<id>\` returns the poll, its \`slots\` and each participant's \`availability\` (slot start → 2 available, 1 if needed). [Full API](https://docs.venn.day/api.html).
 
 ## Optional

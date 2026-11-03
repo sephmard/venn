@@ -112,8 +112,9 @@ test('a yes or no question takes one pick each', async ({ page, browser }) => {
 
 test('the topic form says what is missing', async ({ page }) => {
   await page.goto('/new/topic');
-  // No date-poll templates, no made-up name: the question is typed in full.
-  await expect(page.locator('.occasions')).toHaveCount(0);
+  // No date-poll templates (vote starters instead), no made-up name: the question is typed in full.
+  await expect(page.locator('[data-occasion]')).toHaveCount(0);
+  await expect(page.locator('[data-starter]').first()).toBeVisible();
   await expect(page.locator('#title')).toHaveValue('');
   await page.getByLabel(/Your name/).fill('Lee');
   await page.getByLabel('Option 1', { exact: true }).fill('Dune');
@@ -141,4 +142,31 @@ test('the Date · Vote switch is the same on both forms, and Back goes between t
   await expect(nav.getByRole('link', { name: '📅 Date' })).toHaveAttribute('aria-current', 'page');
   const widths = await page.evaluate(() => document.documentElement.scrollWidth - innerWidth);
   expect(widths).toBeLessThanOrEqual(0);
+});
+
+test('a leader on "if needed" alone isn’t called the favourite', async ({ page }) => {
+  // Taco Spot: both would go, but only if needed; Rosa's and Luigi's have a yes each.
+  const made = await (
+    await page.request.post('/api/events', {
+      data: {
+        title: 'Where should we eat?',
+        organizer: 'Priya',
+        timezone: 'UTC',
+        mode: 'topic',
+        options: [{ label: 'Rosa’s' }, { label: 'Luigi’s' }, { label: 'Taco Spot' }],
+      },
+    })
+  ).json();
+  const ev = await (await page.request.get(`/api/events/${made.id}`)).json();
+  const [rosa, luigi, taco] = ev.options.map((o) => o.id);
+  for (const [name, availability] of [
+    ['Ana', { [rosa]: 2, [taco]: 1 }],
+    ['Ben', { [luigi]: 2, [taco]: 1 }],
+  ])
+    await page.request.post(`/api/events/${made.id}/participants`, { data: { name, availability } });
+  await page.goto(`/e/${made.id}`);
+  const hero = page.locator('.best-hero');
+  await expect(hero.locator('.best-when')).toHaveText('Taco Spot');
+  await expect(hero.locator('.kicker')).toHaveText('Everyone could go');
+  await expect(hero).toContainText('2 of 2 would go (2 if needed)');
 });

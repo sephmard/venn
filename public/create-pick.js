@@ -1,7 +1,18 @@
 // "Vote on a few dates" (/new/pick): you suggest some dates or times, and everyone votes on each.
 // Loaded only on that page; the shared form parts are in create.js.
 
-import { DAY_PARTS, IF_NEEDED, MINUTE, MAX_SPAN_DAYS, YES, addDays, lengthChip, utcToZoned, zonedToUtc } from './core.js';
+import {
+  DAY_PARTS,
+  IF_NEEDED,
+  MINUTE,
+  MAX_SPAN_DAYS,
+  YES,
+  addDays,
+  dayStart,
+  lengthChip,
+  utcToZoned,
+  zonedToUtc,
+} from './core.js';
 import { editBlocks } from './block-edit.js';
 import { isPhone, monthView, timeView, tinyTime } from './picker.js';
 import { $, $$, app, dayLabel, esc, getConfig, lengthLabel, plural, shortRange, shortTime, todayStr, track } from './ui.js';
@@ -463,8 +474,8 @@ export function renderPick() {
     return sorted().map(([, it]) => {
       if (it.from == null)
         return {
-          start: zonedToUtc(it.date, 0, tz),
-          end: zonedToUtc(addDays(it.date, length === 'days' ? tripDays(it) : 1), 0, tz),
+          start: dayStart(it.date, tz),
+          end: dayStart(addDays(it.date, length === 'days' ? tripDays(it) : 1), tz),
         };
       const start = zonedToUtc(it.date, it.from, tz);
       return { start, end: start + (it.to - it.from) * MINUTE };
