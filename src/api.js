@@ -870,7 +870,9 @@ async function route(
         ...(typeof body.from === 'string' && { from: body.from }),
         ...(event.brand && { brand: 'yes' }),
       });
-      return json({ id, adminToken, ...(host && { participant: host }) }, 201);
+      // The links too, so a client needn't build them: `url` to share, `adminUrl` (private) to manage it.
+      const url = `${origin}/e/${id}`;
+      return json({ id, adminToken, url, adminUrl: `${url}#admin=${adminToken}`, ...(host && { participant: host }) }, 201);
     }
 
     // POST /api/brands  { name, accent?, font?, title?, note?, where?, emoji? }: a brand template
@@ -1056,7 +1058,8 @@ async function route(
 
     // GET /api/events/:id/event.ics
     if (parts.length === 3 && parts[2] === 'event.ics' && method === 'GET') {
-      if (ev.finalStart == null || isTopicPoll(ev)) return error(404, 'No time has been picked yet');
+      if (isTopicPoll(ev)) return error(404, 'A vote has no calendar file: it picks an option, not a time');
+      if (ev.finalStart == null) return error(404, 'No time has been picked yet');
       const end = meetingEnd(ev, ev.finalStart);
       const body = buildIcs({
         id: ev.id,
