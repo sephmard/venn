@@ -237,6 +237,8 @@ export function shapeDays(out, { today, nowMinutes = 0 }) {
   const notes = [];
   if ((said === 'clock' || said === 'hours') && level === 'days' && row === 1)
     notes.push('No times were given, so it asks about whole days.');
+  // "parts" with no part named on any day: whole days too, said rather than silently losing the evening.
+  if (said === 'parts' && level === 'days' && row === 1) notes.push('No part of the day was given, so it asks about whole days.');
 
   // Each day's windows at that level: its own, else the usual parts, else the whole day.
   const days = [];
