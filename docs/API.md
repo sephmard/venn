@@ -183,6 +183,7 @@ When a visitor (an IP address) sends too much too fast, the request is refused w
 | New polls and templates (`POST /api/events`, `POST /api/brands`) | 30 per 10 minutes (`CREATE_RATE_LIMIT`)                                                           |
 | Answers (`POST /api/events/:id/participants`)                    | 200 per 10 minutes (`ANSWER_RATE_LIMIT`)                                                          |
 | Polls made through [`/api/mcp`](MCP.md)                          | 600 per 10 minutes (`MCP_RATE_LIMIT`), in place of the two above                                  |
+| Checking the AI allowance (`GET /api/ai/allowance`)              | 120 per 10 minutes (`AI_ALLOWANCE_RATE_LIMIT`), with `Retry-After` like the three above           |
 | AI (`/api/ai/*`, `/api/events/:id/ai/*`)                         | 10 a minute (`AI_RATE_LIMIT`)                                                                     |
 | Place search (`GET /api/places`)                                 | 60 a minute (`PLACES_RATE_LIMIT`)                                                                 |
 | Messages (`POST /api/contact`)                                   | 3 an hour (`CONTACT_RATE_LIMIT`)                                                                  |

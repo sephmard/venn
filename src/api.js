@@ -706,6 +706,8 @@ async function route(
     if (parts.length === 2 && parts[0] === 'ai' && parts[1] === 'allowance' && method === 'GET') {
       const { perPerson, total, budget } = aiAllowance(env);
       if (!aiEnabled(env) || !perPerson || !total) return json({ allowance: 'off' });
+      const limited = await allowed('allowance');
+      if (!limited.ok) return tooFast(limited);
       const week = weekOf(now());
       const who = await allowanceKey(week, (await currentUser())?.id, clientIp);
       const used = (await store.aiSpend(week)) >= budget || (await store.peekAiAllowance(week, who, perPerson, total));

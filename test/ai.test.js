@@ -6,6 +6,7 @@ import { createApp } from '../server.js';
 import { aiAllowance, aiBudget, allowanceKey, costOf, weekOf } from '../src/ai.js';
 import { createStore, sqliteAdapter } from '../src/store.js';
 import { handleApi } from '../src/api.js';
+import { writeWindows } from '../src/limits.js';
 
 // A stand-in for the Anthropic client: records each request and returns the next canned output.
 const calls = [];
@@ -444,6 +445,18 @@ test('the allowance reads "off" where the server key pays for nothing, and "used
     await get({ ANTHROPIC_API_KEY: 'k', AI_WEEKLY_BUDGET_USD: '1' }, (store) => store.addAiSpend(week, 1_000_000)),
     { allowance: 'used' },
   );
+  // Asking is cheap but still limited per address (a database read anyone could loop on).
+  const store = createStore(sqliteAdapter(new DatabaseSync(':memory:')));
+  const opts = {
+    env: { ANTHROPIC_API_KEY: 'k', AI_ALLOWANCE_RATE_LIMIT: '2' },
+    clientIp: '5.5.5.5',
+    writeWindows: writeWindows(),
+  };
+  const ask = () => handleApi(new Request('http://x/api/ai/allowance'), store, opts);
+  assert.deepEqual([(await ask()).status, (await ask()).status], [200, 200]);
+  const third = await ask();
+  assert.equal(third.status, 429);
+  assert.ok(Number(third.headers.get('retry-after')) > 0);
   // Everyone's share used up, this visitor's own not: used too.
   assert.deepEqual(
     await get({ ANTHROPIC_API_KEY: 'k', AI_WEEKLY_TOTAL: '1' }, (store) => store.takeAiAllowance(week, 'someone-else', 20, 1)),
