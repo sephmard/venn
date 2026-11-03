@@ -55,7 +55,7 @@ const TITLES = [
 ];
 const PARTS = [
   ['morning', /\bmornings?\b/, /\b(breakfast|brunch)\b/],
-  ['afternoon', /\bafternoons?\b/, /\blunch\b/],
+  ['afternoon', /\bafternoons?\b/, /\b(lunch)\b/],
   ['evening', /\b(evenings?|tonight)\b/, /\b(dinner|supper|drinks|date night|game night|movie night|party)\b/],
 ];
 
@@ -137,7 +137,10 @@ export function parseDays(text, { today }) {
   const days = new Set();
   let singular = false; // "Saturday", not "Saturdays"
   let next = ''; // "next Tuesday"
-  for (const [, before, name, plural] of t.matchAll(/\b(next |this |every )?([a-z]+?)(s)?\b(?=[ ])/g)) {
+  // "Weds", "tues" and "thurs" are one day, not plurals; "Sats" and "suns" are nothing; "the sun" is the sun.
+  for (const [, before, word] of t.replace(/\bthe sun\b/g, ' ').matchAll(/\b(next |this |every )?([a-z]+)\b(?=[ ])/g)) {
+    const plural = !(word in WEEKDAYS) && word.endsWith('s');
+    const name = plural ? word.slice(0, -1) : word;
     if (!(name in WEEKDAYS) || (name.length < 4 && plural)) continue;
     days.add(WEEKDAYS[name]);
     if (!plural && before !== 'every ') singular = true;
