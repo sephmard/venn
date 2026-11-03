@@ -13,8 +13,7 @@ import {
   utcToZoned,
   zonedToUtc,
 } from './core.js';
-import { editBlocks } from './block-edit.js';
-import { isPhone, monthView, timeView, tinyTime } from './picker.js';
+import { isPhone, monthView, tinyTime } from './picker.js';
 import { $, $$, app, dayLabel, esc, getConfig, lengthLabel, plural, shortRange, shortTime, todayStr, track } from './ui.js';
 
 import {
@@ -70,6 +69,10 @@ export function renderPick() {
   let lastFrom = null; // the start of the option added or moved last, where other days open
   let half = null; // the mornings, afternoons and evenings, for half-day options
   let mounts = 0; // the half-day picker loads on demand: only the latest calendar shows when it arrives
+  // Options with times: the week or day (time-view.js) and dragging its blocks (block-edit.js),
+  // fetched from the start, as most plans have times.
+  let tv = null;
+  const loadTime = Promise.all([import('./time-view.js'), import('./block-edit.js')]).then((m) => (tv = m));
   let nav = null; // more ways around the calendar (day-nav.js), loaded after the page
   let shown = []; // the days the calendar shows
 
@@ -171,6 +174,7 @@ export function renderPick() {
 
   // ----- the pickers -----
   function mountPicker() {
+    if (timed() && !tv) return loadTime.then(() => mountPicker());
     view?.cleanup();
     nav?.cleanup();
     nav = null;
@@ -184,6 +188,7 @@ export function renderPick() {
     if (timed()) {
       buildAddTime();
       whenHint('');
+      const [{ timeView }, { editBlocks }] = tv;
       view = timeView(root, {
         label: 'Calendar',
         views: ['week', 'day'],
@@ -516,7 +521,7 @@ export function renderPick() {
       if (n) items.set(`${date}|day`, { date, days: len === 'days' ? n[i] : 1, v });
       else items.set(`${date}|${from}`, { date, from, to: Math.min(from + (o.end - o.start) / MINUTE, 1440), v });
     });
-    mountPicker();
+    await mountPicker();
     const first = sorted()[0]?.[1].date;
     if (first) (view || month)?.show(first);
     renderList();

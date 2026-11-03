@@ -1,4 +1,4 @@
-// Changing blocks on the time grid (picker.js): drag an edge to resize, drag the block (touch: after a
+// Changing blocks on the time grid (time-view.js): drag an edge to resize, drag the block (touch: after a
 // hold) to move it, or remove it with its ×. Organizers only, so the poll page doesn't download it.
 
 import { $, buzz, esc, shortRange } from './ui.js';
@@ -7,7 +7,7 @@ const STEP = 30;
 const HOLD = 300; // ms a finger rests on a block before dragging moves it instead of scrolling
 
 /**
- * Pass as `editBlocks` to timeView; picker.js calls it with the grid's root and helpers. With
+ * Pass as `editBlocks` to timeView; time-view.js calls it with the grid's root and helpers. With
  * `onRemove(key)`, each block gets a × (shown on hover with a mouse, always on touch screens), named
  * by the block's `remove` text.
  */
@@ -116,7 +116,7 @@ export function editBlocks(root, { blocks, range, minuteAt, rowPx, onResize, onM
   window.addEventListener('pointerup', finishEdit);
   const handle = (edge) => (onResize ? `<i class="tg-handle tg-${edge}" data-edge="${edge}" aria-hidden="true"></i>` : '');
   return {
-    /** Markup for the edges of each block, which picker.js puts in. */
+    /** Markup for the edges of each block, which time-view.js puts in. */
     top: handle('top'),
     bottom: handle('bottom'),
     /** Markup after each block: its ×, in a box the block's size so it lines up. */

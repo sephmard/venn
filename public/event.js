@@ -747,7 +747,7 @@ export async function renderEvent(id, navigate) {
     if (calView) return calView.render();
     if (daysMode) return renderDays();
     // The calendar's code loads the first time someone opens it; most people answer on the list.
-    if (!timeView) return void import('./picker.js').then((m) => ((timeView = m.timeView), renderMineView()));
+    if (!timeView) return void import('./time-view.js').then((m) => ((timeView = m.timeView), renderMineView()));
     const days = [...new Set(windows.map((w) => utcToZoned(w.start, st.tz).date))].sort();
     const mins = windows.flatMap((w) => [utcToZoned(w.start, st.tz).minutes, utcToZoned(w.end, st.tz).minutes || 1440]);
     const from = Math.max(0, Math.floor((Math.min(...mins) - 60) / 60) * 60);
