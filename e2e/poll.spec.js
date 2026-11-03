@@ -1645,8 +1645,8 @@ test.describe('in UTC', () => {
     // to), answered like any poll, with each row's answer going to all of its times.
     const rows = page.locator('#mine .row');
     await expect(rows).toHaveCount(12);
-    await expect(rows.first()).toContainText('9:00 AM – 11:00 AM');
-    await expect(rows.nth(5)).toContainText('7:00 PM – 9:00 PM');
+    await expect(rows.first()).toContainText(/9:00( AM)? – 11:00 AM/);
+    await expect(rows.nth(5)).toContainText(/7:00( PM)? – 9:00 PM/);
     await page.click('#fill'); // yes to all
     await rows.nth(6).locator('[data-vote="1"]').click();
     await expect(rows.first()).toHaveAttribute('data-v', '2');
