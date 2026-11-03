@@ -18,6 +18,7 @@
 import { ValidationError, isEmail } from '../public/core.js';
 import { emailEnabled, sendEmail } from './notify.js';
 import { button, emailLayout, escHtml, heading, linkLine, para } from './notify.js';
+import { siteOrigin } from './site.js';
 import { acceptablePassword, decoyHash, hashPassword, needsRehash, verifyPassword } from './password.js';
 
 export const SIGNUP_HOURS = 24;
@@ -231,9 +232,10 @@ async function sendLink(ctx, { purpose, email, userId = null, data = null, minut
     now,
     expiresAt: now + minutes * 60_000,
   });
-  const link = `${url.origin}${path}#t=${token}`;
+  const site = siteOrigin(env, url); // PUBLIC_URL, or this request's own (src/site.js)
+  const link = `${site}${path}#t=${token}`;
   waitUntil(
-    sendEmail(env, { to: email, ...make(link, url.origin) }, { fetchImpl }).catch((e) =>
+    sendEmail(env, { to: email, ...make(link, site) }, { fetchImpl }).catch((e) =>
       console.error('sign-in email failed', e.message),
     ),
   );
@@ -352,7 +354,7 @@ const PUBLIC = {
     await store.deleteSessions(t.userId);
     await store.dropEmailTokens({ userId: t.userId, purpose: 'reset' });
     await store.dropEmailTokens({ userId: t.userId, purpose: 'change' });
-    notify(ctx, t.email, passwordChangedEmail(ctx.url.origin, { added: !had }));
+    notify(ctx, t.email, passwordChangedEmail(siteOrigin(ctx.env, ctx.url), { added: !had }));
     return ctx.json({ ok: true, email: had?.email || t.email });
   },
 
@@ -368,7 +370,7 @@ const PUBLIC = {
     await store.changeEmail(t.userId, t.email);
     await store.dropEmailTokens({ userId: t.userId, purpose: 'change' });
     await store.dropEmailTokens({ userId: t.userId, purpose: 'reset' });
-    if (login.email !== t.email) notify(ctx, login.email, emailChangedEmail(t.email, ctx.url.origin));
+    if (login.email !== t.email) notify(ctx, login.email, emailChangedEmail(t.email, siteOrigin(ctx.env, ctx.url)));
     return ctx.json({ ok: true, email: t.email });
   },
 };
@@ -396,7 +398,7 @@ const SIGNED_IN = {
     await store.setPassword({ userId: user.id, email: login.email, hash: await hashPassword(body.password), now });
     await store.deleteSessions(user.id, ctx.sessionHash);
     await store.dropEmailTokens({ userId: user.id, purpose: 'reset' });
-    notify(ctx, login.email, passwordChangedEmail(ctx.url.origin));
+    notify(ctx, login.email, passwordChangedEmail(siteOrigin(ctx.env, ctx.url)));
     return ctx.json({ ok: true });
   },
 

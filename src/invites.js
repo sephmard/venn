@@ -11,6 +11,7 @@
 import { ValidationError, isTopicPoll } from '../public/core.js';
 import { whiteLabelOf } from './brands.js';
 import { mayEmail } from './recipients.js';
+import { publicOrigin } from './site.js';
 import { closesLabel, invitedUrl, isClosed, isDecided } from './deadline.js';
 import { emailEnabled, inviteEmail, normalizeEmail, sendEmail, unsubscribeHeaders, unsubscribeLink } from './notify.js';
 
@@ -86,7 +87,7 @@ export async function sendInvites({ store, env = {}, fetchImpl = fetch, id, user
   const settings = (await store.getNotify(id)) || {};
   const r = settings.remind;
   if (!r?.invitees?.length) return 0;
-  const site = (r.origin || origin || env.PUBLIC_URL || '').replace(/\/+$/, '');
+  const site = (publicOrigin(env) || r.origin || origin || '').replace(/\/+$/, '');
   if (!site) return 0;
   const answered = new Set((await store.listEmails(id)).values());
   let room = MAX_INVITE_EMAILS - (r.invitesSent || 0);

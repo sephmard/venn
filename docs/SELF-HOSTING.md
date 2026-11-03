@@ -18,6 +18,8 @@ npx wrangler deploy
 
 Tables are created automatically on the first request.
 
+Set `PUBLIC_URL` in `[vars]` (for example `https://polls.example.com`) once the site has its own address. Links in emails, calendars and new polls then always use it, and pages opened on another address of the Worker (like its `workers.dev` one) move there.
+
 ### Deploy from GitHub Actions
 
 The [deploy workflow](../.github/workflows/deploy.yml) deploys every push to `main`. It's off by default, so forks never try to deploy. To turn it on, set these under **Settings → Secrets and variables → Actions**:

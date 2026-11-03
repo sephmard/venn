@@ -39,6 +39,16 @@ const SCHEMA = [
    )`,
   `CREATE INDEX IF NOT EXISTS email_recipients_day ON email_recipients(day)`,
   // A one-line note on an answer ("Can only stay till 9"). Shown with the answer, never sent anywhere.
+  // A signed-in account's default template for each kind of poll ('date' or 'vote'): a brand
+  // template it owns or was given (src/defaults.js). Checked again whenever it's read.
+  `CREATE TABLE IF NOT EXISTS user_defaults (
+     user_id TEXT NOT NULL,
+     format TEXT NOT NULL,
+     brand_id TEXT NOT NULL,
+     updated_at INTEGER NOT NULL,
+     PRIMARY KEY (user_id, format)
+   )`,
+  `CREATE INDEX IF NOT EXISTS user_defaults_brand ON user_defaults(brand_id)`,
   `CREATE TABLE IF NOT EXISTS participant_notes (
      participant_id TEXT PRIMARY KEY,
      event_id TEXT NOT NULL,
@@ -364,6 +374,7 @@ export function createStore(db) {
       await db.run("DELETE FROM owners WHERE kind = 'brand' AND item_id = ?", [id]);
       await db.run('DELETE FROM brand_members WHERE brand_id = ?', [id]);
       await db.run('DELETE FROM brand_invites WHERE brand_id = ?', [id]);
+      await db.run('DELETE FROM user_defaults WHERE brand_id = ?', [id]);
       await db.run('DELETE FROM brands WHERE id = ?', [id]);
     },
 
@@ -390,6 +401,7 @@ export function createStore(db) {
     async removeBrandMember(brandId, userId) {
       await init();
       await db.run('DELETE FROM brand_members WHERE brand_id = ? AND user_id = ?', [brandId, userId]);
+      await db.run('DELETE FROM user_defaults WHERE brand_id = ? AND user_id = ?', [brandId, userId]);
     },
 
     /** Who a template is shared with, first invited first: [{ userId, name, role }]. */
@@ -503,6 +515,7 @@ export function createStore(db) {
       await db.run('DELETE FROM email_tokens WHERE user_id = ?', [userId]);
       await db.run('DELETE FROM owners WHERE user_id = ?', [userId]);
       await db.run('DELETE FROM brand_members WHERE user_id = ?', [userId]);
+      await db.run('DELETE FROM user_defaults WHERE user_id = ?', [userId]);
       await db.run('DELETE FROM sessions WHERE user_id = ?', [userId]);
       await db.run('DELETE FROM users WHERE id = ?', [userId]);
     },
@@ -530,6 +543,7 @@ export function createStore(db) {
     async removeOwner(kind, itemId, userId) {
       await init();
       await db.run('DELETE FROM owners WHERE kind = ? AND item_id = ? AND user_id = ?', [kind, itemId, userId]);
+      if (kind === 'brand') await db.run('DELETE FROM user_defaults WHERE brand_id = ? AND user_id = ?', [itemId, userId]);
     },
 
     /** An account's polls, newest first: what "My polls" lists. */
@@ -612,6 +626,24 @@ export function createStore(db) {
      * An account's brand templates, newest first: the ones it keeps (role 'owner') and the ones
      * shared with it ('admin' can change it, 'user' makes polls with it).
      */
+    /** An account's default templates: [{ format, brandId }]. */
+    async listDefaults(userId) {
+      await init();
+      const rows = await db.all('SELECT format, brand_id FROM user_defaults WHERE user_id = ?', [userId]);
+      return rows.map((r) => ({ format: r.format, brandId: r.brand_id }));
+    },
+
+    /** Set (or, with no brandId, clear) an account's default template for one kind of poll. */
+    async setDefault(userId, format, brandId, now) {
+      await init();
+      if (!brandId) return db.run('DELETE FROM user_defaults WHERE user_id = ? AND format = ?', [userId, format]);
+      await db.run(
+        `INSERT INTO user_defaults (user_id, format, brand_id, updated_at) VALUES (?, ?, ?, ?)
+         ON CONFLICT(user_id, format) DO UPDATE SET brand_id = excluded.brand_id, updated_at = excluded.updated_at`,
+        [userId, format, brandId, now],
+      );
+    },
+
     async listOwnedBrands(userId) {
       await init();
       const rows = await db.all(

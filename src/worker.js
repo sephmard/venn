@@ -7,6 +7,7 @@ import { isAppRoute } from './routes.js';
 import { SECURITY_HEADERS } from './security-headers.js';
 import { homePage, pollShell } from './preview.js';
 import { sendDeadlines } from './deadline.js';
+import { canonicalRedirect, siteOrigin } from './site.js';
 
 let store;
 
@@ -22,6 +23,9 @@ export default {
         clientIp: request.headers.get('cf-connecting-ip') || '',
       });
     }
+    // A page opened on another address of this server (workers.dev, a preview): the public one.
+    const moved = canonicalRedirect(request, env);
+    if (moved) return moved;
     try {
       return await servePage(request, env, url);
     } catch (e) {
@@ -48,7 +52,7 @@ async function servePage(request, env, url) {
     const headers = new Headers(asset.headers);
     for (const k of ['content-length', 'content-encoding', 'etag', 'last-modified']) headers.delete(k);
     for (const [k, v] of Object.entries(SECURITY_HEADERS)) headers.set(k, v);
-    const html = homePage(await asset.text(), url);
+    const html = homePage(await asset.text(), new URL(url.pathname, siteOrigin(env, url)));
     return new Response(request.method === 'HEAD' ? null : html, { status: asset.status, headers });
   }
   const app = isAppRoute(url.pathname);
@@ -57,7 +61,7 @@ async function servePage(request, env, url) {
     // poll pages carry the poll's own link preview (src/preview.js), so the page isn't app.html as it is.
     const asset = await env.ASSETS.fetch(new Request(new URL('/app', url)));
     // An embed page (src/embed.js) may be framed by its template's websites, so it brings its own headers.
-    const shell = await pollShell(await asset.text(), { pathname: url.pathname, origin: url.origin, store });
+    const shell = await pollShell(await asset.text(), { pathname: url.pathname, origin: siteOrigin(env, url), store });
     const html = shell.html;
     const headers = new Headers(asset.headers);
     for (const k of ['content-length', 'content-encoding', 'etag', 'last-modified', 'x-frame-options']) headers.delete(k);
