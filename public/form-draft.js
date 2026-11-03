@@ -74,7 +74,7 @@ export async function keep(k, ownPart, putBack, sharedParts) {
   // Said once, quietly, with a way to start again; it goes at the first change.
   ($('.kind-switch') || $('#create h1')).insertAdjacentHTML(
     'afterend',
-    '<p class="draft-note" id="draft-note">Picked up where you left off. <button type="button" class="link-btn" id="draft-reset">Start over</button></p>',
+    `<p class="draft-note" id="draft-note">${d.fromAi ? 'Made a vote from what you wrote. Check the options.' : 'Picked up where you left off.'} <button type="button" class="link-btn" id="draft-reset">Start over</button></p>`,
   );
   $('#draft-reset').onclick = () => {
     drop();

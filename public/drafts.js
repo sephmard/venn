@@ -68,6 +68,7 @@ export function cleanFormDraft(d, today) {
     out.kind = d.kind === 'yesno' ? 'yesno' : 'options';
     out.single = d.single === true;
   }
+  if (d.fromAi === true) out.fromAi = true; // AI on "Create a Venn" read it as a vote (ai-draft.js)
   return out;
 }
 

@@ -164,12 +164,33 @@ const CASES = [
     level: 'parts',
     want: ['2026-11-03 evening'],
   },
+  // What the group is deciding (docs/AI.md, "A vote, not a time"): `vote` is 'what', 'both' or 'when'.
+  {
+    name: 'v1 choose between three dinners',
+    text: 'Choose between Italian, Thai, and Mexican for dinner.',
+    vote: 'what',
+    options: 3,
+  },
+  { name: 'v2 vote on the next book', text: 'Vote on our next book: Piranesi, Dune or Circe', vote: 'what', options: 3 },
+  {
+    name: 'v3 where and when for dinner',
+    text: 'Let’s decide where and when to have dinner this week',
+    vote: 'both',
+    level: 'parts',
+  },
+  { name: 'v4 a plain plan is no vote', text: 'Which weekend works for a cabin trip?', vote: 'when', level: 'days' },
 ];
 
 const key = (d) => `${d.date} ${d.part ?? (d.start != null ? `${d.start}-${d.end}` : 'all')}`;
 
 function check(c, draft) {
   const problems = [];
+  if (c.vote) {
+    const said = draft.vote ? (draft.vote.both ? 'both' : 'what') : 'when';
+    if (said !== c.vote) problems.push(`read as ${said}, not ${c.vote}`);
+    if (c.options && draft.vote?.options.length !== c.options) problems.push(`${draft.vote?.options.length ?? 0} choices`);
+    if (c.vote === 'what') return problems; // no days to check
+  }
   if (draft.level !== c.level) problems.push(`mode ${draft.level}, not ${c.level}`);
   if (c.row && draft.row !== c.row) problems.push(`${draft.row} in a row, not ${c.row}`);
   if (c.want) {
