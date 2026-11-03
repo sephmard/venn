@@ -15,6 +15,10 @@
       on = localStorage.getItem('venn:retro') !== '0';
     } catch {}
   if (on) document.documentElement.classList.add('retro');
+  // Retro (decided here, or by the server for a poll in that look): the browser's bars in the night
+  // sky's colour, not the classic page's (retro-look.js keeps it up when the look changes).
+  if (document.documentElement.classList.contains('retro'))
+    for (const m of document.querySelectorAll('meta[name="theme-color"]')) m.content = '#0d0221';
   // The create pages: no Create a Venn in the bar (app.js keeps this up to date).
   if (/^\/new(\/|$)/.test(location.pathname)) document.documentElement.classList.add('creating');
   // A poll shown in another website's frame (/embed/<id>): the poll alone, without Venn's bar.
