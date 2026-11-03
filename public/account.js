@@ -21,6 +21,7 @@ import {
   whenShort,
   addedText,
   parseVennLink,
+  rememberedLinks,
   signInAgree,
   signInButtons,
 } from './account-data.js';
@@ -90,6 +91,7 @@ export async function renderAccount() {
     const providers = me.providers || [];
     seenProviders(providers);
     if (String(early) !== String(providers)) showSignIn(providers, failed, mode);
+    showDevicePolls();
     return;
   }
   accountHint({ initial: initial(me.user), name: me.user.name || me.user.email || '' });
@@ -196,6 +198,35 @@ function showSignIn(providers, failed, mode) {
       a.lastChild.textContent = `Opening ${a.lastChild.textContent.replace('Continue with ', '')}…`;
     });
 }
+/**
+ * Signed out: the polls this browser made or answered, a tap away with no account (each opens as
+ * its organizer where this browser has the link). Signing in keeps them on any device.
+ */
+async function showDevicePolls() {
+  const { polls, answers } = rememberedLinks();
+  const made = new Set(polls.map((p) => p.id));
+  const ids = [...new Set([...made, ...answers.map((a) => a.id)])].slice(0, 30);
+  if (!ids.length) return;
+  const found = (await Promise.all(ids.map((id) => api(`events/${id}`).catch(() => null)))).filter(Boolean);
+  const page = app.querySelector('.acct-signin-page:not([aria-busy])');
+  if (!found.length || !page || page.querySelector('.acct-device')) return;
+  found.sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
+  const row = (p) => `
+    <li class="acct-item"><a class="acct-row" href="/e/${esc(p.id)}" data-link>
+      <span class="acct-icon"${tileAttr(p.tile)} aria-hidden="true">${icon(p)}</span>
+      <span class="acct-text"><b>${esc(p.title)}</b><span class="muted">${made.has(p.id) ? 'You made it' : 'You answered'}</span></span>
+      ${p.createdAt ? `<span class="acct-when muted">${esc(whenShort(p.createdAt))}</span>` : ''}
+    </a></li>`;
+  page.insertAdjacentHTML(
+    'beforeend',
+    `<section class="acct-device" aria-labelledby="device-h">
+      <h2 class="acct-h" id="device-h">On this device</h2>
+      <p class="hint">Polls this browser made or answered.</p>
+      <ul class="acct-list" aria-labelledby="device-h">${found.map(row).join('')}</ul>
+    </section>`,
+  );
+}
+
 // Back from the provider's page without signing in (the page comes back from the cache): ready again.
 addEventListener('pageshow', (e) => {
   if (e.persisted && location.pathname === '/me' && app.querySelector('.btn-signin.is-busy')) renderAccount();

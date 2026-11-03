@@ -923,3 +923,14 @@ html.retro .btn-signin {
 .acct-kinds {
   margin-bottom: 14px;
 }
+
+/* Signed out: the polls this browser made or answered (account.js showDevicePolls). */
+.acct-device {
+  width: 100%;
+  margin-top: 28px;
+  text-align: left;
+}
+.acct-signin-page .acct-device .hint {
+  margin: 0 0 10px;
+  text-align: left;
+}

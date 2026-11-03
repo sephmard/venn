@@ -5,7 +5,9 @@
 import { LIMITS } from './core.js';
 import {
   createBar,
+  draftChanged,
   explainNotReady,
+  keepDraft,
   fillCommon,
   kindSwitch,
   loadSource,
@@ -148,6 +150,7 @@ export function renderTopic() {
   });
 
   function update() {
+    draftChanged();
     const n = labels().length;
     const twice = dupe();
     const few = kind === 'options' && n < 2;
@@ -189,7 +192,22 @@ export function renderTopic() {
   renumber();
   showConfig(update);
   if (src) prefill();
-  else prefillTitle();
+  else {
+    prefillTitle();
+    // A half-made vote comes back after a reload or Back (create.js).
+    keepDraft(
+      'topic',
+      () => ({ kind, options: inputs().map((i) => i.value), single: $('#single').checked }),
+      (d) => {
+        if (d.options.length) {
+          $('#opts').innerHTML = d.options.map((w, i) => row(w, i + 1)).join('');
+          renumber();
+        }
+        $('#single').checked = d.single;
+        setKind(d.kind);
+      },
+    );
+  }
   // Where the server has AI, "Use AI" (ai-draft.js) writes the question and the options.
   if (!src)
     getConfig().then(

@@ -3441,6 +3441,8 @@ test('times drawn in hours stay on every level, and the poll asks about them whe
 
 test("what the organizer picks is the key's green at every level, in the retro look too", async ({ page }) => {
   for (const url of ['/new/free', '/new/free?retro=1']) {
+    // A fresh form each time, not the last one's draft (drafts.js keeps a half-made poll per tab).
+    if (page.url().startsWith('http')) await page.evaluate(() => sessionStorage.clear());
     await page.goto(url);
     const first = await nextMonth(page);
     const green = () => page.locator('.tap-key .swatch-yes').evaluate((el) => getComputedStyle(el).backgroundColor);
