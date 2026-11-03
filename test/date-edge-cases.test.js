@@ -35,8 +35,14 @@ const LA = 'America/Los_Angeles';
 const iso = (t) => new Date(t).toISOString();
 /** Labels with their narrow and no-break spaces as plain ones, so they read as written here. */
 const plain = (s) => s.replace(/[\u00a0\u202f\u2009]/g, ' ');
-/** A Venn's HTML as the words it shows, its day headings kept. */
-const words = (html) => plain(html.replace(/<(?!\/?h3)[^>]*>/g, ''));
+/** A Venn's HTML as the text between its tags, with its day headings' <h3> tags kept to match on. */
+const words = (html) =>
+  plain(
+    html
+      .split(/(<\/?h3>)|<[^>]*>/)
+      .filter(Boolean)
+      .join(''),
+  );
 const wall = (t, tz) => {
   const z = utcToZoned(t, tz);
   return `${z.date} ${String(Math.floor(z.minutes / 60)).padStart(2, '0')}:${String(z.minutes % 60).padStart(2, '0')}`;
