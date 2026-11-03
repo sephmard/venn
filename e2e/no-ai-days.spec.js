@@ -56,3 +56,55 @@ test('no AI: “Fridays next month” picks next month’s Fridays to review, an
   expect(ev.dates).toEqual(fridays);
   expect(ev.slotMinutes).toBe(1440);
 });
+
+test('no AI: words it can’t read under an earlier draft say the draft is still there, and mark it as the last one', async ({
+  page,
+}) => {
+  await page.goto('/new');
+  await page.getByRole('button', { name: 'Describe it' }).click();
+  const [err, done] = [page.locator('#ai-err'), page.locator('#ai-done')];
+  const still = 'Your last draft is still below, unchanged.';
+
+  // Refused with no draft yet: the reason alone.
+  await page.fill('#ai-prompt', 'Friday evening or Saturday afternoon');
+  await page.click('#ai-go');
+  await expect(err).toContainText('Say one time for all the days');
+  await expect(err).not.toContainText(still);
+
+  // A draft, then words it can't read: the alert says the draft is still below, and the card is the last one.
+  const open = async () => {
+    if (await page.locator('#ai-draft').isHidden()) await page.getByRole('button', { name: 'Describe it' }).click();
+  };
+  const refuse = async () => {
+    await open();
+    await page.fill('#ai-prompt', 'Friday evening or Saturday afternoon');
+    await page.click('#ai-go');
+    await expect(err).toHaveText(/Say one time for all the days.*Your last draft is still below, unchanged\.$/);
+    await expect(done).toHaveClass(/\bstale\b/);
+    await expect(done.locator('.ai-done-kicker')).toHaveText('Last draft');
+    await expect(done.getByRole('button', { name: 'Undo' })).toBeEnabled();
+  };
+  await page.fill('#ai-prompt', 'Fridays next month');
+  await page.click('#ai-go');
+  await expect(done).toBeVisible();
+  await expect(done).not.toHaveClass(/\bstale\b/);
+  await refuse();
+  await refuse(); // again: still one kicker
+  await expect(done.locator('.ai-done-kicker')).toHaveCount(1);
+
+  // The next good fill replaces it: no "Last draft", nothing about it in the box.
+  await open();
+  await page.fill('#ai-prompt', 'Fridays next month');
+  await page.click('#ai-go');
+  await expect(done).toBeVisible();
+  await expect(done).not.toHaveClass(/\bstale\b/);
+  await expect(done.locator('.ai-done-kicker')).toHaveCount(0);
+  await expect(err).toBeEmpty();
+
+  // Undo clears it too: the card goes, and the reason no longer points at it.
+  await refuse();
+  await done.getByRole('button', { name: 'Undo' }).click();
+  await expect(done).toHaveCount(0);
+  await expect(err).toContainText('Say one time for all the days');
+  await expect(err).not.toContainText(still);
+});

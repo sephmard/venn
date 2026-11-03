@@ -62,6 +62,7 @@ export default defineConfig({
         PWNED_PASSWORDS: 'off',
         CREATE_RATE_LIMIT: '0',
         ANSWER_RATE_LIMIT: '0',
+        AI_RATE_LIMIT: '1000', // "Describe it" without AI (no-ai-days.spec.js), from one address
       },
       url: ACCOUNTS_URL,
       reuseExistingServer: !process.env.CI,
