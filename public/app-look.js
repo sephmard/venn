@@ -22,7 +22,7 @@
   if (embed) document.documentElement.classList.add('embed');
   // Each page's modules (kept in step with their imports by test/budget.test.js).
   const code = topic
-    ? ['create-topic.js', 'core.js', 'ui.js', 'create.js', 'templates.js', 'retro-look.js']
+    ? ['create-topic.js', 'core.js', 'ui.js', 'create.js', 'templates.js', 'topic-templates.js', 'retro-look.js']
     : create
       ? ['create-free.js', 'core.js', 'picker.js', 'ui.js', 'create.js', 'templates.js', 'retro-look.js']
       : embed || /^\/e\//.test(location.pathname)
