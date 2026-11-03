@@ -4,6 +4,8 @@
 // so this costs Venn nothing in AI and needs no key. Stateless JSON-RPC over HTTP POST
 // ("Streamable HTTP", answered as plain JSON).
 
+import { IF_NEEDED, LIMITS, YES, isDaysPoll, rankTimes } from '../public/core.js';
+
 const VERSIONS = ['2025-11-25', '2025-06-18', '2025-03-26', '2024-11-05'];
 const MAX_BODY = 64 * 1024;
 
@@ -12,7 +14,7 @@ const TOOLS = [
     name: 'create_venn',
     title: 'Create a Venn',
     description:
-      'Create a Venn: a group poll that finds the day (or time) that works for everyone. Give either whole days to choose from, or specific times. Returns the link to share with guests and a private organizer link to manage the poll.',
+      'Create a Venn: a group poll that helps a group decide. Give exactly one of: whole `days` or specific `times` to find when to meet (e.g. "which weekend", "an evening next week"), or `options` to vote on what or where (e.g. "choose between Italian, Thai and Mexican", "which book next"). Returns the link to share with guests and a private organizer link to manage the poll.',
     inputSchema: {
       type: 'object',
       properties: {
@@ -21,7 +23,7 @@ const TOOLS = [
         days: {
           type: 'array',
           items: { type: 'string', description: 'YYYY-MM-DD' },
-          description: 'Whole days guests choose from (up to 62). Use this or times.',
+          description: 'Whole days guests choose from (up to 62), to find a date. Use one of days, times or options.',
         },
         times: {
           type: 'array',
@@ -33,7 +35,18 @@ const TOOLS = [
             },
             required: ['start', 'end'],
           },
-          description: 'Specific times guests choose from (up to 60). Use this or days.',
+          description: 'Specific times guests choose from (up to 60), to find a time. Use one of days, times or options.',
+        },
+        options: {
+          type: 'array',
+          items: { type: 'string', description: 'A short label, e.g. "Thai" (up to 120 characters)' },
+          description:
+            'Choices to vote on that are not dates: places, books, games, or a yes-or-no question (["Yes", "No"] with single). 1 to 20, no two the same. Use one of days, times or options.',
+        },
+        single: {
+          type: 'boolean',
+          description:
+            'With options only: true means everyone picks one option (needs at least two). Otherwise people answer yes, if needed or no to each.',
         },
         organizer: { type: 'string', description: "The organizer's name, shown to guests (optional)" },
         description: { type: 'string', description: 'Details for guests (optional, up to 1000 characters)' },
@@ -47,7 +60,7 @@ const TOOLS = [
     name: 'get_venn_results',
     title: 'Read a Venn’s answers',
     description:
-      'Read who has answered a Venn and which days or times work best. Takes the poll link (or its id). Names are left out when the organizer hid them.',
+      'Read who has answered a Venn: for a date poll, which days or times work best; for a vote (options), how many said yes or if needed to each option, which leads, and whether options are tied. Takes the poll link (or its id). Names are left out when the organizer hid them.',
     inputSchema: {
       type: 'object',
       properties: { poll: { type: 'string', description: 'The poll link, e.g. https://venn.day/e/abc123, or its id' } },
@@ -76,17 +89,44 @@ function label(ms, tz, wholeDay) {
   return new Intl.DateTimeFormat('en-US', opts).format(ms);
 }
 
+/** Mistakes in a vote's options, said so the assistant can fix them; the API checks the rest. */
+function optionsProblem(options, single) {
+  if (!Array.isArray(options)) return 'options must be a list of labels, like ["Italian", "Thai", "Mexican"].';
+  if (options.length > LIMITS.topics) return `Give at most ${LIMITS.topics} options (${options.length} given).`;
+  if (options.some((o) => typeof o !== 'string' || !o.trim())) return 'Each option must be a non-empty text label, like "Thai".';
+  const long = options.find((o) => o.trim().length > LIMITS.title);
+  if (long) return `Each option must be at most ${LIMITS.title} characters; shorten "${long.slice(0, 40)}…".`;
+  const seen = new Set();
+  for (const o of options) {
+    const key = o.trim().toLowerCase();
+    if (seen.has(key)) return `"${o.trim()}" is in the options twice; give each option once.`;
+    seen.add(key);
+  }
+  if (single === true && options.length < 2) return 'single needs at least two options to pick from.';
+  return null;
+}
+
 async function createVenn(args, call, origin) {
-  const { title, timezone, days, times, organizer, description, location } = args || {};
-  if (!!days?.length === !!times?.length) return toolText('Give either days or times (one of them, not both).', true);
+  const { title, timezone, days, times, options, single, organizer, description, location } = args || {};
+  const given = [days, times, options].filter((x) => x != null && !(Array.isArray(x) && !x.length)).length;
+  if (given !== 1)
+    return toolText(
+      'Give exactly one of days, times or options: days or times to find when to meet, options to vote on what or where.',
+      true,
+    );
+  if (single === true && options == null) return toolText('single only applies to options (a vote), not to days or times.', true);
   const body = { title, timezone, organizer, description, location };
-  if (days?.length)
+  if (options != null) {
+    const problem = optionsProblem(options, single);
+    if (problem) return toolText(problem, true);
+    Object.assign(body, { mode: 'topic', options: options.map((o) => o.trim()), ...(single === true && { single: true }) });
+  } else if (days?.length)
     Object.assign(body, { dates: days, startMinute: 0, endMinute: 1440, slotMinutes: 1440, durationMinutes: 1440 });
   else {
-    const options = times.map((t) => ({ start: Date.parse(t?.start), end: Date.parse(t?.end) }));
-    if (options.some((o) => !Number.isFinite(o.start) || !Number.isFinite(o.end)))
+    const slots = Array.isArray(times) ? times.map((t) => ({ start: Date.parse(t?.start), end: Date.parse(t?.end) })) : [];
+    if (!slots.length || slots.some((o) => !Number.isFinite(o.start) || !Number.isFinite(o.end)))
       return toolText('Each time needs a start and end in ISO 8601, like 2026-11-06T19:00:00+00:00.', true);
-    Object.assign(body, { mode: 'options', options });
+    Object.assign(body, { mode: 'options', options: slots });
   }
   const res = await call('events', { method: 'POST', body });
   const data = await res.json();
@@ -104,6 +144,7 @@ async function getResults(args, call, origin) {
   const res = await call(`events/${m[1]}`, { method: 'GET' });
   const ev = await res.json();
   if (!res.ok) return toolText(ev.error || 'Venn could not find that poll.', true);
+  if (ev.mode === 'topic') return toolText(voteResults(ev, origin));
   const people = ev.participants || [];
   const wholeDay = ev.slotMinutes === 1440;
   const options = (ev.slots || []).map((s) => {
@@ -117,15 +158,130 @@ async function getResults(args, call, origin) {
       ...(!ev.hideNames && { who: { available: yes.map((p) => p.name), ifNeeded: ifNeeded.map((p) => p.name) } }),
     };
   });
-  const best = [...options].sort((a, b) => b.available - a.available || b.ifNeeded - a.ifNeeded).slice(0, 5);
-  return toolText({
+  const answers = ev.responses ?? people.length;
+  const picked = ev.finalStart != null ? label(ev.finalStart, ev.timezone, wholeDay) : null;
+  const pickedLine = picked != null ? `The organizer picked ${picked}. ` : '';
+  const head = {
     title: ev.title,
     link: `${origin}/e/${ev.id}`,
     timezone: ev.timezone,
-    answers: people.length,
-    ...(ev.finalStart != null && { picked: label(ev.finalStart, ev.timezone, wholeDay) }),
-    ...(ev.hideResults ? { note: 'The organizer hid the answers.' } : { best, options: options.slice(0, 100) }),
+    answers,
+    ...(picked != null && { picked }),
+  };
+  if (ev.hideResults)
+    return toolText({ ...head, summary: `${pickedLine}The organizer hid the answers.`, note: 'The organizer hid the answers.' });
+  const { best, leading, summary } = bestTimes(ev, people, answers);
+  return toolText({ ...head, summary: pickedLine + summary, leading, best, options: options.slice(0, 100) });
+}
+
+/** "Fri, Nov 6 – Sun, Nov 8" or "Fri, Nov 6, 7:00 PM – 9:00 PM": a ranked stretch, in the poll's time zone. */
+function span(start, end, ev) {
+  const wholeDay = ev.slotMinutes === 1440;
+  const first = label(start, ev.timezone, wholeDay);
+  if (wholeDay) {
+    const last = label(end - 1, ev.timezone, true);
+    return last === first ? first : `${first} – ${last}`;
+  }
+  const time = (ms) => new Intl.DateTimeFormat('en-US', { timeZone: ev.timezone, hour: 'numeric', minute: '2-digit' }).format(ms);
+  return `${first} – ${time(end)}`;
+}
+
+/**
+ * The best days or times, ranked exactly as the poll page ranks them (rankTimes in public/core.js:
+ * most people who can make it, then most yeses, then the earliest; a trip's or meeting's length
+ * counts every day or hour of it). Times nobody can make are left out. Ties are named only for
+ * whole days, as on the page (public/event.js): a trip's or meeting's ranked stretches overlap
+ * one another, and the page doesn't name ties on specific times yet (backlog P10).
+ */
+function bestTimes(ev, people, answers) {
+  const ranked = rankTimes(ev, ev.slots || [], people, Infinity);
+  const best = ranked.slice(0, 5).map((r) => ({
+    when: span(r.start, r.end, ev),
+    start: new Date(r.start).toISOString(),
+    end: new Date(r.end).toISOString(),
+    available: r.yes.length,
+    ifNeeded: r.ifNeeded.length,
+    ...(!ev.hideNames && { who: { available: r.yes, ifNeeded: r.ifNeeded } }),
+  }));
+  const [first] = ranked;
+  const days = isDaysPoll(ev);
+  const trip = days && ev.durationMinutes > 1440;
+  const [one, many] = trip ? ['run of days', 'runs of days'] : days ? ['day', 'days'] : ['time', 'times'];
+  if (!answers) return { best, leading: [], summary: 'Nobody has answered yet.' };
+  if (!first) return { best, leading: [], summary: `${answers} answered, but no ${one} works for anyone yet.` };
+  const n = people.length;
+  const can = first.yes.length + first.ifNeeded.length;
+  const who =
+    can === n && !first.ifNeeded.length
+      ? n === 1
+        ? 'it works for the one person so far'
+        : 'everyone can make it'
+      : can === n && n > 1 && !first.yes.length
+        ? `all ${n} can make it if needed`
+        : `${can} of ${n} can make it${first.ifNeeded.length ? `, ${first.ifNeeded.length} if needed` : ''}`;
+  const same = (r) => r.yes.length === first.yes.length && r.ifNeeded.length === first.ifNeeded.length;
+  const alone = days && ev.durationMinutes <= ev.slotMinutes;
+  const top = alone ? ranked.filter(same) : [first];
+  const leading = top.map((r) => span(r.start, r.end, ev));
+  if (top.length > 1)
+    return { best, leading, summary: `Tied: ${andList(leading)}; for each, ${who}. No single best ${one} yet.` };
+  const others = !alone && ranked.slice(1).some(same) ? ` Other ${many} work as well.` : '';
+  return { best, leading, summary: `${leading[0]} works best: ${who}.${others}` };
+}
+
+const andList = (xs) => (xs.length < 3 ? xs.join(' and ') : `${xs.slice(0, -1).join(', ')} and ${xs.at(-1)}`);
+
+/**
+ * A vote's answers (a topic poll: slots are option ids). Ranked as on the poll page
+ * (public/topic-poll.js): yes and if needed both count, more yeses break a tie, then the
+ * organizer's order. The summary never claims more agreement than there is.
+ */
+function voteResults(ev, origin) {
+  const people = ev.participants || [];
+  const answers = ev.responses ?? people.length;
+  const picked = ev.options.find((o) => o.id === ev.picked)?.label;
+  const head = {
+    title: ev.title,
+    link: `${origin}/e/${ev.id}`,
+    kind: 'vote',
+    ...(ev.single && { single: true }),
+    answers,
+    ...(picked != null && { picked }),
+  };
+  const pickedLine = picked != null ? `The organizer picked ${picked}. ` : '';
+  if (ev.hideResults)
+    return { ...head, summary: `${pickedLine}The organizer hid the answers.`.trim(), note: 'The organizer hid the answers.' };
+  const options = ev.options.map((o) => {
+    const yes = people.filter((p) => p.availability?.[o.id] === YES);
+    const ifNeeded = people.filter((p) => p.availability?.[o.id] === IF_NEEDED);
+    return {
+      option: o.label,
+      yes: yes.length,
+      ifNeeded: ifNeeded.length,
+      ...(!ev.hideNames && { who: { yes: yes.map((p) => p.name), ifNeeded: ifNeeded.map((p) => p.name) } }),
+    };
   });
+  const ranked = options
+    .map((o, i) => ({ o, i, score: o.yes + o.ifNeeded }))
+    .sort((a, b) => b.score - a.score || b.o.yes - a.o.yes || a.i - b.i);
+  const top = ranked[0]?.score ? ranked.filter((r) => r.score === ranked[0].score && r.o.yes === ranked[0].o.yes) : [];
+  const leading = top.map((r) => r.o.option);
+  const count = (o) =>
+    ev.single
+      ? `${o.yes} of ${answers} picked it`
+      : `${o.yes + o.ifNeeded} of ${answers} would go${o.ifNeeded ? ` (${o.ifNeeded} if needed)` : ''}`;
+  const tie = (o) =>
+    ev.single
+      ? `with ${o.yes} of ${answers} picks each`
+      : `${o.yes + o.ifNeeded} of ${answers} would go to each${o.ifNeeded ? ` (${o.ifNeeded} if needed)` : ''}`;
+  const votes = !answers
+    ? 'Nobody has answered yet.'
+    : !top.length
+      ? `${answers} answered, but nobody said yes${ev.single ? '' : ' or if needed'} to any option yet.`
+      : top.length > 1
+        ? `Tied: ${andList(leading)}, ${tie(top[0].o)}. No single favourite yet.`
+        : `${leading[0]} leads: ${count(top[0].o)}.`;
+  return { ...head, summary: pickedLine + votes, leading, options };
 }
 
 /**
@@ -159,7 +315,7 @@ export async function handleMcp(request, call) {
           capabilities: { tools: { listChanged: false } },
           serverInfo: { name: 'venn', title: 'Venn', version: '1.0.0' },
           instructions:
-            'Venn finds the day that works for everyone. Use create_venn to make a poll and share its link; use get_venn_results to see which days work best. Venn is free, with no sign-up.',
+            'Venn helps a group decide: the day that works for everyone, or what or where to go. Use create_venn to make a poll (days or times to find a date, options to vote) and share its link; use get_venn_results to see which days or options work best. Venn is free, with no sign-up.',
         }),
       );
     }

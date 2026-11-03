@@ -10,7 +10,7 @@ import { cleanFormDraft } from '../public/drafts.js';
 test('vote starters: six, each with a question, a kind of answer and hints', () => {
   assert.deepEqual(
     TOPIC_TEMPLATES.map((t) => t.label),
-    ['Where to eat', 'What to do', 'Next book', 'Team decision', 'Trip destination', 'Yes or no'],
+    ['Where to eat', 'What to do', 'Next book', 'Team decision', 'Trip destination', 'Are we in?'],
   );
   for (const t of TOPIC_TEMPLATES) {
     assert.match(t.id, /^[a-z]+(-[a-z]+)*$/, t.id);
@@ -36,7 +36,7 @@ test('vote starters: their own names, never a date template’s; their emoji cou
 });
 
 test('vote starters: words only, never options, votes, names or dates', () => {
-  const allowed = ['id', 'emoji', 'label', 'question', 'ask', 'hint', 'yesNo', 'card'];
+  const allowed = ['id', 'emoji', 'label', 'question', 'ask', 'hint', 'yesNo', 'card', 'then', 'plan'];
   for (const t of TOPIC_TEMPLATES) {
     for (const k of Object.keys(t)) assert.ok(allowed.includes(k), `${t.id}.${k}`);
     for (const s of [t.question, t.hint ?? '']) assert.doesNotMatch(s, /\d/, t.id);

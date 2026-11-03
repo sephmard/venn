@@ -1392,7 +1392,7 @@ export async function renderEvent(id, navigate) {
       $('#best').innerHTML = `<div class="empty-state">
         ${n ? '<h3>Only your answer so far</h3><p class="hint">Share the link to see where everyone overlaps.</p>' : '<div class="venn-art" aria-hidden="true"><i></i><i></i><i></i></div><p><b>No answers yet.</b></p>'}
         <button class="btn" data-share>${canShare ? 'Share the poll' : 'Copy invite link'}</button>
-        ${n ? `<div><button type="button" class="link-btn" id="pick-anyway">Pick ${optionsMode ? 'an option' : listMode ? 'a date' : 'a time'} anyway</button></div>` : ''}
+        ${n ? `<div><button type="button" class="link-btn" id="pick-anyway">Pick ${listMode ? 'a date' : 'a time'} anyway</button></div>` : ''}
       </div>`;
       return;
     }

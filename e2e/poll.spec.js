@@ -1816,7 +1816,7 @@ test('the organizer alone can still pick: answers collected by text, then Pick a
   await page.goto(`/e/${id}#admin=${adminToken}`);
   const best = page.locator('#best');
   await expect(best).toContainText('Only your answer so far');
-  await best.getByRole('button', { name: 'Pick an option anyway' }).click();
+  await best.getByRole('button', { name: 'Pick a date anyway' }).click();
   // The usual ranking and Pick, ready to tap.
   await expect(page.locator('#best-h')).toBeVisible();
   const pick = page.locator('.best-hero [data-pick]');
@@ -1869,7 +1869,7 @@ test('on a phone, a new poll leads with sharing: one share button, the group, an
   await expect(page.locator('#group-count')).toHaveText('');
   for (const gone of ['#best-h', '.best-hero', '[data-pick]', '#overlap', '#ai-summary-btn'])
     await expect(page.locator(gone)).toBeHidden();
-  await expect(best.getByRole('button', { name: /^Pick an? \w+ anyway$/ })).toHaveClass('link-btn');
+  await expect(best.getByRole('button', { name: 'Pick a date anyway' })).toHaveClass('link-btn');
 
   // Their own tab shows the options in their poll, nothing to submit: their answer came with it.
   await page.click('#tab-mine');
@@ -3830,4 +3830,30 @@ test('the organizer sees who they invited and whether each has answered', async 
   const saved = await (await request.get(`/api/events/${id}/deadline`, { headers: { 'x-admin-token': adminToken } })).json();
   expect(saved.remindEvery).toBe(0);
   expect(saved.invitees.map((i) => i.email)).toEqual(['ana@example.com', 'lee@example.com']);
+});
+
+test('AI: when free requests are used up on Answer for me, the key form has no "Fill it in yourself" line', async ({
+  page,
+  request,
+}) => {
+  const t0 = Date.UTC(2030, 0, 8, 15);
+  const options = [{ start: t0, end: t0 + 3_600_000 }];
+  const { id } = await (
+    await request.post('/api/events', { data: { title: 'Sync', timezone: 'UTC', mode: 'options', options } })
+  ).json();
+  await page.route('**/api/events/*/ai/answer', (route) =>
+    route.fulfill({
+      status: 402,
+      contentType: 'application/json',
+      body: JSON.stringify({
+        error: 'Free AI requests are used up for this week. Add your own Anthropic API key to keep going.',
+      }),
+    }),
+  );
+  await page.goto(`/e/${id}`);
+  await page.click('#ai-answer-btn');
+  await page.fill('#ai-prefs', 'No mornings please');
+  await page.click('#ai-answer-go');
+  await expect(page.locator('#ai-key-box')).toContainText('used up for this week');
+  await expect(page.locator('#ai-by-hand')).toHaveCount(0); // only the create forms offer it
 });
