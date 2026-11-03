@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { allowWrite, writeWindows } from '../src/limits.js';
+import { allowWrite, checkWrite, limitHeaders, writeWindows } from '../src/limits.js';
 import { handleApi } from '../src/api.js';
 import { createStore, sqliteAdapter } from '../src/store.js';
 import { DatabaseSync } from 'node:sqlite';
@@ -43,6 +43,35 @@ test("Cloudflare's rate limiting binding is used when there is one", async () =>
   assert.deepEqual(keys, ['create:1.2.3.4', 'answer:unknown']);
 });
 
+test('a refused write says how long to wait: the oldest write in the window ageing out', async () => {
+  const w = writeWindows();
+  const env = { CREATE_RATE_LIMIT: '2' };
+  assert.deepEqual(await checkWrite(env, 'create', 'a', 0, w), { ok: true, limit: 2, remaining: 1, reset: 600 });
+  assert.deepEqual(await checkWrite(env, 'create', 'a', 4 * MIN, w), { ok: true, limit: 2, remaining: 0, reset: 360 });
+  // Full: one more is allowed once the first write (at 0) is ten minutes old, 5.5 minutes from now.
+  const refused = await checkWrite(env, 'create', 'a', 4.5 * MIN, w);
+  assert.deepEqual(refused, { ok: false, limit: 2, remaining: 0, reset: 330 });
+  assert.deepEqual(limitHeaders(refused), {
+    'retry-after': '330',
+    'ratelimit-limit': '2',
+    'ratelimit-remaining': '0',
+    'ratelimit-reset': '330',
+  });
+  // A refused write isn't counted, and waiting that long is enough.
+  assert.equal((await checkWrite(env, 'create', 'a', 4.5 * MIN + 330_000, w)).ok, true);
+  // Never under a second, even a moment before the window frees up.
+  assert.equal((await checkWrite(env, 'create', 'a', 10 * MIN + 4 * MIN - 1, w)).reset, 1);
+  // Allowed, turned off, or with an app key: no headers at all.
+  assert.deepEqual(limitHeaders({ ok: true, limit: 2, remaining: 1, reset: 600 }), {});
+  assert.deepEqual(await checkWrite({ CREATE_RATE_LIMIT: '0' }, 'create', 'a', 0, w), { ok: true });
+  assert.deepEqual(limitHeaders({ ok: true }), {});
+  // Cloudflare's binding only says no, and counts over at most a minute: wait a minute.
+  const binding = { WRITE_RATE_LIMITER: { limit: async () => ({ success: false }) } };
+  const no = await checkWrite(binding, 'create', 'a', 0, w);
+  assert.deepEqual(no, { ok: false, reset: 60 });
+  assert.deepEqual(limitHeaders(no), { 'retry-after': '60' });
+});
+
 test('the memory kept for the limits stays bounded', async () => {
   const w = writeWindows();
   for (let i = 0; i < 10_001; i++) await allowWrite({}, 'create', `ip${i}`, 0, w);
@@ -78,6 +107,15 @@ test('the API answers 429 once an address makes too many polls or answers', asyn
   const second = await post('/api/events', poll);
   assert.equal(second.status, 429);
   assert.match((await second.json()).error, /going a bit fast/);
+  // How long to wait, so a script can retry once instead of hammering.
+  const wait = Number(second.headers.get('retry-after'));
+  assert.ok(wait > 590 && wait <= 600, `Retry-After ${wait}`);
+  assert.equal(second.headers.get('ratelimit-limit'), '1');
+  assert.equal(second.headers.get('ratelimit-remaining'), '0');
+  assert.equal(second.headers.get('ratelimit-reset'), String(wait));
+  assert.equal(second.headers.get('cache-control'), 'no-store');
+  // A write that went through carries none of it.
+  assert.equal(first.headers.get('retry-after'), null);
   assert.equal((await post('/api/brands', { name: 'Acme' })).status, 429);
   const answer = { name: 'Sam', availability: {} };
   assert.notEqual((await post(`/api/events/${id}/participants`, answer)).status, 429);
