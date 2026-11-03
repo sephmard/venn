@@ -36,6 +36,8 @@ export default defineConfig({
         ANTHROPIC_BASE_URL: `http://localhost:${FAKE_AI_PORT}`,
         AI_RATE_LIMIT: '1000',
         AI_WEEKLY_LIMIT: '1000', // the tests all come from one address
+        CREATE_RATE_LIMIT: '0', // so are all their polls and answers
+        ANSWER_RATE_LIMIT: '0',
         // Usage stats on, so the stats page (and every count the app sends) is tested.
         STATS_TOKEN: 'test-stats',
       },
@@ -55,6 +57,8 @@ export default defineConfig({
         RESEND_API_KEY: 're_test',
         RESEND_API_URL: `http://localhost:${FAKE_OAUTH_PORT}/resend`,
         PWNED_PASSWORDS: 'off',
+        CREATE_RATE_LIMIT: '0',
+        ANSWER_RATE_LIMIT: '0',
       },
       url: ACCOUNTS_URL,
       reuseExistingServer: !process.env.CI,

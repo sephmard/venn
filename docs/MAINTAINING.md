@@ -109,7 +109,7 @@ The docs' **Open Venn** link points to `https://venn.day`. Forks can point it at
 The app ships with sensible defaults: a strict Content Security Policy, no-referrer, no framing, JSON-only writes, request size limits and hashed secrets. When you run it on your own domain, also:
 
 - **Serve it over HTTPS only**, with HSTS (`Strict-Transport-Security: max-age=31536000; includeSubDomains`). Cloudflare can do this under SSL/TLS → Edge Certificates.
-- **Rate-limit the API.** Polls can be created without an account, so limit `POST /api/*` per IP at the edge. For example, use a Cloudflare WAF rate-limiting rule of around 30 requests per minute.
+- **Rate-limit the API.** Polls can be created without an account. The app already limits each visitor (IP address) to 30 new polls or templates (`CREATE_RATE_LIMIT`) and 60 answers (`ANSWER_RATE_LIMIT`) per ten minutes; `0` turns a limit off. Each server, and on Cloudflare each Worker instance, counts on its own, so also add a [rate limiting binding](https://developers.cloudflare.com/workers/runtime-apis/bindings/rate-limit/) named `WRITE_RATE_LIMITER` (one limit everywhere, used automatically when present) or a Cloudflare WAF rate-limiting rule on `POST /api/*` of around 30 requests per minute.
 - **Keep the security headers.** If you serve `public/` from somewhere other than the included servers, copy the headers from `public/_headers` (the Content Security Policy in particular).
 - **Back up the database.** On D1, use Time Travel. On Node, copy the SQLite file.
 - **Turn on email notifications (optional).** Follow [NOTIFICATIONS.md](NOTIFICATIONS.md). Keep keys such as `RESEND_API_KEY` in Cloudflare secrets, never in `wrangler.toml`.

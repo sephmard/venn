@@ -16,6 +16,7 @@ import { isAppRoute } from './src/routes.js';
 import { homePage, pollShell } from './src/preview.js';
 import { sendDeadlines } from './src/deadline.js';
 import { placesState } from './src/places.js';
+import { writeWindows } from './src/limits.js';
 
 const root = dirname(fileURLToPath(import.meta.url));
 const publicDir = join(root, 'public');
@@ -49,6 +50,7 @@ export function createApp({
   const store = createStore(sqliteAdapter(new DatabaseSync(dbPath)));
   const aiWindows = new Map(); // AI rate limiting, per server
   const places = placesState(); // place search's rate limiting and cache, per server
+  const writes = writeWindows(); // limits on new polls, templates and answers, per server
   // Background work (notifications) runs after the response is sent; tests can await it.
   const pending = new Set();
   const waitUntil = (promise) => {
@@ -76,6 +78,7 @@ export function createApp({
           now,
           aiWindows,
           places,
+          writeWindows: writes,
         });
         // Each cookie stays its own Set-Cookie header (a plain object would keep only the last).
         const headers = Object.fromEntries(response.headers);
