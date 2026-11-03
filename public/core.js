@@ -14,6 +14,7 @@ export const LIMITS = {
   participants: 300,
   options: 100,
   topics: 20, // a topic poll's options
+  note: 120, // a one-line note on an answer
   windows: 300,
 };
 

@@ -1,7 +1,7 @@
 import { test, expect } from '@playwright/test';
 import AxeBuilder from '@axe-core/playwright';
 import { ACCOUNTS_URL } from '../playwright.config.js';
-import { pickDays, submit } from './helpers.js';
+import { mockConfig, pickDays, submit } from './helpers.js';
 
 // Accounts, for whoever wants one: sign in with Google (a stand-in, e2e/fake-oauth.js) and every poll
 // you organize is in My polls, on any device. On a Venn with sign-in switched on (ACCOUNTS_URL).
@@ -298,7 +298,7 @@ test('For organizations needs an account: sign in first, then make a template; a
   await expect(page.locator('[data-font="retro"]')).toHaveAttribute('aria-checked', 'true');
   await noSideways(page);
   // Where the server has AI, Built in also offers to make one from a sentence.
-  await page.route('**/api/config', async (r) => r.fulfill({ json: { ...(await (await r.fetch()).json()), ai: true } }));
+  await mockConfig(page, { ai: true });
   await page.goto('/me');
   await page.getByRole('tab', { name: /Templates/ }).click();
   await expect(page.locator('.acct-brand .acct-row b')).toHaveText(['Retro', 'Classic', 'Make one with AI', 'Acme Inc.']);

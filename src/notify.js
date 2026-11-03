@@ -201,6 +201,14 @@ export const MASCOT_PATH = '/img/venn-dog.png';
 const mascotUrl = (pageUrl) => `${new URL(MASCOT_PATH, pageUrl).href}?v=2`;
 
 /**
+ * A white-label email to a guest who answered goes out under the template's name (see whiteLabelOf
+ * in brands.js). Invitations and reminders, which reach people who haven't answered, keep the
+ * server's own name: anyone can make a template with any name, so an unasked-for email must not
+ * arrive from it.
+ */
+const fromNameOf = (whiteLabel) => (whiteLabel?.name ? { fromName: whiteLabel.name } : {});
+
+/**
  * `signed`: end with "Planned with Venn… make your own", for guests. Organizers already use Venn.
  * `whiteLabel`: a guest email for a white-label poll, `{ name, title }` from whiteLabelOf() in
  * src/brands.js: the template's name as plain text in place of the dog and "Venn", and a neutral
@@ -459,7 +467,7 @@ export function dateSetEmail({ title, when, location, pollUrl, calendars, retro 
     pollUrl,
     { whiteLabel },
   );
-  return { subject, text, html: styled(html, retro) };
+  return { subject, text, html: styled(html, retro), ...fromNameOf(whiteLabel) };
 }
 
 /** At most `n` characters, with "…" when it's cut. */
@@ -483,7 +491,7 @@ export function decidedEmail({ title, option, pollUrl, retro = false, changed = 
     pollUrl,
     { whiteLabel },
   );
-  return { subject, text, html: styled(html, retro) };
+  return { subject, text, html: styled(html, retro), ...fromNameOf(whiteLabel) };
 }
 
 /** To the organizer, each time someone answers: who it was, the best time so far, and the poll. */
@@ -580,7 +588,7 @@ export function answerCopyEmail({ title, name, lines, pollUrl, editUrl, seeAnswe
     pollUrl,
     { whiteLabel },
   );
-  return { subject, text, html: styled(html, retro) };
+  return { subject, text, html: styled(html, retro), ...fromNameOf(whiteLabel) };
 }
 
 // ---------- delivery ----------

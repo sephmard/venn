@@ -257,12 +257,16 @@ export function shapeDays(out, { today, nowMinutes = 0, text = '' }) {
     notes.push('No times were given, so it asks about whole days.');
   // "parts" with no part named on any day (a slip): the parts the person's own words imply ("date
   // night": evenings), said in the note. Words that imply none: whole days, and that's said too.
+  let modelNote = String(out.note || '');
   if (said === 'parts' && level === 'days' && row === 1) {
     const implied = partsOfWords(text);
     if (implied.parts.length) [usual, level] = [implied.parts, 'parts'];
+    // Whole days after all: a model note that took words as a part of the day ("Took date night as
+    // evenings.") would contradict the poll, so it goes.
+    else modelNote = modelNote.replace(/\s*Took [^.]* as (?:morning|afternoon|evening)s\./gi, '');
     notes.push(
-      ...(implied.parts.length ? implied.notes : ['No part of the day was given, so it asks about whole days.']).filter(
-        (n) => !String(out.note || '').includes(n),
+      ...(implied.parts.length ? implied.notes : ["No time of day given, so it's whole days."]).filter(
+        (n) => !modelNote.includes(n),
       ),
     );
   }
@@ -298,9 +302,7 @@ export function shapeDays(out, { today, nowMinutes = 0, text = '' }) {
   if (cut && level === 'hours') notes.push('Times past midnight are cut at midnight.');
   if ([...gone].some((d) => !days.some((x) => x.date === d)))
     notes.push('Today’s times have already passed, so today is left out.');
-  const note = String(out.note || '')
-    .trim()
-    .slice(0, 200);
+  const note = modelNote.trim().slice(0, 200);
   return {
     title: String(out.title || '')
       .trim()

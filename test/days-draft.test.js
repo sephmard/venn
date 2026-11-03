@@ -120,7 +120,8 @@ test('5-7: clock times stay as given, open ends run to midnight, and no length i
   // "parts" with no parts on any day (a slip: date night, but usualParts empty): whole days, said.
   const noParts = shape(answer(['2026-11-04', '2026-11-05'], { timeOfDay: 'parts', note: 'Took date night as evenings.' }));
   assert.equal(noParts.level, 'days');
-  assert.match(noParts.note, /^Took date night as evenings\. No part of the day was given, so it asks about whole days\./);
+  // The model's "Took date night as evenings." would contradict whole days, so it goes.
+  assert.equal(noParts.note, "No time of day given, so it's whole days.");
   // With the person's words, the parts they imply: "date night" is evenings, said once.
   const slip = answer(['2026-11-04', '2026-11-05'], { timeOfDay: 'parts', note: 'Took date night as evenings.' });
   const evenings = shapeDays(slip, { today: MON, text: 'Date night Wed or Thu' });

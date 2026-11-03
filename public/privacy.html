@@ -60,8 +60,9 @@
         <ul>
           <li><b>Polls:</b> the title, place, note, organizer name, time zone and proposed dates and times.</li>
           <li>
-            <b>Responses:</b> the name each person types and their answers. If the organizer hides names or answers, other guests
-            don't receive them at all; only the organizer does.
+            <b>Responses:</b> the name each person types, their answers, and the one-line note they add, if any. If the organizer
+            hides names or answers, other guests don't receive them (or anyone's note) at all; only the organizer does. Notes are
+            never emailed or sent to AI.
           </li>
           <li>
             <b>Your email, if you give it with your answer</b> (it's optional, unless the organizer asks everyone for one): it's
@@ -75,6 +76,11 @@
             <b>Invited guests' emails, if the organizer sets a deadline and lists who they invited:</b> kept with the organizer's
             private settings, shown only to them, and used only to remind those who haven't answered yet. Every reminder has a
             one-click link to stop them. They're deleted with the poll.
+          </li>
+          <li>
+            <b>Who a poll emailed today:</b> so that one poll can't email more than 100 different people a day, Venn stores each
+            address it emails for the poll as a hash (SHA-256), not as the address. These are deleted after two days, or with the
+            poll.
           </li>
           <li>
             <b>Notification settings, if the organizer turns them on:</b> an email address or a webhook URL. These are never shown

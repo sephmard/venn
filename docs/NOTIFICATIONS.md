@@ -21,6 +21,10 @@ When email is on, the poll page asks people who answer for their email, as an op
 - Because anyone could type someone else's address, each answer gets at most 3 copies, and each poll at most 300.
 - With the API, send `copyTo` with `POST` or `PUT /api/events/:id/participants`.
 
+## How many people one poll can email
+
+Every guest address Venn emails was typed by someone, and nothing confirms it. So each poll emails at most **100 different people a day** (UTC), across all of its guest emails: answer copies, invitations, reminders, the date's "It's happening" and a vote's decision. Someone who gets several of them counts once, so a real group never comes near it. Past the cap that day's further emails are skipped (the answers, the date and the poll are all saved as usual), and nothing is queued. An invitation that wasn't sent goes out the next time the organizer saves the invite list (adding someone, say) on a later day, and its invitee still gets the deadline's reminders. A reminder that wasn't sent doesn't count toward the 5, so the next round on a later day includes them. **Remind now** says when the day's limit was the reason nothing went out. Emails to the organizer don't count. Venn stores who was emailed only as a SHA-256 hash of the poll and the address, and deletes them after two days. Self-hosters change the cap with `POLL_RECIPIENTS_PER_DAY` (`0` turns it off).
+
 ## Emailing the poll to people
 
 A signed-in organizer (on a server with sign-in; anyone, without it) can paste a list of emails when creating a poll, or later in organizer tools under **Invite by email**. Venn emails each of them the poll once, and the deadline's reminders go to the same list. At most 50 people per poll, 100 invitations per poll ever and 200 a day per account. See [Emailing a poll to people](API.md#emailing-a-poll-to-people).
@@ -119,6 +123,7 @@ A new sending domain has no reputation yet, so the first emails can land in spam
 - Check that the domain passes SPF, DKIM and DMARC: in Gmail, open the email, then **⋮ → Show original**. Each should say `PASS`.
 - Keep a DMARC record on the domain, for example `v=DMARC1; p=quarantine; rua=mailto:dmarc@example.com`, to get reports on what's failing.
 - Send from a stable address, such as `notifications@`, with a clear name in `EMAIL_FROM`, and set `EMAIL_REPLY_TO` to an inbox someone reads.
+- Emails to guests who answered a white-label poll whose organizer is one of the template's own people put the organization's name in front of the sender's name (`"Acme via Venn" <notifications@…>`). The address stays `EMAIL_FROM`'s, so SPF, DKIM and DMARC are unchanged. Invitations and reminders keep `EMAIL_FROM`'s own name. See [Embedding](EMBED.md).
 - Watch your domain's reputation with Gmail in [Google Postmaster Tools](https://postmaster.google.com/). It shows data once a domain sends enough mail to Gmail each day.
 
 ### How email stays safe

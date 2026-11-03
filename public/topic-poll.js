@@ -3,8 +3,7 @@
 // find a date for it. Loaded by event.js only for these polls, so date polls never download it.
 // Answers use the date polls' rows and colours: Yes, If needed, No on each option, or one pick.
 
-import { IF_NEEDED, LIMITS, YES, isEmail } from './core.js';
-import { inviteText } from './invite.js';
+import { IF_NEEDED, YES, isEmail } from './core.js';
 import { closesLine } from './when.js';
 import {
   $,
@@ -12,7 +11,6 @@ import {
   api,
   app,
   avatar,
-  copy,
   esc,
   forget,
   lastEmail,
@@ -80,29 +78,13 @@ export function leaderLabel(rows, { single = false, total = 0 } = {}) {
   return lead.score >= total ? 'Everyone could go' : 'Works for the most so far';
 }
 
-/** Where "Find a date for it" goes: a date poll named after what was decided, following on from this one.
- *  A vote made from a starter keeps what it was about: "Dinner at Luigi’s", from the dinner template.
- *  `starters` is topic-templates.js, loaded only for the organizer (who alone sees the link). */
-export function dateLink(ev, id, starters = null) {
-  const picked = ev.options.find((o) => o.id === ev.picked);
-  const yesNo = ev.single && ev.options.length === 2 && ev.options[0].label === 'Yes';
-  const s = yesNo ? null : starters?.starterOf(ev);
-  const title = yesNo ? ev.title : s?.then ? s.then.replace('{option}', () => picked.label) : picked.label;
-  const q = new URLSearchParams({ title: title.slice(0, LIMITS.title), after: id });
-  if (s?.plan && !ev.brand?.id) q.set('template', s.plan);
-  // "Where should we eat?": what was picked is a place.
-  if (!yesNo && /^where\b/i.test(ev.title)) q.set('where', picked.label);
-  if (ev.brand?.id) q.set('brand', ev.brand.id);
-  return `/new?${q}`;
-}
-
 /** ctx: { id, ev, navigate, load, authHeaders, embedded, whiteLabel, hash } */
 export async function renderTopicPoll(ctx) {
   const { id, navigate, authHeaders } = ctx;
+  // The organizer's side starts loading now, alongside the styles, not after them.
+  const orgJs = ctx.ev.isAdmin ? import('./topic-organizer.js') : null;
   await styled;
   let ev = ctx.ev;
-  const org = ev.isAdmin ? await import('./organizer.js').catch(() => null) : null;
-  const starters = ev.isAdmin ? await import('./topic-templates.js').catch(() => null) : null;
   const host = ctx.embedded
     ? await import('./embed-frame.js').then((m) => m.connect(id, ev.brand, ctx.hash)).catch(() => null)
     : null;
@@ -110,7 +92,6 @@ export async function renderTopicPoll(ctx) {
   track('view', { page: 'poll', as: ev.isAdmin ? 'organizer' : saved(id).participantId ? 'answered' : 'guest' });
   if (saved(id).justCreated) forget(id, 'justCreated');
   const shareUrl = `${location.origin}/e/${id}`;
-  const canShare = !!navigator.share && matchMedia('(pointer: coarse)').matches;
   const me = () => ev.participants.find((p) => p.id === saved(id).participantId);
   const st = { mine: { ...(me()?.availability || {}) }, touched: new Set(me() ? ev.options.map((o) => String(o.id)) : []) };
   // An answer not sent yet stays on this device (drafts.js) until it's sent, as on a date poll.
@@ -132,7 +113,6 @@ export async function renderTopicPoll(ctx) {
       name: $('#name')?.value ?? '',
       at: Date.now(),
     });
-  const panels = {};
 
   async function reload() {
     ev = await ctx.load();
@@ -140,20 +120,12 @@ export async function renderTopicPoll(ctx) {
   }
   // `#invited=<email>`: an invitation's link (src/invites.js).
   const invited = [(ctx.hash?.get('invited') || '').toLowerCase()].find(isEmail) || '';
-  async function panel(name, open) {
-    panels[name] = open;
-    $(`#${name}-open`)?.setAttribute('aria-expanded', open);
-    if (!open) return ($(`#${name}-box`).innerHTML = '');
-    (await import('./organizer.js'))[name]({
-      id,
-      ev,
-      shareUrl,
-      headers: authHeaders(),
-      close: () => panel(name, false),
-      panel,
-      reload: () => reload().then(() => ev),
-    });
-  }
+  // The organizer's side (sharing, picking, their tools) loads only for them: topic-organizer.js.
+  const org = ev.isAdmin
+    ? await orgJs
+        .then((m) => m.organize({ id, ctx, st, shareUrl, host, reload, render, ev: () => ev, headers: authHeaders }))
+        .catch(() => null)
+    : null;
 
   function render() {
     const guest = !ev.isAdmin;
@@ -188,11 +160,11 @@ export async function renderTopicPoll(ctx) {
             ${loc ? `<p class="where"><span aria-hidden="true">📍</span> ${esc(loc)}</p>` : ''}
             ${closes}
           </div>
-          ${guest || picked ? '' : `<div class="poll-share"><button class="btn btn-primary" id="copy">Copy link</button>${canShare ? '<button class="btn" id="share-sheet">Share</button>' : ''}</div>`}
+          ${guest || picked ? '' : org?.share() || ''}
         </header>
         ${guest && saved(id).adminToken ? `<p class="org-switch"><span>You made this poll. This is what your guests see.</span><button type="button" class="btn btn-sm" id="org-view">Organizer view</button></p>` : ''}
         ${picked ? decided(picked, guest) : ''}
-        <div id="org-tools"></div>
+        <div id="org-tools">${ev.isAdmin && !org ? '<p class="hint">Couldn’t load the organizer tools. Reload the page.</p>' : ''}</div>
         <div id="notify-box"></div>
         <div id="invite-box"></div>
         <div id="deadline-box"></div>
@@ -213,6 +185,7 @@ export async function renderTopicPoll(ctx) {
             <div class="topic-you">
               <label for="name">Your name</label>
               <input id="name" type="text" maxlength="80" autocomplete="name" value="${esc(st.draftName || me()?.name || host?.name || lastName())}">
+              <div id="note-slot"></div>
               ${
                 ev.requireEmail
                   ? `<label for="email">Your email <span class="muted">(only the organizer sees it)</span></label>
@@ -231,11 +204,11 @@ export async function renderTopicPoll(ctx) {
           <section class="panel active" aria-labelledby="group-h">
             <div class="sheet">
               <h2 class="panel-title" id="group-h">The group</h2>
-              ${hideAll ? `<p>🔒 ${privacy} You'll see what's decided at the top once they pick.</p>` : results(guest)}
+              ${hideAll ? `<p>🔒 ${privacy} You'll see what's decided at the top once they pick.</p>` : `${results(guest)}<div id="notes-slot"></div>`}
               ${
                 // A guest who's voted may have a plan of their own (as date polls' #grow)
                 guest && me() && !ctx.embedded && !ctx.whiteLabel
-                  ? '<p class="grow-line"><a class="link-btn" data-link id="make-yours" href="/new/topic?from=guest">Planning something? Make yours in 30 seconds</a></p>'
+                  ? '<p class="grow-line"><a class="link-btn" data-link id="make-yours" href="/new/topic?from=guest">Planning something? Make yours in a minute</a></p>'
                   : ''
               }
             </div>
@@ -251,16 +224,7 @@ export async function renderTopicPoll(ctx) {
     return `<section class="banner-final" aria-labelledby="final-h">
       <p class="kicker">Decided</p>
       <h2 id="final-h">${esc(picked.label)}</h2>
-      ${
-        guest
-          ? ''
-          : `<div class="final-tell">
-          <a class="btn" href="${esc(dateLink(ev, id, starters))}" data-link id="find-date">Find a date for it</a>
-          <button type="button" class="btn" id="copy">Copy link</button>
-        </div>
-        <button type="button" class="link-btn" id="unpick">Change</button>
-        ${ctx.embedded ? '' : `<p class="final-more"><a class="link-btn" data-link id="vote-again" href="/new/topic?copy=${esc(id)}&next">Vote again next time</a></p>`}`
-      }
+      ${guest ? '' : org?.decided() || ''}
     </section>`;
   }
 
@@ -317,10 +281,9 @@ export async function renderTopicPoll(ctx) {
     const hero =
       ev.picked != null
         ? ''
-        : waiting
-          ? `<p class="empty-state muted">${total ? '<b>Only your answer so far.</b>' : 'No answers yet.'} Share the link and the favourite shows here.</p>
-          ${st.pickAnyway ? '' : '<p><button type="button" class="link-btn" id="pick-anyway">Pick one anyway</button></p>'}`
-          : !top.length
+        : waiting && org
+          ? org.waiting(total)
+          : waiting || !top.length
             ? `<p class="empty-state muted">No answers yet. Share the link and the favourite shows here.</p>`
             : `<div class="best-hero">
           <p class="kicker">${leaderLabel(rows, { single: ev.single, total })}</p>
@@ -362,6 +325,7 @@ export async function renderTopicPoll(ctx) {
 
   function wire() {
     refresh();
+    import('./answer-note.js').then((m) => m.mountNotes(id, ev, me())).catch(() => {});
     $('#mine-h')?.parentElement.addEventListener('click', (e) => {
       const r = e.target.closest('.topic-row');
       const b = e.target.closest('[data-vote]');
@@ -383,19 +347,7 @@ export async function renderTopicPoll(ctx) {
         next.focus();
       });
     if ($('#save')) $('#save').onclick = send;
-    $('#copy')?.addEventListener('click', ({ target: b }) => {
-      copy(shareUrl, 'Invite link copied. Paste it in your group chat.');
-      if (b.textContent === 'Link copied ✓') return;
-      const was = b.textContent;
-      b.textContent = 'Link copied ✓'; // for sighted people too
-      setTimeout(() => (b.textContent = was), 2e3);
-    });
-    $('#share-sheet')?.addEventListener('click', () =>
-      navigator.share({ title: ev.title, text: inviteText({ ...ev }), url: shareUrl }).catch(() => {}),
-    );
     $('#org-view')?.addEventListener('click', () => navigate(`/e/${id}#organizer`));
-    $('#unpick')?.addEventListener('click', () => pick(null));
-    for (const b of $$('[data-pick]')) b.onclick = () => askPick(ev.options.find((o) => o.id === +b.dataset.pick));
     // Once a guest's answer is in: hear what's decided (decided-alert.js).
     if ($('#tell-me'))
       import('./decided-alert.js')
@@ -409,37 +361,7 @@ export async function renderTopicPoll(ctx) {
           }),
         )
         .catch(() => {});
-    $('#pick-anyway')?.addEventListener('click', () => {
-      st.pickAnyway = true;
-      render();
-      $('.t-results [data-pick]')?.focus();
-    });
-    if (!org) return;
-    org.tools($('#org-tools'), {
-      id,
-      ev,
-      open: false,
-      onToggle: () => {},
-      notifyPending: saved(id).notifyPending,
-      ai: false,
-      panels,
-      panel,
-      kind: 'topic',
-      shareUrl,
-      adminToken: saved(id).adminToken,
-      headers: authHeaders(),
-      deleted: () => {
-        forget(id, 'adminToken', 'participantId', 'editToken');
-        navigate('/new/topic');
-      },
-    });
-    // `#organizer&deadline` (or `&invite`), from My polls: straight to that panel, once.
-    const open = ['deadline', 'invite'].find((p) => ctx.hash?.has(p));
-    if (open && !panels[open] && !st.deadlineShown) {
-      st.deadlineShown = true;
-      $('details.organizer').open = true;
-      panel(open, true);
-    }
+    org?.wire();
   }
 
   async function send() {
@@ -452,7 +374,7 @@ export async function renderTopicPoll(ctx) {
       return ((err.textContent = 'Add your email. The organizer asked everyone for one.'), $('#email').focus());
     if (!Object.keys(st.mine).length && !st.touched.size)
       return void (err.textContent = ev.single ? 'Pick one first.' : 'Tap Yes, If needed or No first.');
-    const body = { name, availability: st.mine, ...(email && { email }) };
+    const body = { name, availability: st.mine, note: $('#note')?.value, ...(email && { email }) };
     $('#save').disabled = true;
     try {
       const pid = saved(id).participantId;
@@ -472,28 +394,6 @@ export async function renderTopicPoll(ctx) {
     } catch (ex) {
       err.textContent = ex.message;
       $('#save').disabled = false;
-    }
-  }
-
-  /** "Pick this one?", in the page: once picked, everyone sees it at the top. */
-  function askPick(o) {
-    const d = $('#pick-check');
-    d.innerHTML = `<h2 id="pc-h">Go with ${esc(o.label)}?</h2>
-      <p>Everyone with the link sees it at the top of the poll. You can change it later.</p>
-      <div class="btn-row"><button type="button" class="btn" id="pc-no">Not yet</button><button type="button" class="btn btn-primary" id="pc-yes">Pick it</button></div>`;
-    $('#pc-no').onclick = () => d.close();
-    $('#pc-yes').onclick = () => (d.close(), pick(o.id));
-    d.showModal();
-  }
-  async function pick(option) {
-    try {
-      await api(`events/${id}/finalize`, { method: 'POST', body: { option }, headers: authHeaders() });
-      if (option != null) host?.tell('picked', { option });
-      await reload();
-      scrollTo(0, 0);
-      if (option != null) toast('Picked. Now find a date for it.');
-    } catch (ex) {
-      toast(ex.message);
     }
   }
 
