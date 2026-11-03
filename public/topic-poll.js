@@ -220,6 +220,7 @@ export async function renderTopicPoll(ctx) {
                   : ''
               }
               ${privacy && `<p class="hint">🔒 ${privacy}</p>`}
+              ${guest && me() && !picked && !ctx.embedded ? '<div class="tell-me" id="tell-me" hidden></div>' : ''}
             </div>
             <div class="save-bar">
               <div><span id="save-state" class="hint">${locked ? `Answers are closed. ${esc(ev.organizer || 'The organizer')} is picking one.` : st.draft ? 'Not sent yet' : me() ? 'Your answer is in. Change it any time.' : ''}</span><div class="error" id="save-err" role="alert"></div></div>
@@ -382,6 +383,19 @@ export async function renderTopicPoll(ctx) {
     $('#org-view')?.addEventListener('click', () => navigate(`/e/${id}#organizer`));
     $('#unpick')?.addEventListener('click', () => pick(null));
     for (const b of $$('[data-pick]')) b.onclick = () => askPick(ev.options.find((o) => o.id === +b.dataset.pick));
+    // Once a guest's answer is in: hear what's decided (decided-alert.js).
+    if ($('#tell-me'))
+      import('./decided-alert.js')
+        .then((m) =>
+          m.decidedAlert($('#tell-me'), {
+            id,
+            participantId: me().id,
+            headers: authHeaders(),
+            email: me().email,
+            required: ev.requireEmail,
+          }),
+        )
+        .catch(() => {});
     $('#pick-anyway')?.addEventListener('click', () => {
       st.pickAnyway = true;
       render();
