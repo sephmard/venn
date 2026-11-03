@@ -40,9 +40,9 @@ function row(r, n, { kind, open, final, pick, mine, solo, run }) {
   // One answer so far isn't "everyone": it's that one person (You, for the person themselves).
   const count = solo
     ? yes
-      ? `✓ ${solo}`
+      ? `✓ ${esc(solo.name)}`
       : maybe
-        ? `${solo}, if needed`
+        ? `${esc(solo.name)}, if needed`
         : `0 of ${n}`
     : kind === 'all'
       ? '✓ Everyone'
@@ -78,9 +78,11 @@ export function overlapHtml(ctx) {
 }
 
 /** Only one person has answered: "You" (the person looking) or their name; null once there are more. */
-const soloName = (people, you) => (people.length === 1 ? (people[0].id === you ? 'You' : people[0].name) : null);
+// One person so far: { name, you } ("You" by id, so a guest who typed "You" still reads as themselves).
+const soloName = (people, you) =>
+  people.length === 1 ? { name: people[0].id === you ? 'You' : people[0].name, you: people[0].id === you } : null;
 /** The summary while only one person has answered: nobody to overlap with yet. */
-const soloSummary = (solo) => (solo === 'You' ? '<b>Your answer so far.</b>' : `<b>Only ${esc(solo)} has answered so far.</b>`);
+const soloSummary = (solo) => (solo.you ? '<b>Your answer so far.</b>' : `<b>Only ${esc(solo.name)} has answered so far.</b>`);
 
 function listHtml({ ev, people, tz, inspect, focus, windows, days, parts, when, you, run }) {
   const n = people.length;

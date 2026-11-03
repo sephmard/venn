@@ -61,14 +61,16 @@ test('one answer reads as one answer, not as everyone', async ({ page, request, 
     })
   ).json();
   const { slots } = await (await request.get(`/api/events/${id}`)).json();
-  await request.post(`/api/events/${id}/participants`, { data: { name: 'Ana', availability: { [slots[0]]: 2, [slots[1]]: 1 } } });
+  await request.post(`/api/events/${id}/participants`, {
+    data: { name: 'Ana <b>', availability: { [slots[0]]: 2, [slots[1]]: 1 } },
+  });
 
   await page.goto(`/e/${id}`);
   await showGroup(page, isMobile);
-  await expect(page.locator('.ov-summary')).toHaveText('Only Ana has answered so far.');
+  await expect(page.locator('.ov-summary')).toHaveText('Only Ana <b> has answered so far.');
   const counts = page.locator('#overlap .ov-count');
-  await expect(counts.nth(0)).toContainText('✓ Ana');
-  await expect(counts.nth(1)).toContainText('Ana, if needed');
+  await expect(counts.nth(0)).toContainText('✓ Ana <b>');
+  await expect(counts.nth(1)).toContainText('Ana <b>, if needed');
   await expect(page.locator('#overlap')).not.toContainText('Everyone');
 });
 
