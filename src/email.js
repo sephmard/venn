@@ -45,7 +45,8 @@ export function fromAddress(env, fromName) {
   const from = parseAddress(env.EMAIL_FROM);
   const email = typeof from === 'string' ? from : from.email;
   const own = (typeof from === 'string' ? '' : cleanFromName(from.name)) || 'Venn';
-  const name = cleanFromName(fromName);
+  // At most 40 characters of it, so "via Venn" still shows in a phone's inbox.
+  const name = Array.from(cleanFromName(fromName)).slice(0, 40).join('').trim();
   if (name) return { name: `${name} via ${own}`, email };
   return typeof from === 'string' ? { name: '', email } : from;
 }

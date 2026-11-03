@@ -89,6 +89,7 @@ test('a white-label From name: the template’s name at the server’s own addre
   assert.equal(cleanFromName('x'.repeat(63) + '🎉🎉'), 'x'.repeat(63) + '🎉'); // never half an emoji
   assert.deepEqual(fromAddress({ EMAIL_FROM: 'Venn <hi@venn.day>' }, 'Acme'), { name: 'Acme via Venn', email: 'hi@venn.day' });
   assert.deepEqual(fromAddress({ EMAIL_FROM: 'hi@venn.day' }, 'Acme'), { name: 'Acme via Venn', email: 'hi@venn.day' });
+  assert.equal(fromAddress({ EMAIL_FROM: 'Venn <hi@venn.day>' }, 'y'.repeat(60)).name, `${'y'.repeat(40)} via Venn`);
   // A server with its own sender name keeps it in the sender.
   assert.deepEqual(fromAddress({ EMAIL_FROM: 'Polls <p@x.org>' }, 'Acme'), { name: 'Acme via Polls', email: 'p@x.org' });
   // Nothing usable: the server's own name stays.
