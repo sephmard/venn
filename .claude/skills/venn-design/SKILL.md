@@ -93,6 +93,13 @@ the same PR** (and CLAUDE.md if it's a rule that matters in review).
   Excited but elegant: no fill, no loud animation (the sparkle twinkles twice, none with reduced
   motion). It opens the describe box under the heading; it never takes over the form.
 - **Create a Venn sits at the end of the form**, never stuck to the bottom of the screen.
+- **Nobody loses work** (journey polish, 2026-11-02): a half-made poll comes back after a reload, Back
+  or the Date / Vote switch (kept in the tab), with one quiet line, "Picked up where you left off.
+  Start over". A guest's unsent answer comes back on that device until it's sent. A link that fills
+  the form (a template, ?title=) wins over a draft.
+- **Signed out, organizers keep their link**: under Copy link, "Only this browser can change this poll.
+  Copy organizer link", until it's copied. /me signed out lists the polls this browser made or
+  answered, "On this device".
 - **Clear all has Undo** in its place. No pop-up tips over the calendar.
 - With nothing picked, every level says the same: **"Pick at least one day to create the poll"**.
 - Days in a row: a run that fits shows just its length; only a short one says "too short".
