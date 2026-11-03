@@ -156,13 +156,13 @@ export function setEmoji(e) {
   return true;
 }
 
-/** A kind of plan was picked (or unpicked): its emoji replaces one typed before. A picture stays. */
 /** The kind of plan's emoji (a vote starter's), keeping any the organizer typed. */
 export function setBase(e) {
   state().base = e;
   show();
 }
 
+/** A kind of plan was picked (or unpicked): its emoji replaces one typed before. A picture stays. */
 export function setOccasion(o) {
   const s = state();
   s.base = o?.emoji || '🗓️';
