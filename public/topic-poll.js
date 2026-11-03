@@ -221,6 +221,12 @@ export async function renderTopicPoll(ctx) {
               }
               ${privacy && `<p class="hint">🔒 ${privacy}</p>`}
             </div>
+            ${
+              // A guest who's voted may have a plan of their own: one quiet link (as date polls' #grow).
+              guest && me() && !ctx.embedded && !ctx.whiteLabel
+                ? '<p class="final-more"><a class="link-btn" data-link id="make-yours" href="/new/topic?from=guest">Planning something? Make yours in 30 seconds</a></p>'
+                : ''
+            }
             <div class="save-bar">
               <div><span id="save-state" class="hint">${locked ? `Answers are closed. ${esc(ev.organizer || 'The organizer')} is picking one.` : st.draft ? 'Not sent yet' : me() ? 'Your answer is in. Change it any time.' : ''}</span><div class="error" id="save-err" role="alert"></div></div>
               <button type="button" class="btn btn-primary" id="save"${locked ? ' disabled' : ''}>${me() ? 'Update answer' : 'Submit'}</button>
