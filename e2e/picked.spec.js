@@ -173,3 +173,12 @@ test('Pick still asks first when the organizer’s tools didn’t load with the 
   await page.click('#pc-yes');
   await expect(page.locator('#final-h')).toHaveText(/Thu, Jan 10/);
 });
+
+test('the picked date shows even when the calendar buttons can’t load', async ({ page, request }) => {
+  const { id, adminToken } = await datesPoll(request, [['Ana', dates]]);
+  await finalize(request, id, adminToken, day(dates[0]));
+  await page.route('**/add-to-calendar.js*', (route) => route.abort());
+  await page.goto(`/e/${id}`);
+  await expect(page.locator('.banner-final .kicker')).toHaveText("It's happening");
+  await expect(page.locator('#final-h')).toHaveText(/Thu, Jan 10/);
+});

@@ -182,7 +182,12 @@ export async function renderEvent(id, navigate) {
   // Organizer-only code (their tools, panels and AI summary) is in a module guests never download,
   // and "Add to your calendar" in one that loads once there's a date to add.
   let calJs = null;
-  const loadCal = () => import('./add-to-calendar.js').catch(() => ({ finalBanner: () => '' })).then((m) => (calJs = m));
+  // If it can't load, the date still shows, without the buttons.
+  const dateOnly = {
+    finalBanner: ({ ev, bigWhen }) =>
+      `<section class="banner-final" aria-labelledby="final-h"><p class="kicker">It's happening</p><h2 id="final-h">${bigWhen(ev.finalStart, meetingEnd(ev, ev.finalStart))}</h2></section>`,
+  };
+  const loadCal = () => import('./add-to-calendar.js').catch(() => dateOnly).then((m) => (calJs = m));
   const [org] = await Promise.all([
     st.ev.isAdmin ? import('./organizer.js').catch(() => null) : null,
     st.ev.finalStart != null && loadCal(),
@@ -1476,8 +1481,7 @@ export async function renderEvent(id, navigate) {
       const people = others();
       const r = rankTimes(ev(), ev().slots, people, Infinity).find((x) => x.start === start);
       const opts = { r, n: people.length, when: bigWhen(start, r ? r.end : meetingEnd(ev(), start)) };
-      // organizer.js has the dialog. If it didn't load with the page, it's fetched now, under a new
-      // address (the browser won't fetch a module that failed again).
+      // The dialog is organizer.js's: fetched now if it failed (a new address: failures are kept).
       const o = org ?? (await import(`./organizer.js?try=${Date.now()}`).catch(() => null));
       if (!o) return void toast("Couldn't load that. Try again.");
       if (!(await o.confirmPick({ ...opts, changing: ev().finalStart != null, daysMode }))) return btn.isConnected && btn.focus();
