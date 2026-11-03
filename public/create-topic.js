@@ -231,6 +231,21 @@ export function renderTopic() {
     if (ev.single && words.join() === YES_NO.join()) return setKind('yesno');
     $('#opts').innerHTML = words.map((w, i) => row(w, i + 1)).join('');
     $('#single').checked = !!ev.single;
+    // The next one of a decided vote: last time's pick left out, unless they tick it back in.
+    const at = ev.options.findIndex((o) => o.id === ev.picked);
+    if (new URLSearchParams(location.search).has('next') && at >= 0) {
+      const li = $$('#opts > li')[at];
+      $('#opts').insertAdjacentHTML(
+        'beforebegin',
+        `<label class="leave-out"><input type="checkbox" id="leave-out" checked> <span>Leave out ${esc(words[at])} <span class="muted">(last time's pick)</span></span></label>`,
+      );
+      $('#leave-out').onchange = ({ target: { checked } }) => {
+        if (checked) li.remove();
+        else $('#opts').insertBefore(li, $$('#opts > li')[at] || null);
+        renumber();
+      };
+      li.remove();
+    }
     renumber();
   }
 

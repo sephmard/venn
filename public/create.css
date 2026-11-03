@@ -989,6 +989,23 @@ button.emoji-tile:focus-visible {
 .topic-single {
   margin-top: 12px;
 }
+/* The next one of a decided vote: last time's pick, left out (create-topic.js). */
+.leave-out {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 44px;
+  margin-bottom: 8px;
+  font-size: 1rem;
+  font-weight: 400;
+  cursor: pointer;
+}
+.leave-out input {
+  width: 20px;
+  height: 20px;
+  margin: 0;
+  accent-color: var(--accent);
+}
 /* Date or Vote: the same small switch at the top of both forms. */
 .kind-switch {
   max-width: 280px;

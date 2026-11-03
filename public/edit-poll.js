@@ -77,7 +77,11 @@ export function fillCommon(ev, src, { occasions, privacy, icon }) {
   } else if (next()) {
     $('#create h1').textContent = 'Plan the next one';
     $('#create .lede')?.remove();
-    toast('Same again. Check the dates, then create the poll.');
+    toast(
+      ev.mode === 'topic'
+        ? 'Same options again. Change anything, then create the poll.'
+        : 'Same again. Check the dates, then create the poll.',
+    );
   } else toast('Copied. Change anything you like, then create the new poll.');
 }
 
