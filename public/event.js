@@ -1107,7 +1107,7 @@ export async function renderEvent(id, navigate) {
               ev().isAdmin || embedded || whiteLabel
                 ? null
                 : {
-                    label: 'Planning something? Make yours in 30 seconds',
+                    label: 'Planning something? Make yours in a minute',
                     href: `/new?from=guest${ev().emoji ? `&template=${encodeURIComponent(ev().emoji)}` : ''}`,
                   },
           });

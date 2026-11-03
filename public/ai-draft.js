@@ -364,7 +364,11 @@ export function aiDays(st, { empty, setRow, show, level, row }, { ai } = { ai: t
     });
     if (both) voteLink($('#ai-done > p'), both, 'Vote on it first');
   });
-  if (ai) hintOnOpen(usedLine('This week’s free AI requests are used up, so Venn reads this itself.')); // with no AI here, there's no key to add
+  // With no AI here, there's no key to add.
+  if (ai)
+    hintOnOpen(
+      usedLine('This week’s free AI requests are used up, so Venn reads this itself.', 'Say when, and Venn picks the days'),
+    );
 }
 
 /**
@@ -372,11 +376,14 @@ export function aiDays(st, { empty, setRow, show, level, row }, { ai } = { ai: t
  * Claude" (nothing is, without a key); it comes back once a key is saved. `used` is the line.
  */
 const usedLine =
-  (used = 'This week’s free AI requests are used up.') =>
+  (used = 'This week’s free AI requests are used up.', heading = '') =>
   (state) => {
-    const sent = $('#ai-sent');
-    sent.dataset.sent ??= sent.textContent;
-    sent.textContent = state === 'used' ? used : sent.dataset.sent;
+    const swap = (el, to) => {
+      el.dataset.was ??= el.textContent;
+      el.textContent = state === 'used' ? to : el.dataset.was;
+    };
+    swap($('#ai-sent'), used);
+    if (heading) swap($('label[for="ai-prompt"]'), heading); // the heading follows: no AI fills it in now
     return '';
   };
 

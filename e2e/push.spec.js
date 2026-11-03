@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test';
-import { openTools } from './helpers.js';
+import { mockConfig, openTools } from './helpers.js';
 
 // Notifications on the organizer's phone (Web Push). The browser's push service and the server's
 // sending are stood in for here: the panel's part is asking, subscribing and telling the server.
@@ -25,10 +25,7 @@ async function organizerPoll(page, request) {
       },
     })
   ).json();
-  await page.route('**/api/config', async (route) => {
-    const res = await route.fetch();
-    await route.fulfill({ response: res, json: { ...(await res.json()), push: KEY } });
-  });
+  await mockConfig(page, { push: KEY });
   const puts = [];
   let devices = 0;
   let settings = {};
@@ -130,10 +127,7 @@ test('a guest who answered can be notified when the date is picked, and stop', a
     })
   ).json();
   const ana = await (await request.post(`/api/events/${id}/participants`, { data: { name: 'Ana', availability: {} } })).json();
-  await page.route('**/api/config', async (route) => {
-    const res = await route.fetch();
-    await route.fulfill({ response: res, json: { ...(await res.json()), push: KEY } });
-  });
+  await mockConfig(page, { push: KEY });
   const puts = [];
   await page.route(`**/api/events/${id}/participants/${ana.id}/push`, async (route) => {
     puts.push({ body: route.request().postDataJSON(), token: route.request().headers()['x-edit-token'] });

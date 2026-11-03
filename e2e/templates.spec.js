@@ -204,9 +204,13 @@ test('every landing page opens its template, and says where people came from', a
     expect((await request.get(new URL(image).pathname)).status()).toBe(200);
     if (!p.template) continue;
     // The button opens the template, quiet ones too (they're only reached by links like this).
+    // Wait for /new's view to be posted before the next page: it goes only once track.js has loaded
+    // and /api/config has answered, and going on sooner cancels it (the old race in this test).
+    const viewed = page.waitForRequest((r) => r.url().endsWith('/api/usage') && r.postDataJSON()?.name === 'view');
     await page.locator('main .btn').first().click();
     await expect(page.locator('.templates [aria-pressed="true"]')).toHaveCount(1);
     await expect(page.locator('#emoji-tile')).toHaveText(TEMPLATES[templateIndex(p.template)].emoji);
+    await viewed;
   }
   await expect.poll(() => sent.some((e) => e.name === 'view' && e.props.from === 'dnd')).toBe(true);
 });
