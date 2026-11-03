@@ -149,6 +149,8 @@ test('white label, organizer is the template’s owner or member: the answer cop
       assert.equal(vennOutsideLink(readable(m)), null, `${organizer}: ${m.subject}`);
       assert.match(m.html, />Acme<\/div>/);
       assert.match(m.html, /Sent for the organizer of “Book club”\./);
+      // From the template's name, at the server's own address.
+      assert.equal(m.from, '"Acme via Venn" <notify@venn.example>', `${organizer}: ${m.subject}`);
     }
   }
 });
@@ -163,6 +165,7 @@ test('white label, organizer is not one of the template’s people (or signed ou
     for (const m of mail) {
       assert.match(m.text, /Planned with Venn\. No sign-up needed/, `${organizer}: ${m.subject}`);
       assert.doesNotMatch(m.html, /Sent for the organizer/);
+      assert.equal(m.from, 'Venn <notify@venn.example>', `${organizer}: ${m.subject}`);
     }
   }
 });
@@ -210,6 +213,24 @@ test('a white-label vote: the decision email to a guest who asked carries no Ven
     if (organizer === 'u-member') {
       assert.equal(vennOutsideLink(readable(m)), null);
       assert.match(m.html, />Acme<\/div>/);
-    } else assert.match(m.text, /Planned with Venn\. No sign-up needed/);
+      assert.equal(m.from, '"Acme via Venn" <notify@venn.example>');
+    } else {
+      assert.match(m.text, /Planned with Venn\. No sign-up needed/);
+      assert.equal(m.from, 'Venn <notify@venn.example>');
+    }
+  }
+});
+
+test('white-label From name: on mail to guests who answered, never on invitations or reminders', () => {
+  const whiteLabel = { name: 'Acme', title: 'Book club' };
+  for (const name of ['answerCopyEmail', 'dateSetEmail']) {
+    const [fn, args] = builders[name];
+    assert.equal(fn({ ...args, whiteLabel }).fromName, 'Acme', name);
+    assert.equal('fromName' in fn(args), false, name);
+  }
+  // Anyone can name a template anything, so mail nobody asked for keeps the server's own name.
+  for (const name of ['inviteEmail', 'deadlineReminderEmail']) {
+    const [fn, args] = builders[name];
+    assert.equal('fromName' in fn({ ...args, whiteLabel }), false, name);
   }
 });
