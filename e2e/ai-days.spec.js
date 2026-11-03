@@ -72,7 +72,8 @@ test('AI: clock times become hours as given, and a trip becomes days in a row', 
   await page.goto('/new');
   await describe(page, 'Team sync Tuesday or Thursday 2-4pm');
   await expect(page.locator('[data-level="hours"]')).toHaveAttribute('aria-checked', 'true');
-  await expect(page.locator('#ai-done .ai-done-when')).toHaveText(/^2 – 4 PM: \w+, \w+ \d+ · \w+, \w+ \d+$/);
+  // This week's Tuesday and Thursday, less today's if 2 – 4 PM has already gone (a Tuesday or Thursday afternoon).
+  await expect(page.locator('#ai-done .ai-done-when')).toHaveText(/^2 – 4 PM: \w+, \w+ \d+( · \w+, \w+ \d+)?$/);
   await expect(page.locator('#free-list')).toContainText('2 – 4 PM');
   await expect(page.locator('#free-list')).not.toContainText('All day');
 
