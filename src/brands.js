@@ -96,6 +96,16 @@ export function normalizeBrand(input) {
 }
 
 /** The public path of a brand's logo, with its version so caches keep it until it changes. */
+/**
+ * A white-label poll (made from a template with `hideVenn`), so its guests never see Venn:
+ * `{ name, title }` (the template's name, the poll's title) for the guest email builders'
+ * `whiteLabel` (src/notify.js), or null for every other poll.
+ */
+export async function whiteLabelOf(store, ev) {
+  const brand = ev.brand && (await store.getBrand(ev.brand));
+  return brand?.hideVenn ? { name: brand.name, title: ev.title } : null;
+}
+
 export const logoPath = (id, v) => `/api/brands/${encodeURIComponent(id)}/logo?v=${v}`;
 
 /** A brand as anyone with its link sees it: its look and defaults, never its hash. */

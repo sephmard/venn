@@ -1614,8 +1614,10 @@ export async function renderEvent(id, navigate) {
       const end = meetingEnd(ev(), start);
       const info = {
         title: ev().title,
-        // The event's own note says where it was planned: how the next organizer finds Venn.
-        description: [ev().description, shareUrl, `Planned with Venn: ${location.origin}/new`].filter(Boolean).join('\n\n'),
+        // The event's own note says where it was planned: how the next organizer finds Venn (not on white label).
+        description: [ev().description, shareUrl, !whiteLabel && `Planned with Venn: ${location.origin}/new`]
+          .filter(Boolean)
+          .join('\n\n'),
         location: ev().location,
         start,
         end,
