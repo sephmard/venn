@@ -5,6 +5,7 @@ import Anthropic from '@anthropic-ai/sdk';
 import { createApp } from '../server.js';
 import { aiAllowance, aiBudget, allowanceKey, costOf, weekOf } from '../src/ai.js';
 import { createStore, sqliteAdapter } from '../src/store.js';
+import { handleApi } from '../src/api.js';
 
 // A stand-in for the Anthropic client: records each request and returns the next canned output.
 const calls = [];
@@ -392,6 +393,13 @@ test('the server key has a weekly allowance; past it, people bring their own key
   nextOutput = { title: 'Lunch', description: '', durationMinutes: 60, slots: [{ date: '2030-02-09', time: '12:00' }] };
   const config = await (await fetch(`http://localhost:${port}/api/config`)).json();
   assert.equal(config.aiWeekly, 2);
+  // Whether this visitor's free requests are there, before asking: never a count, and asking takes none.
+  const allowance = async () => {
+    const res = await fetch(`http://localhost:${port}/api/ai/allowance`);
+    assert.equal(res.headers.get('cache-control'), 'no-store');
+    return res.json();
+  };
+  for (let i = 0; i < 3; i++) assert.deepEqual(await allowance(), { allowance: 'available' });
   // A request that fails before Claude answers gives its free request back.
   const bad = await fetch(`http://localhost:${port}/api/ai/draft-poll`, {
     method: 'POST',
@@ -403,6 +411,7 @@ test('the server key has a weekly allowance; past it, people bring their own key
   const missing = await fetch(`http://localhost:${port}/api/events/nope1234/ai/summary`, { method: 'POST' });
   assert.equal(missing.status, 404);
   assert.deepEqual([(await post()).status, (await post()).status], [200, 200]);
+  assert.deepEqual(await allowance(), { allowance: 'used' });
   const third = await post();
   assert.equal(third.status, 402);
   assert.match((await third.json()).error, /this week's free AI requests/);
@@ -411,7 +420,35 @@ test('the server key has a weekly allowance; past it, people bring their own key
   assert.equal((await post({ 'x-anthropic-key': 'not-a-key' })).status, 400);
   // Next week starts again.
   clock += 7 * 24 * 3_600_000;
+  assert.deepEqual(await allowance(), { allowance: 'available' });
   assert.equal((await post()).status, 200);
+});
+
+test('the allowance reads "off" where the server key pays for nothing, and "used" past the dollar cap', async () => {
+  const get = async (env, before) => {
+    const store = createStore(sqliteAdapter(new DatabaseSync(':memory:')));
+    await before?.(store);
+    const res = await handleApi(new Request('http://x/api/ai/allowance'), store, {
+      env,
+      clientIp: '1.2.3.4',
+      now: () => Date.UTC(2030, 0, 8, 12),
+    });
+    return res.json();
+  };
+  assert.deepEqual(await get({}), { allowance: 'off' }); // no AI on this server
+  assert.deepEqual(await get({ ANTHROPIC_API_KEY: 'k', AI_WEEKLY_BUDGET_USD: '0' }), { allowance: 'off' });
+  assert.deepEqual(await get({ ANTHROPIC_API_KEY: 'k', AI_WEEKLY_LIMIT: '0' }), { allowance: 'off' });
+  // The week's spend at the cap: used for everyone, without saying it was the dollars.
+  const week = weekOf(Date.UTC(2030, 0, 8, 12));
+  assert.deepEqual(
+    await get({ ANTHROPIC_API_KEY: 'k', AI_WEEKLY_BUDGET_USD: '1' }, (store) => store.addAiSpend(week, 1_000_000)),
+    { allowance: 'used' },
+  );
+  // Everyone's share used up, this visitor's own not: used too.
+  assert.deepEqual(
+    await get({ ANTHROPIC_API_KEY: 'k', AI_WEEKLY_TOTAL: '1' }, (store) => store.takeAiAllowance(week, 'someone-else', 20, 1)),
+    { allowance: 'used' },
+  );
 });
 
 test('a weekly dollar cap on the server key, worked out from each answer’s tokens', async (t) => {
