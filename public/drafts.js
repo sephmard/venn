@@ -67,6 +67,8 @@ export function cleanFormDraft(d, today) {
     out.options = strings(d.options, 50).map((s) => s.slice(0, 120));
     out.kind = d.kind === 'yesno' ? 'yesno' : 'options';
     out.single = d.single === true;
+    // The starter pressed (topic-templates.js), by its name in links.
+    out.starter = typeof d.starter === 'string' && /^[a-z]+(-[a-z]+)*$/.test(d.starter) ? d.starter.slice(0, 40) : '';
   }
   return out;
 }

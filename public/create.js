@@ -96,6 +96,11 @@ export async function setIconEmoji(e) {
   icon ??= await import('./poll-image.js');
   return icon.setEmoji(e);
 }
+/** The tile's emoji for the kind of plan (a vote starter's): one the organizer picked stays. */
+export function planEmoji(e) {
+  if (icon) icon.setBase(e);
+  else $('#emoji-tile').textContent = e;
+}
 /** The tile's style ('' for plain), and setting one: never on a brand template's poll. */
 export const iconBg = () => icon?.bg() || '';
 export async function setIconBg(key) {
