@@ -1795,7 +1795,10 @@ test('on a phone, a new poll leads with sharing: one share button, the group, an
   const share = page.locator('button:visible', { hasText: /^Copy link$/ });
   await expect(share).toHaveCount(1);
   await expect(share).toHaveId('copy');
-  await expect(share).toHaveClass(/btn-primary/);
+  // Outlined, not filled: Create a Venn in the bar is the one filled button (#206; its look and
+  // contrast in each look: copy-link.spec.js).
+  await expect(share).not.toHaveClass(/btn-primary/);
+  await expect(share).toHaveCSS('background-color', 'rgba(0, 0, 0, 0)');
   await expect(page.locator('.finn [data-share]')).toHaveCount(0);
 
   // The organizer's tools wait closed, one line; open, the buttons and what the private link is for.

@@ -821,8 +821,16 @@ div.poll-share {
   grid-template-columns: minmax(0, 1fr) auto;
   gap: 8px;
 }
+/* Outlined: Create a Venn is the one filled button. */
 .poll-share .btn {
   width: 100%;
+  border: 2px solid var(--accent);
+  background: none;
+  color: var(--accent);
+}
+.poll-share .btn:is(:hover, :active) {
+  background: var(--accent-soft);
+  color: var(--text); /* the accent on its soft fill is under 4.5:1 in classic light */
 }
 @media (min-width: 700px) {
   .poll-head {
