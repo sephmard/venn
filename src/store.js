@@ -903,6 +903,17 @@ export function createStore(db) {
       return null;
     },
 
+    /**
+     * Whether this week's allowance has room for one more request from `who`, without taking it:
+     * null when it has, or 'person' or 'total' when that limit is reached (as takeAiAllowance).
+     */
+    async peekAiAllowance(week, who, perPerson, total) {
+      await init();
+      const rows = await db.all('SELECT who, count FROM ai_allowance WHERE week = ? AND who IN (?, ?)', [week, who, '*']);
+      const used = (k) => rows.find((r) => r.who === k)?.count || 0;
+      return used(who) >= perPerson ? 'person' : used('*') >= total ? 'total' : null;
+    },
+
     /** What the server's AI key has spent this week, in millionths of a dollar (kept under who '$'). */
     async aiSpend(week) {
       await init();

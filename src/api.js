@@ -699,6 +699,21 @@ async function route(
       const draft = typeof prompt === 'string' && draftFromWords(prompt, { today, nowMinutes, ai: aiEnabled(env) });
       return draft ? json(draft) : otherwise();
     }
+    // GET /api/ai/allowance — whether this visitor's free AI requests (the server's key) are there
+    // this week: 'available', 'used' (their own share, everyone's, or the dollar cap: it doesn't say
+    // which) or 'off' (no AI, or no server key: people bring their own). Never a count or a dollar
+    // figure, and nothing is taken. It only says who pays; any AI request still goes to Anthropic.
+    if (parts.length === 2 && parts[0] === 'ai' && parts[1] === 'allowance' && method === 'GET') {
+      const { perPerson, total, budget } = aiAllowance(env);
+      if (!aiEnabled(env) || !perPerson || !total) return json({ allowance: 'off' });
+      const limited = await allowed('allowance');
+      if (!limited.ok) return tooFast(limited);
+      const week = weekOf(now());
+      const who = await allowanceKey(week, (await currentUser())?.id, clientIp);
+      const used = (await store.aiSpend(week)) >= budget || (await store.peekAiAllowance(week, who, perPerson, total));
+      return json({ allowance: used ? 'used' : 'available' });
+    }
+
     // Paid for by the key the person brought (kept in their browser, never stored), or by the
     // server's key within this week's allowance.
     if (isAi) {
