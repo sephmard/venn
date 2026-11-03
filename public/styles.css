@@ -839,6 +839,10 @@ div.poll-share {
   .poll-share {
     grid-column: auto;
   }
+  /* fits "Link copied ✓" */
+  .poll-share .btn {
+    min-width: 148px;
+  }
 }
 
 /* Tabs on phones; side by side on wide screens */
@@ -1442,15 +1446,20 @@ ol.best .when {
   gap: 8px;
   margin-top: 16px;
 }
+/* Outlined in the card's ink: Create a Venn is the one filled button. */
+.final-tell .btn,
+.best-hero .btn {
+  background: transparent;
+  color: inherit;
+  border: 2px solid;
+}
 .final-tell .btn {
   width: 100%;
   min-height: 52px;
-  background: var(--surface);
-  color: var(--accent);
-  border-color: transparent;
 }
-.final-tell .btn:hover {
-  background: var(--surface-2);
+.final-tell .btn:is(:hover, :active),
+.best-hero .btn:is(:hover, :active) {
+  background: color-mix(in srgb, currentColor 12%, transparent);
 }
 /* Add to calendar: open, its calendars take the row. */
 .final-cal[open] {
@@ -1458,19 +1467,13 @@ ol.best .when {
 }
 .final-tell .final-cal summary {
   list-style: none;
-  background: transparent;
-  color: inherit;
-  border: 1.5px solid;
   cursor: pointer;
 }
 .final-cal summary::-webkit-details-marker {
   display: none;
 }
-/* Tapped or open, it keeps its own text colour: a tint of it, never the white panel of the other
-   buttons (a phone keeps :hover after a tap). */
-.final-tell .final-cal summary:hover,
 .final-cal[open] summary {
-  background: color-mix(in srgb, currentColor 14%, transparent);
+  background: color-mix(in srgb, currentColor 12%, transparent);
 }
 /* Change the date: the next best dates, in the banner. */
 .change-list {
