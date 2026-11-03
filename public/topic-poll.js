@@ -420,7 +420,7 @@ export async function renderTopicPoll(ctx) {
       drafts?.dropStored(localStorage, draftKey);
       Object.assign(st, { draft: false, draftName: '' });
       await reload();
-      toast(ev.isAdmin ? 'Saved' : 'Thanks, your answer is in');
+      toast(ev.isAdmin ? 'Saved' : updated ? 'Answer updated.' : 'Thanks, your answer is in');
     } catch (ex) {
       err.textContent = ex.message;
       $('#save').disabled = false;

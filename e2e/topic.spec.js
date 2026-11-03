@@ -233,7 +233,7 @@ test('decided: "Are you in?" about the pick, answered as new and as before', asy
   await his.getByRole('button', { name: 'Yes' }).click();
   await expect(his.getByRole('button', { name: 'No' })).toHaveAttribute('aria-pressed', 'false');
   await m.getByRole('button', { name: 'Update answer' }).click();
-  await expect(m.locator('#toast')).toContainText('your answer is in');
+  await expect(m.locator('#toast')).toContainText('Answer updated.');
   await ctx.close();
 
   const ev = await (await page.request.get(`/api/events/${made.id}`)).json();
@@ -259,6 +259,9 @@ test('decided pick-one and yes-or-no votes ask nothing more', async ({ page }) =
     await expect(page.locator('.banner-final h2')).toHaveText(pick);
     await expect(page.locator('#mine-h, #answer-final, .topic-row, #save')).toHaveCount(0);
     await expect(page.getByRole('heading', { name: 'The group' })).toBeVisible();
+    // On a wide screen, the group takes the row rather than half of it.
+    const w = (await page.locator('.panels > .panel').boundingBox()).width;
+    if (page.viewportSize().width >= 1000) expect(w).toBeGreaterThan(600);
     await expect(page.locator('.t-result', { hasText: options[0] })).toContainText('1 vote');
   }
 });

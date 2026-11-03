@@ -106,3 +106,9 @@ ol.t-results li {
 .topic-locked {
   opacity: 0.6;
 }
+/* Decided with nothing left to answer: the group takes the row, not half of it. */
+@media (min-width: 1000px) {
+  .panels:has(> .panel:only-child) {
+    grid-template-columns: minmax(0, 720px);
+  }
+}
