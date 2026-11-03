@@ -468,7 +468,7 @@ for (const scheme of ['light', 'dark']) {
     await page.fill('#name', 'Ana');
     await page.fill('#copy-to', 'ana@example.com');
     await page.click('#save');
-    await expect(page.getByRole('link', { name: 'Planning something? Make yours in 30 seconds' })).toBeVisible();
+    await expect(page.getByRole('link', { name: 'Planning something? Make yours in a minute' })).toBeVisible();
     await audit(page, `guest celebration (${scheme})`, { party: true });
 
     // The next one: its organizer can email last time's group.
