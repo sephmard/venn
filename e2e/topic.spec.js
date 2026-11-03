@@ -127,6 +127,142 @@ test('Pick one anyway picks with no answers at all', async ({ page }) => {
   await expect(page.locator('.banner-final h2')).toHaveText('Yes');
 });
 
+/** A vote made by API, with emails or notifications switched on in the page's config. */
+async function voteFor(page, config) {
+  const { id, adminToken } = await (
+    await page.request.post('/api/events', {
+      data: { title: 'Where to?', organizer: 'Priya', timezone: 'UTC', mode: 'topic', options: ['Park', 'Beach'] },
+    })
+  ).json();
+  await page.route('**/api/config', async (route) => {
+    const res = await route.fetch();
+    await route.fulfill({ response: res, json: { ...(await res.json()), ...config } });
+  });
+  return { id, adminToken };
+}
+
+test('a guest asks to hear what’s decided by email, after answering, and can turn it off', async ({ page, isMobile }) => {
+  const { id, adminToken } = await voteFor(page, { emailAvailable: true, push: false });
+  await page.goto(`/e/${id}`);
+  await expect(page.locator('.topic-row').first()).toBeVisible();
+  // Not before answering.
+  await expect(page.locator('#tell-me')).toHaveCount(0);
+  await page.locator('.topic-row', { hasText: 'Beach' }).getByRole('radio', { name: 'Yes' }).click();
+  await page.getByLabel('Your name').fill('Ana');
+  await page.getByRole('button', { name: 'Submit' }).click();
+  await expect(page.locator('#toast')).toContainText('your answer is in');
+  const offer = page.getByRole('button', { name: "🔔 Tell me when it's decided" });
+  await expect(offer).toBeVisible();
+  expect((await offer.boundingBox()).height).toBeGreaterThanOrEqual(44);
+  await offer.click();
+  const field = page.getByLabel("Email me when it's decided");
+  await expect(field).toBeFocused();
+  expect(await field.evaluate((el) => getComputedStyle(el).fontSize)).toBe('16px');
+  await noBlockingA11y(page, 'vote: asking for an email to hear what’s decided');
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+  if (isMobile) expect((await page.getByRole('button', { name: 'Email me' }).boundingBox()).height).toBeGreaterThanOrEqual(44);
+  // A wrong address says so in the page.
+  await field.fill('ana@');
+  await page.getByRole('button', { name: 'Email me' }).click();
+  await expect(page.locator('#tm-err')).toHaveText("That email doesn't look right.");
+  await field.fill('ana@example.com');
+  await page.getByRole('button', { name: 'Email me' }).click();
+  await expect(page.locator('#tell-me')).toContainText("You'll get one email at ana@example.com when it's decided.");
+  // Kept on the server: after a reload it's still on, and the organizer sees the address.
+  await page.reload();
+  await expect(page.locator('#tell-me')).toContainText('ana@example.com');
+  const ev = await (await page.request.get(`/api/events/${id}`, { headers: { 'x-admin-token': adminToken } })).json();
+  expect(ev.participants[0].email).toBe('ana@example.com');
+  // Turn off: back to the offer, and the address is gone.
+  await page.getByRole('button', { name: 'Turn off' }).click();
+  await expect(offer).toBeFocused();
+  const after = await (await page.request.get(`/api/events/${id}`, { headers: { 'x-admin-token': adminToken } })).json();
+  expect(after.participants[0].email ?? null).toBe(null);
+});
+
+test('the organizer never sees Tell me when it’s decided, nor anyone once it’s decided or with email off', async ({ page }) => {
+  const { id, adminToken } = await voteFor(page, { emailAvailable: true, push: false });
+  const ana = await (
+    await page.request.post(`/api/events/${id}/participants`, { data: { name: 'Ana', availability: { 1: 2 } } })
+  ).json();
+  await page.goto(`/e/${id}#admin=${adminToken}`);
+  await expect(page.locator('.t-results')).toBeVisible();
+  await expect(page.locator('#tell-me')).toHaveCount(0);
+  // Decided: the guest isn't offered it.
+  await page.request.post(`/api/events/${id}/finalize`, { data: { option: 1 }, headers: { 'x-admin-token': adminToken } });
+  const g = await page.context().browser().newContext();
+  const guest = await g.newPage();
+  await guest.goto(`/e/${id}#edit=${ana.id}.${ana.editToken}`);
+  await expect(guest.locator('.banner-final')).toBeVisible();
+  await expect(guest.locator('#tell-me')).toHaveCount(0);
+  await g.close();
+});
+
+test('after answering, a guest sees both: Tell me under their answer, Make yours under the group', async ({ page, isMobile }) => {
+  const { id } = await voteFor(page, { emailAvailable: true, push: false });
+  await page.goto(`/e/${id}`);
+  await page.locator('.topic-row', { hasText: 'Beach' }).getByRole('radio', { name: 'Yes' }).click();
+  await page.getByLabel('Your name').fill('Ana');
+  await page.getByRole('button', { name: 'Submit' }).click();
+  const tell = page.getByRole('button', { name: "🔔 Tell me when it's decided" });
+  const yours = page.getByRole('link', { name: 'Planning something? Make yours in 30 seconds' });
+  await expect(tell).toBeVisible();
+  await expect(yours).toBeVisible();
+  // Each in its own place: Tell me with the guest's answer, Make yours with the group's results.
+  await expect(page.locator('[aria-labelledby="mine-h"] #tell-me')).toHaveCount(1);
+  await expect(page.locator('section[aria-labelledby="group-h"] #make-yours')).toHaveCount(1);
+  const [t, y] = [await tell.boundingBox(), await yours.boundingBox()];
+  if (isMobile) expect(y.y).toBeGreaterThan(t.y + t.height); // one column on a phone; side by side wider
+  for (const b of [t, y]) expect(b.height).toBeGreaterThanOrEqual(44);
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+  await noBlockingA11y(page, `vote, guest after voting, both offers${isMobile ? ' (phone)' : ''}`);
+});
+
+test('with notifications on, a guest can be told on this device instead', async ({ page }) => {
+  const sub = { endpoint: 'https://fcm.googleapis.com/fcm/send/ana', keys: { p256dh: 'x', auth: 'y' } };
+  await page.addInitScript((sub) => {
+    let current = null;
+    const pushManager = {
+      getSubscription: async () => current,
+      subscribe: async () => (current = { endpoint: sub.endpoint, toJSON: () => sub }),
+    };
+    const reg = { pushManager };
+    Object.defineProperty(Notification, 'permission', { get: () => 'default' });
+    Notification.requestPermission = async () => 'granted';
+    navigator.serviceWorker.register = async () => reg;
+    navigator.serviceWorker.getRegistration = async () => reg;
+    Object.defineProperty(navigator.serviceWorker, 'ready', { get: () => Promise.resolve(reg) });
+  }, sub);
+  const key = 'BNcRdreALRFXTkOOUHK1EtK2wtaz5Ry4YfYCA_0QTpQtUbVlUls0VJXg7A8u-Ts1XbjhazAkj7I99e8QcYP7DkM';
+  const { id } = await voteFor(page, { emailAvailable: true, push: key });
+  const ana = await (
+    await page.request.post(`/api/events/${id}/participants`, { data: { name: 'Ana', availability: { 1: 2 } } })
+  ).json();
+  const puts = [];
+  await page.route(`**/api/events/${id}/participants/${ana.id}/push`, async (route) => {
+    puts.push(route.request().postDataJSON());
+    await route.fulfill({ json: { ok: true } });
+  });
+  await page.goto(`/e/${id}#edit=${ana.id}.${ana.editToken}`);
+  await page.getByRole('button', { name: "🔔 Tell me when it's decided" }).click();
+  await page.getByRole('button', { name: 'Use a notification instead' }).click();
+  const notify = page.getByRole('button', { name: "🔔 Notify me when it's decided" });
+  await expect(notify).toBeFocused();
+  await notify.click();
+  await expect(page.locator('#tell-me')).toContainText("You'll get a notification when it's decided.");
+  expect(puts.at(-1)).toEqual({ push: sub });
+});
+
+test('with email and notifications off, an answered guest sees nothing new', async ({ page }) => {
+  const { id } = await voteFor(page, { emailAvailable: false, push: false });
+  const ana = await (
+    await page.request.post(`/api/events/${id}/participants`, { data: { name: 'Ana', availability: { 1: 2 } } })
+  ).json();
+  await page.goto(`/e/${id}#edit=${ana.id}.${ana.editToken}`);
+  await expect(page.locator('#save')).toHaveText('Update answer');
+  await expect(page.locator('#tell-me')).toBeHidden();
+});
+
 test('a yes or no question takes one pick each', async ({ page, browser }) => {
   const url = await createTopic(page, { title: 'Should we do a trip this spring?', yesNo: true });
   await answer(browser, url, 'Jordan', [['Yes', 'pick']]);
@@ -298,6 +434,97 @@ test('decided pick-one and yes-or-no votes ask nothing more', async ({ page }) =
     if (page.viewportSize().width >= 1000) expect(w).toBeGreaterThan(600);
     await expect(page.locator('.t-result', { hasText: options[0] })).toContainText('1 vote');
   }
+});
+
+test('vote again next time: the organizer of a decided vote starts the next one without last time’s pick', async ({
+  page,
+  browser,
+}) => {
+  const { made, decide } = await decidedVote(page.request, { options: ['Rosa’s', 'Luigi’s', 'Taco Loco'], pick: 'Luigi’s' });
+  const again = page.getByRole('link', { name: 'Vote again next time' });
+  // Not before it's decided.
+  await page.goto(`/e/${made.id}#admin=${made.adminToken}`);
+  await expect(page.locator('.t-results')).toBeVisible();
+  await expect(again).toHaveCount(0);
+  await decide();
+  await page.reload();
+  await expect(again).toBeVisible();
+  expect((await again.boundingBox()).height).toBeGreaterThanOrEqual(44);
+  await noBlockingA11y(page, 'decided vote, organizer, with Vote again');
+  // Nor in a frame on another website, even for the organizer.
+  const framed = await (await browser.newContext()).newPage();
+  await framed.goto(`/embed/${made.id}#admin=${made.adminToken}`);
+  await expect(framed.locator('.banner-final')).toBeVisible();
+  await expect(framed.locator('#unpick')).toBeVisible(); // the organizer's view
+  await expect(framed.locator('#vote-again')).toHaveCount(0);
+  await framed.context().close();
+  // Guests never see it.
+  const g = await (await browser.newContext()).newPage();
+  await g.goto(`/e/${made.id}`);
+  await expect(g.locator('.banner-final')).toBeVisible();
+  await expect(g.getByRole('link', { name: 'Vote again next time' })).toHaveCount(0);
+  await g.context().close();
+
+  await again.click();
+  await expect(page).toHaveURL(new RegExp(`/new/topic\\?copy=${made.id}&next`));
+  await expect(page.locator('#create h1')).toHaveText('Plan the next one');
+  await expect(page.locator('#toast')).toHaveText('Same options again. Change anything, then create the poll.');
+  await expect(page.locator('#title')).toHaveValue('Where should we eat?');
+  const leave = page.getByLabel("Leave out Luigi’s (last time's pick)");
+  await expect(leave).toBeChecked();
+  const opts = () => page.locator('#opts input').evaluateAll((els) => els.map((el) => el.value));
+  await expect.poll(opts).toEqual(['Rosa’s', 'Taco Loco']);
+  await noBlockingA11y(page, 'vote again: the form');
+  // Ticked off, it's back where it was; on again, gone.
+  await leave.uncheck();
+  await expect.poll(opts).toEqual(['Rosa’s', 'Luigi’s', 'Taco Loco']);
+  await expect(page.getByRole('textbox', { name: 'Option 2', exact: true })).toHaveValue('Luigi’s');
+  await leave.check();
+  await expect.poll(opts).toEqual(['Rosa’s', 'Taco Loco']);
+  await page.click('#submit');
+  await page
+    .locator('.party-skip, .party-go')
+    .first()
+    .click()
+    .catch(() => {});
+  await page.waitForURL(/\/e\/\w+$/);
+  const id = page.url().split('/e/')[1];
+  expect(id).not.toBe(made.id);
+  const made2 = await (await page.request.get(`/api/events/${id}`)).json();
+  expect(made2.options.map((o) => o.label)).toEqual(['Rosa’s', 'Taco Loco']);
+});
+
+test('vote again next time: a yes or no question copies with nothing to leave out', async ({ page }) => {
+  const { made, decide } = await decidedVote(page.request, { options: ['Yes', 'No'], single: true, pick: 'Yes' });
+  await decide();
+  await page.goto(`/e/${made.id}#admin=${made.adminToken}`);
+  await page.getByRole('link', { name: 'Vote again next time' }).click();
+  await expect(page.locator('#create h1')).toHaveText('Plan the next one');
+  await expect(page.locator('#yesno')).toBeVisible();
+  await expect(page.locator('#leave-out')).toHaveCount(0);
+});
+
+test('vote again next time: a white-label vote’s organizer still has it', async ({ page }) => {
+  const brand = await (await page.request.post('/api/brands', { data: { name: 'Acme', hideVenn: true } })).json();
+  const made = await (
+    await page.request.post('/api/events', {
+      data: {
+        title: 'Where to?',
+        organizer: 'Priya',
+        timezone: 'UTC',
+        mode: 'topic',
+        options: ['Park', 'Beach'],
+        brand: brand.id,
+      },
+    })
+  ).json();
+  await page.request.post(`/api/events/${made.id}/finalize`, {
+    data: { option: 1 },
+    headers: { 'x-admin-token': made.adminToken },
+  });
+  await page.goto(`/e/${made.id}#admin=${made.adminToken}`);
+  await expect(page.locator('.banner-final')).toBeVisible();
+  await expect(page.getByRole('link', { name: 'Vote again next time' })).toBeVisible();
 });
 
 test('after voting, a guest is offered a vote of their own; never the organizer, in a frame or on white label', async ({

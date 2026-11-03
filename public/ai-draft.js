@@ -7,7 +7,7 @@
 import { DAY_PARTS, LIMITS, MINUTE } from './core.js';
 import { $, $$, api, esc, plural, reducedMotion, toast } from './ui.js';
 
-import { aiFailed, aiHeaders, keyLink, wireKeyLink } from './ai-key.js';
+import { aiFailed, aiHeaders, keyHint } from './ai-key.js';
 import { describeDraft } from './draft-summary.js';
 
 const keyProblem = (ex) => ex.status === 402 || (ex.status === 400 && /key/i.test(ex.message));
@@ -185,7 +185,7 @@ const box = (
     </div>
     <p class="ai-wait" id="ai-wait" role="status" hidden><img src="/img/dog.webp" alt="" width="40" height="40">Finn is on it. Thinking…</p>
     <p class="field-err" id="ai-err" role="alert"></p>
-    <p class="hint">${sent} ${after} <span id="ai-key-link"></span></p>
+    <p class="hint"><span id="ai-sent">${sent}</span> ${after} <span id="ai-key-link"></span></p>
     <div id="ai-key-box" hidden></div>
   </div>`;
 
@@ -198,10 +198,18 @@ function byHand() {
   (field || $('#ai-open'))?.scrollIntoView({ block: 'center' });
 }
 
+/**
+ * The hint's end: "Use your own key", only once it's needed (ai-key.js keyHint), after `say`'s line.
+ * Asked for when the box first opens, so a page that never opens it never asks.
+ */
+function hintOnOpen(say) {
+  const hint = () => keyHint($('#ai-draft'), $('#ai-key-link'), $('#ai-key-box'), say);
+  if ($('#ai-open') && $('#ai-draft').hidden) $('#ai-open').addEventListener('click', hint, { once: true });
+  else hint();
+}
+
 /** Wire the box: `fill(prompt)` asks and fills in, and says what it did. */
 function wire(fill, button = BUTTON) {
-  $('#ai-key-link').innerHTML = keyLink();
-  wireKeyLink($('#ai-draft'), $('#ai-key-box'));
   const go = async () => {
     const prompt = $('#ai-prompt').value.trim();
     if (!prompt) return $('#ai-prompt').focus();
@@ -356,8 +364,21 @@ export function aiDays(st, { empty, setRow, show, level, row }, { ai } = { ai: t
     });
     if (both) voteLink($('#ai-done > p'), both, 'Vote on it first');
   });
-  if (!ai) $('#ai-key-link').replaceChildren(); // no AI here, so no key to add
+  if (ai) hintOnOpen(usedLine('This week’s free AI requests are used up, so Venn reads this itself.')); // with no AI here, there's no key to add
 }
+
+/**
+ * Past this week's free AI requests, the hint says so first, in place of "Sent to Anthropic’s
+ * Claude" (nothing is, without a key); it comes back once a key is saved. `used` is the line.
+ */
+const usedLine =
+  (used = 'This week’s free AI requests are used up.') =>
+  (state) => {
+    const sent = $('#ai-sent');
+    sent.dataset.sent ??= sent.textContent;
+    sent.textContent = state === 'used' ? used : sent.dataset.sent;
+    return '';
+  };
 
 /** Choices to name in a line: "Italian, Thai or Mexican". */
 const either = (list) => (list.length < 2 ? list.join('') : `${list.slice(0, -1).join(', ')} or ${list.at(-1)}`);
@@ -433,6 +454,7 @@ export function aiDraft(form, load) {
     $('#preview-h').scrollIntoView({ behavior: 'smooth', block: 'start' });
     toast(`Filled in ${plural(draft.options.length, 'option')}. Check them, then create the poll.`);
   });
+  hintOnOpen(usedLine());
 }
 
 /**
@@ -454,6 +476,7 @@ export function aiTopic(fill, snapshot) {
     light([$('#title'), ...(draft.yesNo ? [] : $$('#opts input'))]);
     done(draft.yesNo ? `${draft.question} · Yes or no` : `${draft.question} · ${plural(draft.options.length, 'option')}`, undo);
   });
+  hintOnOpen(usedLine());
 }
 
 /**
@@ -480,4 +503,5 @@ export function aiLook(host, { name, apply }) {
     light(changed);
     done(text, undo);
   }, 'Suggest a look');
+  hintOnOpen(usedLine());
 }

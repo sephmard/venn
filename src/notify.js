@@ -11,6 +11,7 @@ import {
   eventWindows,
   isEmail,
   isOptionsPoll,
+  isTopicPoll,
   rankTimes,
 } from '../public/core.js';
 import { emailProvider, sendEmail } from './email.js';
@@ -461,6 +462,30 @@ export function dateSetEmail({ title, when, location, pollUrl, calendars, retro 
   return { subject, text, html: styled(html, retro) };
 }
 
+/** At most `n` characters, with "…" when it's cut. */
+const clip = (s, n = 60) => (s.length > n ? `${s.slice(0, n - 1).trimEnd()}…` : s);
+
+/**
+ * To each guest who asked to hear it (or answered a poll that asks everyone for an email), once the
+ * organizer picks an option on a vote: what was decided. `changed`: it replaces an earlier pick.
+ */
+export function decidedEmail({ title, option, pollUrl, retro = false, changed = false, whiteLabel = null }) {
+  const subject = `${changed ? 'Change of plan' : 'Decided'}: ${clip(option)} for “${clip(title)}”`;
+  // Neutral: on a poll that asks everyone for an email, guests get it without having asked.
+  const why = `You get this because you answered “${title}” with this address. You won't get more than this one, unless the organizer changes their mind.`;
+  let text = `${changed ? 'Change of plan' : 'It’s decided! 🎉'}\n\n${option}\nfor “${title}”\n\nSee the poll: ${pollUrl}\n\n${why}\n`;
+  text += `\n${signature(pollUrl, false, whiteLabel)}\n`;
+  const html = emailLayout(
+    `${heading(changed ? 'Change of plan' : 'It’s decided! 🎉')}<p style="margin:0 0 4px;font-size:22px;font-weight:700;line-height:1.3">${escHtml(
+      option,
+    )}</p><p style="margin:0 0 12px;color:#6b6d70">for “${escHtml(title)}”</p>${button(pollUrl, 'See the poll')}`,
+    escHtml(why),
+    pollUrl,
+    { whiteLabel },
+  );
+  return { subject, text, html: styled(html, retro) };
+}
+
 /** To the organizer, each time someone answers: who it was, the best time so far, and the poll. */
 export function responseEmail(s, unsubscribeUrl, { retro = false } = {}) {
   const name = s.response?.name;
@@ -506,6 +531,12 @@ function windowLabel(start, end, tz) {
 
 /** Someone's answers in words, grouped: [{ label, answer: 'yes' | 'if needed' }]. Hours next to each other merge. */
 export function answerLines(ev, availability) {
+  const said = (v) => (v === YES ? 'yes' : 'if needed');
+  // A vote: its options by name (they have no times).
+  if (isTopicPoll(ev))
+    return ev.options
+      .filter((o) => availability[o.id] === YES || availability[o.id] === IF_NEEDED)
+      .map((o) => ({ label: o.label, answer: said(availability[o.id]) }));
   const out = [];
   let run = null;
   for (const w of eventWindows(ev)) {
@@ -517,7 +548,7 @@ export function answerLines(ev, availability) {
     if (run && run.v === v && run.end === w.start && !isOptionsPoll(ev)) run.end = w.end;
     else out.push((run = { v, start: w.start, end: w.end }));
   }
-  return out.map((r) => ({ label: windowLabel(r.start, r.end, ev.timezone), answer: r.v === YES ? 'yes' : 'if needed' }));
+  return out.map((r) => ({ label: windowLabel(r.start, r.end, ev.timezone), answer: said(r.v) }));
 }
 
 /**

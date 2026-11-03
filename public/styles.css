@@ -2847,6 +2847,10 @@ html.embed body {
 :is(.embed, .white-label) :is(.topbar, .footer, #grow, .final-more:has([href^='/new'])) {
   display: none !important;
 }
+/* Vote again is the organizer's own tool, and keeps the brand: white label shows it, a frame never. */
+.white-label:not(.embed) .final-more:has(#vote-again) {
+  display: block !important;
+}
 /* What the website around the frame shows itself (event.js). */
 .embed-no-head :is(.brand-bar, .poll-head),
 .embed-no-share .guest-share {

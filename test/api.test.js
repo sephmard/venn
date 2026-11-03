@@ -619,6 +619,79 @@ test('GET /api/health: 200 while the database answers, 503 when it does not, nev
   assert.match(errors.join('\n'), /database unreachable/);
 });
 
+test('answers keyed by something that is not a slot are said back as ignored, and refused when none match', async () => {
+  const { data } = await call('/api/events', { method: 'POST', body: newEvent });
+  const path = `/api/events/${data.id}`;
+  const [s0, s1] = (await call(path)).data.slots;
+  const answer = (availability) => call(`${path}/participants`, { method: 'POST', body: { name: 'Ana', availability } });
+
+  // Some keys match: those are kept, the others come back in `ignored`.
+  const mixed = await answer({ [s0]: YES, [s1 + 5]: YES });
+  assert.equal(mixed.status, 201);
+  assert.deepEqual(mixed.data.ignored, [String(s1 + 5)]);
+  // At most 20 are said back.
+  const many = await answer({ [s0]: YES, ...Object.fromEntries(Array.from({ length: 30 }, (_, i) => [`x${i}`, YES])) });
+  assert.equal(many.status, 201);
+  assert.equal(many.data.ignored.length, 20);
+  // All keys match, nothing sent, or an explicit no to everything: no `ignored`.
+  for (const availability of [{ [s0]: YES, [s1]: 0 }, {}, undefined]) {
+    const ok = await answer(availability);
+    assert.equal(ok.status, 201);
+    assert.deepEqual(Object.keys(ok.data).sort(), ['editToken', 'id']);
+  }
+  // None match: a time a few ms off, an ISO date, a date. Nothing is saved.
+  const before = (await call(path)).data.participants.length;
+  for (const availability of [{ [s0 + 5]: YES }, { [new Date(s0).toISOString()]: YES }, { '2026-11-02': IF_NEEDED }]) {
+    const bad = await answer(availability);
+    assert.equal(bad.status, 400);
+    assert.equal(bad.data.error, "This poll's times changed after you opened it. Reload the page, then answer again.");
+    assert.match(bad.data.detail, /UTC milliseconds, as listed in slots/);
+  }
+  assert.equal((await call(path)).data.participants.length, before);
+
+  // Changing an answer the same way.
+  const pid = mixed.data.id;
+  const put = (availability) =>
+    call(`${path}/participants/${pid}`, {
+      method: 'PUT',
+      body: { name: 'Ana', availability },
+      headers: { 'x-edit-token': mixed.data.editToken },
+    });
+  assert.deepEqual((await put({ [s1]: YES, nope: YES })).data, { ok: true, ignored: ['nope'] });
+  assert.deepEqual((await put({ [s1]: YES })).data, { ok: true });
+  assert.equal((await put({ nope: YES })).status, 400);
+  const mine = (await call(path)).data.participants.find((p) => p.id === pid);
+  assert.deepEqual(mine.availability, { [s1]: YES }, 'a refused change leaves the answer as it was');
+});
+
+test('a page opened before the organizer changed the times: its answer is refused with a reload hint, not saved blank', async () => {
+  const created = await call('/api/events', { method: 'POST', body: { ...newEvent, hostAnswers: true } });
+  const { id, adminToken, participant } = created.data;
+  const path = `/api/events/${id}`;
+  const admin = { 'x-admin-token': adminToken };
+  // A guest opens the poll and marks its times, without sending yet.
+  const stale = Object.fromEntries((await call(path)).data.slots.map((s) => [s, YES]));
+  // The organizer moves the poll to another day (allowed: no guest has answered).
+  const moved = await call(path, { method: 'PUT', body: { ...newEvent, dates: ['2026-11-03'] }, headers: admin });
+  assert.equal(moved.status, 200);
+  const fresh = (await call(path)).data.slots;
+
+  const guest = await call(`${path}/participants`, { method: 'POST', body: { name: 'Bo', availability: stale } });
+  assert.equal(guest.status, 400);
+  assert.match(guest.data.error, /^This poll's times changed after you opened it\. Reload the page/);
+  // The organizer's own page, also opened before the change.
+  const host = await call(`${path}/participants/${participant.id}`, {
+    method: 'PUT',
+    body: { name: 'Sam', availability: stale },
+    headers: { 'x-edit-token': participant.editToken },
+  });
+  assert.equal(host.status, 400);
+  // After a reload, with the poll's times now: saved.
+  const again = await call(`${path}/participants`, { method: 'POST', body: { name: 'Bo', availability: { [fresh[0]]: YES } } });
+  assert.equal(again.status, 201);
+  assert.equal(again.data.ignored, undefined);
+});
+
 test('a new poll comes back with its links: url to share, adminUrl to manage it', async () => {
   const { status, data } = await call('/api/events', { method: 'POST', body: newEvent });
   assert.equal(status, 201);

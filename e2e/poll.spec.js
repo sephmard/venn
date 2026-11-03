@@ -1363,6 +1363,8 @@ test('AI: describe it instead on Create a Venn picks the days, with your own key
   await page.goto('/new');
   await page.fill('#organizer', 'Sam');
   await expect(page.locator('#ai-draft')).toBeHidden();
+  // "Use your own key" shows once this week's free requests are used up (ai-allowance.spec).
+  await page.route('**/api/ai/allowance', (route) => route.fulfill({ json: { allowance: 'used' } }));
   await page.click('#ai-open');
   await expect(page.locator('#ai-open')).toHaveAttribute('aria-expanded', 'true');
   // Add a key of your own first: it's kept in this browser and sent with the request.

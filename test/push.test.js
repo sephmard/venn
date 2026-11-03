@@ -280,6 +280,44 @@ test("a guest's phone is told when the date is picked and when it changes, and o
   assert.equal(pushes.length, 0);
 });
 
+test("a guest's phone is told what a vote decided, and when the pick changes", async (t) => {
+  const keys = await vapidKeys();
+  const env = { VAPID_PUBLIC_KEY: keys.publicKey, VAPID_PRIVATE_KEY: keys.privateKey };
+  const { call, pushes } = await serve(t, env);
+  const vote = { title: 'Where to?', timezone: 'UTC', mode: 'topic', options: ['Thai Palace', 'Taco Loco'] };
+  const { data } = await call('/api/events', { method: 'POST', body: vote });
+  const admin = { 'x-admin-token': data.adminToken };
+  const ana = (
+    await call(`/api/events/${data.id}/participants`, { method: 'POST', body: { name: 'Ana', availability: { 1: 2 } } })
+  ).data;
+  const phone = await browserKeys();
+  const sub = { endpoint: 'https://fcm.googleapis.com/fcm/send/ana', keys: phone.keys };
+  const read = async (p) => JSON.parse((await decrypt(p.init.body, phone)).text);
+  const mine = { 'x-edit-token': ana.editToken };
+  assert.equal(
+    (await call(`/api/events/${data.id}/participants/${ana.id}/push`, { method: 'PUT', body: { push: sub }, headers: mine }))
+      .status,
+    200,
+  );
+  assert.equal((await read(pushes[0])).body, "You'll get a notification here when it's decided.");
+
+  const pick = (option) => call(`/api/events/${data.id}/finalize`, { method: 'POST', body: { option }, headers: admin });
+  pushes.length = 0;
+  await pick(1);
+  assert.equal(pushes.length, 1);
+  const msg = await read(pushes[0]);
+  assert.equal(msg.title, 'Where to?');
+  assert.equal(msg.body, 'It’s decided: Thai Palace.');
+  assert.equal(msg.tag, data.id);
+  assert.match(msg.url, new RegExp(`/e/${data.id}$`));
+  // The same again says nothing; another option is a change of plan.
+  pushes.length = 0;
+  await pick(1);
+  assert.equal(pushes.length, 0);
+  await pick(2);
+  assert.equal((await read(pushes[0])).body, 'Change of plan: now Taco Loco.');
+});
+
 test('a guest can turn it off, and a gone phone is forgotten', async (t) => {
   const keys = await vapidKeys();
   const env = { VAPID_PUBLIC_KEY: keys.publicKey, VAPID_PRIVATE_KEY: keys.privateKey };

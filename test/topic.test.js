@@ -199,3 +199,20 @@ test('My polls rows say a poll is a vote, what was picked, and whether it was yo
   assert.equal(answered.mode, 'topic');
   assert.equal(answered.can, YES);
 });
+
+test('a topic answer keyed by option labels, not ids, is refused with the ids to use', async () => {
+  const { data } = await call('/api/events', { method: 'POST', body: { ...base, mode: 'topic', options: ['Pizza', 'Tacos'] } });
+  const res = await call(`/api/events/${data.id}/participants`, {
+    method: 'POST',
+    body: { name: 'Ana', availability: { Pizza: YES } },
+  });
+  assert.equal(res.status, 400);
+  assert.equal(res.data.error, "This poll's options changed after you opened it. Reload the page, then answer again.");
+  assert.match(res.data.detail, /option id \(1, 2…\), as listed in slots/);
+  const ok = await call(`/api/events/${data.id}/participants`, {
+    method: 'POST',
+    body: { name: 'Ana', availability: { 1: YES, Tacos: YES } },
+  });
+  assert.equal(ok.status, 201);
+  assert.deepEqual(ok.data.ignored, ['Tacos']);
+});

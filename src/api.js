@@ -16,7 +16,7 @@ import { buildIcs, googleCalendarUrl, outlookCalendarUrl } from '../public/calen
 import { setLabel } from './preview.js';
 import { applyDeadline, closesLabel, deadlineView, isClosed, normalizeDeadline, remindNow, stopReminders } from './deadline.js';
 import { inviteRoom, newInvitees, normalizeInvitees, sendInvites } from './invites.js';
-import { checkSingle, normalizeAvailability, normalizeEventInput, normalizeName } from './validate.js';
+import { checkSingle, normalizeAnswer, normalizeAvailability, normalizeEventInput, normalizeName } from './validate.js';
 import { SECURITY_HEADERS } from './security-headers.js';
 import { IMAGE_FILES, IMAGE_LIMITS, MAX_IMAGE_BODY, imagePath, imageResponse, parseImage } from './images.js';
 import { BRAND_ID_RE, BRAND_ROLES, MAX_BRAND_INVITES, hidesVenn, whiteLabelOf, normalizeBrand, publicBrand } from './brands.js';
@@ -27,6 +27,7 @@ import {
   answerLines,
   buildSummary,
   dateSetEmail,
+  decidedEmail,
   emailEnabled,
   normalizeEmail,
   notifyResponse,
@@ -175,6 +176,10 @@ function publicEvent(ev, participants, { isAdmin, ownHash = null, ownId = null, 
     ...(ownId && { yourAnswer: ownId }),
   };
 }
+
+// Answer keys that weren't one of the poll's slots, said back so the client can see they were left
+// out: the first 20, which is enough to see what went wrong without echoing a huge body.
+const ignoredKeys = ({ ignored }) => (ignored.length ? { ignored: ignored.slice(0, 20) } : {});
 
 /**
  * The organizer's own answer: what they marked for each time (`hostAvailability`, yes or if
@@ -492,15 +497,25 @@ async function route(
     waitUntil(sendEmail(env, { to, ...msg, headers }, { fetchImpl }).catch((e) => console.error('answer copy failed', e)));
   }
 
-  /** The news on the phones of guests who asked (guest-push.js): the date is picked, or changed. */
-  function pushTheDate(ev, changed) {
+  /**
+   * The news on the phones of guests who asked (guest-push.js): the date is picked, or changed. On a
+   * vote, with `option` (its label): what was decided.
+   */
+  function pushTheDate(ev, changed, option = null) {
     waitUntil(
       (async () => {
         const subs = (await store.getNotify(ev.id))?.guestPush || [];
         if (!subs.length || !pushEnabled(env)) return;
         const msg = {
           title: ev.title,
-          body: changed ? 'The date changed. Tap to see it.' : 'The date is picked. Tap to see it.',
+          body:
+            option != null
+              ? changed
+                ? `Change of plan: now ${option}.`
+                : `It’s decided: ${option}.`
+              : changed
+                ? 'The date changed. Tap to see it.'
+                : 'The date is picked. Tap to see it.',
           url: `${origin}/e/${ev.id}`,
           tag: ev.id,
         };
@@ -514,6 +529,43 @@ async function route(
     );
   }
 
+  /** Who hears a pick by email: every guest's address but the organizer's and those who said stop. */
+  async function pickEmails(ev, settings) {
+    const emails = await store.listEmails(ev.id);
+    emails.delete(ev.hostId);
+    for (const pid of settings.stopped || []) emails.delete(pid);
+    return emails;
+  }
+
+  /**
+   * Once the organizer picks an option on a vote: one email to each guest with an address (given
+   * because the poll asks everyone, or to hear the result). Once per option, and at most
+   * MAX_DATE_EMAILS options per poll, as with dates.
+   */
+  async function emailTheDecision(ev, option) {
+    if (!emailEnabled(env)) return;
+    const settings = (await store.getNotify(ev.id)) || {};
+    const sent = settings.optionsEmailed || [];
+    if (sent.includes(option) || sent.length >= MAX_DATE_EMAILS) return;
+    const emails = await pickEmails(ev, settings);
+    if (!emails.size) return;
+    const tokens = new Map([...emails.keys()].map((pid) => [pid, guestToken(settings, pid)]));
+    await store.setNotify(ev.id, { ...settings, optionsEmailed: [...sent, option] });
+    const label = ev.options.find((o) => o.id === option)?.label || '';
+    const msg = decidedEmail({
+      title: ev.title,
+      option: label,
+      pollUrl: `${origin}/e/${ev.id}`,
+      retro: ev.retro,
+      changed: sent.length > 0,
+      whiteLabel: await whiteLabelOf(store, ev),
+    });
+    for (const [pid, to] of emails) {
+      const headers = unsubscribeHeaders(unsubscribeLink(origin, ev.id, tokens.get(pid)));
+      waitUntil(sendEmail(env, { to, ...msg, headers }, { fetchImpl }).catch((e) => console.error('decided email failed', e)));
+    }
+  }
+
   /**
    * Once the organizer picks the date: one "It's happening" email to each guest who gave an address
    * (only polls that ask everyone for one), with calendar links. Once per date, and at most
@@ -524,9 +576,7 @@ async function route(
     const settings = (await store.getNotify(ev.id)) || {};
     const sent = settings.datesEmailed || [];
     if (sent.includes(start) || sent.length >= MAX_DATE_EMAILS) return;
-    const emails = await store.listEmails(ev.id);
-    emails.delete(ev.hostId);
-    for (const pid of settings.stopped || []) emails.delete(pid);
+    const emails = await pickEmails(ev, settings);
     if (!emails.size) return;
     const tokens = new Map([...emails.keys()].map((pid) => [pid, guestToken(settings, pid)]));
     await store.setNotify(ev.id, { ...settings, datesEmailed: [...sent, start] });
@@ -1318,7 +1368,12 @@ async function route(
         await store.updateEvent(ev.id, option === null ? data : { ...data, picked: option });
         if (option !== null) {
           count('poll.finalized', kindOf(ev));
-          if (option !== before) notify({ ...ev, picked: option }, 'poll.picked', null, null);
+          // Guests who asked hear it: once per option, a change of plan said as one.
+          await emailTheDecision(ev, option);
+          if (option !== before) {
+            pushTheDate(ev, before != null, ev.options.find((o) => o.id === option)?.label || '');
+            notify({ ...ev, picked: option }, 'poll.picked', null, null);
+          }
         }
         return json({ ok: true, picked: option });
       }
@@ -1376,7 +1431,9 @@ async function route(
         count('push.guest', {});
         const hello = {
           title: ev.title,
-          body: `You'll get a notification here when the date ${ev.finalStart == null ? 'is picked' : 'changes'}.`,
+          body: isTopicPoll(ev)
+            ? `You'll get a notification here when ${ev.picked == null ? "it's decided" : 'the pick changes'}.`
+            : `You'll get a notification here when the date ${ev.finalStart == null ? 'is picked' : 'changes'}.`,
           url: `${origin}/e/${ev.id}`,
           tag: ev.id,
         };
@@ -1395,7 +1452,8 @@ async function route(
       if (!limited.ok) return tooFast(limited);
       const body = await readJson(request);
       const name = normalizeName(body.name);
-      const availability = checkSingle(ev, normalizeAvailability(body.availability, slots));
+      const answer = normalizeAnswer(body.availability, slots, isTopicPoll(ev));
+      const availability = checkSingle(ev, answer.availability);
       const copyTo = normalizeEmail(body.copyTo);
       const email = participantEmail(ev, body);
       if ((await store.countParticipants(ev.id)) >= LIMITS.participants)
@@ -1423,7 +1481,7 @@ async function route(
         // Signed in, it's kept with the account: My polls lists it under Answered.
         if (!isAdmin) await keepWithAccount('answer', id);
       }
-      return json({ id, editToken }, 201);
+      return json({ id, editToken, ...ignoredKeys(answer) }, 201);
     }
 
     // PUT|DELETE /api/events/:id/participants/:pid
@@ -1437,8 +1495,16 @@ async function route(
       if (method === 'PUT') {
         if (!isOwner) return error(403, 'You can only edit your own response');
         const body = await readJson(request);
+        // { email } alone: a guest asks to hear what's decided (decided-alert.js), or stops. The
+        // answer itself, and the organizer's notifications, are untouched.
+        if (!('availability' in body) && 'email' in body) {
+          if (isHost) throw new ValidationError("The organizer's email is in Notifications");
+          await store.setParticipantEmail(ev.id, p.id, participantEmail(ev, body));
+          return json({ ok: true });
+        }
         const name = normalizeName(body.name);
-        const availability = checkSingle(ev, normalizeAvailability(body.availability, slots));
+        const answer = normalizeAnswer(body.availability, slots, isTopicPoll(ev));
+        const availability = checkSingle(ev, answer.availability);
         const copyTo = normalizeEmail(body.copyTo);
         const email = isHost ? null : participantEmail(ev, body);
         await store.updateParticipant({ id: p.id, eventId: ev.id, name, availability, now: now() });
@@ -1453,7 +1519,7 @@ async function route(
           notify(ev, 'response.updated', p.id, name);
           count('answer.updated', kindOf(ev));
         }
-        return json({ ok: true });
+        return json({ ok: true, ...ignoredKeys(answer) });
       }
       if (method === 'DELETE') {
         if (!isOwner && !isAdmin) return error(403, 'You can only remove your own response');
@@ -1471,7 +1537,7 @@ async function route(
 
     return error(404, 'Not found');
   } catch (e) {
-    if (e instanceof ValidationError) return error(400, e.message);
+    if (e instanceof ValidationError) return json({ error: e.message, ...(e.detail && { detail: e.detail }) }, 400);
     if (e instanceof AiKeyError || e instanceof AiUnavailableError) {
       // Why Anthropic said no, in the Worker's logs and the usage stats, so a broken server key or
       // model shows up. Counted even for browsers that opt out: it's about the server, not them.
