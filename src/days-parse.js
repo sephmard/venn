@@ -73,10 +73,7 @@ const mondayAfter = (d) => addDays(sundayOf(d), 1);
 const monthEnd = (y, m) => addDays(`${m === 12 ? y + 1 : y}-${String((m % 12) + 1).padStart(2, '0')}-01`, -1);
 const cap = (s) => s[0].toUpperCase() + s.slice(1);
 
-/**
- * The words read into an answer shaped as the model's (DAYS_SCHEMA), or null when they don't say
- * plainly which days. `today` is YYYY-MM-DD in the person's time zone.
- */
+/** The words, lower case, with only letters, digits, apostrophes and dashes, padded with spaces. */
 const wordsOf = (raw) =>
   ` ${raw
     .toLowerCase()
@@ -97,6 +94,10 @@ export function unsureOf(text) {
   return CORRECTION.test(t) ? 'correction' : mixedTimes(t) ? 'parts' : null;
 }
 
+/**
+ * The words read into an answer shaped as the model's (DAYS_SCHEMA), or null when they don't say
+ * plainly which days. `today` is YYYY-MM-DD in the person's time zone.
+ */
 export function parseDays(text, { today }) {
   const raw = String(text || '').slice(0, 600);
   const t = wordsOf(raw);
