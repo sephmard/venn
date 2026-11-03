@@ -134,6 +134,9 @@ async function voteFor(page, config) {
       data: { title: 'Where to?', organizer: 'Priya', timezone: 'UTC', mode: 'topic', options: ['Park', 'Beach'] },
     })
   ).json();
+  // Only keys the real /api/config sends, so a misspelt one can't make these tests pass.
+  const real = await (await page.request.get('/api/config')).json();
+  expect(Object.keys(config).filter((key) => !(key in real))).toEqual([]);
   await page.route('**/api/config', async (route) => {
     const res = await route.fetch();
     await route.fulfill({ response: res, json: { ...(await res.json()), ...config } });
@@ -142,7 +145,7 @@ async function voteFor(page, config) {
 }
 
 test('a guest asks to hear what’s decided by email, after answering, and can turn it off', async ({ page, isMobile }) => {
-  const { id, adminToken } = await voteFor(page, { emailAvailable: true, push: false });
+  const { id, adminToken } = await voteFor(page, { email: true, push: false });
   await page.goto(`/e/${id}`);
   await expect(page.locator('.topic-row').first()).toBeVisible();
   // Not before answering.
@@ -181,7 +184,7 @@ test('a guest asks to hear what’s decided by email, after answering, and can t
 });
 
 test('the organizer never sees Tell me when it’s decided, nor anyone once it’s decided or with email off', async ({ page }) => {
-  const { id, adminToken } = await voteFor(page, { emailAvailable: true, push: false });
+  const { id, adminToken } = await voteFor(page, { email: true, push: false });
   const ana = await (
     await page.request.post(`/api/events/${id}/participants`, { data: { name: 'Ana', availability: { 1: 2 } } })
   ).json();
@@ -199,7 +202,7 @@ test('the organizer never sees Tell me when it’s decided, nor anyone once it�
 });
 
 test('after answering, a guest sees both: Tell me under their answer, Make yours under the group', async ({ page, isMobile }) => {
-  const { id } = await voteFor(page, { emailAvailable: true, push: false });
+  const { id } = await voteFor(page, { email: true, push: false });
   await page.goto(`/e/${id}`);
   await page.locator('.topic-row', { hasText: 'Beach' }).getByRole('radio', { name: 'Yes' }).click();
   await page.getByLabel('Your name').fill('Ana');
@@ -234,7 +237,7 @@ test('with notifications on, a guest can be told on this device instead', async 
     Object.defineProperty(navigator.serviceWorker, 'ready', { get: () => Promise.resolve(reg) });
   }, sub);
   const key = 'BNcRdreALRFXTkOOUHK1EtK2wtaz5Ry4YfYCA_0QTpQtUbVlUls0VJXg7A8u-Ts1XbjhazAkj7I99e8QcYP7DkM';
-  const { id } = await voteFor(page, { emailAvailable: true, push: key });
+  const { id } = await voteFor(page, { email: true, push: key });
   const ana = await (
     await page.request.post(`/api/events/${id}/participants`, { data: { name: 'Ana', availability: { 1: 2 } } })
   ).json();
@@ -254,7 +257,7 @@ test('with notifications on, a guest can be told on this device instead', async 
 });
 
 test('with email and notifications off, an answered guest sees nothing new', async ({ page }) => {
-  const { id } = await voteFor(page, { emailAvailable: false, push: false });
+  const { id } = await voteFor(page, { email: false, push: false });
   const ana = await (
     await page.request.post(`/api/events/${id}/participants`, { data: { name: 'Ana', availability: { 1: 2 } } })
   ).json();
