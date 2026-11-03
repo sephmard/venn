@@ -93,6 +93,40 @@ test('vote on options, pick the favourite, then find a date for it', async ({ pa
   await expect(page.locator('#location')).toHaveValue("Rosa's");
 });
 
+test('a vote waits for an answer before offering Pick, unless the organizer picks one anyway', async ({ page, browser }) => {
+  const url = await createTopic(page, { title: 'Where to?', options: ['Park', 'Beach', 'Museum'] });
+  const results = page.locator('.t-results');
+  // Alone on a new vote: the options, without empty bars, "0 yes" or Pick.
+  await expect(results.locator('.t-result')).toHaveCount(3);
+  await expect(results.locator('.t-bar, .t-count')).toHaveCount(0);
+  await expect(page.locator('[data-pick]')).toHaveCount(0);
+  await expect(page.locator('.empty-state')).toContainText('Share the link and the favourite shows here.');
+  // The group decided in the chat: Pick one anyway puts Pick this on every row.
+  await page.getByRole('button', { name: 'Pick one anyway' }).click();
+  await expect(results.getByRole('button', { name: 'Pick this' })).toHaveCount(3);
+  await expect(results.getByRole('button', { name: 'Pick this' }).first()).toBeFocused();
+  await expect(page.getByRole('button', { name: 'Pick one anyway' })).toHaveCount(0);
+  await expect(results.locator('.t-bar')).toHaveCount(0);
+
+  // A guest answers: the tally, the favourite and Pick are back.
+  await answer(browser, url, 'Marcus', [['Beach', 'Yes']]);
+  await page.reload();
+  await expect(page.locator('.best-hero')).toContainText('Beach');
+  await expect(results.locator('.t-bar')).toHaveCount(3);
+  await expect(page.getByRole('button', { name: 'Pick one anyway' })).toHaveCount(0);
+  await page.getByRole('button', { name: 'Pick Beach' }).click();
+  await page.getByRole('button', { name: 'Pick it' }).click();
+  await expect(page.locator('.banner-final')).toContainText('Decided Beach');
+});
+
+test('Pick one anyway picks with no answers at all', async ({ page }) => {
+  await createTopic(page, { title: 'Should we do a book swap?', yesNo: true });
+  await page.getByRole('button', { name: 'Pick one anyway' }).click();
+  await page.locator('.t-result', { hasText: 'Yes' }).getByRole('button', { name: 'Pick this' }).click();
+  await page.getByRole('button', { name: 'Pick it' }).click();
+  await expect(page.locator('.banner-final h2')).toHaveText('Yes');
+});
+
 test('a yes or no question takes one pick each', async ({ page, browser }) => {
   const url = await createTopic(page, { title: 'Should we do a trip this spring?', yesNo: true });
   await answer(browser, url, 'Jordan', [['Yes', 'pick']]);
