@@ -95,8 +95,24 @@ test('templates: with a mouse, ‹ › scroll the row, each hidden at its end; o
   await on.click();
   await expect.poll(left).toBeGreaterThan(200);
   await expect(back).toBeVisible();
-  // To the end: › goes.
-  for (let i = 0; i < 10 && (await on.isVisible()); i++) await on.click();
+  // To the end: › goes. Each look waits for the row to stop (scroll snap can still move it after a
+  // press) and for its scroll event, so › isn't seen just before it hides.
+  const settled = () =>
+    row.evaluate(
+      (r) =>
+        new Promise((done) => {
+          let [last, still] = [r.scrollLeft, 0];
+          const tick = () =>
+            requestAnimationFrame(() => {
+              still = r.scrollLeft === last ? still + 1 : 0;
+              last = r.scrollLeft;
+              if (still >= 3) done();
+              else tick();
+            });
+          tick();
+        }),
+    );
+  for (let i = 0; i < 10 && (await settled(), await on.isVisible()); i++) await on.click();
   await expect(on).toBeHidden();
   await back.click();
   await expect(on).toBeVisible();
