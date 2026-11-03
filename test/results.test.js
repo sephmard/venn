@@ -146,3 +146,32 @@ test('hidden answers: guests get no results, the organizer does; hidden names ne
   assert.equal(guest.responses, 1);
   assert.deepEqual((await results(id, admin)).leaders, [1]);
 });
+
+test('asking for results has its own per-address limit, with Retry-After; plain reads and app keys are not held to it', async () => {
+  const limited = createApp({ dbPath: ':memory:', env: { RESULTS_RATE_LIMIT: '2', APP_KEYS: 'key-for-club-app' } });
+  await new Promise((r) => limited.listen(0, r));
+  try {
+    const at = `http://localhost:${limited.address().port}`;
+    const make = await fetch(`${at}/api/events`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ title: 'Plans', timezone: 'UTC', mode: 'topic', options: ['A', 'B'] }),
+    });
+    const { id } = await make.json();
+    const get = (q = '?results=1', headers = {}) => fetch(`${at}/api/events/${id}${q}`, { headers });
+    assert.equal((await get()).status, 200);
+    assert.equal((await get()).status, 200);
+    const over = await get();
+    assert.equal(over.status, 429);
+    const wait = Number(over.headers.get('retry-after'));
+    assert.ok(wait > 590 && wait <= 600, `Retry-After ${wait}`);
+    assert.equal(over.headers.get('ratelimit-limit'), '2');
+    // The poll itself still loads, and an app with a key still gets results.
+    assert.equal((await get('')).status, 200);
+    const app = await get('?results=1', { authorization: 'Bearer key-for-club-app' });
+    assert.equal(app.status, 200);
+    assert.ok((await app.json()).results);
+  } finally {
+    limited.close();
+  }
+});

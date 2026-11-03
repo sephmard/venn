@@ -121,7 +121,7 @@ Yes and if needed both count, then more yeses break a tie. `leaders` is every op
 
 A date poll gives `slots`, each `{ start, yes, ifNeeded }`; `best`, the 5 best stretches `{ start, end, yes, ifNeeded }`, ranked by most people who can make it, then most yeses, then the earliest (a stretch is the meeting's length, so a trip covers its days in a row); and `leaders`, `[{ start, end }]`. Proposed times and single days can tie, so `leaders` lists every one tied for the top. Hours and runs of days overlap one another, so there `leaders` holds only the first. Times nobody can make aren't in `best`.
 
-When the organizer hides the answers (`hideResults`), only the organizer gets `results`; everyone else gets `responses`, the count, as without it.
+When the organizer hides the answers (`hideResults`), only the organizer gets `results`; everyone else gets `responses`, the count, as without it. Asking for results has its own [limit](#too-many-requests-429), 120 per 10 minutes per address, and a plain `GET` doesn't count toward it.
 
 ## The poll's picture
 
@@ -206,10 +206,11 @@ When a visitor (an IP address) sends too much too fast, the request is refused w
 | New polls and templates (`POST /api/events`, `POST /api/brands`) | 30 per 10 minutes (`CREATE_RATE_LIMIT`)                                                           |
 | Answers (`POST /api/events/:id/participants`)                    | 200 per 10 minutes (`ANSWER_RATE_LIMIT`)                                                          |
 | Polls made through [`/api/mcp`](MCP.md)                          | 600 per 10 minutes (`MCP_RATE_LIMIT`), in place of the two above                                  |
+| [Results](#results) (`GET /api/events/:id?results=1`)            | 120 per 10 minutes (`RESULTS_RATE_LIMIT`), with `Retry-After` like the three above                |
 | AI (`/api/ai/*`, `/api/events/:id/ai/*`)                         | 10 a minute (`AI_RATE_LIMIT`)                                                                     |
 | Place search (`GET /api/places`)                                 | 60 a minute (`PLACES_RATE_LIMIT`)                                                                 |
 | Messages (`POST /api/contact`)                                   | 3 an hour (`CONTACT_RATE_LIMIT`)                                                                  |
 | Email sign-in (`/api/auth/email/*`)                              | 30 per 10 minutes (`AUTH_RATE_LIMIT`), plus a pause after a few wrong passwords or sign-in emails |
 | [Emailing a poll](#emailing-a-poll-to-people) (`invitees`)       | 100 per poll ever and 200 a day per account                                                       |
 
-Requests with an app key (`APP_KEYS`) aren't held to the poll and answer limits. Each server, and on Cloudflare each Worker instance, counts on its own unless the server has a rate limiting binding, so a limit can be reached a little later than listed. Through MCP, a refused request comes back as a tool error (`isError`) with the same message, not as an HTTP `429`.
+Requests with an app key (`APP_KEYS`) aren't held to the poll, answer and results limits. Each server, and on Cloudflare each Worker instance, counts on its own unless the server has a rate limiting binding, so a limit can be reached a little later than listed. Through MCP, a refused request comes back as a tool error (`isError`) with the same message, not as an HTTP `429`.
