@@ -336,3 +336,50 @@ test('Worker: the hourly run sends what deadlines have due, and nothing when non
   assert.equal(waiting.length, 1);
   assert.equal(await waiting[0], 0);
 });
+
+test("Worker: when making a page fails, Venn's own page instead of Cloudflare's error", async () => {
+  let failures = 0;
+  const env = {
+    DB: fakeD1(),
+    ASSETS: {
+      fetch: async (req) => {
+        if (failures > 0) {
+          failures--;
+          throw new Error('assets unavailable');
+        }
+        const path = new URL(req.url).pathname;
+        if (path === '/app') return new Response(SHELL, { headers: { 'content-type': 'text/html' } });
+        return new Response(HOME, { headers: { 'content-type': 'text/html' } });
+      },
+    },
+  };
+  const fetchPath = (path, init) => worker.fetch(new Request('https://venn.example' + path, init), env, { waitUntil: () => {} });
+  const logged = [];
+  const log = console.error;
+  console.error = (...a) => logged.push(a.map(String).join(' '));
+  try {
+    // The first try fails, the plain app still loads the poll by itself.
+    failures = 1;
+    const poll = await fetchPath('/e/abc');
+    assert.equal(poll.status, 200);
+    assert.equal(await poll.text(), SHELL);
+    assert.equal(poll.headers.get('cache-control'), 'no-store');
+    assert.equal(poll.headers.get('content-security-policy'), SECURITY_HEADERS['content-security-policy']);
+    // Nothing to fall back on: a short page saying to try again, with the security headers.
+    failures = 2;
+    const home = await fetchPath('/classic');
+    assert.equal(home.status, 503);
+    assert.match(await home.text(), /Try again in a minute/);
+    assert.equal(home.headers.get('x-frame-options'), 'SAMEORIGIN');
+    failures = 1;
+    const missing = await fetchPath('/nope', { method: 'HEAD' });
+    assert.equal(missing.status, 503);
+    assert.equal(await missing.text(), '');
+  } finally {
+    console.error = log;
+  }
+  assert.ok(logged.some((l) => l.startsWith('page failed /e/abc')));
+  assert.ok(logged.some((l) => l.startsWith('fallback page failed')));
+  // And once the assets are back, pages are made as before.
+  assert.equal((await fetchPath('/nope')).status, 404);
+});
