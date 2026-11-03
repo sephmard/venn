@@ -111,6 +111,7 @@ export async function renderEvent(id, navigate) {
   app.innerHTML = '<div class="empty muted">Loading…</div>';
   // An unsent answer kept on this device (drafts.js) loads while the poll does.
   const draftsJs = import('./drafts.js').catch(() => null);
+  const noteJs = import('./answer-note.js').catch(() => null); // a note on an answer, and the group's Notes
 
   const st = {
     ev: null,
@@ -336,6 +337,7 @@ export async function renderEvent(id, navigate) {
             <label for="name">Your name</label>
             <input id="name" type="text" maxlength="80" autocomplete="name">
           </div>
+          <div id="note-slot"></div>
           <div id="copy-field"${ev().requireEmail || guest ? '' : ' hidden'}>
             <label for="copy-to">Your email <span class="muted" id="copy-why">(${ev().requireEmail ? 'only the organizer sees it' : 'optional, only the organizer sees it'})</span></label>
             <input id="copy-to" type="email" inputmode="email" autocomplete="email" maxlength="254" placeholder="you@example.com">
@@ -382,6 +384,7 @@ export async function renderEvent(id, navigate) {
                    <div class="legend" id="legend"></div>
                    <div class="hover-info" id="inspect"></div></div>`
             }
+            <div id="notes-slot"></div>
           </div>
           <aside class="sheet grow-card" id="grow" hidden>
             <p><b>Planning something yourself?</b> Make your own Venn in a minute. It's free, and nobody needs an account.</p>
@@ -1048,7 +1051,7 @@ export async function renderEvent(id, navigate) {
     rememberName(name);
     $('#save').disabled = true;
     try {
-      const body = { name, availability: st.mine };
+      const body = { name, availability: st.mine, note: $('#note')?.value };
       const email = $('#copy-to').value.trim();
       // Shown only to the organizer, for the calendar invite once the date is picked.
       if (!ev().isAdmin || ev().requireEmail) body.email = email;
@@ -1327,6 +1330,7 @@ export async function renderEvent(id, navigate) {
   // A big group: the first few, then "+N more".
   const PEOPLE_SHOWN = 6;
   function renderPeople() {
+    noteJs.then((m) => m?.mountNotes(id, ev(), me()));
     const myId = me()?.id;
     const all = ev().participants;
     const fold = all.length > PEOPLE_SHOWN + 1;

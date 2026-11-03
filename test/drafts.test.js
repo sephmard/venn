@@ -116,3 +116,18 @@ test('a guest draft keeps only answers for the poll’s current times, for two w
   assert.equal(cleanAnswerDraft(null, slots, now), null);
   assert.equal(cleanAnswerDraft({ mine: 'x', touched: ['100'], at: now }, slots, now).touched[0], '100');
 });
+
+test('a note typed with an unsent answer stays when the page saves the rest, and goes with it', () => {
+  const box = new Map();
+  const storage = { getItem: (k) => box.get(k) ?? null, setItem: (k, v) => box.set(k, v), removeItem: (k) => box.delete(k) };
+  writeStored(storage, 'k', { mine: { 1: 2 }, at: 1 });
+  writeStored(storage, 'k', { ...readStored(storage, 'k'), note: 'Can only stay till 9' });
+  writeStored(storage, 'k', { mine: { 1: 1 }, at: 2 });
+  assert.deepEqual(readStored(storage, 'k'), { mine: { 1: 1 }, at: 2, note: 'Can only stay till 9' });
+  // Emptied on purpose, it stays empty.
+  writeStored(storage, 'k', { mine: { 1: 1 }, at: 3, note: '' });
+  writeStored(storage, 'k', { mine: { 1: 1 }, at: 4 });
+  assert.equal(readStored(storage, 'k').note, '');
+  dropStored(storage, 'k');
+  assert.equal(readStored(storage, 'k'), null);
+});

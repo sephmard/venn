@@ -183,6 +183,7 @@ export async function renderTopicPoll(ctx) {
             <div class="topic-you">
               <label for="name">Your name</label>
               <input id="name" type="text" maxlength="80" autocomplete="name" value="${esc(st.draftName || me()?.name || host?.name || lastName())}">
+              <div id="note-slot"></div>
               ${
                 ev.requireEmail
                   ? `<label for="email">Your email <span class="muted">(only the organizer sees it)</span></label>
@@ -201,7 +202,7 @@ export async function renderTopicPoll(ctx) {
           <section class="panel active" aria-labelledby="group-h">
             <div class="sheet">
               <h2 class="panel-title" id="group-h">The group</h2>
-              ${hideAll ? `<p>🔒 ${privacy} You'll see what's decided at the top once they pick.</p>` : results(guest)}
+              ${hideAll ? `<p>🔒 ${privacy} You'll see what's decided at the top once they pick.</p>` : `${results(guest)}<div id="notes-slot"></div>`}
               ${
                 // A guest who's voted may have a plan of their own (as date polls' #grow)
                 guest && me() && !ctx.embedded && !ctx.whiteLabel
@@ -322,6 +323,7 @@ export async function renderTopicPoll(ctx) {
 
   function wire() {
     refresh();
+    import('./answer-note.js').then((m) => m.mountNotes(id, ev, me())).catch(() => {});
     $('#mine-h')?.parentElement.addEventListener('click', (e) => {
       const r = e.target.closest('.topic-row');
       const b = e.target.closest('[data-vote]');
@@ -370,7 +372,7 @@ export async function renderTopicPoll(ctx) {
       return ((err.textContent = 'Add your email. The organizer asked everyone for one.'), $('#email').focus());
     if (!Object.keys(st.mine).length && !st.touched.size)
       return void (err.textContent = ev.single ? 'Pick one first.' : 'Tap Yes, If needed or No first.');
-    const body = { name, availability: st.mine, ...(email && { email }) };
+    const body = { name, availability: st.mine, note: $('#note')?.value, ...(email && { email }) };
     $('#save').disabled = true;
     try {
       const pid = saved(id).participantId;

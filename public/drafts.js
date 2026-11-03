@@ -19,7 +19,9 @@ export function readStored(storage, key) {
 }
 export function writeStored(storage, key, value) {
   try {
-    storage?.setItem(key, JSON.stringify(value));
+    // A note typed with an unsent answer (answer-note.js) stays with it when the page saves the rest.
+    const note = readStored(storage, key)?.note;
+    storage?.setItem(key, JSON.stringify(typeof note === 'string' && !('note' in value) ? { ...value, note } : value));
   } catch {}
 }
 export function dropStored(storage, key) {
