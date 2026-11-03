@@ -3,7 +3,7 @@
 // find a date for it. Loaded by event.js only for these polls, so date polls never download it.
 // Answers use the date polls' rows and colours: Yes, If needed, No on each option, or one pick.
 
-import { IF_NEEDED, YES, isEmail } from './core.js';
+import { IF_NEEDED, LIMITS, YES, isEmail } from './core.js';
 import { inviteText } from './invite.js';
 import { closesLine } from './when.js';
 import {
@@ -80,11 +80,16 @@ export function leaderLabel(rows, { single = false, total = 0 } = {}) {
   return lead.score >= total ? 'Everyone could go' : 'Works for the most so far';
 }
 
-/** Where "Find a date for it" goes: a date poll named after what was decided, following on from this one. */
-export function dateLink(ev, id) {
+/** Where "Find a date for it" goes: a date poll named after what was decided, following on from this one.
+ *  A vote made from a starter keeps what it was about: "Dinner at Luigi’s", from the dinner template.
+ *  `starters` is topic-templates.js, loaded only for the organizer (who alone sees the link). */
+export function dateLink(ev, id, starters = null) {
   const picked = ev.options.find((o) => o.id === ev.picked);
   const yesNo = ev.single && ev.options.length === 2 && ev.options[0].label === 'Yes';
-  const q = new URLSearchParams({ title: yesNo ? ev.title : picked.label, after: id });
+  const s = yesNo ? null : starters?.starterOf(ev);
+  const title = yesNo ? ev.title : s?.then ? s.then.replace('{option}', () => picked.label) : picked.label;
+  const q = new URLSearchParams({ title: title.slice(0, LIMITS.title), after: id });
+  if (s?.plan && !ev.brand?.id) q.set('template', s.plan);
   // "Where should we eat?": what was picked is a place.
   if (!yesNo && /^where\b/i.test(ev.title)) q.set('where', picked.label);
   if (ev.brand?.id) q.set('brand', ev.brand.id);
@@ -97,6 +102,7 @@ export async function renderTopicPoll(ctx) {
   await styled;
   let ev = ctx.ev;
   const org = ev.isAdmin ? await import('./organizer.js').catch(() => null) : null;
+  const starters = ev.isAdmin ? await import('./topic-templates.js').catch(() => null) : null;
   const host = ctx.embedded
     ? await import('./embed-frame.js').then((m) => m.connect(id, ev.brand, ctx.hash)).catch(() => null)
     : null;
@@ -242,7 +248,7 @@ export async function renderTopicPoll(ctx) {
         guest
           ? ''
           : `<div class="final-tell">
-          <a class="btn" href="${esc(dateLink(ev, id))}" data-link id="find-date">Find a date for it</a>
+          <a class="btn" href="${esc(dateLink(ev, id, starters))}" data-link id="find-date">Find a date for it</a>
           <button type="button" class="btn" id="copy">Copy link</button>
         </div>
         <button type="button" class="link-btn" id="unpick">Change</button>`

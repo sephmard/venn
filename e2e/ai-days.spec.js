@@ -143,3 +143,82 @@ test('AI: works from the keyboard, and a failed request leaves the box ready to 
   await expect(page.locator('#ai-done')).toHaveCount(0);
   await expect(page.locator('#free-list .chip')).toHaveCount(0);
 });
+
+test('AI: when the free requests are used up, the key form also offers to carry on by hand', async ({ page }) => {
+  await page.goto('/new');
+  await page.route('**/api/ai/draft-days', (route) =>
+    route.fulfill({
+      status: 402,
+      contentType: 'application/json',
+      body: JSON.stringify({
+        error: 'Free AI requests are used up for this week. Add your own Anthropic API key to keep going.',
+      }),
+    }),
+  );
+  await page.click('#ai-open');
+  await page.fill('#ai-prompt', 'Dinner, any Friday or Saturday evening');
+  await page.click('#ai-go');
+  await expect(page.locator('#ai-key-box')).toContainText('used up for this week');
+  await expect(page.locator('#ai-key-box')).toContainText('No key?');
+  await page.click('#ai-by-hand');
+  // The AI box closes and the form it would have filled is next, ready to use.
+  await expect(page.locator('#ai-draft')).toBeHidden();
+  await expect(page.locator('#ai-open')).toHaveAttribute('aria-expanded', 'false');
+  await expect(page.locator('[data-level="days"]')).toBeFocused();
+});
+
+test('AI: a choice between things on Create a Venn offers a vote, and the vote opens filled in', async ({ page }) => {
+  await page.goto('/new');
+  await describe(page, 'Choose between Italian, Thai, and Mexican for dinner');
+  // Nothing on the date form changed; the reply says it's a vote and names the choices.
+  await expect(page.locator('#ai-done')).toContainText('That sounds like a vote');
+  await expect(page.locator('#ai-done')).toContainText('Italian, Thai or Mexican');
+  await expect(page.locator('#free-list .chip')).toHaveCount(0);
+  await page.click('#ai-vote');
+  await expect(page).toHaveURL(/\/new\/topic/);
+  await expect(page.locator('#title')).toHaveValue('Where should we eat?');
+  const options = page.locator('#opts input');
+  await expect(options).toHaveCount(3);
+  expect(await options.evaluateAll((els) => els.map((e) => e.value))).toEqual(['Italian', 'Thai', 'Mexican']);
+  await expect(page.locator('#draft-note')).toContainText('Made into a vote. Check the options.');
+  // It makes a real vote with those options.
+  await page.fill('#organizer', 'Sam');
+  await page.click('#submit');
+  await expect(page).toHaveURL(/\/e\//);
+});
+
+test('AI: "where and when" fills the evenings and offers to vote on where first', async ({ page }) => {
+  await page.goto('/new');
+  await describe(page, 'Let’s decide where and when to have dinner');
+  await expect(page.locator('#free-list .chip').first()).toBeVisible();
+  await expect(page.locator('#ai-undo')).toBeVisible();
+  await page.click('#ai-vote');
+  await expect(page).toHaveURL(/\/new\/topic/);
+  await expect(page.locator('#title')).toHaveValue('Where should we have dinner?');
+});
+
+test('AI: "vote on our next book" with no books named opens the vote with the question and empty options', async ({ page }) => {
+  await page.goto('/new');
+  await describe(page, 'Vote on our next book');
+  await expect(page.locator('#ai-done')).toContainText('That sounds like a vote');
+  await page.click('#ai-vote');
+  await expect(page).toHaveURL(/\/new\/topic/);
+  await expect(page.locator('#title')).toHaveValue('What should we read next?');
+  const options = page.locator('#opts input');
+  await expect(options).toHaveCount(2);
+  expect(await options.evaluateAll((els) => els.map((e) => e.value))).toEqual(['', '']);
+});
+
+test('AI: "Vote on our next book." with no books named opens the vote with the question and two empty options', async ({
+  page,
+}) => {
+  await page.goto('/new');
+  await describe(page, 'Vote on our next book.');
+  await expect(page.locator('#ai-done')).toContainText('That sounds like a vote');
+  await page.click('#ai-vote');
+  await expect(page).toHaveURL(/\/new\/topic/);
+  await expect(page.locator('#title')).toHaveValue('What should we read next?');
+  const options = page.locator('#opts input');
+  await expect(options).toHaveCount(2);
+  expect(await options.evaluateAll((els) => els.map((e) => e.value))).toEqual(['', '']);
+});

@@ -7,6 +7,8 @@
 //   hint      the hint in each option box
 //   yesNo     answered Yes or No, with no options
 //   card      the line under its name on /templates
+//   then      "Find a date for it" (topic-poll.js): the date poll's name, {option} for what was decided
+//   plan      ... and the date template it starts from (public/templates.js), for its length and time
 // Their emoji count as plans in usage stats (src/usage.js PLANS).
 export const TOPIC_TEMPLATES = [
   {
@@ -16,6 +18,8 @@ export const TOPIC_TEMPLATES = [
     question: 'Where should we eat?',
     hint: 'Place, e.g. Luigi’s',
     card: 'List a few places and settle it before anyone books a table.',
+    then: 'Dinner at {option}',
+    plan: 'dinner',
   },
   {
     id: 'what-to-do',
@@ -32,6 +36,8 @@ export const TOPIC_TEMPLATES = [
     question: 'Which book should we read next?',
     hint: 'Book title',
     card: 'Everyone suggests, everyone votes, the club reads the winner.',
+    then: 'Book club: {option}',
+    plan: 'book-club',
   },
   {
     id: 'team-decision',
@@ -48,17 +54,22 @@ export const TOPIC_TEMPLATES = [
     question: 'Where should we go?',
     hint: 'Place, e.g. Lisbon',
     card: 'Shortlist the places, then find a date for the winner.',
+    then: 'Trip to {option}',
+    plan: 'trip',
   },
   {
     id: 'yes-or-no',
     emoji: '👍',
-    label: 'Yes or no',
+    label: 'Are we in?',
     question: '',
     ask: 'Should we…?',
     yesNo: true,
     card: 'One question, a quick yes or no from everyone.',
   },
 ];
+
+/** The starter a vote was made from, known by its emoji (each starter's is its own), or null. */
+export const starterOf = (ev) => TOPIC_TEMPLATES.find((x) => x.emoji === ev?.emoji) || null;
 
 /** The starter a link or a draft names, or null. */
 export const topicTemplate = (name) => TOPIC_TEMPLATES.find((x) => x.id === String(name ?? '').toLowerCase()) || null;
