@@ -632,7 +632,9 @@ async function route(
     // POST /api/usage  { name, props }: a count from the browser, for usage stats
     if (parts.length === 1 && parts[0] === 'usage' && method === 'POST') {
       const { name, props } = await readJson(request);
-      if (!optedOut) await recordUsage(store, env, now(), name, props, { client: true });
+      // Over the per-visitor limit, counts are dropped quietly: the browser doesn't need to know.
+      if (!optedOut && usageEnabled(env) && (await allowed('usage')))
+        await recordUsage(store, env, now(), name, props, { client: true });
       return new Response(null, { status: 204, headers: SECURITY_HEADERS });
     }
 
