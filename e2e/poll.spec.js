@@ -1929,7 +1929,8 @@ test('on a phone, a new poll leads with sharing: one share button, the group, an
   await expect(page.locator('#group-count')).toHaveText('1');
   await expect(page.locator('#ev-meta')).toContainText('1 person answered');
   await expect(page.locator('.best-hero')).toBeVisible();
-  await expect(page.locator('.best-hero [data-pick]')).toHaveClass(/btn-primary/);
+  // Outlined, as everything on the card is: Create a Venn is the one filled button.
+  await expect(page.locator('.best-hero [data-pick]')).toHaveClass('btn');
   await expect(page.locator('#overlap')).toBeVisible();
   await expect(page.locator('#best')).not.toContainText('Only your answer so far');
 });

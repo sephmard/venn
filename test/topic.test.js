@@ -99,8 +99,10 @@ test('a topic poll: create, answer, pick, and the picked option in the poll', as
   ev = (await call(path)).data;
   assert.equal(ev.picked, 1);
   assert.equal(ev.finalStart, null);
-  // No calendar file for an option.
-  assert.equal((await call(`${path}/event.ics`)).status, 404);
+  // No calendar file for an option, and it says why.
+  const ics = await call(`${path}/event.ics`);
+  assert.equal(ics.status, 404);
+  assert.equal(ics.data.error, 'A vote has no calendar file: it picks an option, not a time');
   // Changing the mind: back to open.
   await call(`${path}/finalize`, { method: 'POST', body: { option: null }, headers: admin });
   assert.equal((await call(path)).data.picked, undefined);
@@ -196,4 +198,21 @@ test('My polls rows say a poll is a vote, what was picked, and whether it was yo
   const [answered] = await store.listAnsweredPolls(user.id);
   assert.equal(answered.mode, 'topic');
   assert.equal(answered.can, YES);
+});
+
+test('a topic answer keyed by option labels, not ids, is refused with the ids to use', async () => {
+  const { data } = await call('/api/events', { method: 'POST', body: { ...base, mode: 'topic', options: ['Pizza', 'Tacos'] } });
+  const res = await call(`/api/events/${data.id}/participants`, {
+    method: 'POST',
+    body: { name: 'Ana', availability: { Pizza: YES } },
+  });
+  assert.equal(res.status, 400);
+  assert.equal(res.data.error, "This poll's options changed after you opened it. Reload the page, then answer again.");
+  assert.match(res.data.detail, /option id \(1, 2…\), as listed in slots/);
+  const ok = await call(`/api/events/${data.id}/participants`, {
+    method: 'POST',
+    body: { name: 'Ana', availability: { 1: YES, Tacos: YES } },
+  });
+  assert.equal(ok.status, 201);
+  assert.deepEqual(ok.data.ignored, ['Tacos']);
 });

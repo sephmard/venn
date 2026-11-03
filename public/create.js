@@ -257,6 +257,12 @@ const egg = (...args) => (eggs ??= import('./easter-eggs.js').catch(() => null))
 
 /** Wire up the plan fields: templates fill in sensible defaults. */
 export function wirePlan(onOccasion) {
+  // A mouse can't swipe the row of templates: ‹ › for it (row-arrows.js).
+  if (matchMedia('(hover: hover) and (pointer: fine)').matches)
+    import('./row-arrows.js').then(
+      (m) => m.rowArrows($('.occasions')),
+      () => {},
+    );
   let current = null;
   let noted = ''; // the note a template put in "Note for everyone", so another can take it back
   let taps = [];
