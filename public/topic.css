@@ -112,3 +112,9 @@ ol.t-results li {
     grid-template-columns: minmax(0, 720px);
   }
 }
+/* A voted guest's offer of their own vote, under the results. */
+.grow-line {
+  margin: 12px 0 0;
+  padding-top: 4px;
+  border-top: 1px solid var(--border);
+}

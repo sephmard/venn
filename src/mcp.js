@@ -4,7 +4,8 @@
 // so this costs Venn nothing in AI and needs no key. Stateless JSON-RPC over HTTP POST
 // ("Streamable HTTP", answered as plain JSON).
 
-import { IF_NEEDED, LIMITS, YES, isDaysPoll, isOptionsPoll, rankTimes } from '../public/core.js';
+import { LIMITS, isDaysPoll } from '../public/core.js';
+import { rankDates, rankVote } from './results.js';
 
 const VERSIONS = ['2025-11-25', '2025-06-18', '2025-03-26', '2024-11-05'];
 const MAX_BODY = 64 * 1024;
@@ -187,14 +188,11 @@ function span(start, end, ev) {
 }
 
 /**
- * The best days or times, ranked exactly as the poll page ranks them (rankTimes in public/core.js:
- * most people who can make it, then most yeses, then the earliest; a trip's or meeting's length
- * counts every day or hour of it). Times nobody can make are left out. Ties are named only for
- * proposed times and single days, as on the page (public/event.js): a trip's or meeting's ranked
- * stretches overlap one another.
+ * The best days or times, ranked exactly as the poll page ranks them, and the API's results too
+ * (rankDates in src/results.js). Ties are named only for proposed times and single days.
  */
 function bestTimes(ev, people, answers) {
-  const ranked = rankTimes(ev, ev.slots || [], people, Infinity);
+  const { ranked, top, alone, same } = rankDates(ev, ev.slots || [], people);
   const best = ranked.slice(0, 5).map((r) => ({
     when: span(r.start, r.end, ev),
     start: new Date(r.start).toISOString(),
@@ -219,10 +217,6 @@ function bestTimes(ev, people, answers) {
       : can === n && n > 1 && !first.yes.length
         ? `all ${n} can make it if needed`
         : `${can} of ${n} can make it${first.ifNeeded.length ? `, ${first.ifNeeded.length} if needed` : ''}`;
-  const same = (r) => r.yes.length === first.yes.length && r.ifNeeded.length === first.ifNeeded.length;
-  // Proposed times and single days each stand alone; hours and runs of days overlap one another.
-  const alone = isOptionsPoll(ev) || (days && ev.durationMinutes <= ev.slotMinutes);
-  const top = alone ? ranked.filter(same) : [first];
   const leading = top.map((r) => span(r.start, r.end, ev));
   if (top.length > 1)
     return { best, leading, summary: `Tied: ${andList(leading)}; for each, ${who}. No single best ${one} yet.` };
@@ -252,20 +246,16 @@ function voteResults(ev, origin) {
   const pickedLine = picked != null ? `The organizer picked ${picked}. ` : '';
   if (ev.hideResults)
     return { ...head, summary: `${pickedLine}The organizer hid the answers.`.trim(), note: 'The organizer hid the answers.' };
-  const options = ev.options.map((o) => {
-    const yes = people.filter((p) => p.availability?.[o.id] === YES);
-    const ifNeeded = people.filter((p) => p.availability?.[o.id] === IF_NEEDED);
-    return {
-      option: o.label,
-      yes: yes.length,
-      ifNeeded: ifNeeded.length,
-      ...(!ev.hideNames && { who: { yes: yes.map((p) => p.name), ifNeeded: ifNeeded.map((p) => p.name) } }),
-    };
+  // Counted and ranked as on the poll page, and as the API's results (rankVote in src/results.js).
+  const vote = rankVote(ev, people);
+  const option = (o) => ({
+    option: o.label,
+    yes: o.yes.length,
+    ifNeeded: o.ifNeeded.length,
+    ...(!ev.hideNames && { who: { yes: o.yes.map((p) => p.name), ifNeeded: o.ifNeeded.map((p) => p.name) } }),
   });
-  const ranked = options
-    .map((o, i) => ({ o, i, score: o.yes + o.ifNeeded }))
-    .sort((a, b) => b.score - a.score || b.o.yes - a.o.yes || a.i - b.i);
-  const top = ranked[0]?.score ? ranked.filter((r) => r.score === ranked[0].score && r.o.yes === ranked[0].o.yes) : [];
+  const options = vote.counts.map(option);
+  const top = vote.top.map((o) => ({ o: option(o) }));
   const leading = top.map((r) => r.o.option);
   const count = (o) =>
     ev.single
