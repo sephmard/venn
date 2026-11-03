@@ -186,3 +186,30 @@ test('no white-label guest email links to the "Text the poll" page, whose title 
     assert.doesNotMatch(m.text + m.html, /\/sms\b|sms:/, name);
   }
 });
+
+test('a white-label vote: the decision email to a guest who asked carries no Venn, only when the organizer is the template’s', async () => {
+  const brand = await whiteLabelTemplate();
+  for (const organizer of ['u-member', 'u-stranger']) {
+    const { data } = await call('/api/events', {
+      method: 'POST',
+      body: { title: 'Where to?', timezone: 'UTC', mode: 'topic', options: ['Park', 'Beach'], brand },
+    });
+    await store.addOwner('poll', data.id, organizer, 1);
+    const path = `/api/events/${data.id}`;
+    const ana = (await call(`${path}/participants`, { method: 'POST', body: { name: 'Ana', availability: { 1: YES } } })).data;
+    const asked = await call(`${path}/participants/${ana.id}`, {
+      method: 'PUT',
+      body: { email: 'ana@example.com' },
+      headers: { 'x-edit-token': ana.editToken },
+    });
+    assert.equal(asked.status, 200);
+    sent.length = 0;
+    await call(`${path}/finalize`, { method: 'POST', body: { option: 1 }, headers: { 'x-admin-token': data.adminToken } });
+    const m = guestMail().find((e) => e.subject.startsWith('Decided'));
+    assert.ok(m, `${organizer}: the decision email`);
+    if (organizer === 'u-member') {
+      assert.equal(vennOutsideLink(readable(m)), null);
+      assert.match(m.html, />Acme<\/div>/);
+    } else assert.match(m.text, /Planned with Venn\. No sign-up needed/);
+  }
+});

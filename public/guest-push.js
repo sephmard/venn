@@ -4,19 +4,23 @@
 import { api, esc, getConfig, save, saved, toast } from './ui.js';
 import { currentSub, pushSupport, subscribe } from './push-client.js';
 
-/** box: where it goes. ctx: { id, participantId, headers, picked (a date is set) } */
+/**
+ * box: where it goes. ctx: { id, participantId, headers, picked (a date is set), topic (a vote:
+ * told what's decided), focus (move focus to it once drawn) }
+ */
 export async function guestPush(box, ctx) {
-  const { id, participantId, headers, picked } = ctx;
+  const { id, participantId, headers, picked, topic } = ctx;
   const key = (await getConfig()).push;
   if (!key || !pushSupport().supported || Notification.permission === 'denied' || !box.isConnected) return;
   const sub = await currentSub();
   const on = !!sub && saved(id).guestPush === sub.endpoint;
-  const what = picked ? 'changes' : 'is picked';
+  const what = topic ? (picked ? 'the pick changes' : "it's decided") : `the date ${picked ? 'changes' : 'is picked'}`;
   // A row of its own, under "Answering as …": the button, or that it's on and a way to stop it.
   box.innerHTML = on
-    ? `<span class="hint"><span class="ok">🔔 You'll get a notification when the date ${esc(what)}.</span> <button type="button" class="link-btn" id="gp-off">Turn off</button></span>`
-    : `<button type="button" class="btn btn-sm" id="gp-on">🔔 Notify me when the date ${esc(what)}</button>`;
+    ? `<span class="hint"><span class="ok">🔔 You'll get a notification when ${esc(what)}.</span> <button type="button" class="link-btn" id="gp-off">Turn off</button></span>`
+    : `<button type="button" class="btn btn-sm" id="gp-on">🔔 Notify me when ${esc(what)}</button>`;
   box.hidden = false;
+  if (ctx.focus) box.querySelector('button').focus();
   const path = `events/${id}/participants/${participantId}/push`;
   box.querySelector('button').onclick = async (e) => {
     e.target.disabled = true;
