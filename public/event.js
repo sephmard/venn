@@ -268,7 +268,7 @@ export async function renderEvent(id, navigate) {
           <p class="poll-meta" id="ev-meta"></p>
           <div id="ev-details"></div>
         </div>
-        ${guest ? '' : `<div class="poll-share"><button class="btn btn-primary" id="copy">Copy link</button>${canShare ? '<button class="btn" id="share-sheet">Share</button>' : ''}</div>`}
+        ${guest ? '' : `<div class="poll-share"><button class="btn" id="copy">Copy link</button>${canShare ? '<button class="btn" id="share-sheet">Share</button>' : ''}</div>`}
       </header>
       ${
         guest && saved(id).adminToken
@@ -414,9 +414,13 @@ export async function renderEvent(id, navigate) {
     });
     navigator.share({ title, text, url: shareUrl }).catch(() => {});
   };
-  $('#copy').onclick = () => {
+  // Said on the button too (the toast is for screen readers).
+  $('#copy').onclick = ({ target: b }) => {
     track('share', { how: 'copy', from: 'poll' });
     copy(shareUrl, 'Link copied');
+    if (guest) return;
+    b.textContent = 'Link copied ✓';
+    setTimeout(() => (b.textContent = 'Copy link'), 2e3);
   };
   if ($('#share-sheet')) $('#share-sheet').onclick = shareSheet;
   $('#name').value = me()?.name || host?.name || lastName();

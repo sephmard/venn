@@ -139,7 +139,10 @@ the same PR** (and CLAUDE.md if it's a rule that matters in review).
   says so.
 - Organizer tools start closed, and their closed line always reads **Organizer tools**, the same
   before and after a date is picked (a note like "Check your inbox" goes under it). Sharing comes first: **Copy link** is the main button (after creating
-  and on the poll), with **Share** (the phone's share sheet) beside it.
+  and on the poll), with **Share** (the phone's share sheet) beside it. On the poll both are
+  **outlined** (2px accent border, accent text, a soft accent fill under the finger with the page's
+  text), so Create a Venn in the bar stays the one filled button (#206, Ivy); Copy link reads
+  **Link copied ✓** for 2 seconds after a tap, and the toast still says it for screen readers.
 
 **Brand templates (/brand)**
 
