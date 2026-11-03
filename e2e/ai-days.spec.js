@@ -144,6 +144,29 @@ test('AI: works from the keyboard, and a failed request leaves the box ready to 
   await expect(page.locator('#free-list .chip')).toHaveCount(0);
 });
 
+test('AI: when the free requests are used up, the key form also offers to carry on by hand', async ({ page }) => {
+  await page.goto('/new');
+  await page.route('**/api/ai/draft-days', (route) =>
+    route.fulfill({
+      status: 402,
+      contentType: 'application/json',
+      body: JSON.stringify({
+        error: 'Free AI requests are used up for this week. Add your own Anthropic API key to keep going.',
+      }),
+    }),
+  );
+  await page.click('#ai-open');
+  await page.fill('#ai-prompt', 'Dinner, any Friday or Saturday evening');
+  await page.click('#ai-go');
+  await expect(page.locator('#ai-key-box')).toContainText('used up for this week');
+  await expect(page.locator('#ai-key-box')).toContainText('No key?');
+  await page.click('#ai-by-hand');
+  // The AI box closes and the form it would have filled is next, ready to use.
+  await expect(page.locator('#ai-draft')).toBeHidden();
+  await expect(page.locator('#ai-open')).toHaveAttribute('aria-expanded', 'false');
+  await expect(page.locator('[data-level="days"]')).toBeFocused();
+});
+
 test('AI: a choice between things on Create a Venn offers a vote, and the vote opens filled in', async ({ page }) => {
   await page.goto('/new');
   await describe(page, 'Choose between Italian, Thai, and Mexican for dinner');

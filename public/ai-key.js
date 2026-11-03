@@ -36,11 +36,12 @@ document.head.insertAdjacentHTML(
 );
 
 /** The form to add, change or remove your key, put inside `box`. `done()` runs once it's saved. */
-export function keyForm(box, { why = '', done } = {}) {
+export function keyForm(box, { why = '', done, byHand } = {}) {
   const has = !!ownAiKey();
   box.hidden = false;
   box.innerHTML = `<div class="ai-key">
       ${why ? `<p>${esc(why)}</p>` : ''}
+      ${why && byHand ? '<p class="ai-by-hand">No key? <button type="button" class="link-btn" id="ai-by-hand">Fill it in yourself</button>. It only takes a minute.</p>' : ''}
       <label for="ai-key-in">Your Anthropic API key</label>
       <div class="ai-row">
         <input id="ai-key-in" type="password" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="${has ? 'Saved on this device' : 'sk-ant-…'}">
@@ -74,6 +75,9 @@ export function keyForm(box, { why = '', done } = {}) {
       box.hidden = true;
       toast('Key removed from this device.');
     };
+  // AI is a shortcut, never a wall: the page that offers it says where to go instead.
+  const btn = $('#ai-by-hand', box);
+  if (btn) btn.onclick = byHand;
   $('#ai-key-in', box).focus();
 }
 
@@ -89,10 +93,11 @@ export function wireKeyLink(panel, box) {
 
 /**
  * What an AI request that failed should show: the key form when the free requests are used up
- * (or the key that was used didn't work), otherwise the error.
+ * (or the key that was used didn't work), otherwise the error. `byHand`, when given, is offered as
+ * "Fill it in yourself" for people with no key.
  */
-export function aiFailed(ex, box, retry) {
+export function aiFailed(ex, box, retry, byHand) {
   if ((ex.status === 402 || (ex.status === 400 && /key/i.test(ex.message))) && box)
-    return keyForm(box, { why: ex.message, done: retry });
+    return keyForm(box, { why: ex.message, done: retry, byHand });
   toast(ex.message);
 }
