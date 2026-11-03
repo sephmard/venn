@@ -251,7 +251,8 @@ export async function renderTopicPoll(ctx) {
           <a class="btn" href="${esc(dateLink(ev, id, starters))}" data-link id="find-date">Find a date for it</a>
           <button type="button" class="btn" id="copy">Copy link</button>
         </div>
-        <button type="button" class="link-btn" id="unpick">Change</button>`
+        <button type="button" class="link-btn" id="unpick">Change</button>
+        <p class="final-more"><a class="link-btn" data-link id="vote-again" href="/new/topic?copy=${esc(id)}&next">Vote again next time</a></p>`
       }
     </section>`;
   }

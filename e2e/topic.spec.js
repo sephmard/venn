@@ -265,3 +265,64 @@ test('decided pick-one and yes-or-no votes ask nothing more', async ({ page }) =
     await expect(page.locator('.t-result', { hasText: options[0] })).toContainText('1 vote');
   }
 });
+
+test('vote again next time: the organizer of a decided vote starts the next one without last time’s pick', async ({
+  page,
+  browser,
+}) => {
+  const { made, decide } = await decidedVote(page.request, { options: ['Rosa’s', 'Luigi’s', 'Taco Loco'], pick: 'Luigi’s' });
+  const again = page.getByRole('link', { name: 'Vote again next time' });
+  // Not before it's decided.
+  await page.goto(`/e/${made.id}#admin=${made.adminToken}`);
+  await expect(page.locator('.t-results')).toBeVisible();
+  await expect(again).toHaveCount(0);
+  await decide();
+  await page.reload();
+  await expect(again).toBeVisible();
+  expect((await again.boundingBox()).height).toBeGreaterThanOrEqual(44);
+  await noBlockingA11y(page, 'decided vote, organizer, with Vote again');
+  // Guests never see it.
+  const g = await (await browser.newContext()).newPage();
+  await g.goto(`/e/${made.id}`);
+  await expect(g.locator('.banner-final')).toBeVisible();
+  await expect(g.getByRole('link', { name: 'Vote again next time' })).toHaveCount(0);
+  await g.context().close();
+
+  await again.click();
+  await expect(page).toHaveURL(new RegExp(`/new/topic\\?copy=${made.id}&next`));
+  await expect(page.locator('#create h1')).toHaveText('Plan the next one');
+  await expect(page.locator('#toast')).toHaveText('Same options again. Change anything, then create the poll.');
+  await expect(page.locator('#title')).toHaveValue('Where should we eat?');
+  const leave = page.getByLabel("Leave out Luigi’s (last time's pick)");
+  await expect(leave).toBeChecked();
+  const opts = () => page.locator('#opts input').evaluateAll((els) => els.map((el) => el.value));
+  await expect.poll(opts).toEqual(['Rosa’s', 'Taco Loco']);
+  await noBlockingA11y(page, 'vote again: the form');
+  // Ticked off, it's back where it was; on again, gone.
+  await leave.uncheck();
+  await expect.poll(opts).toEqual(['Rosa’s', 'Luigi’s', 'Taco Loco']);
+  await expect(page.getByRole('textbox', { name: 'Option 2', exact: true })).toHaveValue('Luigi’s');
+  await leave.check();
+  await expect.poll(opts).toEqual(['Rosa’s', 'Taco Loco']);
+  await page.click('#submit');
+  await page
+    .locator('.party-skip, .party-go')
+    .first()
+    .click()
+    .catch(() => {});
+  await page.waitForURL(/\/e\/\w+$/);
+  const id = page.url().split('/e/')[1];
+  expect(id).not.toBe(made.id);
+  const made2 = await (await page.request.get(`/api/events/${id}`)).json();
+  expect(made2.options.map((o) => o.label)).toEqual(['Rosa’s', 'Taco Loco']);
+});
+
+test('vote again next time: a yes or no question copies with nothing to leave out', async ({ page }) => {
+  const { made, decide } = await decidedVote(page.request, { options: ['Yes', 'No'], single: true, pick: 'Yes' });
+  await decide();
+  await page.goto(`/e/${made.id}#admin=${made.adminToken}`);
+  await page.getByRole('link', { name: 'Vote again next time' }).click();
+  await expect(page.locator('#create h1')).toHaveText('Plan the next one');
+  await expect(page.locator('#yesno')).toBeVisible();
+  await expect(page.locator('#leave-out')).toHaveCount(0);
+});

@@ -2834,7 +2834,7 @@ pre.code {
 html.embed body {
   min-height: 0;
 }
-:is(.embed, .white-label) :is(.topbar, .footer, #grow, .final-more:has([href^='/new'])) {
+:is(.embed, .white-label) :is(.topbar, .footer, #grow, .final-more:has([href^='/new']:not(#vote-again))) {
   display: none !important;
 }
 /* What the website around the frame shows itself (event.js). */
