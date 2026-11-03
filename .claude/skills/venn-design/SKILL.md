@@ -84,7 +84,9 @@ the same PR** (and CLAUDE.md if it's a rule that matters in review).
 - **Guests answer on the list, always.** A poll opens on its list for the people it's sent to, with no
   calendar view; only the organizer can switch to a calendar. **Time selection is the same for every
   poll**: a row per option with Yes / If needed / No. An hours poll's rows are the stretches of time
-  the organizer offered; no painting half hours, no parts of the day as well.
+  the organizer offered, a long one (more than about three hours) in rows of about two hours, or the
+  meeting's length if that's longer (the owner's call, Nov 2026: "yes" to a whole 9 AM – 9 PM day says
+  too little); no painting half hours, no parts of the day as well.
 - Likewise, **parts of the day show on Hours** as those parts' times, whichever way you get there.
 - Templates shape the calendar only while nothing is picked; they never move or remove picks. A second
   tap turns one off.

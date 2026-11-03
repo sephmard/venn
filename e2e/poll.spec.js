@@ -1641,12 +1641,16 @@ test.describe('in UTC', () => {
       })
     ).json();
     await page.goto(`/e/${id}`);
-    // A row for each day's 9 AM – 9 PM, answered like any poll, with the answer going to all of its times.
+    // Each day's 9 AM – 9 PM, in rows of two hours (a whole long stretch is too much to say yes or no
+    // to), answered like any poll, with each row's answer going to all of its times.
     const rows = page.locator('#mine .row');
-    await expect(rows).toHaveCount(2);
-    await rows.first().locator('[data-vote="2"]').click();
-    await rows.nth(1).locator('[data-vote="1"]').click();
+    await expect(rows).toHaveCount(12);
+    await expect(rows.first()).toContainText('9:00 AM – 11:00 AM');
+    await expect(rows.nth(5)).toContainText('7:00 PM – 9:00 PM');
+    await page.click('#fill'); // yes to all
+    await rows.nth(6).locator('[data-vote="1"]').click();
     await expect(rows.first()).toHaveAttribute('data-v', '2');
+    await expect(rows.nth(6)).toHaveAttribute('data-v', '1');
 
     await page.fill('#name', 'Ana');
     await expect(page.locator('#save')).toHaveText('Submit');
