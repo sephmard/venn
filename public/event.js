@@ -182,7 +182,12 @@ export async function renderEvent(id, navigate) {
   // Organizer-only code (their tools, panels and AI summary) is in a module guests never download,
   // and "Add to your calendar" in one that loads once there's a date to add.
   let calJs = null;
-  const loadCal = () => import('./add-to-calendar.js').catch(() => ({ addToCalendar: () => '' })).then((m) => (calJs = m));
+  // If it can't load, the date still shows, without the buttons.
+  const dateOnly = {
+    finalBanner: ({ ev, bigWhen }) =>
+      `<section class="banner-final" aria-labelledby="final-h"><p class="kicker">It's happening</p><h2 id="final-h">${bigWhen(ev.finalStart, meetingEnd(ev, ev.finalStart))}</h2></section>`,
+  };
+  const loadCal = () => import('./add-to-calendar.js').catch(() => dateOnly).then((m) => (calJs = m));
   const [org] = await Promise.all([
     st.ev.isAdmin ? import('./organizer.js').catch(() => null) : null,
     st.ev.finalStart != null && loadCal(),
@@ -747,7 +752,7 @@ export async function renderEvent(id, navigate) {
     if (calView) return calView.render();
     if (daysMode) return renderDays();
     // The calendar's code loads the first time someone opens it; most people answer on the list.
-    if (!timeView) return void import('./picker.js').then((m) => ((timeView = m.timeView), renderMineView()));
+    if (!timeView) return void import('./time-view.js').then((m) => ((timeView = m.timeView), renderMineView()));
     const days = [...new Set(windows.map((w) => utcToZoned(w.start, st.tz).date))].sort();
     const mins = windows.flatMap((w) => [utcToZoned(w.start, st.tz).minutes, utcToZoned(w.end, st.tz).minutes || 1440]);
     const from = Math.max(0, Math.floor((Math.min(...mins) - 60) / 60) * 60);
@@ -1472,7 +1477,15 @@ export async function renderEvent(id, navigate) {
     const start = btn.id === 'unpick' ? null : +btn.dataset.pick;
     const was = ev().finalStart;
     // Picking tells everyone: the date, big, and who can make it, before it goes out.
-    if (start != null && !(await confirmPick(start))) return btn.isConnected && btn.focus();
+    if (start != null) {
+      const people = others();
+      const r = rankTimes(ev(), ev().slots, people, Infinity).find((x) => x.start === start);
+      const opts = { r, n: people.length, when: bigWhen(start, r ? r.end : meetingEnd(ev(), start)) };
+      // The dialog is organizer.js's: fetched now if it failed (a new address: failures are kept).
+      const o = org ?? (await import(`./organizer.js?try=${Date.now()}`).catch(() => null));
+      if (!o) return void toast("Couldn't load that. Try again.");
+      if (!(await o.confirmPick({ ...opts, changing: ev().finalStart != null, daysMode }))) return btn.isConnected && btn.focus();
+    }
     st.changing = false;
     try {
       await api(`events/${id}/finalize`, { method: 'POST', body: { start }, headers: authHeaders() });
@@ -1487,48 +1500,6 @@ export async function renderEvent(id, navigate) {
       toast(ex.message);
     }
   });
-
-  /** "Pick this date?": the date in big type and who can make it, then Pick it or Back. */
-  function confirmPick(start) {
-    let d = $('#pick-check');
-    if (!d) {
-      d = document.createElement('dialog');
-      d.className = 'submit-check pick-check';
-      d.id = 'pick-check';
-      d.setAttribute('aria-labelledby', 'pc-h');
-      document.body.append(d);
-    }
-    const people = others();
-    const r = rankTimes(ev(), ev().slots, people, Infinity).find((x) => x.start === start);
-    const end = r ? r.end : meetingEnd(ev(), start);
-    const can = r ? r.yes.length + r.ifNeeded.length : 0;
-    const changing = ev().finalStart != null;
-    d.innerHTML = `<h2 id="pc-h">${changing ? 'Change the date to this?' : `Pick this ${daysMode ? 'date' : 'time'}?`}</h2>
-      <p class="pc-when">${bigWhen(start, end)}</p>
-      <p>${can} of ${people.length} can make it${r?.ifNeeded.length ? `, ${r.ifNeeded.length} if needed` : ''}.${
-        r?.no.length ? ` <span class="muted">Can't: ${r.no.map(esc).join(', ')}</span>` : ''
-      }</p>
-      ${changing ? '<p class="hint">Anyone who added the old date to their calendar will need to update it.</p>' : ''}
-      <div class="sc-actions">
-        <button type="button" class="btn" id="pc-no">Back</button>
-        <button type="button" class="btn btn-primary" id="pc-yes">${changing ? 'Change it' : 'Pick it'}</button>
-      </div>`;
-    return new Promise((done) => {
-      const close = (yes) => {
-        d.close();
-        done(yes);
-      };
-      $('#pc-no', d).onclick = () => close(false);
-      $('#pc-yes', d).onclick = () => close(true);
-      d.oncancel = (e) => {
-        e.preventDefault();
-        close(false);
-      };
-      d.onclick = (e) => e.target === d && close(false); // a tap outside the box
-      d.showModal();
-      $('#pc-yes', d).focus();
-    });
-  }
 
   // ----- organizer: notifications and privacy, from a module only organizers load -----
   const panels = {}; // which organizer panels are open: notify, privacy, writer…
@@ -1584,82 +1555,15 @@ export async function renderEvent(id, navigate) {
     $('#closed-note').hidden = !closed;
   }
 
-  /** Change the date: the next best dates, each with its count and Pick, and a way back. */
-  function changeList(picked) {
-    const people = others();
-    const n = people.length;
-    const next = rankTimes(ev(), ev().slots, people, 6)
-      .filter((b) => b.start !== picked)
-      .slice(0, 5);
-    const rows = next
-      .map(
-        (
-          b,
-        ) => `<li><span><b>${esc(when(b.start, b.end))}</b><small>${b.yes.length + b.ifNeeded.length} of ${n} can make it</small></span>
-          <button type="button" class="btn btn-sm" data-pick="${b.start}">Pick</button></li>`,
-      )
-      .join('');
-    return `<div class="change-list" id="change-list">
-      <p class="kicker">Change the date to</p>
-      ${rows ? `<ol>${rows}</ol>` : '<p>No other date works for anyone yet.</p>'}
-      <p class="change-ends"><button type="button" class="link-btn" id="change-cancel">Keep this date</button>
-        <button type="button" class="link-btn" id="unpick">Clear the date</button></p>
-    </div>`;
-  }
-
   function renderBanners() {
     let h = '';
     if (ev().finalStart != null) {
-      const start = ev().finalStart;
-      const end = meetingEnd(ev(), start);
-      const info = {
-        title: ev().title,
-        // The event's own note says where it was planned: how the next organizer finds Venn.
-        description: [ev().description, shareUrl, `Planned with Venn: ${location.origin}/new`].filter(Boolean).join('\n\n'),
-        location: ev().location,
-        start,
-        end,
-        allDay: allDaySpan(start, end, ev().timezone),
-        image: picture && { url: location.origin + picture, type: ev().image.type },
-      };
       if (!calJs) return void loadCal().then(renderBanners); // the date was just picked
-      const day = utcToZoned(start, info.allDay ? ev().timezone : st.tz).date.slice(8);
-      // Everyone who gave their email with their answer (only the organizer sees them): invited
-      // with the calendar, and one tap from an email to them all, in BCC so they don't see each other's.
-      const guests = ev().isAdmin
-        ? ev()
-            .participants.filter((p) => p.email && p.id !== ev().hostId)
-            .map((p) => ({ name: p.name, email: p.email }))
-        : [];
-      const mailAll =
-        guests.length &&
-        `mailto:?bcc=${guests.map((g) => encodeURIComponent(g.email)).join(',')}&subject=${encodeURIComponent(
-          `It's set: ${ev().title}`,
-        )}&body=${encodeURIComponent(`It's set: ${ev().title}, ${when(start, end)}.\n\nAdd it to your calendar: ${shareUrl}\n`)}`;
-      const cal = calJs.addToCalendar({ id, info, day, url: shareUrl, guests });
-      // One or two big next steps, the rest under More.
-      h += `<section class="banner-final${st.celebrate && !reducedMotion() ? ' celebrate' : ''}" aria-labelledby="final-h">
-        <p class="kicker">It's happening</p>
-        <h2 id="final-h">${bigWhen(start, end)}</h2>
-        ${ev().isAdmin && !st.changing ? '<button type="button" class="link-btn final-change" id="change-date" aria-label="Change the date">Change</button>' : ''}
-        ${
-          ev().isAdmin
-            ? `<div class="final-tell">
-          <button type="button" class="btn" data-share>${canShare ? 'Send everyone the date' : 'Copy the link for everyone'}</button>
-          <details class="final-cal"><summary class="btn">Add to calendar</summary>${cal}</details>
-        </div>`
-            : cal
-        }
-        ${ev().isAdmin && st.changing ? changeList(start) : ''}
-        ${
-          // One quiet link at most: the organizer's email to everyone, or a guest's own Venn.
-          ev().isAdmin
-            ? mailAll
-              ? `<p class="final-more"><a class="link-btn" id="email-all" href="${esc(mailAll)}">Email everyone the date</a></p>`
-              : ''
-            : `<p class="final-more"><a class="link-btn" data-link href="/new?from=set${ev().emoji ? `&template=${encodeURIComponent(ev().emoji)}` : ''}">Make your own Venn</a></p>`
-        }
-      </section>`;
+      // The banner itself is drawn by add-to-calendar.js, which guests load only once there's a date.
+      h += calJs.finalBanner({
+        ...{ id, ev: ev(), tz: st.tz, shareUrl, canShare, picture, people: others(), when, bigWhen },
+        ...{ changing: st.changing, celebrate: st.celebrate && !reducedMotion() },
+      });
     } else if (ev().isAdmin && ev().seriesOf) h += '<div id="series-box"></div>'; // bring last time's group back
     if (org) h += '<div id="org-tools"></div>';
     $('#banners').innerHTML = h;
