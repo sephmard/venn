@@ -36,6 +36,8 @@ test('a half-made date poll survives a reload, Back and the Vote switch', async 
 
   // To the Vote form and back: the date poll is as it was, and so is the vote.
   await page.click('.kind-switch a[href^="/new/topic"]');
+  // Type once the Vote form is drawn: until its code arrives, the date form is still the one on screen.
+  await expect(page.locator('#opts input').first()).toBeVisible();
   await page.fill('#title', 'Where should we stay?');
   await page.locator('#opts input').first().fill('The lake house');
   await page.click('.kind-switch a[href="/new"]');
@@ -51,6 +53,25 @@ test('a half-made date poll survives a reload, Back and the Vote switch', async 
   await expect(page.locator('#draft-note')).toHaveCount(0);
   await page.reload();
   await expect(page.locator('#opts input').first()).toHaveValue('');
+});
+
+test('typing while the Vote form is still loading never changes the date poll’s draft', async ({ page }) => {
+  await page.goto('/new');
+  const first = await nextMonth(page);
+  await page.fill('#title', 'Cabin plans');
+  await tapDays(page, [addDays(first, 2)]);
+  // A slow phone: the Vote form's code takes a moment, and the date form is still on screen.
+  await page.route('**/create-topic.js', async (r) => {
+    await new Promise((done) => setTimeout(done, 800));
+    await r.continue();
+  });
+  await page.click('.kind-switch a[href^="/new/topic"]');
+  await page.fill('#title', 'Where should we stay?');
+  await expect(page.locator('#opts input').first()).toBeVisible();
+  await page.click('.kind-switch a[href="/new"]');
+  await expect(page.locator('#title')).toHaveValue('Cabin plans');
+  await page.reload();
+  await expect(page.locator('#title')).toHaveValue('Cabin plans');
 });
 
 test('a made poll leaves no draft, and a link that fills the form wins', async ({ page }) => {

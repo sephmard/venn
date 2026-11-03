@@ -322,3 +322,25 @@ test('brand template: Make one with AI starts at the description, fills it all i
   await expect(page.locator('#ai-prompt')).toBeFocused();
   await noSideways(page);
 });
+
+test('brand template: when free AI requests are used up, the key form has no "Fill it in yourself" line', async ({ page }) => {
+  const { id, adminToken } = await (await page.request.post('/api/brands', { data: { name: 'Crux Climbing' } })).json();
+  await page.route('**/api/ai/draft-template', (route) =>
+    route.fulfill({
+      status: 402,
+      contentType: 'application/json',
+      body: JSON.stringify({
+        error: 'Free AI requests are used up for this week. Add your own Anthropic API key to keep going.',
+      }),
+    }),
+  );
+  await page.goto(`/brand/${id}#admin=${adminToken}`);
+  await expect(page.locator('#b-name')).toHaveValue('Crux Climbing');
+  await openStep(page, 'look');
+  await expect(page.locator('#ai-look label')).toHaveText('Or describe your organization');
+  await page.fill('#ai-prompt', 'A climbing gym, friendly and bold');
+  await page.click('#ai-go');
+  await expect(page.locator('#ai-key-box')).toContainText('used up for this week');
+  await expect(page.locator('#ai-by-hand')).toHaveCount(0);
+  await expect(page.locator('#ai-draft')).toBeVisible();
+});

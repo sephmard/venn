@@ -70,6 +70,7 @@ export function cleanFormDraft(d, today) {
     // The starter pressed (topic-templates.js), by its name in links.
     out.starter = typeof d.starter === 'string' && /^[a-z]+(-[a-z]+)*$/.test(d.starter) ? d.starter.slice(0, 40) : '';
   }
+  if (d.fromAi === true) out.fromAi = true; // AI on "Create a Venn" read it as a vote (ai-draft.js)
   return out;
 }
 
