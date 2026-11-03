@@ -2718,7 +2718,7 @@ test('guests are one tap from making their own poll: from the celebration, and o
   const go = page.locator('.party-go');
   await expect(go).toHaveText('See everyone’s answers');
   await expect(go).toBeFocused();
-  const own = page.getByRole('link', { name: 'Planning something? Make yours in 30 seconds' });
+  const own = page.getByRole('link', { name: 'Planning something? Make yours in a minute' });
   await expect(own).toBeVisible();
   // Straight to a new Venn, with the same template.
   await expect(own).toHaveAttribute('href', `/new?from=guest&template=${encodeURIComponent('🍝')}`);
