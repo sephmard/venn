@@ -206,6 +206,9 @@ const mascotUrl = (pageUrl) => `${new URL(MASCOT_PATH, pageUrl).href}?v=2`;
  * src/brands.js: the template's name as plain text in place of the dog and "Venn", and a neutral
  * signature, so members never see Venn. Any guest email builder takes it and passes it on here.
  */
+/** A white-label guest email goes out under the template's name (see whiteLabelOf in brands.js). */
+const fromNameOf = (whiteLabel) => (whiteLabel?.name ? { fromName: whiteLabel.name } : {});
+
 export function emailLayout(bodyHtml, footerHtml, pageUrl, { signed = true, whiteLabel = null } = {}) {
   const top = whiteLabel
     ? whiteLabel.name
@@ -379,7 +382,7 @@ export function deadlineReminderEmail({
     pollUrl,
     { whiteLabel },
   );
-  return { subject, text, html: styled(html, retro) };
+  return { subject, text, html: styled(html, retro), ...fromNameOf(whiteLabel) };
 }
 
 /**
@@ -414,7 +417,7 @@ export function inviteEmail({
     pollUrl,
     { whiteLabel },
   );
-  return { subject, text, html: styled(html, retro) };
+  return { subject, text, html: styled(html, retro), ...fromNameOf(whiteLabel) };
 }
 
 /**
@@ -459,7 +462,7 @@ export function dateSetEmail({ title, when, location, pollUrl, calendars, retro 
     pollUrl,
     { whiteLabel },
   );
-  return { subject, text, html: styled(html, retro) };
+  return { subject, text, html: styled(html, retro), ...fromNameOf(whiteLabel) };
 }
 
 /** At most `n` characters, with "…" when it's cut. */
@@ -483,7 +486,7 @@ export function decidedEmail({ title, option, pollUrl, retro = false, changed = 
     pollUrl,
     { whiteLabel },
   );
-  return { subject, text, html: styled(html, retro) };
+  return { subject, text, html: styled(html, retro), ...fromNameOf(whiteLabel) };
 }
 
 /** To the organizer, each time someone answers: who it was, the best time so far, and the poll. */
@@ -580,7 +583,7 @@ export function answerCopyEmail({ title, name, lines, pollUrl, editUrl, seeAnswe
     pollUrl,
     { whiteLabel },
   );
-  return { subject, text, html: styled(html, retro) };
+  return { subject, text, html: styled(html, retro), ...fromNameOf(whiteLabel) };
 }
 
 // ---------- delivery ----------

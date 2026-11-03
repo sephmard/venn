@@ -2,7 +2,7 @@
 // organizer that someone answered) through whichever provider the server has set up.
 //
 // Each provider says whether its settings are present and how to send one message:
-//   { to, subject, text, html, headers, replyTo }  →  resolves when accepted, throws otherwise
+//   { to, subject, text, html, headers, replyTo, fromName }  →  resolves when accepted, throws otherwise
 // EMAIL_REPLY_TO, when set, is where replies go (a real inbox, so people can write back). A message's
 // own `replyTo` wins: a home-page message is answered by replying to whoever sent it.
 // To add a provider (Postmark, SES, an SMTP relay behind an HTTP API, ...), add an entry below and
@@ -16,28 +16,59 @@ export function parseAddress(value) {
   return m ? { name: m[1].replace(/^"|"$/g, ''), email: m[2].trim() } : String(value || '').trim();
 }
 
+/**
+ * The display name a white-label poll's guest emails are sent under: the template's name, made safe
+ * for a From header (no quotes, angle brackets, backslashes or control characters; at most 64
+ * characters). Empty when nothing usable is left. The address stays EMAIL_FROM's own, so the
+ * sending domain is never anyone's but the server's.
+ */
+export function cleanFromName(name) {
+  return (
+    String(name || '')
+      // eslint-disable-next-line no-control-regex -- control characters are exactly what goes
+      .replace(/[\u0000-\u001f\u007f"<>\\]/g, ' ')
+      .replace(/\s+/g, ' ')
+      .trim()
+      .slice(0, 64)
+      .trim()
+  );
+}
+
+/** EMAIL_FROM, with its display name swapped for `fromName` when one is given: as { name, email }. */
+export function fromAddress(env, fromName) {
+  const from = parseAddress(env.EMAIL_FROM);
+  const email = typeof from === 'string' ? from : from.email;
+  const name = cleanFromName(fromName);
+  if (name) return { name, email };
+  return typeof from === 'string' ? { name: '', email } : from;
+}
+
+const fromHeader = ({ name, email }) => (name ? `"${name}" <${email}>` : email);
+
 export const EMAIL_PROVIDERS = [
   {
     // Cloudflare Email Sending, through a `send_email` binding named EMAIL. No API key needed.
     name: 'cloudflare',
     configured: (env) => typeof env.EMAIL?.send === 'function',
-    async send(env, { to, subject, text, html, headers, replyTo: own }) {
+    async send(env, { to, subject, text, html, headers, replyTo: own, fromName }) {
       const replyTo = (own || env.EMAIL_REPLY_TO) && parseAddress(own || env.EMAIL_REPLY_TO);
-      await env.EMAIL.send({ from: parseAddress(env.EMAIL_FROM), ...(replyTo && { replyTo }), to, subject, text, html, headers });
+      const named = fromName && fromAddress(env, fromName);
+      const from = named ? (named.name ? named : named.email) : parseAddress(env.EMAIL_FROM);
+      await env.EMAIL.send({ from, ...(replyTo && { replyTo }), to, subject, text, html, headers });
     },
   },
   {
     // Resend (resend.com), over HTTPS. Works on Cloudflare and on the Node server.
     name: 'resend',
     configured: (env) => Boolean(env.RESEND_API_KEY),
-    async send(env, { to, subject, text, html, headers, replyTo }, { fetchImpl }) {
+    async send(env, { to, subject, text, html, headers, replyTo, fromName }, { fetchImpl }) {
       // RESEND_API_URL is for the browser tests' stand-in (e2e/fake-oauth.js); nothing else sets it.
       const res = await fetchImpl(`${env.RESEND_API_URL || 'https://api.resend.com'}/emails`, {
         method: 'POST',
         signal: AbortSignal.timeout(TIMEOUT_MS),
         headers: { authorization: `Bearer ${env.RESEND_API_KEY}`, 'content-type': 'application/json' },
         body: JSON.stringify({
-          from: env.EMAIL_FROM,
+          from: fromName ? fromHeader(fromAddress(env, fromName)) : env.EMAIL_FROM,
           ...((replyTo || env.EMAIL_REPLY_TO) && { reply_to: replyTo || env.EMAIL_REPLY_TO }),
           to: [to],
           subject,

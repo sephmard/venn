@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { EMAIL_PROVIDERS, emailProvider, parseAddress, sendEmail } from '../src/email.js';
+import { EMAIL_PROVIDERS, cleanFromName, emailProvider, fromAddress, parseAddress, sendEmail } from '../src/email.js';
 import { emailEnabled } from '../src/notify.js';
 
 const message = {
@@ -73,4 +73,38 @@ test('new providers plug in without other changes', async () => {
 test('parseAddress', () => {
   assert.deepEqual(parseAddress('"Venn Polls" <a@b.co>'), { name: 'Venn Polls', email: 'a@b.co' });
   assert.equal(parseAddress(' a@b.co '), 'a@b.co');
+});
+
+test('a white-label From name: the template’s name at the server’s own address, made safe for the header', () => {
+  assert.equal(cleanFromName('Acme Book Club'), 'Acme Book Club');
+  assert.equal(cleanFromName('Evil" <boss@bank.com>\r\nBcc: x@y.z'), 'Evil boss@bank.com Bcc: x@y.z');
+  assert.equal(cleanFromName('a\\b'), 'a b');
+  assert.equal(cleanFromName(' \t '), '');
+  assert.equal(cleanFromName('x'.repeat(100)).length, 64);
+  assert.deepEqual(fromAddress({ EMAIL_FROM: 'Venn <hi@venn.day>' }, 'Acme'), { name: 'Acme', email: 'hi@venn.day' });
+  assert.deepEqual(fromAddress({ EMAIL_FROM: 'hi@venn.day' }, 'Acme'), { name: 'Acme', email: 'hi@venn.day' });
+  // Nothing usable: the server's own name stays.
+  assert.deepEqual(fromAddress({ EMAIL_FROM: 'Venn <hi@venn.day>' }, '""<>'), { name: 'Venn', email: 'hi@venn.day' });
+});
+
+test('both providers send a white-label email under its From name, and every other email as before', async () => {
+  const cf = binding();
+  const cfEnv = { EMAIL_FROM: 'Venn <hi@venn.day>', EMAIL: cf };
+  await sendEmail(cfEnv, { ...message, fromName: 'Acme' });
+  await sendEmail(cfEnv, message);
+  await sendEmail({ EMAIL_FROM: 'hi@venn.day', EMAIL: cf }, { ...message, fromName: '<>' });
+  assert.deepEqual(
+    cf.sent.map((m) => m.from),
+    [{ name: 'Acme', email: 'hi@venn.day' }, { name: 'Venn', email: 'hi@venn.day' }, 'hi@venn.day'],
+  );
+  const bodies = [];
+  const fetchImpl = async (url, init) => (bodies.push(JSON.parse(init.body)), new Response('{}', { status: 200 }));
+  const rEnv = { EMAIL_FROM: 'Venn <hi@venn.day>', RESEND_API_KEY: 're_x' };
+  await sendEmail(rEnv, { ...message, fromName: 'Acme "Inc"' }, { fetchImpl });
+  await sendEmail(rEnv, message, { fetchImpl });
+  assert.deepEqual(
+    bodies.map((b) => b.from),
+    ['"Acme Inc" <hi@venn.day>', 'Venn <hi@venn.day>'],
+  );
+  assert.ok(bodies.every((b) => !('fromName' in b)));
 });
