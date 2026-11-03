@@ -71,6 +71,17 @@ test('vote starters: they fill the question, kind and hints, and never what was 
   await expect(starter(page, 'Are we in?')).toHaveAttribute('aria-pressed', 'false');
 });
 
+test('vote starters: with a mouse, ‹ › only when the row overflows, named for starters', async ({ page, isMobile }) => {
+  test.skip(isMobile, 'touch swipes');
+  await page.goto('/new/topic');
+  await expect(page.locator('[data-starter]').first()).toBeVisible();
+  await expect(page.getByRole('button', { name: 'More starters' })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Earlier starters' })).toBeHidden();
+  // A row that fits has none.
+  await page.locator('[data-starter]').evaluateAll((els) => els.slice(2).forEach((el) => el.remove()));
+  await expect(page.locator('.row-arrow:visible')).toHaveCount(0);
+});
+
 test('vote starters: a link presses one, a reload keeps it, and the poll is what was typed', async ({ page, browser }) => {
   await page.goto('/new/topic?template=where-to-eat');
   await expect(starter(page, 'Where to eat')).toHaveAttribute('aria-pressed', 'true');

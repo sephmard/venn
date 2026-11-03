@@ -16,7 +16,7 @@ import { buildIcs, googleCalendarUrl, outlookCalendarUrl } from '../public/calen
 import { setLabel } from './preview.js';
 import { applyDeadline, closesLabel, deadlineView, isClosed, normalizeDeadline, remindNow, stopReminders } from './deadline.js';
 import { inviteRoom, newInvitees, normalizeInvitees, sendInvites } from './invites.js';
-import { checkSingle, normalizeAvailability, normalizeEventInput, normalizeName } from './validate.js';
+import { checkSingle, normalizeAnswer, normalizeAvailability, normalizeEventInput, normalizeName } from './validate.js';
 import { SECURITY_HEADERS } from './security-headers.js';
 import { IMAGE_FILES, IMAGE_LIMITS, MAX_IMAGE_BODY, imagePath, imageResponse, parseImage } from './images.js';
 import { BRAND_ID_RE, BRAND_ROLES, MAX_BRAND_INVITES, hidesVenn, whiteLabelOf, normalizeBrand, publicBrand } from './brands.js';
@@ -64,7 +64,8 @@ import { allowContactRequest, contactEmail, contactEnabled, contactInbox, normal
 import { allowPlacesRequest, placesProvider, placesState, searchPlaces } from './places.js';
 import { handleAccount, sessionUser, signInProviders } from './auth.js';
 import { handleMcp } from './mcp.js';
-import { draftFromWords } from './days-parse.js';
+import { pollResults } from './results.js';
+import { draftFromWords, unsureOf } from './days-parse.js';
 import { checkWrite, limitHeaders, writeWindows as newWriteWindows } from './limits.js';
 import { MAX_GUEST_DEVICES, MAX_PUSH_DEVICES, checkSubscription, pushEnabled, sendPush } from './push.js';
 
@@ -174,6 +175,10 @@ function publicEvent(ev, participants, { isAdmin, ownHash = null, ownId = null, 
     ...(ownId && { yourAnswer: ownId }),
   };
 }
+
+// Answer keys that weren't one of the poll's slots, said back so the client can see they were left
+// out: the first 20, which is enough to see what went wrong without echoing a huge body.
+const ignoredKeys = ({ ignored }) => (ignored.length ? { ignored: ignored.slice(0, 20) } : {});
 
 /**
  * The organizer's own answer: what they marked for each time (`hostAvailability`, yes or if
@@ -696,12 +701,19 @@ async function route(
     // The days on /new can also be read from plain words, with no AI (src/days-parse.js), where AI
     // can't answer: the server has none, or there's no key and no allowance left. Never ahead of AI.
     const daysDraft = parts[0] === 'ai' && parts[1] === 'draft-days' && parts.length === 2;
+    // Why the words gave no draft, said so the person knows what to change.
+    const WORDS_UNSURE = {
+      days: 'Venn couldn’t tell which days from that. Name them, like “Fridays next month”, or pick them below.',
+      parts:
+        'Venn couldn’t be sure from that. Say one time for all the days, like “Friday or Saturday evening”, or pick them below.',
+      correction: 'Venn couldn’t be sure from that. Say it in one go, like “Wednesday evening”, or pick the days below.',
+    };
     async function byWords(otherwise) {
       const { prompt, timezone } = await readJson(request);
       if (!isValidTimeZone(timezone)) throw new ValidationError('Unknown time zone');
       const { date: today, minutes: nowMinutes } = utcToZoned(now(), timezone);
       const draft = typeof prompt === 'string' && draftFromWords(prompt, { today, nowMinutes, ai: aiEnabled(env) });
-      return draft ? json(draft) : otherwise();
+      return draft ? json(draft) : otherwise(unsureOf(prompt));
     }
     // GET /api/ai/allowance — whether this visitor's free AI requests (the server's key) are there
     // this week: 'available', 'used' (their own share, everyone's, or the dollar cap: it doesn't say
@@ -725,10 +737,7 @@ async function route(
       if (!aiEnabled(env) && !daysDraft) return error(404, "AI features aren't turned on for this server");
       if (!(await allowAiRequest(env, clientIp, now(), aiWindows)))
         return error(429, "You're going a bit fast. Try again in a minute.");
-      if (!aiEnabled(env))
-        return await byWords(() =>
-          error(400, 'Venn couldn’t tell which days from that. Name them, like “Fridays next month”, or pick them below.'),
-        );
+      if (!aiEnabled(env)) return await byWords((unsure) => error(400, WORDS_UNSURE[unsure] || WORDS_UNSURE.days));
       const brought = request.headers.get(OWN_KEY_HEADER);
       if (brought && !validOwnKey(brought))
         return error(400, "That doesn't look like an Anthropic API key. They start with sk-ant-.");
@@ -866,7 +875,9 @@ async function route(
         ...(typeof body.from === 'string' && { from: body.from }),
         ...(event.brand && { brand: 'yes' }),
       });
-      return json({ id, adminToken, ...(host && { participant: host }) }, 201);
+      // The links too, so a client needn't build them: `url` to share, `adminUrl` (private) to manage it.
+      const url = `${origin}/e/${id}`;
+      return json({ id, adminToken, url, adminUrl: `${url}#admin=${adminToken}`, ...(host && { participant: host }) }, 201);
     }
 
     // POST /api/brands  { name, accent?, font?, title?, note?, where?, emoji? }: a brand template
@@ -962,7 +973,16 @@ async function route(
         // Signed in, an answer given with the account is theirs on any device, as its edit link is.
         const ownId = await answerByAccount(ev.id);
         const emails = isAdmin || ownHash || ownId ? await store.listEmails(ev.id) : undefined;
+        // ?results=1: the counts and leaders worked out here (src/results.js), as the page and MCP
+        // work them out. Not when the organizer hides the answers from this visitor: they get none.
+        // A big poll's ranking costs real CPU, so asking has a per-address limit (src/limits.js).
+        const wantsResults = url.searchParams.get('results') === '1';
+        if (wantsResults) {
+          const limited = await allowed('results');
+          if (!limited.ok) return tooFast(limited);
+        }
         const out = publicEvent(ev, await store.listParticipants(ev.id), { isAdmin, ownHash, ownId, emails });
+        if (wantsResults && !('responses' in out)) out.results = pollResults(ev, out.slots, out.participants);
         // Its brand template's look, while the template lasts (deleted, the poll is plain Venn again).
         const brand = ev.brand && (await store.getBrand(ev.brand));
         if (brand) out.brand = publicBrand(brand);
@@ -1052,7 +1072,8 @@ async function route(
 
     // GET /api/events/:id/event.ics
     if (parts.length === 3 && parts[2] === 'event.ics' && method === 'GET') {
-      if (ev.finalStart == null || isTopicPoll(ev)) return error(404, 'No time has been picked yet');
+      if (isTopicPoll(ev)) return error(404, 'A vote has no calendar file: it picks an option, not a time');
+      if (ev.finalStart == null) return error(404, 'No time has been picked yet');
       const end = meetingEnd(ev, ev.finalStart);
       const body = buildIcs({
         id: ev.id,
@@ -1378,7 +1399,8 @@ async function route(
       if (!limited.ok) return tooFast(limited);
       const body = await readJson(request);
       const name = normalizeName(body.name);
-      const availability = checkSingle(ev, normalizeAvailability(body.availability, slots));
+      const answer = normalizeAnswer(body.availability, slots, isTopicPoll(ev));
+      const availability = checkSingle(ev, answer.availability);
       const copyTo = normalizeEmail(body.copyTo);
       const email = participantEmail(ev, body);
       if ((await store.countParticipants(ev.id)) >= LIMITS.participants)
@@ -1406,7 +1428,7 @@ async function route(
         // Signed in, it's kept with the account: My polls lists it under Answered.
         if (!isAdmin) await keepWithAccount('answer', id);
       }
-      return json({ id, editToken }, 201);
+      return json({ id, editToken, ...ignoredKeys(answer) }, 201);
     }
 
     // PUT|DELETE /api/events/:id/participants/:pid
@@ -1421,7 +1443,8 @@ async function route(
         if (!isOwner) return error(403, 'You can only edit your own response');
         const body = await readJson(request);
         const name = normalizeName(body.name);
-        const availability = checkSingle(ev, normalizeAvailability(body.availability, slots));
+        const answer = normalizeAnswer(body.availability, slots, isTopicPoll(ev));
+        const availability = checkSingle(ev, answer.availability);
         const copyTo = normalizeEmail(body.copyTo);
         const email = isHost ? null : participantEmail(ev, body);
         await store.updateParticipant({ id: p.id, eventId: ev.id, name, availability, now: now() });
@@ -1436,7 +1459,7 @@ async function route(
           notify(ev, 'response.updated', p.id, name);
           count('answer.updated', kindOf(ev));
         }
-        return json({ ok: true });
+        return json({ ok: true, ...ignoredKeys(answer) });
       }
       if (method === 'DELETE') {
         if (!isOwner && !isAdmin) return error(403, 'You can only remove your own response');
@@ -1454,7 +1477,7 @@ async function route(
 
     return error(404, 'Not found');
   } catch (e) {
-    if (e instanceof ValidationError) return error(400, e.message);
+    if (e instanceof ValidationError) return json({ error: e.message, ...(e.detail && { detail: e.detail }) }, 400);
     if (e instanceof AiKeyError || e instanceof AiUnavailableError) {
       // Why Anthropic said no, in the Worker's logs and the usage stats, so a broken server key or
       // model shows up. Counted even for browsers that opt out: it's about the server, not them.

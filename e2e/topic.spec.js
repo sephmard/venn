@@ -93,6 +93,40 @@ test('vote on options, pick the favourite, then find a date for it', async ({ pa
   await expect(page.locator('#location')).toHaveValue("Rosa's");
 });
 
+test('a vote waits for an answer before offering Pick, unless the organizer picks one anyway', async ({ page, browser }) => {
+  const url = await createTopic(page, { title: 'Where to?', options: ['Park', 'Beach', 'Museum'] });
+  const results = page.locator('.t-results');
+  // Alone on a new vote: the options, without empty bars, "0 yes" or Pick.
+  await expect(results.locator('.t-result')).toHaveCount(3);
+  await expect(results.locator('.t-bar, .t-count')).toHaveCount(0);
+  await expect(page.locator('[data-pick]')).toHaveCount(0);
+  await expect(page.locator('.empty-state')).toContainText('Share the link and the favourite shows here.');
+  // The group decided in the chat: Pick one anyway puts Pick this on every row.
+  await page.getByRole('button', { name: 'Pick one anyway' }).click();
+  await expect(results.getByRole('button', { name: 'Pick this' })).toHaveCount(3);
+  await expect(results.getByRole('button', { name: 'Pick this' }).first()).toBeFocused();
+  await expect(page.getByRole('button', { name: 'Pick one anyway' })).toHaveCount(0);
+  await expect(results.locator('.t-bar')).toHaveCount(0);
+
+  // A guest answers: the tally, the favourite and Pick are back.
+  await answer(browser, url, 'Marcus', [['Beach', 'Yes']]);
+  await page.reload();
+  await expect(page.locator('.best-hero')).toContainText('Beach');
+  await expect(results.locator('.t-bar')).toHaveCount(3);
+  await expect(page.getByRole('button', { name: 'Pick one anyway' })).toHaveCount(0);
+  await page.getByRole('button', { name: 'Pick Beach' }).click();
+  await page.getByRole('button', { name: 'Pick it' }).click();
+  await expect(page.locator('.banner-final')).toContainText('Decided Beach');
+});
+
+test('Pick one anyway picks with no answers at all', async ({ page }) => {
+  await createTopic(page, { title: 'Should we do a book swap?', yesNo: true });
+  await page.getByRole('button', { name: 'Pick one anyway' }).click();
+  await page.locator('.t-result', { hasText: 'Yes' }).getByRole('button', { name: 'Pick this' }).click();
+  await page.getByRole('button', { name: 'Pick it' }).click();
+  await expect(page.locator('.banner-final h2')).toHaveText('Yes');
+});
+
 test('a yes or no question takes one pick each', async ({ page, browser }) => {
   const url = await createTopic(page, { title: 'Should we do a trip this spring?', yesNo: true });
   await answer(browser, url, 'Jordan', [['Yes', 'pick']]);
@@ -355,4 +389,58 @@ test('vote again next time: a white-label vote’s organizer still has it', asyn
   await page.goto(`/e/${made.id}#admin=${made.adminToken}`);
   await expect(page.locator('.banner-final')).toBeVisible();
   await expect(page.getByRole('link', { name: 'Vote again next time' })).toBeVisible();
+});
+
+test('after voting, a guest is offered a vote of their own; never the organizer, in a frame or on white label', async ({
+  page,
+  browser,
+  isMobile,
+}) => {
+  const vote = (data = {}) =>
+    page.request
+      .post('/api/events', {
+        data: { title: 'Where to?', organizer: 'Priya', timezone: 'UTC', mode: 'topic', options: ['Park', 'Beach'], ...data },
+      })
+      .then((r) => r.json());
+  const yours = (p) => p.getByRole('link', { name: 'Planning something? Make yours in 30 seconds' });
+  const made = await vote();
+  const g = await (
+    await browser.newContext(isMobile ? { hasTouch: true, isMobile: true, viewport: { width: 390, height: 844 } } : {})
+  ).newPage();
+  await g.goto(`/e/${made.id}`);
+  await expect(g.locator('.topic-row').first()).toBeVisible();
+  await expect(yours(g)).toHaveCount(0);
+  await g.locator('.topic-row', { hasText: 'Beach' }).getByRole('radio', { name: 'Yes' }).click();
+  await g.getByLabel('Your name').fill('Ana');
+  await g.getByRole('button', { name: 'Submit' }).click();
+  await expect(yours(g)).toBeVisible();
+  expect(await yours(g).getAttribute('href')).toBe('/new/topic?from=guest');
+  expect((await yours(g).boundingBox()).height).toBeGreaterThanOrEqual(44);
+  await expect(yours(g)).toHaveClass('link-btn');
+  // Under the group's results, not in the answer card.
+  await expect(g.locator('section[aria-labelledby="group-h"] #make-yours')).toHaveCount(1);
+  await expect(g.locator('[aria-labelledby="mine-h"] #make-yours')).toHaveCount(0);
+  await noBlockingA11y(g, 'vote, guest after voting, Make yours');
+  await yours(g).click();
+  await expect(g).toHaveURL(/\/new\/topic\?from=guest$/);
+  await g.context().close();
+
+  // The organizer, with their own answer in: no.
+  await page.goto(`/e/${made.id}#admin=${made.adminToken}`);
+  await expect(page.locator('.t-results')).toBeVisible();
+  await expect(yours(page)).toHaveCount(0);
+
+  // In a frame (/embed) and on a white-label poll: no.
+  const brand = await (await page.request.post('/api/brands', { data: { name: 'Acme', hideVenn: true } })).json();
+  for (const [where, ev] of [
+    ['embed', made],
+    ['e', await vote({ brand: brand.id })],
+  ]) {
+    const ana = await (
+      await page.request.post(`/api/events/${ev.id}/participants`, { data: { name: 'Ana', availability: { 1: 2 } } })
+    ).json();
+    await page.goto(`/${where}/${ev.id}#edit=${ana.id}.${ana.editToken}`);
+    await expect(page.locator('#save')).toHaveText('Update answer');
+    await expect(yours(page)).toHaveCount(0);
+  }
 });
