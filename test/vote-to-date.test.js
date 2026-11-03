@@ -11,7 +11,7 @@ globalThis.document = {
 };
 globalThis.localStorage = { getItem: () => null, setItem: () => {} };
 globalThis.matchMedia = () => ({ matches: false });
-const { dateLink } = await import('../public/topic-poll.js');
+const { dateLink } = await import('../public/topic-organizer.js');
 const starters = await import('../public/topic-templates.js');
 
 // A decided vote: its question, its emoji and its options, the first one picked.
