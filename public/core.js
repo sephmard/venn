@@ -196,6 +196,12 @@ function midnightAfter(ms, n, tz) {
   return dayStart(addDays(utcToZoned(ms, tz).date, n), tz);
 }
 
+/** `minutes` after `s` on the clock: 1:00 AM + 1 hour is 2:00 AM, even when clocks go back. */
+function wallAfter(s, minutes, tz) {
+  const z = utcToZoned(s, tz);
+  return Math.max(s + minutes * MINUTE, zonedToUtc(z.date, z.minutes + minutes, tz));
+}
+
 /** End of the slot that starts at `s`. Whole-day slots end at the next midnight, whatever DST does. */
 export function slotEnd(ev, s) {
   return isDaysPoll(ev) ? midnightAfter(s, 1, ev.timezone) : s + ev.slotMinutes * MINUTE;
@@ -217,7 +223,7 @@ export function meetingEnd(ev, start) {
   if (ev.anyLength && ev.finalEnd && start === ev.finalStart) return ev.finalEnd;
   if (isOptionsPoll(ev)) return ev.options.find((o) => o.start === start)?.end ?? start + ev.durationMinutes * MINUTE;
   if (isDaysPoll(ev)) return midnightAfter(start, ev.durationMinutes / DAY_MINUTES, ev.timezone);
-  return start + ev.durationMinutes * MINUTE;
+  return wallAfter(start, ev.durationMinutes, ev.timezone);
 }
 
 /**
@@ -263,15 +269,20 @@ export function buildSlots(ev) {
  */
 export function rankTimes(ev, slots, participants, limit = 5) {
   if (isOptionsPoll(ev) || isTopicPoll(ev)) return rankOptions(ev, participants, limit);
-  const slotMs = ev.slotMinutes * MINUTE;
   const k = Math.max(1, Math.round(ev.durationMinutes / ev.slotMinutes));
   const days = isDaysPoll(ev);
   const results = [];
   for (let i = 0; i + k <= slots.length; i++) {
     const start = slots[i];
-    // The window must be contiguous: back-to-back slots, or consecutive days for whole-day polls.
+    // The window must be contiguous: back-to-back slots (on the clock too), or consecutive days.
     const last = slots[i + k - 1];
-    if (days ? last !== midnightAfter(start, k - 1, ev.timezone) : last !== start + (k - 1) * slotMs) continue;
+    const span = (k - 1) * ev.slotMinutes;
+    if (
+      days
+        ? last !== midnightAfter(start, k - 1, ev.timezone)
+        : last - start !== span * MINUTE && last !== wallAfter(start, span, ev.timezone)
+    )
+      continue;
     const yes = [],
       ifNeeded = [],
       no = [];
@@ -281,7 +292,8 @@ export function rankTimes(ev, slots, participants, limit = 5) {
       (worst === YES ? yes : worst === IF_NEEDED ? ifNeeded : no).push(p.name);
     }
     if (yes.length + ifNeeded.length === 0) continue;
-    results.push({ start, end: days ? midnightAfter(start, k, ev.timezone) : start + k * slotMs, yes, ifNeeded, no });
+    const end = days ? midnightAfter(start, k, ev.timezone) : wallAfter(start, k * ev.slotMinutes, ev.timezone);
+    results.push({ start, end, yes, ifNeeded, no });
   }
   return sortRanked(ev.anyLength ? mergeRuns(results) : results).slice(0, limit);
 }

@@ -127,20 +127,24 @@ test('US fall back (LA, Nov 1 2026): the repeated hour is asked about once, on t
   // 1:00 and 1:30 are daylight time (08:00 and 08:30 UTC); 2:00 is standard time, 10:00 UTC.
   assert.equal(keySlot('2026-11-01|60', LA), Date.UTC(2026, 10, 1, 8));
   assert.equal(keySlot('2026-11-01|120', LA), Date.UTC(2026, 10, 1, 10));
-  // Whatever is ranked, its label's times are the slots' own wall-clock times.
-  for (const r of rankTimes(ev, slots, everyone(slots), Infinity).filter((r) => r.start !== Date.UTC(2026, 10, 1, 8)))
+  // Away from the repeated hour, every ranked hour is one real hour.
+  for (const r of rankTimes(ev, slots, everyone(slots), Infinity).filter((r) => r.end <= Date.UTC(2026, 10, 1, 8)))
     assert.equal(r.end - r.start, H);
 });
 
-test.todo(
-  'US fall back: an hour from 1:00 AM on Nov 1 reads as "1:00 – 2:00 AM", not "1:00 AM" (rankTimes ends it at 1:00 standard time)',
-  () => {
-    const ev = hoursPoll(LA, ['2026-11-01'], 0, 240);
-    const slots = buildSlots(ev);
-    const r = rankTimes(ev, slots, everyone(slots), Infinity).find((x) => x.start === Date.UTC(2026, 10, 1, 8));
-    assert.equal(plain(fmtTimeRange(r.start, r.end, LA)), '1:00 – 2:00 AM');
-  },
-);
+test('US fall back: an hour from 1:00 AM on Nov 1 reads as "1:00 – 2:00 AM", and so does the picked time', () => {
+  const ev = hoursPoll(LA, ['2026-11-01'], 0, 240);
+  const slots = buildSlots(ev);
+  const ranked = rankTimes(ev, slots, everyone(slots), Infinity);
+  const r = ranked.find((x) => x.start === Date.UTC(2026, 10, 1, 8));
+  assert.equal(plain(fmtTimeRange(r.start, r.end, LA)), '1:00 – 2:00 AM');
+  assert.equal(r.end, Date.UTC(2026, 10, 1, 10)); // two real hours: 1:00 comes round twice
+  assert.equal(meetingEnd({ ...ev, finalStart: r.start }, r.start), r.end);
+  // 1:30 to 2:30 is offered too, across the seam, and every label is one hour on the clock.
+  const half = ranked.find((x) => x.start === Date.UTC(2026, 10, 1, 8, 30));
+  assert.equal(plain(fmtTimeRange(half.start, half.end, LA)), '1:30 – 2:30 AM');
+  for (const x of ranked) assert.equal(utcToZoned(x.end, LA).minutes - utcToZoned(x.start, LA).minutes, 60);
+});
 
 test('EU clock changes (Berlin, Mar 29 and Oct 25 2026): gaps skipped, the long day is 25 hours', () => {
   const tz = 'Europe/Berlin';
