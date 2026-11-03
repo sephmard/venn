@@ -146,6 +146,14 @@ export function kindSwitch(on) {
   return `<nav class="seg kind-switch" aria-label="Kind of Venn">${link('date', '/new', '📅 Date')}${link('topic', '/new/topic', '🗳️ Vote')}</nav>`;
 }
 
+// Date or Vote, tapped: the form being left takes no typing while the next one loads.
+addEventListener('click', (e) => {
+  const a = e.defaultPrevented && e.target.closest?.('.kind-switch a');
+  if (!a) return;
+  for (const l of a.parentNode.children) l.ariaCurrent = l === a ? 'page' : null; // the new kind, at once
+  Object.assign(a.closest('form'), { inert: true, ariaBusy: true });
+});
+
 export function planFields(kind) {
   // Templates as a row of cards to scroll: what's in season first (see templates.js).
   return `
