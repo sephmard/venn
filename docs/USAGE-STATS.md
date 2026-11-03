@@ -15,6 +15,8 @@ Each count is a number for one day. For example, "3 polls created on 2026-10-26 
 
 Only the events and values listed in `USAGE_EVENTS` in [`src/usage.js`](../src/usage.js) are kept. The server drops anything else. The browser can't send the events the server counts itself (polls created, answers and so on).
 
+Each visitor's browser can send up to 300 counts per ten minutes (`USAGE_RATE_LIMIT`, `0` turns the limit off); past that, counts are dropped quietly. The limit is kept in memory by IP address for those ten minutes and never stored, like the other limits in [`src/limits.js`](../src/limits.js).
+
 | Event                                           | Counted by | Properties                                                                                                                                                                                  |
 | ----------------------------------------------- | ---------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `poll.created`                                  | Server     | `kind` (pick, free), `detail` (times, allday, trips, days, parts, hours), `plan` (dinner, trip…), `options` (1, 2-3, 4-7, 8-15, 16+), `email`, `copy`, `brand` (made from a brand template) |
