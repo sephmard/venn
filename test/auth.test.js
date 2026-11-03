@@ -182,6 +182,21 @@ test('only paths on this site are where sign-in goes back to', async () => {
   assert.equal((await signIn('g-next', { next: '/e/abc' })).back.headers.get('location'), '/e/abc');
 });
 
+test('signing in from a template link comes back to it (decisions G4); tokens and other keys never ride along', async () => {
+  for (const next of ['/new?brand=Acme1', '/new/topic?brand=Acme1&look=retro', '/brand/new?ai=1', '/new?from=email&brand=Acme1'])
+    assert.equal((await signIn('g-next', { next })).back.headers.get('location'), next);
+  for (const next of [
+    '/e/abc#admin=secret',
+    '/e/abc#edit=p1.secret',
+    '/me?brand=Acme1', // a query only on the pages that make a poll or a template
+    '/new?brand=a&brand=b',
+    '/new?next=https://evil.example',
+    '/new?brand=../x',
+    '/new?',
+  ])
+    assert.equal((await signIn('g-next', { next })).back.headers.get('location'), '/me#signed-in', next);
+});
+
 test('signing in with GitHub: its id, and its primary verified email', async () => {
   const start = await call('/api/auth/github');
   const to = new URL(start.headers.get('location'));
