@@ -52,6 +52,7 @@ document.head.insertAdjacentHTML(
   .ai-done-when { font-weight: 500; }
   .ai-done-note { margin-top: 2px; font-weight: 500; color: var(--muted); }
   .ai-done .link-btn { min-height: 44px; padding: 0 10px; }
+  .ai-by-hand .link-btn { min-height: 0; padding-block: 12px; margin-block: -12px; }
   /* What AI filled in lights up, a field at a time, then the picked days in order. */
   .ai-lit { animation: ai-lit 1.4s ease-out both; animation-delay: calc(var(--ai-i, 0) * 70ms); }
   @keyframes ai-lit {

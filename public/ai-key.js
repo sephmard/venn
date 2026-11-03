@@ -41,6 +41,7 @@ export function keyForm(box, { why = '', done } = {}) {
   box.hidden = false;
   box.innerHTML = `<div class="ai-key">
       ${why ? `<p>${esc(why)}</p>` : ''}
+      ${why && done ? '<p class="ai-by-hand">No key? <button type="button" class="link-btn" id="ai-by-hand">Fill it in yourself</button>. It only takes a minute.</p>' : ''}
       <label for="ai-key-in">Your Anthropic API key</label>
       <div class="ai-row">
         <input id="ai-key-in" type="password" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="${has ? 'Saved on this device' : 'sk-ant-…'}">
@@ -73,6 +74,21 @@ export function keyForm(box, { why = '', done } = {}) {
       }
       box.hidden = true;
       toast('Key removed from this device.');
+    };
+  // AI is a shortcut, never a wall: close it and go to the form it would have filled.
+  const byHand = $('#ai-by-hand', box);
+  if (byHand)
+    byHand.onclick = () => {
+      const panel = box.closest('.ai-draft');
+      if (panel) panel.hidden = true;
+      document.getElementById('ai-open')?.setAttribute('aria-expanded', 'false');
+      const head = document.querySelector('.ai-head');
+      const next = head?.nextElementSibling?.matches('.ai-draft')
+        ? head.nextElementSibling.nextElementSibling
+        : head?.nextElementSibling;
+      const field = next?.querySelector('input:not([type=hidden]), button, textarea') || head?.querySelector('h2');
+      field?.focus({ preventScroll: true });
+      (next || head)?.scrollIntoView({ block: 'center' });
     };
   $('#ai-key-in', box).focus();
 }
