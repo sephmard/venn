@@ -13,6 +13,8 @@ The server's address is `https://venn.day/api/mcp` (or `/api/mcp` on your own se
 
 Polls made this way are ordinary polls: the same limits, the same links, and the organizer link manages them in the app.
 
+`get_venn_results` ranks days and times the way the poll page does: most people who can make it first, then most yeses, then the earliest. Days and times nobody can make are left out of `best`. For a trip or a meeting longer than one slot, each entry in `best` is the whole stretch, from `start` to `end`. `summary` gives the result in one line, including when nobody has answered or the best days are tied, and `leading` lists the best day or time, or every day tied for it.
+
 ## Connecting it
 
 - **Claude:** in Settings, under Connectors, add a custom connector with the address above.

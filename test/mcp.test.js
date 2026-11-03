@@ -75,11 +75,19 @@ test('create a Venn of whole days, answer it, and read the results', async () =>
   assert.deepEqual(data.best[0], {
     when: 'Fri, Jan 11',
     start: new Date(fri).toISOString(),
+    end: new Date(sat).toISOString(),
     available: 2,
     ifNeeded: 0,
     who: { available: ['Bo', 'Cy'], ifNeeded: [] },
   });
   assert.equal(data.options.length, 3);
+  // Ranked as on the page, and only days someone can make.
+  assert.deepEqual(
+    data.best.map((b) => b.when),
+    ['Fri, Jan 11', 'Sat, Jan 12'],
+  );
+  assert.deepEqual(data.leading, ['Fri, Jan 11']);
+  assert.equal(data.summary, 'Fri, Jan 11 works best: everyone can make it.');
 });
 
 test('create a Venn of specific times; mistakes come back as tool errors', async () => {
