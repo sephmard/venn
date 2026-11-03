@@ -255,16 +255,7 @@ export function shapeDays(out, { today, nowMinutes = 0 }) {
     }
   }
   const vote = voteOf(out);
-  if (!days.length)
-    return vote
-      ? {
-          days,
-          vote,
-          title: String(out.title || '')
-            .trim()
-            .slice(0, 80),
-        }
-      : { days };
+  if (!days.length) return vote ? { days, vote } : { days };
 
   // What it left out because it's over, in words.
   const over = [...past].filter((d) => d >= addDays(today, -6) && !byDate.has(d));
@@ -293,7 +284,7 @@ export function shapeDays(out, { today, nowMinutes = 0 }) {
 
 /**
  * What the group is deciding besides when, if anything: { question, options, both }. Only "what"
- * with two or more choices, or "both", counts; the choices are trimmed, unique and capped as a
+ * with a question or two or more choices, and "both" always; the choices are trimmed, unique and capped as a
  * topic poll's options are (src/validate.js). Older answers without `decide` give null.
  */
 export function voteOf(out) {
@@ -308,10 +299,11 @@ export function voteOf(out) {
     seen.add(label.toLowerCase());
     options.push(label);
   }
-  if (out.decide === 'what' && options.length < 2) return null;
   const question = String(out.question || '')
     .trim()
     .slice(0, LIMITS.title);
+  // "Vote on our next book": a question with the choices still to come is a vote too.
+  if (out.decide === 'what' && options.length < 2 && !question) return null;
   return { question, options: options.slice(0, 20), both: out.decide === 'both' };
 }
 

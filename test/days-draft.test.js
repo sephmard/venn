@@ -315,7 +315,8 @@ test('choices are trimmed, unique (any case), capped, and "what" needs two of th
     shapeDays(answer([], { decide, question: ' Which book? ', choices }), { today: MON }).vote;
   assert.deepEqual(vote([' Dune ', 'dune', 'Piranesi', '', 'x'.repeat(200)]).options, ['Dune', 'Piranesi', 'x'.repeat(120)]);
   assert.equal(vote(Array.from({ length: 30 }, (_, i) => `Book ${i}`)).options.length, 20);
-  assert.equal(vote(['Dune']), undefined); // one choice is not a vote
+  assert.equal(shapeDays(answer([], { decide: 'what', question: '', choices: ['Dune'] }), { today: MON }).vote, undefined); // one choice, no question: not a vote
+  assert.deepEqual(vote(['Dune']).options, ['Dune']); // with a question it is
   assert.equal(vote(['Dune'], 'both').options.length, 1); // "both" still offers the vote, to finish there
   assert.equal(vote(['Dune', 'Piranesi']).question, 'Which book?');
 });
@@ -332,6 +333,18 @@ test('"where and when": the days fill as usual, and the vote rides along', () =>
   assert.equal(draft.level, 'parts');
   assert.equal(draft.days.length, 2);
   assert.deepEqual(draft.vote, { question: 'Where should we have dinner?', options: [], both: true });
+});
+
+test('"vote on our next book": a question with no choices named yet is still a vote', async () => {
+  const out = answer([], { decide: 'what', question: 'What should we read next?', choices: [] });
+  assert.deepEqual(shapeDays(out, { today: MON }).vote, { question: 'What should we read next?', options: [], both: false });
+  const now = zonedToUtc(MON, 600, 'America/New_York');
+  const viaApi = await draftDays(
+    {},
+    { prompt: 'Vote on our next book.', timezone: 'America/New_York' },
+    { now, anthropic: fakeClaude(out) },
+  );
+  assert.equal(viaApi.vote.question, 'What should we read next?');
 });
 
 test('a plan with only a time to find, or an older answer with no decide, has no vote', () => {

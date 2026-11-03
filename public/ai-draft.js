@@ -217,7 +217,7 @@ export function aiDays(st, { empty, setRow, show, level, row }) {
       headers: aiHeaders(),
     });
     // Choosing what, not when ("Italian, Thai or Mexican?"): nothing is filled in; it offers a vote.
-    if (!draft.days.length && draft.vote) return offerVote(draft.vote, prompt);
+    if (!draft.days.length && draft.vote) return offerVote(draft.vote);
     const { iconEmoji, setIconEmoji, iconBg, setIconBg } = await import('./create.js'); // the page's own, already loaded
     const [t, where] = [$('#title'), $('#location')];
     const before = {
@@ -298,7 +298,7 @@ export function aiDays(st, { empty, setRow, show, level, row }) {
       setRow(before.row);
       await show(before.level);
     });
-    if (both) voteLink($('#ai-done > p'), both, prompt, 'Vote on it first');
+    if (both) voteLink($('#ai-done > p'), both, 'Vote on it first');
   });
 }
 
@@ -309,13 +309,13 @@ const either = (list) => (list.length < 2 ? list.join('') : `${list.slice(0, -1)
  * A link to the vote (/new/topic) with the question and choices AI read, kept as that form's draft
  * so it opens filled in (form-draft.js), and nothing else carried over.
  */
-function voteLink(where, vote, prompt, label) {
+function voteLink(where, vote, label) {
   where.insertAdjacentHTML(
     'beforeend',
     ` <a class="link-btn ai-vote" id="ai-vote" href="/new/topic?from=ai" data-link>${esc(label)}</a>`,
   );
   $('#ai-vote').addEventListener('click', () => {
-    const options = vote.options.length >= 2 ? vote.options : ['', ''];
+    const options = [...vote.options, '', ''].slice(0, Math.max(2, vote.options.length)); // two rows at least
     try {
       sessionStorage.setItem(
         'venn:draft:topic',
@@ -336,7 +336,7 @@ function voteLink(where, vote, prompt, label) {
 }
 
 /** On /new, a description of a choice rather than a time: say so, and offer the vote. */
-function offerVote(vote, prompt) {
+function offerVote(vote) {
   closeBox();
   $('#ai-done')?.remove();
   const what = vote.options.length ? either(vote.options) : '';
@@ -346,7 +346,7 @@ function offerVote(vote, prompt) {
       what ? ` <span class="ai-done-when">${esc(what)}</span>` : ''
     } <small class="ai-done-note">Nothing here was changed.</small></p></div>`,
   );
-  voteLink($('#ai-done'), vote, prompt, 'Make it a vote');
+  voteLink($('#ai-done'), vote, 'Make it a vote');
   $('#ai-vote').classList.replace('link-btn', 'btn');
   $('#ai-done').scrollIntoView({ behavior: reducedMotion() ? 'auto' : 'smooth', block: 'center' });
 }

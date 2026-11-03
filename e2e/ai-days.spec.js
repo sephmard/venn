@@ -157,7 +157,7 @@ test('AI: a choice between things on Create a Venn offers a vote, and the vote o
   const options = page.locator('#opts input');
   await expect(options).toHaveCount(3);
   expect(await options.evaluateAll((els) => els.map((e) => e.value))).toEqual(['Italian', 'Thai', 'Mexican']);
-  await expect(page.locator('#draft-note')).toContainText('Made a vote from what you wrote');
+  await expect(page.locator('#draft-note')).toContainText('Made into a vote. Check the options.');
   // It makes a real vote with those options.
   await page.fill('#organizer', 'Sam');
   await page.click('#submit');
@@ -172,4 +172,30 @@ test('AI: "where and when" fills the evenings and offers to vote on where first'
   await page.click('#ai-vote');
   await expect(page).toHaveURL(/\/new\/topic/);
   await expect(page.locator('#title')).toHaveValue('Where should we have dinner?');
+});
+
+test('AI: "vote on our next book" with no books named opens the vote with the question and empty options', async ({ page }) => {
+  await page.goto('/new');
+  await describe(page, 'Vote on our next book');
+  await expect(page.locator('#ai-done')).toContainText('That sounds like a vote');
+  await page.click('#ai-vote');
+  await expect(page).toHaveURL(/\/new\/topic/);
+  await expect(page.locator('#title')).toHaveValue('What should we read next?');
+  const options = page.locator('#opts input');
+  await expect(options).toHaveCount(2);
+  expect(await options.evaluateAll((els) => els.map((e) => e.value))).toEqual(['', '']);
+});
+
+test('AI: "Vote on our next book." with no books named opens the vote with the question and two empty options', async ({
+  page,
+}) => {
+  await page.goto('/new');
+  await describe(page, 'Vote on our next book.');
+  await expect(page.locator('#ai-done')).toContainText('That sounds like a vote');
+  await page.click('#ai-vote');
+  await expect(page).toHaveURL(/\/new\/topic/);
+  await expect(page.locator('#title')).toHaveValue('What should we read next?');
+  const options = page.locator('#opts input');
+  await expect(options).toHaveCount(2);
+  expect(await options.evaluateAll((els) => els.map((e) => e.value))).toEqual(['', '']);
 });

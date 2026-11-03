@@ -55,6 +55,21 @@ function reply(body) {
           .filter(Boolean),
         note: '',
       };
+    if (/vote on our next book/i.test(text))
+      return {
+        ...base,
+        title: 'Book club',
+        timeOfDay: 'any',
+        usualParts: [],
+        firstDate: today,
+        lastDate: '',
+        daysInRow: 1,
+        days: [],
+        decide: 'what',
+        question: 'What should we read next?',
+        choices: [],
+        note: '',
+      };
     if (/where and when/i.test(text))
       return {
         ...base,

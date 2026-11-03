@@ -172,6 +172,7 @@ const CASES = [
     options: 3,
   },
   { name: 'v2 vote on the next book', text: 'Vote on our next book: Piranesi, Dune or Circe', vote: 'what', options: 3 },
+  { name: 'v2b vote on the next book, none named', text: 'Vote on our next book.', vote: 'what' },
   {
     name: 'v3 where and when for dinner',
     text: 'Let’s decide where and when to have dinner this week',
