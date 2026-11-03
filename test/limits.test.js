@@ -138,3 +138,17 @@ test('an app with a key (APP_KEYS) makes polls and templates for its users witho
   // A wrong key is just another visitor.
   assert.equal((await post('/api/events', dinner, { authorization: 'Bearer nope' })).status, 429);
 });
+
+test('usage counts from one browser past the limit are dropped quietly', async () => {
+  const counted = [];
+  const store = { countUsage: async (day, name) => counted.push(name) };
+  const env = { STATS_TOKEN: 't', USAGE_RATE_LIMIT: '2' };
+  const post = apiPost(store, { env, clientIp: '3.3.3.3', writeWindows: writeWindows() });
+  const share = { name: 'share', props: { how: 'copy', from: 'poll' } };
+  for (let i = 0; i < 4; i++) assert.equal((await post('/api/usage', share)).status, 204);
+  assert.deepEqual(counted, ['share', 'share']);
+  // Without usage stats on, nothing is counted and the limit isn't touched.
+  const off = writeWindows();
+  await apiPost(store, { env: {}, clientIp: '3.3.3.3', writeWindows: off })('/api/usage', share);
+  assert.equal(off.size, 0);
+});
