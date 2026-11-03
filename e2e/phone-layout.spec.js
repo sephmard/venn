@@ -180,7 +180,7 @@ test.describe('on a 320px phone', () => {
       })
     ).json();
     await page.goto(`/e/${hours.id}`);
-    await expect(page.locator('#mine .row')).toHaveCount(1);
+    await expect(page.locator('#mine .row')).toHaveCount(4); // 9 AM – 5 PM, in rows of about two hours;
     await fits(page, 'hours');
   });
 

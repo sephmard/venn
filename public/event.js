@@ -7,6 +7,7 @@ import {
   IF_NEEDED,
   addDays,
   allDaySpan,
+  answerBlocks,
   eventWindows,
   isDaysPoll,
   isOptionsPoll,
@@ -565,19 +566,20 @@ export async function renderEvent(id, navigate) {
     return `<span class="date-block" aria-hidden="true">${daysMode || partsMode ? '' : `<small>${esc(fmtDow.format(dt))}</small>`}<b>${dt.getUTCDate()}</b><small>${esc(dt.toLocaleDateString(undefined, { month: 'short', timeZone: 'UTC' }))}</small></span>`;
   };
 
-  // Every poll is answered a row at a time. An hours poll's row is a stretch of time the organizer
-  // offered (its half hours run together on one day), and its answer goes to each of those times.
+  // Every poll is answered a row at a time. An hours poll's rows are the stretches of time the
+  // organizer offered (its half hours run together on one day), a long one in blocks of about two
+  // hours (answerBlocks), and each row's answer goes to each of its times.
   const rows = () => {
     if (listMode) return windows.map((w) => ({ ...w, slots: [w.start] }));
-    const out = [];
+    const runs = [];
     for (const s of ev().slots) {
-      const last = out.at(-1);
-      if (last?.end === s && utcToZoned(s, st.tz).date === utcToZoned(last.start, st.tz).date) {
-        last.end = slotEnd(ev(), s);
-        last.slots.push(s);
-      } else out.push({ start: s, end: slotEnd(ev(), s), slots: [s] });
+      const last = runs.at(-1);
+      if (last && slotEnd(ev(), last.at(-1)) === s && utcToZoned(s, st.tz).date === utcToZoned(last[0], st.tz).date) last.push(s);
+      else runs.push([s]);
     }
-    return out;
+    return runs
+      .flatMap((run) => answerBlocks(run, ev().slotMinutes, ev().durationMinutes))
+      .map((slots) => ({ start: slots[0], end: slotEnd(ev(), slots.at(-1)), slots }));
   };
   let rowSlots = new Map();
   function renderMineList() {

@@ -194,6 +194,16 @@ export function slotEnd(ev, s) {
   return isDaysPoll(ev) ? midnightAfter(s, 1, ev.timezone) : s + ev.slotMinutes * MINUTE;
 }
 
+/** An hours poll's stretch (back-to-back slots) as guests' rows: about two hours each, or the meeting's length. */
+export function answerBlocks(slots, slotMinutes, durationMinutes = 0) {
+  const per = Math.max(1, Math.ceil(Math.max(120, durationMinutes) / slotMinutes));
+  if (slots.length <= per * 1.5) return [slots];
+  const out = [];
+  for (let i = 0; i < slots.length; i += per) out.push(slots.slice(i, i + per));
+  if (out.at(-1).length < per / 2) out.at(-2).push(...out.pop());
+  return out;
+}
+
 /** End instant of the meeting that starts at `start`. */
 export function meetingEnd(ev, start) {
   // "Any overlap": the picked time runs as long as the overlap it was picked from.
