@@ -18,10 +18,10 @@ test('30 new polls per ten minutes per address, then a rest', async () => {
   assert.equal(await allowWrite({}, 'create', '1.2.3.4', 1000 + 10 * MIN, w), true);
 });
 
-test('60 answers per ten minutes, and the server can change or turn off each limit', async () => {
+test('200 answers per ten minutes (a big poll on one office network), and the server can change or turn off each limit', async () => {
   const w = writeWindows();
-  for (let i = 0; i < 60; i++) assert.equal(await allowWrite({}, 'answer', 'a', i, w), true);
-  assert.equal(await allowWrite({}, 'answer', 'a', 61, w), false);
+  for (let i = 0; i < 200; i++) assert.equal(await allowWrite({}, 'answer', 'a', i, w), true);
+  assert.equal(await allowWrite({}, 'answer', 'a', 201, w), false);
   const two = writeWindows();
   const env = { CREATE_RATE_LIMIT: '2' };
   assert.equal(await allowWrite(env, 'create', 'a', 0, two), true);
@@ -82,4 +82,59 @@ test('the API answers 429 once an address makes too many polls or answers', asyn
   const answer = { name: 'Sam', availability: {} };
   assert.notEqual((await post(`/api/events/${id}/participants`, answer)).status, 429);
   assert.equal((await post(`/api/events/${id}/participants`, { ...answer, name: 'Kim' })).status, 429);
+});
+
+const apiPost =
+  (store, opts) =>
+  (path, body, headers = {}) =>
+    handleApi(
+      new Request(`http://x${path}`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json', accept: 'application/json, text/event-stream', ...headers },
+        body: JSON.stringify(body),
+      }),
+      store,
+      opts,
+    );
+const newStore = () => createStore(sqliteAdapter(new DatabaseSync(':memory:')));
+const dinner = {
+  title: 'Dinner',
+  timezone: 'Europe/London',
+  dates: ['2030-01-02'],
+  startMinute: 600,
+  endMinute: 720,
+  slotMinutes: 30,
+  durationMinutes: 60,
+};
+
+test("polls made through /api/mcp share their own, higher limit: Claude's servers call for everyone", async () => {
+  const post = apiPost(newStore(), { env: { MCP_RATE_LIMIT: '40' }, clientIp: '1.1.1.1', writeWindows: writeWindows() });
+  const make = async (n) => {
+    const res = await post('/api/mcp', {
+      jsonrpc: '2.0',
+      id: n,
+      method: 'tools/call',
+      params: { name: 'create_venn', arguments: { title: `Call ${n}`, timezone: 'UTC', days: ['2030-01-10'] } },
+    });
+    return (await res.json()).result;
+  };
+  // More than the 30 one visitor may make directly.
+  for (let i = 0; i < 40; i++) assert.equal((await make(i)).isError, undefined, `poll ${i}`);
+  const over = await make(41);
+  assert.equal(over.isError, true);
+  assert.match(over.content[0].text, /going a bit fast/);
+  // A visitor at the same address still has their own 30.
+  assert.equal((await post('/api/events', dinner)).status, 201);
+});
+
+test('an app with a key (APP_KEYS) makes polls and templates for its users without the per-address limit', async () => {
+  const env = { CREATE_RATE_LIMIT: '1', APP_KEYS: 'key-for-club-app' };
+  const post = apiPost(newStore(), { env, clientIp: '2.2.2.2', writeWindows: writeWindows() });
+  const app = { authorization: 'Bearer key-for-club-app' };
+  for (let i = 0; i < 3; i++) assert.equal((await post('/api/events', dinner, app)).status, 201);
+  assert.equal((await post('/api/brands', { name: 'Club' }, app)).status, 201);
+  assert.equal((await post('/api/events', dinner)).status, 201);
+  assert.equal((await post('/api/events', dinner)).status, 429);
+  // A wrong key is just another visitor.
+  assert.equal((await post('/api/events', dinner, { authorization: 'Bearer nope' })).status, 429);
 });

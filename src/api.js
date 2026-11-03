@@ -281,6 +281,7 @@ async function route(
     places = sharedPlaces,
     contactWindows = sharedContactWindows,
     writeWindows = sharedWriteWindows,
+    via,
   } = {},
   ctx = {},
 ) {
@@ -294,7 +295,11 @@ async function route(
 
   const origin = url.origin;
   const TOO_FAST = "You're going a bit fast. Try again in a few minutes.";
-  const allowed = (kind) => allowWrite(env, kind, clientIp, now(), writeWindows);
+  // Per-visitor limits on new polls, templates and answers (src/limits.js). An app with a key
+  // (APP_KEYS) makes them for all its users from one server, so it isn't limited by address.
+  const allowed = async (kind) =>
+    (await appKeyMatches(request.headers.get('authorization'), env.APP_KEYS)) ||
+    allowWrite(env, via === 'mcp' ? 'mcp' : kind, clientIp, now(), writeWindows);
   // Tell the organizer (if they asked) once the response is safely stored. Never blocks the reply.
   const notify = (ev, kind, participantId, name) =>
     waitUntil(notifyResponse({ store, env, fetchImpl, now, origin, ev, kind, participantId, name }));
@@ -554,7 +559,8 @@ async function route(
             body: body && JSON.stringify(body),
           }),
           store,
-          options,
+          // Claude's servers call for everyone who uses Venn in Claude, so these get their own, higher limit.
+          { ...options, via: 'mcp' },
         ),
       );
 
