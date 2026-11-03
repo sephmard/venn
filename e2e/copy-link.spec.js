@@ -117,3 +117,106 @@ test('guests see no change: their way to share is still the quiet link at the en
   await expect(guest.locator('.poll-share .btn')).toHaveCount(0);
   await guest.context().close();
 });
+
+/** Each button on a card: outlined in the card's ink, readable on the card's colour, and 44px tall. */
+const outlined = (page, sel) =>
+  page.locator(sel).evaluateAll((els) => {
+    const lum = (c) => {
+      const [r, g, b] = c
+        .match(/[\d.]+/g)
+        .slice(0, 3)
+        .map((v) => ((v /= 255) <= 0.03928 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4));
+      return 0.2126 * r + 0.7152 * g + 0.0722 * b;
+    };
+    return els.map((el) => {
+      const s = getComputedStyle(el);
+      let card = el.parentElement;
+      while (getComputedStyle(card).backgroundColor === 'rgba(0, 0, 0, 0)') card = card.parentElement;
+      const [hi, lo] = [lum(s.color), lum(getComputedStyle(card).backgroundColor)].sort((x, y) => y - x);
+      return {
+        text: el.textContent.trim(),
+        fill: s.backgroundColor,
+        border: s.borderTopWidth,
+        inked: s.borderTopColor === s.color,
+        contrast: (hi + 0.05) / (lo + 0.05),
+        height: el.getBoundingClientRect().height,
+      };
+    });
+  });
+const checkOutlined = (list) => {
+  expect(list.length).toBeGreaterThan(0);
+  for (const b of list) {
+    expect(b.fill, b.text).toBe('rgba(0, 0, 0, 0)');
+    expect(b.border, b.text).toBe('2px');
+    expect(b.inked, b.text).toBe(true); // so the border's contrast is the text's
+    expect(b.contrast, b.text).toBeGreaterThanOrEqual(4.5);
+    expect(b.height, b.text).toBeGreaterThanOrEqual(44);
+  }
+};
+
+for (const retro of [true, false])
+  for (const scheme of ['light', 'dark'])
+    test(`${retro ? 'retro' : 'classic'}, ${scheme}: nothing on the decided cards or the favourite is filled`, async ({
+      page,
+      request,
+      context,
+    }) => {
+      await context.grantPermissions(['clipboard-read', 'clipboard-write']);
+      await page.emulateMedia({ colorScheme: scheme });
+      // A date poll with an answer: Best date's Pick, then the picked date's card.
+      const ev = await (
+        await request.post('/api/events', {
+          data: { title: 'Team lunch', timezone: 'UTC', organizer: 'Sam', mode: 'options', options, retro },
+        })
+      ).json();
+      await request.post(`/api/events/${ev.id}/participants`, { data: { name: 'Ana', availability: { [options[0].start]: 2 } } });
+      await page.goto(`/e/${ev.id}#admin=${ev.adminToken}`);
+      if (await page.locator('#tab-group').isVisible()) await page.click('#tab-group');
+      await expect(page.locator('.best-hero [data-pick]')).toBeVisible();
+      checkOutlined(await outlined(page, '.best-hero [data-pick]'));
+      await request.post(`/api/events/${ev.id}/finalize`, {
+        data: { start: options[0].start },
+        headers: { 'x-admin-token': ev.adminToken },
+      });
+      await page.reload();
+      await expect(page.locator('.final-tell')).toBeVisible();
+      checkOutlined(await outlined(page, '.final-tell .btn'));
+      const share = page.locator('.final-tell [data-share]');
+      if ((await share.textContent()) === 'Copy the link for everyone') {
+        await share.click();
+        await expect(share).toHaveText('Link copied ✓');
+        await expect(share).toHaveText('Copy the link for everyone', { timeout: 4000 });
+      }
+
+      // A vote with an answer: the favourite's Pick, then the decided card.
+      const vote = await (
+        await request.post('/api/events', {
+          data: { title: 'Where to?', organizer: 'Sam', timezone: 'UTC', mode: 'topic', retro, options: ['Park', 'Beach'] },
+        })
+      ).json();
+      await request.post(`/api/events/${vote.id}/participants`, { data: { name: 'Ana', availability: { 1: 2 } } });
+      await page.goto(`/e/${vote.id}#admin=${vote.adminToken}`);
+      if (await page.locator('#tab-group').isVisible()) await page.click('#tab-group');
+      await expect(page.locator('.best-hero [data-pick]')).toHaveText(/^Pick (Park|Beach)$/);
+      checkOutlined(await outlined(page, '.best-hero [data-pick]'));
+      await request.post(`/api/events/${vote.id}/finalize`, {
+        data: { option: 1 },
+        headers: { 'x-admin-token': vote.adminToken },
+      });
+      await page.reload();
+      await expect(page.locator('.banner-final .final-tell')).toBeVisible();
+      checkOutlined(await outlined(page, '.final-tell .btn'));
+      await page.locator('.final-tell #copy').click();
+      await expect(page.locator('.final-tell #copy')).toHaveText('Link copied ✓');
+      await expect(page.locator('.final-tell #copy')).toHaveText('Copy link', { timeout: 4000 });
+    });
+
+test('on a wide screen, Copy link keeps its width when it says Link copied', async ({ page, request, context, isMobile }) => {
+  test.skip(isMobile, 'full width on phones');
+  await context.grantPermissions(['clipboard-read', 'clipboard-write']);
+  await organizer(page, request, {});
+  const before = (await page.locator('#copy').boundingBox()).width;
+  await page.click('#copy');
+  await expect(page.locator('#copy')).toHaveText('Link copied ✓');
+  expect((await page.locator('#copy').boundingBox()).width).toBe(before);
+});

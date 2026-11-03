@@ -75,6 +75,50 @@ test('templates: a row of cards to scroll, the season’s first, that fill in th
   await expect(page.locator('#location')).toHaveAttribute('placeholder', 'A place, an address or a video link');
 });
 
+test('templates: with a mouse, ‹ › scroll the row, each hidden at its end; on touch, none', async ({ page, isMobile }) => {
+  await page.goto('/new/pick');
+  await expect(cards(page).first()).toBeVisible();
+  const back = page.getByRole('button', { name: 'Earlier templates' });
+  const on = page.getByRole('button', { name: 'More templates' });
+  if (isMobile) {
+    await expect(page.locator('.row-arrow')).toHaveCount(0);
+    return;
+  }
+  await expect(on).toBeVisible();
+  await expect(back).toBeHidden();
+  await expect(on).toHaveAttribute('tabindex', '-1');
+  const box = await on.boundingBox();
+  expect(box.width).toBeGreaterThanOrEqual(44);
+  const row = page.locator('.templates');
+  const left = () => row.evaluate((r) => r.scrollLeft);
+  await page.emulateMedia({ reducedMotion: 'reduce' });
+  await on.click();
+  await expect.poll(left).toBeGreaterThan(200);
+  await expect(back).toBeVisible();
+  // To the end: › goes. Each look waits for the row to stop (scroll snap can still move it after a
+  // press) and for its scroll event, so › isn't seen just before it hides.
+  const settled = () =>
+    row.evaluate(
+      (r) =>
+        new Promise((done) => {
+          let [last, still] = [r.scrollLeft, 0];
+          const tick = () =>
+            requestAnimationFrame(() => {
+              still = r.scrollLeft === last ? still + 1 : 0;
+              last = r.scrollLeft;
+              if (still >= 3) done();
+              else tick();
+            });
+          tick();
+        }),
+    );
+  for (let i = 0; i < 10 && (await settled(), await on.isVisible()); i++) await on.click();
+  await expect(on).toBeHidden();
+  await back.click();
+  await expect(on).toBeVisible();
+  await noSideways(page);
+});
+
 test('templates: holiday ones lead in December, and the trip leads when asking when people are available', async ({ page }) => {
   await page.clock.setFixedTime(new Date(2026, 11, 12, 12)); // December 12
   await page.goto('/new/pick');
