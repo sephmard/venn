@@ -11,6 +11,34 @@ export const esc = (s) =>
 export const $ = (sel, root = document) => root.querySelector(sel);
 export const $$ = (sel, root = document) => [...root.querySelectorAll(sel)];
 
+/**
+ * Arrow keys in a radio group (Yes · If needed · No, Days · Parts of day · Hours, …) move to the next
+ * choice and pick it, as in any radio group. A group with its own keys calls preventDefault first.
+ */
+export function radioKeys(e) {
+  const step = { ArrowRight: 1, ArrowDown: 1, ArrowLeft: -1, ArrowUp: -1 }[e.key];
+  if (!step || e.defaultPrevented || e.altKey || e.ctrlKey || e.metaKey) return;
+  const radio = e.target.closest?.('[role="radio"]');
+  const group = radio?.closest('[role="radiogroup"]');
+  if (!group) return;
+  const all = $$('[role="radio"]', group).filter((b) => !b.disabled && !b.hidden && b.closest('[role="radiogroup"]') === group);
+  const i = all.indexOf(radio);
+  if (i < 0) return;
+  e.preventDefault();
+  const next = all[(i + step + all.length) % all.length];
+  next.click();
+  next.focus();
+}
+
+globalThis.document?.addEventListener?.('keydown', radioKeys);
+
+/** One tab stop per radio group: the chosen one (or the first, when none is), the rest by arrow keys. */
+export function rove(group) {
+  const all = $$('[role="radio"]', group);
+  const on = all.find((b) => b.getAttribute('aria-checked') === 'true') || all[0];
+  for (const b of all) b.tabIndex = b === on ? 0 : -1;
+}
+
 export const reducedMotion = () => matchMedia('(prefers-reduced-motion: reduce)').matches;
 
 // ---------- local storage (per poll, and the visitor's name) ----------

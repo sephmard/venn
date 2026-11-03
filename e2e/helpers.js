@@ -93,15 +93,17 @@ export async function submit(page) {
   await afterSubmit(page);
 }
 
-/** After Submit (and any question asked in the page): "Submit your answer?", then the party. */
+/** After Submit (and any question asked in the page): "Submit your answer?", then the party (or, for a change, the toast). */
 export async function afterSubmit(page) {
   const yes = page.locator('#submit-check[open] #sc-yes');
   const err = page.locator('#save-err:not(:empty)');
   const go = page.locator('.party-go');
-  await yes.or(err).or(go).first().waitFor();
+  // A changed answer has no party: it's said in the toast.
+  const updated = page.locator('#toast', { hasText: /^Answer updated\./ });
+  await yes.or(err).or(go).or(updated).first().waitFor();
   if (await err.isVisible()) return;
   if (await yes.isVisible()) await yes.click();
-  await go.or(err).first().waitFor();
+  await go.or(err).or(updated).first().waitFor();
   if (await go.isVisible()) {
     await go.click();
     await page.locator('.party').waitFor({ state: 'detached' });

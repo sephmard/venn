@@ -54,6 +54,7 @@ import {
   track,
   isPhone,
   tileAttr,
+  rove,
 } from './ui.js';
 import { closesLine, fmtTimeRange, fmtWhen } from './when.js';
 
@@ -823,6 +824,7 @@ export async function renderEvent(id, navigate) {
       const shown = v === 'some' ? -1 : v > 0 || answeredBefore || st.touched.has(String(slots[0])) ? v : -1;
       el.dataset.v = shown;
       for (const b of $$('[data-vote]', el)) b.setAttribute('aria-checked', +b.dataset.vote === shown);
+      rove($('.vote', el)); // one tab stop a row; arrow keys between Yes, If needed and No
       const yes = people.filter((p) => groupState(p.availability, slots) === YES).map((p) => p.name);
       const maybe = people.filter((p) => groupState(p.availability, slots) === IF_NEEDED).length;
       $('.row-tally', el).innerHTML =
@@ -1055,7 +1057,7 @@ export async function renderEvent(id, navigate) {
           forget(id, 'participantId', 'editToken');
         }
       }
-      // Every answer sent gets a little party; it loads while the answer is sent.
+      // A new answer gets a little party; it loads while the answer is sent.
       const party = import('./celebrate.js').catch(() => null);
       if (!saved(id).participantId) {
         // With the organizer link, this is the organizer's own answer.
@@ -1068,31 +1070,33 @@ export async function renderEvent(id, navigate) {
       setDirty(false);
       if (ev().isAdmin) st.orgCompact = true; // back to one line
       renderAll();
-      const sent = `Submitted.${copyTo ? ` A copy is on its way to ${copyTo}.` : ''}`;
-      // A party for every answer sent, guests' and the organizer's.
+      const copied = copyTo ? ` A copy is on its way to ${copyTo}.` : '';
       const organizer = ev().isAdmin ? '' : ev().organizer;
       host?.tell('answered', { updated: !created });
-      const p = (await party)?.celebrate({
-        emoji: (!picture && ev().emoji) || '🎉',
-        picture,
-        heading: created ? 'Answer submitted!' : 'Answer updated!',
-        message: ev().isAdmin
-          ? 'Your answer is in. Now the fun part: seeing when everyone can make it.'
-          : `${whiteLabel ? "Thanks, you're in." : "Finn is so glad you're in."} ${organizer ? `${organizer} can see it now` : 'Everyone can see it now'}. Thanks for helping bring people together.`,
-        button: hideAll ? 'Back to the poll' : 'See everyone’s answers',
-        // Guests who enjoyed that are the next organizers: one tap to their own poll of the same kind,
-        // with the same plan and their name filled in, and the dates left to them.
-        also:
-          ev().isAdmin || embedded || whiteLabel
-            ? null
-            : {
-                label: 'Planning something? Make yours in 30 seconds',
-                href: `/new?from=guest${ev().emoji ? `&template=${encodeURIComponent(ev().emoji)}` : ''}`,
-              },
-      });
+      // A party for a new answer, guests' and the organizer's; a change is just said, quietly.
+      const p = !created
+        ? null
+        : (await party)?.celebrate({
+            emoji: (!picture && ev().emoji) || '🎉',
+            picture,
+            heading: 'Answer submitted!',
+            message: ev().isAdmin
+              ? 'Your answer is in. Now the fun part: seeing when everyone can make it.'
+              : `${whiteLabel ? "Thanks, you're in." : "Finn is so glad you're in."} ${organizer ? `${organizer} can see it now` : 'Everyone can see it now'}. Thanks for helping bring people together.`,
+            button: hideAll ? 'Back to the poll' : 'See everyone’s answers',
+            // Guests who enjoyed that are the next organizers: one tap to their own poll of the same kind,
+            // with the same plan and their name filled in, and the dates left to them.
+            also:
+              ev().isAdmin || embedded || whiteLabel
+                ? null
+                : {
+                    label: 'Planning something? Make yours in 30 seconds',
+                    href: `/new?from=guest${ev().emoji ? `&template=${encodeURIComponent(ev().emoji)}` : ''}`,
+                  },
+          });
       await p?.shown;
       p?.finish();
-      toast(sent);
+      toast(`${created ? 'Submitted.' : 'Answer updated.'}${copied}`);
       if (!$('#save')) return; // they went to make their own poll
       // After the first save here (an organizer's answer may come with the poll), show the group.
       if ((created || !st.savedHere) && !hideAll) {
@@ -1677,7 +1681,7 @@ export async function renderEvent(id, navigate) {
   function renderMeState() {
     const mine = me();
     $('#leave').hidden = !mine;
-    $('#save').textContent = 'Submit';
+    $('#save').textContent = mine ? 'Update answer' : 'Submit';
     const s = saved(id);
     const link = $('#edit-link');
     if (mine) {

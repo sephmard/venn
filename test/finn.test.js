@@ -129,9 +129,11 @@ test('Finn: which moment a poll is at, for a guest', () => {
   assert.equal(momentFor(picked), 'picked');
   // A date that wasn't one of the options (picked as a custom date) isn't anyone's match.
   assert.equal(momentFor({ ...picked, finalStart: t(11) }, { meId: 'ana' }), 'picked');
-  // If needed still counts as being able to make it.
+  // If needed counts as being able to make it, but Finn doesn't say they said yes.
   const maybe = poll({ ...guest, answers: [['ana', { [t(9)]: IF_NEEDED }]], finalStart: t(9) });
-  assert.equal(momentFor(maybe, { meId: 'ana' }), 'match');
+  assert.equal(momentFor(maybe, { meId: 'ana' }), 'matchMaybe');
+  for (const line of MOMENTS.matchMaybe.lines) assert.match(line, /if needed/i);
+  for (const line of MOMENTS.match.lines) assert.doesNotMatch(line, /if needed/i);
 });
 
 test('Finn: hours polls match the whole picked time', () => {

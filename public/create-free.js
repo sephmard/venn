@@ -16,7 +16,7 @@ import {
   zonedToUtc,
 } from './core.js';
 import { monthView, timeView, tinyTime } from './picker.js';
-import { $, $$, app, dateParts, dayLabel, esc, fmtDay, getConfig, plural, shortTime, track } from './ui.js';
+import { $, $$, app, dateParts, dayLabel, esc, fmtDay, getConfig, plural, rove, shortTime, track } from './ui.js';
 
 import {
   kindSwitch,
@@ -146,6 +146,7 @@ export function renderFree() {
     level = next;
     if (level !== 'days') timeLevel = level;
     for (const b of $$('[data-level]')) b.setAttribute('aria-checked', b.dataset.level === level);
+    rove($('[data-level]').parentElement);
     for (const el of $$('[data-for]')) el.hidden = el.dataset.for !== level;
     mount();
     update();
