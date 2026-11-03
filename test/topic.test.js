@@ -99,8 +99,10 @@ test('a topic poll: create, answer, pick, and the picked option in the poll', as
   ev = (await call(path)).data;
   assert.equal(ev.picked, 1);
   assert.equal(ev.finalStart, null);
-  // No calendar file for an option.
-  assert.equal((await call(`${path}/event.ics`)).status, 404);
+  // No calendar file for an option, and it says why.
+  const ics = await call(`${path}/event.ics`);
+  assert.equal(ics.status, 404);
+  assert.equal(ics.data.error, 'A vote has no calendar file: it picks an option, not a time');
   // Changing the mind: back to open.
   await call(`${path}/finalize`, { method: 'POST', body: { option: null }, headers: admin });
   assert.equal((await call(path)).data.picked, undefined);

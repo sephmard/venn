@@ -21,10 +21,10 @@ curl https://venn.day/api/events \
        "options": [{"start": 1799953200000, "end": 1799960400000},
                    {"start": 1800039600000, "end": 1800046800000}]}'
 
-# {"id": "cXar7oEEBo", "adminToken": "…"}
+# {"id": "cXar7oEEBo", "adminToken": "…", "url": "https://venn.day/e/cXar7oEEBo", "adminUrl": "…"}
 ```
 
-Share `https://venn.day/e/<id>`. Keep `adminToken` on your server: it's the organizer's key.
+Share `url`. Keep `adminToken` (and `adminUrl`, the organizer link) on your server: it's the organizer's key.
 
 **2. Hear when people answer.** Each answer `POST`s signed JSON to your URL ([how to check the signature](NOTIFICATIONS.md#verifying-requests)).
 

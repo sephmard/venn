@@ -53,7 +53,7 @@ curl https://venn.day/api/events \
   -d '{"title": "Book club", "timezone": "Europe/London", "mode": "options",
        "options": [{"start": 1799953200000, "end": 1799960400000}]}'
 
-# {"id": "cXar7oEEBo", "adminToken": "…"}  →  share https://venn.day/e/cXar7oEEBo
+# {"id": "cXar7oEEBo", "adminToken": "…", "url": "https://venn.day/e/cXar7oEEBo", "adminUrl": "…"}  →  share url
 ```
 
 ```html

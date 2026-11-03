@@ -301,13 +301,20 @@ export async function renderTopicPoll(ctx) {
     const top = leaders(rows);
     const total = ev.responses ?? ev.participants.length;
     const names = (list) => (ev.hideNames && guest ? '' : list.map(esc).join(', '));
+    // No guest has answered yet (the organizer's own answer doesn't count): the options, without
+    // empty bars or Pick, until the organizer says the group decided anyway (as date polls do).
+    const waiting = !guest && ev.picked == null && !(total - ev.participants.filter((p) => p.id === ev.hostId).length);
+    const pickable = !waiting || st.pickAnyway;
     // Once picked, the banner at the top says what was decided.
     const hero =
       ev.picked != null
         ? ''
-        : !top.length
-          ? `<p class="empty-state muted">No answers yet. Share the link and the favourite shows here.</p>`
-          : `<div class="best-hero">
+        : waiting
+          ? `<p class="empty-state muted">${total ? '<b>Only your answer so far.</b>' : 'No answers yet.'} Share the link and the favourite shows here.</p>
+          ${st.pickAnyway ? '' : '<p><button type="button" class="link-btn" id="pick-anyway">Pick one anyway</button></p>'}`
+          : !top.length
+            ? `<p class="empty-state muted">No answers yet. Share the link and the favourite shows here.</p>`
+            : `<div class="best-hero">
           <p class="kicker">${leaderLabel(rows, { single: ev.single, total })}</p>
           <div class="best-when">${top.map((r) => esc(r.o.label)).join(' <span class="muted">and</span> ')}</div>
           <div class="best-who">${top[0].yes.length + top[0].maybe.length} of ${total} ${ev.single ? 'picked it' : 'would go'}${top[0].maybe.length ? ` (${top[0].maybe.length} if needed)` : ''}</div>
@@ -317,6 +324,9 @@ export async function renderTopicPoll(ctx) {
       .map((r) => {
         const pct = (k) => (total ? Math.round((k / total) * 100) : 0);
         const who = names([...r.yes, ...r.maybe.map((x) => `${x} (if needed)`)]);
+        if (waiting)
+          return `<li class="t-result"><div class="t-line"><b>${esc(r.o.label)}</b></div>
+          ${pickable ? `<button type="button" class="link-btn" data-pick="${r.o.id}">Pick this</button>` : ''}</li>`;
         return `<li class="t-result${r.o.id === ev.picked ? ' final' : ''}">
           <div class="t-line"><b>${esc(r.o.label)}</b><span class="t-count">${ev.single ? plural(r.yes.length, 'vote') : `${r.yes.length} yes`}${r.maybe.length ? ` · ${r.maybe.length} if needed` : ''}</span></div>
           <div class="t-bar" aria-hidden="true"><span class="t-yes" style="width:${pct(r.yes.length)}%"></span><span class="t-maybe" style="width:${pct(r.maybe.length)}%"></span></div>
@@ -378,6 +388,11 @@ export async function renderTopicPoll(ctx) {
     $('#org-view')?.addEventListener('click', () => navigate(`/e/${id}#organizer`));
     $('#unpick')?.addEventListener('click', () => pick(null));
     for (const b of $$('[data-pick]')) b.onclick = () => askPick(ev.options.find((o) => o.id === +b.dataset.pick));
+    $('#pick-anyway')?.addEventListener('click', () => {
+      st.pickAnyway = true;
+      render();
+      $('.t-results [data-pick]')?.focus();
+    });
     if (!org) return;
     org.tools($('#org-tools'), {
       id,
