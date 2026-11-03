@@ -336,18 +336,21 @@ export function aiDays(st, { empty, setRow, show, level, row }, { ai } = { ai: t
     });
     if (both) voteLink($('#ai-done > p'), both, 'Vote on it first');
   });
-  if (ai) hintOnOpen(daysLine); // with no AI here, there's no key to add
+  if (ai) hintOnOpen(usedLine('This week’s free AI requests are used up, so Venn reads this itself.')); // with no AI here, there's no key to add
 }
 
 /**
- * On /new past this week's free AI requests, Venn reads the words itself (as with no AI), so the
- * hint says so first, instead of "Sent to Anthropic’s Claude".
+ * Past this week's free AI requests, the hint says so first, in place of "Sent to Anthropic’s
+ * Claude" (nothing is, without a key); it comes back once a key is saved. `used` is the line.
  */
-function daysLine(state) {
-  $('#ai-sent').textContent =
-    state === 'used' ? 'This week’s free AI requests are used up, so Venn reads this itself.' : 'Sent to Anthropic’s Claude.';
-  return '';
-}
+const usedLine =
+  (used = 'This week’s free AI requests are used up.') =>
+  (state) => {
+    const sent = $('#ai-sent');
+    sent.dataset.sent ??= sent.textContent;
+    sent.textContent = state === 'used' ? used : sent.dataset.sent;
+    return '';
+  };
 
 /** Choices to name in a line: "Italian, Thai or Mexican". */
 const either = (list) => (list.length < 2 ? list.join('') : `${list.slice(0, -1).join(', ')} or ${list.at(-1)}`);
@@ -423,7 +426,7 @@ export function aiDraft(form, load) {
     $('#preview-h').scrollIntoView({ behavior: 'smooth', block: 'start' });
     toast(`Filled in ${plural(draft.options.length, 'option')}. Check them, then create the poll.`);
   });
-  hintOnOpen();
+  hintOnOpen(usedLine());
 }
 
 /**
@@ -445,7 +448,7 @@ export function aiTopic(fill, snapshot) {
     light([$('#title'), ...(draft.yesNo ? [] : $$('#opts input'))]);
     done(draft.yesNo ? `${draft.question} · Yes or no` : `${draft.question} · ${plural(draft.options.length, 'option')}`, undo);
   });
-  hintOnOpen();
+  hintOnOpen(usedLine());
 }
 
 /**
@@ -472,5 +475,5 @@ export function aiLook(host, { name, apply }) {
     light(changed);
     done(text, undo);
   }, 'Suggest a look');
-  hintOnOpen();
+  hintOnOpen(usedLine());
 }

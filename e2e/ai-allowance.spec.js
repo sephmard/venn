@@ -44,8 +44,9 @@ test('AI allowance: used up on a vote, it says so before the key link', async ({
   await allowance(page, 'used');
   await page.goto('/new/topic');
   await open(page);
-  await expect(page.locator('#ai-key-link')).toHaveText('This week’s free AI requests are used up. Use your own key');
-  await expect(hint(page)).toContainText('Sent to Anthropic’s Claude.');
+  await expect(hint(page)).toHaveText(
+    'This week’s free AI requests are used up. Check everything before you create the poll. Use your own key',
+  );
 });
 
 test('AI allowance: a server with no free requests offers the key, and a saved key shows as Your key', async ({ page }) => {
