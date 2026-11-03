@@ -93,10 +93,13 @@ const CASES = [
       lastDate: '2026-11-08',
       days: ['2026-11-04', '2026-11-05', '2026-11-07', '2026-11-08'],
     }),
-    level: 'parts',
-    want: W(['2026-11-04', '2026-11-05', '2026-11-07', '2026-11-08'], 'evening'),
-    todoA: 'D5: "parts" with no parts named becomes whole days, silently; the evening is lost',
+    // No part is made up from the model's free text: whole days, and the note says so (D5, #254).
+    level: 'days',
+    want: W(['2026-11-04', '2026-11-05', '2026-11-07', '2026-11-08'], 'all'),
+    note: /No part of the day was given, so it asks about whole days\./,
+    // The words alone still read date night as evenings.
     words: 'same',
+    wordsExpect: { level: 'parts', want: W(['2026-11-04', '2026-11-05', '2026-11-07', '2026-11-08'], 'evening') },
   },
   {
     id: 'Q2 format: a choice is a vote',
@@ -487,9 +490,10 @@ for (const c of CASES) {
       assert.equal(draft, null, 'no draft rather than a wrong one');
       return assert.equal(unsureOf(c.prompt), c.unsure, 'and why, so the box says what to change');
     }
-    if (c.words === null) return assert.ok(!draft || checkDraft(draft, c) === undefined, 'no draft, or a right one');
+    const expect = { ...c, ...c.wordsExpect };
+    if (c.words === null) return assert.ok(!draft || checkDraft(draft, expect) === undefined, 'no draft, or a right one');
     assert.ok(draft, 'a draft from the words');
-    checkDraft(draft, c);
+    checkDraft(draft, expect);
   });
   if (c.wordsNote)
     test(`${c.id} · B no AI, the note`, { todo: c.todoWordsNote }, () => {
