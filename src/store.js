@@ -193,6 +193,12 @@ export function createStore(db) {
     }));
 
   return {
+    /** For health checks: the database answers a trivial query (and its tables exist). */
+    async ping() {
+      await init();
+      return (await db.first('SELECT 1 AS ok', []))?.ok === 1;
+    },
+
     async createEvent({ id, event, adminHash, now }) {
       await init();
       await db.run('INSERT INTO events (id, data, admin_hash, final_start, created_at) VALUES (?, ?, ?, NULL, ?)', [
