@@ -33,7 +33,12 @@ const NUMBERS = { a: 1, one: 1, two: 2, three: 3, four: 4, five: 5, six: 6, coup
 const DEFAULT_DAYS = 21; // with no span, the next three weeks, as AI does (DAYS_SYSTEM)
 // Words it can't read safely: a limit or a preference it would lose, or a choice to vote on.
 const UNSURE =
-  /\b(except|not|no|can'?t|cannot|won'?t|busy|ideally|rather|prefer|maybe|backup|optional|needed|unless|vote|choose|decide|between|where|what)\b/;
+  /\b(except|not|no|can'?t|cannot|won'?t|busy|ideally|rather|prefer|maybe|backup|optional|needed|unless|vote|choose|decide|between|where|what|actually|instead|scratch|make it|change it|changed)\b/;
+// A day with its own time ("Friday evening or Saturday afternoon", "Saturday any time"): the
+// reader gives every day the same parts, so two different ones are AI's (or the calendar's) to keep.
+const DAY_NAMES = Object.keys(WEEKDAYS).join('|');
+const DAY_PART = new RegExp(`\\b(?:${DAY_NAMES})s? (morning|afternoon|evening|night)s?\\b`, 'g');
+const ANY_TIME = /\b(any ?time|all day)\b/;
 // The plan's name, when it's one of these: what AI would call it.
 const TITLES = [
   'date night',
@@ -89,14 +94,18 @@ export function parseDays(text, { today }) {
   if (len && trip) row = (+len[1] || NUMBERS[len[1]]) + (len[2] === 'night' ? 1 : 0);
 
   // Which part of the day: said ("evenings"), or what the plan implies ("dinner": evening).
+  // What's said beats what the plan implies: "date night, but only afternoons" is afternoons.
   const parts = [];
-  for (const [key, said, implied] of PARTS) {
-    if (said.test(t) && !(key === 'evening' && len?.[2] === 'night')) parts.push(key);
-    else if (implied.test(t)) {
+  const said = PARTS.filter(([key, words]) => words.test(t) && !(key === 'evening' && len?.[2] === 'night'));
+  for (const [key, , implied] of PARTS) {
+    if (said.some(([k]) => k === key)) parts.push(key);
+    else if (!said.length && implied.test(t)) {
       parts.push(key);
       notes.push(`Took ${implied.exec(t)[1]} as ${key}s.`);
     }
   }
+  const ownParts = new Set([...t.matchAll(DAY_PART)].map((m) => (m[1] === 'night' ? 'evening' : m[1])));
+  if (ownParts.size > 1 || (ANY_TIME.test(t) && parts.length)) return null;
 
   // The span: one of these at most.
   const spans = [];

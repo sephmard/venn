@@ -95,6 +95,36 @@ test('weekdays, weekends, parts of the day, and spans', () => {
   assert.equal(draft('two nights away next month').row, 3);
 });
 
+test('when it can’t be sure, no draft rather than a wrong one: corrections, and days with their own times', () => {
+  for (const words of [
+    'Dinner Tuesday evening, actually make it Wednesday', // a later correction
+    'Dinner Friday instead of Saturday',
+    'Lunch on Wednesday or Friday, scratch that, only Friday',
+    'Friday evening or Saturday afternoon', // each day its own part
+    'Friday night or Saturday morning',
+    'Saturday any time or Sunday evening', // any time one day, a part the other
+  ])
+    assert.equal(draft(words), null, words);
+  // One part for every day named is still read, as before.
+  assert.deepEqual(pairs(draft('Friday or Saturday evening')), [
+    ['2026-11-06', 'evening'],
+    ['2026-11-07', 'evening'],
+  ]);
+  assert.deepEqual(dates(draft('Saturday any time')), ['2026-11-07']);
+});
+
+test('what’s said beats what the plan implies: “date night, but only afternoons” is afternoons', () => {
+  const d = draft('Date night, but only afternoons, Friday or Saturday');
+  assert.deepEqual(pairs(d), [
+    ['2026-11-06', 'afternoon'],
+    ['2026-11-07', 'afternoon'],
+  ]);
+  assert.doesNotMatch(d.note, /evening/);
+  assert.equal(d.note, 'Read from your words. Check the days.'); // still says it was read from the words
+  // Nothing said: the plan's own parts, as before.
+  assert.equal(draft('Breakfast or dinner this week').days.length, 14);
+});
+
 test('what it can’t read plainly is left alone, never guessed', () => {
   for (const words of [
     '', // nothing
