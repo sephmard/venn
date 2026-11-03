@@ -64,7 +64,7 @@ import { allowContactRequest, contactEmail, contactEnabled, contactInbox, normal
 import { allowPlacesRequest, placesProvider, placesState, searchPlaces } from './places.js';
 import { handleAccount, sessionUser, signInProviders } from './auth.js';
 import { handleMcp } from './mcp.js';
-import { draftFromWords } from './days-parse.js';
+import { draftFromWords, unsureOf } from './days-parse.js';
 import { checkWrite, limitHeaders, writeWindows as newWriteWindows } from './limits.js';
 import { MAX_GUEST_DEVICES, MAX_PUSH_DEVICES, checkSubscription, pushEnabled, sendPush } from './push.js';
 
@@ -692,12 +692,19 @@ async function route(
     // The days on /new can also be read from plain words, with no AI (src/days-parse.js), where AI
     // can't answer: the server has none, or there's no key and no allowance left. Never ahead of AI.
     const daysDraft = parts[0] === 'ai' && parts[1] === 'draft-days' && parts.length === 2;
+    // Why the words gave no draft, said so the person knows what to change.
+    const WORDS_UNSURE = {
+      days: 'Venn couldn’t tell which days from that. Name them, like “Fridays next month”, or pick them below.',
+      parts:
+        'Venn couldn’t be sure from that. Say one time for all the days, like “Friday or Saturday evening”, or pick them below.',
+      correction: 'Venn couldn’t be sure from that. Say it in one go, like “Wednesday evening”, or pick the days below.',
+    };
     async function byWords(otherwise) {
       const { prompt, timezone } = await readJson(request);
       if (!isValidTimeZone(timezone)) throw new ValidationError('Unknown time zone');
       const { date: today, minutes: nowMinutes } = utcToZoned(now(), timezone);
       const draft = typeof prompt === 'string' && draftFromWords(prompt, { today, nowMinutes, ai: aiEnabled(env) });
-      return draft ? json(draft) : otherwise();
+      return draft ? json(draft) : otherwise(unsureOf(prompt));
     }
     // Paid for by the key the person brought (kept in their browser, never stored), or by the
     // server's key within this week's allowance.
@@ -706,10 +713,7 @@ async function route(
       if (!aiEnabled(env) && !daysDraft) return error(404, "AI features aren't turned on for this server");
       if (!(await allowAiRequest(env, clientIp, now(), aiWindows)))
         return error(429, "You're going a bit fast. Try again in a minute.");
-      if (!aiEnabled(env))
-        return await byWords(() =>
-          error(400, 'Venn couldn’t tell which days from that. Name them, like “Fridays next month”, or pick them below.'),
-        );
+      if (!aiEnabled(env)) return await byWords((unsure) => error(400, WORDS_UNSURE[unsure] || WORDS_UNSURE.days));
       const brought = request.headers.get(OWN_KEY_HEADER);
       if (brought && !validOwnKey(brought))
         return error(400, "That doesn't look like an Anthropic API key. They start with sk-ant-.");
