@@ -190,8 +190,8 @@ function span(start, end, ev) {
  * The best days or times, ranked exactly as the poll page ranks them (rankTimes in public/core.js:
  * most people who can make it, then most yeses, then the earliest; a trip's or meeting's length
  * counts every day or hour of it). Times nobody can make are left out. Ties are named only for
- * whole days, as on the page (public/event.js): a trip's or meeting's ranked stretches overlap
- * one another, and the page doesn't name ties on specific times yet (backlog P10).
+ * proposed times and single days, as on the page (public/event.js): a trip's or meeting's ranked
+ * stretches overlap one another.
  */
 function bestTimes(ev, people, answers) {
   const ranked = rankTimes(ev, ev.slots || [], people, Infinity);
