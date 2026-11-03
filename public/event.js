@@ -422,7 +422,8 @@ export async function renderEvent(id, navigate) {
 
   // An answer not sent yet stays on this device (drafts.js), so a reload, or a trip to the
   // calendar app on a phone that reloads the tab, doesn't lose it. Sending it clears it.
-  const drafts = await draftsJs;
+  // Not inside another website (/embed), nor in a brand template's preview: those answers aren't kept.
+  const drafts = embedded || id === 'preview' ? null : await draftsJs;
   const draftKey = `venn:answer-draft:${id}`;
   const keepDraft = () =>
     drafts?.writeStored(localStorage, draftKey, {
@@ -433,7 +434,7 @@ export async function renderEvent(id, navigate) {
       at: Date.now(),
     });
   const dropDraft = () => drafts?.dropStored(localStorage, draftKey);
-  const draft = embedded ? null : drafts?.cleanAnswerDraft(drafts.readStored(localStorage, draftKey), ev().slots);
+  const draft = drafts?.cleanAnswerDraft(drafts.readStored(localStorage, draftKey), ev().slots);
   if (draft) {
     st.mine = draft.mine;
     st.touched = new Set(draft.touched);

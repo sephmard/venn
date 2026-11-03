@@ -94,7 +94,8 @@ export async function renderTopicPoll(ctx) {
   const me = () => ev.participants.find((p) => p.id === saved(id).participantId);
   const st = { mine: { ...(me()?.availability || {}) }, touched: new Set(me() ? ev.options.map((o) => String(o.id)) : []) };
   // An answer not sent yet stays on this device (drafts.js) until it's sent, as on a date poll.
-  const drafts = await import('./drafts.js').catch(() => null);
+  // Not inside another website (/embed), nor in a brand template's preview: those answers aren't kept.
+  const drafts = ctx.embedded || id === 'preview' ? null : await import('./drafts.js').catch(() => null);
   const draftKey = `venn:answer-draft:${id}`;
   const draft = ctx.embedded
     ? null
