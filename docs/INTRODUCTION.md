@@ -90,7 +90,8 @@ public/            the whole front end, served as-is
   day-answer.js    the organizer's month calendar for answering whole-day polls (tap: available, again: if needed), loaded when shown
   when.js          how a poll's times read ("Fri 11:00 PM – Sat 1:00 AM"), only on the poll page
   celebrate.js     the "Poll created!" celebration
-  picker.js        the calendar views: week, day and month, for organizers and guests
+  picker.js        the month calendar, for organizers and guests
+  time-view.js     the week and day of half hours, loaded when a poll has times
   block-edit.js    dragging and removing options on the week, loaded only on the create pages
   paint.js         the organizer's painter for hours and parts of the day, loaded only on the create pages
   levels.js        how picks carry between days, parts of the day and hours on the create page, with paint.js
