@@ -578,3 +578,37 @@ test('after voting, a guest is offered a vote of their own; never the organizer,
     await expect(yours(page)).toHaveCount(0);
   }
 });
+
+test('a vote’s organizer keeps Copy link and Pick when organizer.js fails, and hears to reload when their own module does', async ({
+  page,
+  request,
+}) => {
+  const { id, adminToken } = await (
+    await request.post('/api/events', {
+      data: {
+        title: 'Where should we eat?',
+        organizer: 'Priya',
+        timezone: 'UTC',
+        mode: 'topic',
+        options: ['Rosa’s', 'Taco Loco'],
+      },
+    })
+  ).json();
+  // The tools' module fails: sharing and picking (topic-organizer.js) still work.
+  await page.route('**/organizer.js*', (r) => r.fulfill({ status: 500, body: '' }));
+  await page.goto(`/e/${id}#admin=${adminToken}`);
+  await expect(page.getByRole('button', { name: 'Copy link' })).toBeVisible();
+  await page.getByRole('button', { name: 'Pick one anyway' }).click();
+  await page.locator('.t-results [data-pick]').first().click();
+  await expect(page.getByRole('heading', { name: 'Go with Rosa’s?' })).toBeVisible();
+  await page.unroute('**/organizer.js*');
+
+  // The organizer's own module fails: the poll still shows, with a plain line and a reload hint.
+  const fresh = await page.context().newPage();
+  await fresh.route('**/topic-organizer.js*', (r) => r.abort());
+  await fresh.goto(`/e/${id}#admin=${adminToken}`);
+  await expect(fresh.getByRole('heading', { name: 'Where should we eat?' })).toBeVisible();
+  await expect(fresh.getByText('Couldn’t load the organizer tools. Reload the page.')).toBeVisible();
+  await expect(fresh.getByText('No answers yet. Share the link and the favourite shows here.')).toBeVisible();
+  await expect(fresh.locator('#app')).not.toContainText('undefined');
+});
