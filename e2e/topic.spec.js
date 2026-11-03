@@ -198,6 +198,26 @@ test('the organizer never sees Tell me when it’s decided, nor anyone once it�
   await g.close();
 });
 
+test('after answering, a guest sees both: Tell me under their answer, Make yours under the group', async ({ page, isMobile }) => {
+  const { id } = await voteFor(page, { emailAvailable: true, push: false });
+  await page.goto(`/e/${id}`);
+  await page.locator('.topic-row', { hasText: 'Beach' }).getByRole('radio', { name: 'Yes' }).click();
+  await page.getByLabel('Your name').fill('Ana');
+  await page.getByRole('button', { name: 'Submit' }).click();
+  const tell = page.getByRole('button', { name: "🔔 Tell me when it's decided" });
+  const yours = page.getByRole('link', { name: 'Planning something? Make yours in 30 seconds' });
+  await expect(tell).toBeVisible();
+  await expect(yours).toBeVisible();
+  // Each in its own place: Tell me with the guest's answer, Make yours with the group's results.
+  await expect(page.locator('[aria-labelledby="mine-h"] #tell-me')).toHaveCount(1);
+  await expect(page.locator('section[aria-labelledby="group-h"] #make-yours')).toHaveCount(1);
+  const [t, y] = [await tell.boundingBox(), await yours.boundingBox()];
+  if (isMobile) expect(y.y).toBeGreaterThan(t.y + t.height); // one column on a phone; side by side wider
+  for (const b of [t, y]) expect(b.height).toBeGreaterThanOrEqual(44);
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+  await noBlockingA11y(page, `vote, guest after voting, both offers${isMobile ? ' (phone)' : ''}`);
+});
+
 test('with notifications on, a guest can be told on this device instead', async ({ page }) => {
   const sub = { endpoint: 'https://fcm.googleapis.com/fcm/send/ana', keys: { p256dh: 'x', auth: 'y' } };
   await page.addInitScript((sub) => {
@@ -413,5 +433,59 @@ test('decided pick-one and yes-or-no votes ask nothing more', async ({ page }) =
     const w = (await page.locator('.panels > .panel').boundingBox()).width;
     if (page.viewportSize().width >= 1000) expect(w).toBeGreaterThan(600);
     await expect(page.locator('.t-result', { hasText: options[0] })).toContainText('1 vote');
+  }
+});
+
+test('after voting, a guest is offered a vote of their own; never the organizer, in a frame or on white label', async ({
+  page,
+  browser,
+  isMobile,
+}) => {
+  const vote = (data = {}) =>
+    page.request
+      .post('/api/events', {
+        data: { title: 'Where to?', organizer: 'Priya', timezone: 'UTC', mode: 'topic', options: ['Park', 'Beach'], ...data },
+      })
+      .then((r) => r.json());
+  const yours = (p) => p.getByRole('link', { name: 'Planning something? Make yours in 30 seconds' });
+  const made = await vote();
+  const g = await (
+    await browser.newContext(isMobile ? { hasTouch: true, isMobile: true, viewport: { width: 390, height: 844 } } : {})
+  ).newPage();
+  await g.goto(`/e/${made.id}`);
+  await expect(g.locator('.topic-row').first()).toBeVisible();
+  await expect(yours(g)).toHaveCount(0);
+  await g.locator('.topic-row', { hasText: 'Beach' }).getByRole('radio', { name: 'Yes' }).click();
+  await g.getByLabel('Your name').fill('Ana');
+  await g.getByRole('button', { name: 'Submit' }).click();
+  await expect(yours(g)).toBeVisible();
+  expect(await yours(g).getAttribute('href')).toBe('/new/topic?from=guest');
+  expect((await yours(g).boundingBox()).height).toBeGreaterThanOrEqual(44);
+  await expect(yours(g)).toHaveClass('link-btn');
+  // Under the group's results, not in the answer card.
+  await expect(g.locator('section[aria-labelledby="group-h"] #make-yours')).toHaveCount(1);
+  await expect(g.locator('[aria-labelledby="mine-h"] #make-yours')).toHaveCount(0);
+  await noBlockingA11y(g, 'vote, guest after voting, Make yours');
+  await yours(g).click();
+  await expect(g).toHaveURL(/\/new\/topic\?from=guest$/);
+  await g.context().close();
+
+  // The organizer, with their own answer in: no.
+  await page.goto(`/e/${made.id}#admin=${made.adminToken}`);
+  await expect(page.locator('.t-results')).toBeVisible();
+  await expect(yours(page)).toHaveCount(0);
+
+  // In a frame (/embed) and on a white-label poll: no.
+  const brand = await (await page.request.post('/api/brands', { data: { name: 'Acme', hideVenn: true } })).json();
+  for (const [where, ev] of [
+    ['embed', made],
+    ['e', await vote({ brand: brand.id })],
+  ]) {
+    const ana = await (
+      await page.request.post(`/api/events/${ev.id}/participants`, { data: { name: 'Ana', availability: { 1: 2 } } })
+    ).json();
+    await page.goto(`/${where}/${ev.id}#edit=${ana.id}.${ana.editToken}`);
+    await expect(page.locator('#save')).toHaveText('Update answer');
+    await expect(yours(page)).toHaveCount(0);
   }
 });

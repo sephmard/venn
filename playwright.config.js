@@ -39,6 +39,7 @@ export default defineConfig({
         CREATE_RATE_LIMIT: '0', // so are all their polls and answers
         ANSWER_RATE_LIMIT: '0',
         USAGE_RATE_LIMIT: '0',
+        AI_ALLOWANCE_RATE_LIMIT: '0',
         // Usage stats on, so the stats page (and every count the app sends) is tested.
         STATS_TOKEN: 'test-stats',
       },

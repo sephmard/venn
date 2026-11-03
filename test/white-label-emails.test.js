@@ -1,8 +1,10 @@
 // White-label polls (a template with `hideVenn`): guests' emails and calendar entries carry no Venn.
-import { test, before, after } from 'node:test';
+import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
-import { createApp } from '../server.js';
+import { DatabaseSync } from 'node:sqlite';
+import { handleApi } from '../src/api.js';
+import { createStore, sqliteAdapter } from '../src/store.js';
 import { YES } from '../public/core.js';
 import { answerCopyEmail, dateSetEmail, deadlineReminderEmail, inviteEmail } from '../src/notify.js';
 
@@ -73,35 +75,36 @@ test('white-label guest emails: no Venn and no dog, the template’s name on top
 
 // ---------- through the API ----------
 
-let server, base, sent;
-before(async () => {
-  sent = [];
-  const fakeFetch = async (url, init) => {
-    sent.push({ url: String(url), body: JSON.parse(init.body) });
-    return new Response('{}', { status: 200 });
-  };
-  const env = { RESEND_API_KEY: 're_test', EMAIL_FROM: 'Venn <notify@venn.example>', EMAIL_SIGNIN: 'off' };
-  server = createApp({ dbPath: ':memory:', env, fetchImpl: fakeFetch });
-  await new Promise((r) => server.listen(0, r));
-  base = `http://localhost:${server.address().port}`;
-});
-after(() => server.close());
-
+// The API itself, with a store the test can also write to (who keeps which poll and template),
+// email through a stand-in for Resend, and the background sends awaited.
+const store = createStore(sqliteAdapter(new DatabaseSync(':memory:')));
+const sent = [];
+const pending = [];
+const env = { RESEND_API_KEY: 're_test', EMAIL_FROM: 'Venn <notify@venn.example>', EMAIL_SIGNIN: 'off' };
+const fetchImpl = async (url, init) => {
+  sent.push({ url: String(url), body: JSON.parse(init.body) });
+  return new Response('{}', { status: 200 });
+};
 async function call(path, { method = 'GET', body, headers = {} } = {}) {
-  const res = await fetch(base + path, {
-    method,
-    headers: { 'content-type': 'application/json', ...headers },
-    body: body && JSON.stringify(body),
-  });
+  const res = await handleApi(
+    new Request(`https://venn.day${path}`, {
+      method,
+      headers: { 'content-type': 'application/json', ...headers },
+      body: body && JSON.stringify(body),
+    }),
+    store,
+    { env, fetchImpl, waitUntil: (p) => pending.push(p), clientIp: '127.0.0.1' },
+  );
   const data = res.headers.get('content-type')?.includes('json') ? await res.json() : await res.text();
-  await server.settled();
+  await Promise.all(pending.splice(0));
   return { status: res.status, data };
 }
 const emails = () => sent.filter((s) => s.url === 'https://api.resend.com/emails').map((s) => s.body);
 const H = 3_600_000;
 const slot = Date.UTC(2030, 0, 10, 19);
 
-async function pickedPoll(brand) {
+/** A poll from `brand` (or none), kept with account `organizer` (or none), answered by Ana with a copy, and picked. */
+async function pickedPoll(brand, organizer) {
   const { data } = await call('/api/events', {
     method: 'POST',
     body: {
@@ -113,6 +116,7 @@ async function pickedPoll(brand) {
       ...(brand && { brand }),
     },
   });
+  if (organizer) await store.addOwner('poll', data.id, organizer, 1);
   const path = `/api/events/${data.id}`;
   const ans = await call(`${path}/participants`, {
     method: 'POST',
@@ -122,54 +126,90 @@ async function pickedPoll(brand) {
   await call(`${path}/finalize`, { method: 'POST', body: { start: slot }, headers: { 'x-admin-token': data.adminToken } });
   return { id: data.id, path };
 }
+const guestMail = () => emails().filter((m) => m.to?.[0] === 'ana@example.com');
+// Calendar links carry their text URL-encoded.
+const readable = (m) => m.subject + [m.text, m.html].map((t) => decodeURIComponent(t.replace(/\+/g, ' '))).join('');
 
-test('a white-label poll: the answer copy, the date email, its calendar links and the .ics carry no Venn', async () => {
+/** A white-label template kept with account u-owner, shared with u-member as a user. */
+async function whiteLabelTemplate() {
   const brand = (await call('/api/brands', { method: 'POST', body: { name: 'Acme', hideVenn: true } })).data.id;
-  sent.length = 0;
-  const { id, path } = await pickedPoll(brand);
-  const mail = emails().filter((m) => m.to === 'ana@example.com' || m.to?.[0] === 'ana@example.com');
-  assert.equal(mail.length, 2, 'the answer copy and the date email');
-  const link = (s) => s.split(base).join('https://venn.day');
-  for (const m of mail) {
-    // Calendar links carry their text URL-encoded: decoded, they say only the poll's link.
-    const body = decodeURIComponent(link(m.text).replace(/\+/g, ' ')) + link(m.html);
-    assert.match(m.html, /Acme/);
-    assert.equal(vennOutsideLink(m.subject + body), null, m.subject);
+  await store.addOwner('brand', brand, 'u-owner', 1);
+  await store.setBrandMember(brand, 'u-member', 'user', 1);
+  return brand;
+}
+
+test('white label, organizer is the template’s owner or member: the answer copy, the date email and its calendar links carry no Venn', async () => {
+  const brand = await whiteLabelTemplate();
+  for (const organizer of ['u-owner', 'u-member']) {
+    sent.length = 0;
+    await pickedPoll(brand, organizer);
+    const mail = guestMail();
+    assert.equal(mail.length, 2, 'the answer copy and the date email');
+    for (const m of mail) {
+      assert.equal(vennOutsideLink(readable(m)), null, `${organizer}: ${m.subject}`);
+      assert.match(m.html, />Acme<\/div>/);
+      assert.match(m.html, /Sent for the organizer of “Book club”\./);
+    }
   }
+});
+
+test('white label, organizer is not one of the template’s people (or signed out): the emails keep Venn', async () => {
+  const brand = await whiteLabelTemplate();
+  for (const organizer of ['u-stranger', null]) {
+    sent.length = 0;
+    await pickedPoll(brand, organizer);
+    const mail = guestMail();
+    assert.equal(mail.length, 2);
+    for (const m of mail) {
+      assert.match(m.text, /Planned with Venn\. No sign-up needed/, `${organizer}: ${m.subject}`);
+      assert.doesNotMatch(m.html, /Sent for the organizer/);
+    }
+  }
+});
+
+test('the .ics follows the template alone: no "Planned with Venn" on any white-label poll, signed on others', async () => {
+  const brand = await whiteLabelTemplate();
+  const { id, path } = await pickedPoll(brand, null);
   const ics = await call(`${path}/event.ics`);
   assert.equal(ics.status, 200);
   assert.doesNotMatch(ics.data, /Planned with Venn/);
-  assert.match(ics.data.replace(/\r\n /g, ''), new RegExp(`DESCRIPTION:${base}/e/${id}`));
+  assert.match(ics.data.replace(/\r\n /g, ''), new RegExp(`DESCRIPTION:https://venn.day/e/${id}`));
+  const plain = await pickedPoll(null, null);
+  assert.match((await call(`${plain.path}/event.ics`)).data, /Planned with Venn/);
+  const date = guestMail().find((m) => m.subject.startsWith("It's happening"));
+  assert.match(readable(date), /details=Planned with Venn: /);
 });
 
-test('a poll that is not white label still signs its date email, calendar links and .ics', async () => {
-  sent.length = 0;
-  const { path } = await pickedPoll(null);
-  const date = emails().find((m) => m.subject.startsWith("It's happening"));
-  assert.match(decodeURIComponent(date.text.replace(/\+/g, ' ')), /details=Planned with Venn: /);
-  assert.match(date.text, /Planned with Venn\. No sign-up needed/);
-  assert.match((await call(`${path}/event.ics`)).data, /Planned with Venn/);
+test('no white-label guest email links to the "Text the poll" page, whose title says Venn', () => {
+  for (const [name, [fn, args]] of Object.entries(builders)) {
+    const m = fn({ ...args, whiteLabel: { name: 'Acme', title: args.title } });
+    assert.doesNotMatch(m.text + m.html, /\/sms\b|sms:/, name);
+  }
 });
 
-test('a white-label vote: the decision email to a guest who asked carries no Venn', async () => {
-  const brand = (await call('/api/brands', { method: 'POST', body: { name: 'Acme', hideVenn: true } })).data.id;
-  const { data } = await call('/api/events', {
-    method: 'POST',
-    body: { title: 'Where to?', timezone: 'UTC', mode: 'topic', options: ['Park', 'Beach'], brand },
-  });
-  const path = `/api/events/${data.id}`;
-  const ana = (await call(`${path}/participants`, { method: 'POST', body: { name: 'Ana', availability: { 1: YES } } })).data;
-  const asked = await call(`${path}/participants/${ana.id}`, {
-    method: 'PUT',
-    body: { email: 'ana@example.com' },
-    headers: { 'x-edit-token': ana.editToken },
-  });
-  assert.equal(asked.status, 200);
-  sent.length = 0;
-  await call(`${path}/finalize`, { method: 'POST', body: { option: 1 }, headers: { 'x-admin-token': data.adminToken } });
-  const m = emails().find((e) => e.subject.startsWith('Decided'));
-  assert.ok(m, 'the decision email');
-  assert.match(m.html, /Acme/);
-  const link = (s) => s.split(base).join('https://venn.day');
-  assert.equal(vennOutsideLink(m.subject + link(m.text) + link(m.html)), null);
+test('a white-label vote: the decision email to a guest who asked carries no Venn, only when the organizer is the template’s', async () => {
+  const brand = await whiteLabelTemplate();
+  for (const organizer of ['u-member', 'u-stranger']) {
+    const { data } = await call('/api/events', {
+      method: 'POST',
+      body: { title: 'Where to?', timezone: 'UTC', mode: 'topic', options: ['Park', 'Beach'], brand },
+    });
+    await store.addOwner('poll', data.id, organizer, 1);
+    const path = `/api/events/${data.id}`;
+    const ana = (await call(`${path}/participants`, { method: 'POST', body: { name: 'Ana', availability: { 1: YES } } })).data;
+    const asked = await call(`${path}/participants/${ana.id}`, {
+      method: 'PUT',
+      body: { email: 'ana@example.com' },
+      headers: { 'x-edit-token': ana.editToken },
+    });
+    assert.equal(asked.status, 200);
+    sent.length = 0;
+    await call(`${path}/finalize`, { method: 'POST', body: { option: 1 }, headers: { 'x-admin-token': data.adminToken } });
+    const m = guestMail().find((e) => e.subject.startsWith('Decided'));
+    assert.ok(m, `${organizer}: the decision email`);
+    if (organizer === 'u-member') {
+      assert.equal(vennOutsideLink(readable(m)), null);
+      assert.match(m.html, />Acme<\/div>/);
+    } else assert.match(m.text, /Planned with Venn\. No sign-up needed/);
+  }
 });

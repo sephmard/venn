@@ -95,17 +95,32 @@ export function normalizeBrand(input) {
   return brand;
 }
 
-/** The public path of a brand's logo, with its version so caches keep it until it changes. */
 /**
- * A white-label poll (made from a template with `hideVenn`), so its guests never see Venn:
- * `{ name, title }` (the template's name, the poll's title) for the guest email builders'
- * `whiteLabel` (src/notify.js), or null for every other poll.
+ * Whether a poll hides Venn from its guests: made from a template with `hideVenn`.
+ * Enough for what the poll shows (its page, its calendar entries); emails need whiteLabelOf().
+ */
+export async function hidesVenn(store, ev) {
+  return !!(ev.brand && (await store.getBrand(ev.brand))?.hideVenn);
+}
+
+/**
+ * The `whiteLabel` for a poll's guest emails (src/notify.js): `{ name, title }` (the template's
+ * name, the poll's title) when the poll is white label and its organizer is one of the template's
+ * own people (its owner, or an admin or user it was shared with), else null. Anyone with a
+ * template's share link can make a poll in its look, so without this check a stranger could email
+ * people in the organization's name with nothing saying where it came from: their polls' emails
+ * keep Venn's name and signature.
  */
 export async function whiteLabelOf(store, ev) {
   const brand = ev.brand && (await store.getBrand(ev.brand));
-  return brand?.hideVenn ? { name: brand.name, title: ev.title } : null;
+  if (!brand?.hideVenn) return null;
+  const organizer = await store.ownerOf('poll', ev.id);
+  const member =
+    !!organizer && ((await store.ownerOf('brand', brand.id)) === organizer || !!(await store.brandRole(brand.id, organizer)));
+  return member ? { name: brand.name, title: ev.title } : null;
 }
 
+/** The public path of a brand's logo, with its version so caches keep it until it changes. */
 export const logoPath = (id, v) => `/api/brands/${encodeURIComponent(id)}/logo?v=${v}`;
 
 /** A brand as anyone with its link sees it: its look and defaults, never its hash. */

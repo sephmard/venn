@@ -19,7 +19,7 @@ import { inviteRoom, newInvitees, normalizeInvitees, sendInvites } from './invit
 import { checkSingle, normalizeAvailability, normalizeEventInput, normalizeName } from './validate.js';
 import { SECURITY_HEADERS } from './security-headers.js';
 import { IMAGE_FILES, IMAGE_LIMITS, MAX_IMAGE_BODY, imagePath, imageResponse, parseImage } from './images.js';
-import { BRAND_ID_RE, BRAND_ROLES, MAX_BRAND_INVITES, whiteLabelOf, normalizeBrand, publicBrand } from './brands.js';
+import { BRAND_ID_RE, BRAND_ROLES, MAX_BRAND_INVITES, hidesVenn, whiteLabelOf, normalizeBrand, publicBrand } from './brands.js';
 import {
   MAX_COPIES_PER_ANSWER,
   MAX_COPIES_PER_POLL,
@@ -65,7 +65,7 @@ import { allowContactRequest, contactEmail, contactEnabled, contactInbox, normal
 import { allowPlacesRequest, placesProvider, placesState, searchPlaces } from './places.js';
 import { handleAccount, sessionUser, signInProviders } from './auth.js';
 import { handleMcp } from './mcp.js';
-import { draftFromWords } from './days-parse.js';
+import { draftFromWords, unsureOf } from './days-parse.js';
 import { checkWrite, limitHeaders, writeWindows as newWriteWindows } from './limits.js';
 import { MAX_GUEST_DEVICES, MAX_PUSH_DEVICES, checkSubscription, pushEnabled, sendPush } from './push.js';
 
@@ -742,13 +742,35 @@ async function route(
     // The days on /new can also be read from plain words, with no AI (src/days-parse.js), where AI
     // can't answer: the server has none, or there's no key and no allowance left. Never ahead of AI.
     const daysDraft = parts[0] === 'ai' && parts[1] === 'draft-days' && parts.length === 2;
+    // Why the words gave no draft, said so the person knows what to change.
+    const WORDS_UNSURE = {
+      days: 'Venn couldn’t tell which days from that. Name them, like “Fridays next month”, or pick them below.',
+      parts:
+        'Venn couldn’t be sure from that. Say one time for all the days, like “Friday or Saturday evening”, or pick them below.',
+      correction: 'Venn couldn’t be sure from that. Say it in one go, like “Wednesday evening”, or pick the days below.',
+    };
     async function byWords(otherwise) {
       const { prompt, timezone } = await readJson(request);
       if (!isValidTimeZone(timezone)) throw new ValidationError('Unknown time zone');
       const { date: today, minutes: nowMinutes } = utcToZoned(now(), timezone);
       const draft = typeof prompt === 'string' && draftFromWords(prompt, { today, nowMinutes, ai: aiEnabled(env) });
-      return draft ? json(draft) : otherwise();
+      return draft ? json(draft) : otherwise(unsureOf(prompt));
     }
+    // GET /api/ai/allowance — whether this visitor's free AI requests (the server's key) are there
+    // this week: 'available', 'used' (their own share, everyone's, or the dollar cap: it doesn't say
+    // which) or 'off' (no AI, or no server key: people bring their own). Never a count or a dollar
+    // figure, and nothing is taken. It only says who pays; any AI request still goes to Anthropic.
+    if (parts.length === 2 && parts[0] === 'ai' && parts[1] === 'allowance' && method === 'GET') {
+      const { perPerson, total, budget } = aiAllowance(env);
+      if (!aiEnabled(env) || !perPerson || !total) return json({ allowance: 'off' });
+      const limited = await allowed('allowance');
+      if (!limited.ok) return tooFast(limited);
+      const week = weekOf(now());
+      const who = await allowanceKey(week, (await currentUser())?.id, clientIp);
+      const used = (await store.aiSpend(week)) >= budget || (await store.peekAiAllowance(week, who, perPerson, total));
+      return json({ allowance: used ? 'used' : 'available' });
+    }
+
     // Paid for by the key the person brought (kept in their browser, never stored), or by the
     // server's key within this week's allowance.
     if (isAi) {
@@ -756,10 +778,7 @@ async function route(
       if (!aiEnabled(env) && !daysDraft) return error(404, "AI features aren't turned on for this server");
       if (!(await allowAiRequest(env, clientIp, now(), aiWindows)))
         return error(429, "You're going a bit fast. Try again in a minute.");
-      if (!aiEnabled(env))
-        return await byWords(() =>
-          error(400, 'Venn couldn’t tell which days from that. Name them, like “Fridays next month”, or pick them below.'),
-        );
+      if (!aiEnabled(env)) return await byWords((unsure) => error(400, WORDS_UNSURE[unsure] || WORDS_UNSURE.days));
       const brought = request.headers.get(OWN_KEY_HEADER);
       if (brought && !validOwnKey(brought))
         return error(400, "That doesn't look like an Anthropic API key. They start with sk-ant-.");
@@ -897,7 +916,9 @@ async function route(
         ...(typeof body.from === 'string' && { from: body.from }),
         ...(event.brand && { brand: 'yes' }),
       });
-      return json({ id, adminToken, ...(host && { participant: host }) }, 201);
+      // The links too, so a client needn't build them: `url` to share, `adminUrl` (private) to manage it.
+      const url = `${origin}/e/${id}`;
+      return json({ id, adminToken, url, adminUrl: `${url}#admin=${adminToken}`, ...(host && { participant: host }) }, 201);
     }
 
     // POST /api/brands  { name, accent?, font?, title?, note?, where?, emoji? }: a brand template
@@ -1083,14 +1104,15 @@ async function route(
 
     // GET /api/events/:id/event.ics
     if (parts.length === 3 && parts[2] === 'event.ics' && method === 'GET') {
-      if (ev.finalStart == null || isTopicPoll(ev)) return error(404, 'No time has been picked yet');
+      if (isTopicPoll(ev)) return error(404, 'A vote has no calendar file: it picks an option, not a time');
+      if (ev.finalStart == null) return error(404, 'No time has been picked yet');
       const end = meetingEnd(ev, ev.finalStart);
       const body = buildIcs({
         id: ev.id,
         title: ev.title,
         description: [
           ev.description,
-          (await whiteLabelOf(store, ev)) ? `${url.origin}/e/${ev.id}` : `Planned with Venn: ${url.origin}/new`,
+          (await hidesVenn(store, ev)) ? `${url.origin}/e/${ev.id}` : `Planned with Venn: ${url.origin}/new`,
         ]
           .filter(Boolean)
           .join('\n\n'),
