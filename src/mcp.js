@@ -4,7 +4,7 @@
 // so this costs Venn nothing in AI and needs no key. Stateless JSON-RPC over HTTP POST
 // ("Streamable HTTP", answered as plain JSON).
 
-import { IF_NEEDED, LIMITS, YES } from '../public/core.js';
+import { IF_NEEDED, LIMITS, YES, isDaysPoll, rankTimes } from '../public/core.js';
 
 const VERSIONS = ['2025-11-25', '2025-06-18', '2025-03-26', '2024-11-05'];
 const MAX_BODY = 64 * 1024;
@@ -158,16 +158,75 @@ async function getResults(args, call, origin) {
       ...(!ev.hideNames && { who: { available: yes.map((p) => p.name), ifNeeded: ifNeeded.map((p) => p.name) } }),
     };
   });
-  const best = [...options].sort((a, b) => b.available - a.available || b.ifNeeded - a.ifNeeded).slice(0, 5);
-  return toolText({
+  const answers = ev.responses ?? people.length;
+  const picked = ev.finalStart != null ? label(ev.finalStart, ev.timezone, wholeDay) : null;
+  const pickedLine = picked != null ? `The organizer picked ${picked}. ` : '';
+  const head = {
     title: ev.title,
     link: `${origin}/e/${ev.id}`,
     timezone: ev.timezone,
-    // With the answers hidden, only the count comes back.
-    answers: ev.responses ?? people.length,
-    ...(ev.finalStart != null && { picked: label(ev.finalStart, ev.timezone, wholeDay) }),
-    ...(ev.hideResults ? { note: 'The organizer hid the answers.' } : { best, options: options.slice(0, 100) }),
-  });
+    answers,
+    ...(picked != null && { picked }),
+  };
+  if (ev.hideResults)
+    return toolText({ ...head, summary: `${pickedLine}The organizer hid the answers.`, note: 'The organizer hid the answers.' });
+  const { best, leading, summary } = bestTimes(ev, people, answers);
+  return toolText({ ...head, summary: pickedLine + summary, leading, best, options: options.slice(0, 100) });
+}
+
+/** "Fri, Nov 6 – Sun, Nov 8" or "Fri, Nov 6, 7:00 PM – 9:00 PM": a ranked stretch, in the poll's time zone. */
+function span(start, end, ev) {
+  const wholeDay = ev.slotMinutes === 1440;
+  const first = label(start, ev.timezone, wholeDay);
+  if (wholeDay) {
+    const last = label(end - 1, ev.timezone, true);
+    return last === first ? first : `${first} – ${last}`;
+  }
+  const time = (ms) => new Intl.DateTimeFormat('en-US', { timeZone: ev.timezone, hour: 'numeric', minute: '2-digit' }).format(ms);
+  return `${first} – ${time(end)}`;
+}
+
+/**
+ * The best days or times, ranked exactly as the poll page ranks them (rankTimes in public/core.js:
+ * most people who can make it, then most yeses, then the earliest; a trip's or meeting's length
+ * counts every day or hour of it). Times nobody can make are left out. Ties are named only for
+ * whole days, as on the page (public/event.js): a trip's or meeting's ranked stretches overlap
+ * one another, and the page doesn't name ties on specific times yet (backlog P10).
+ */
+function bestTimes(ev, people, answers) {
+  const ranked = rankTimes(ev, ev.slots || [], people, Infinity);
+  const best = ranked.slice(0, 5).map((r) => ({
+    when: span(r.start, r.end, ev),
+    start: new Date(r.start).toISOString(),
+    end: new Date(r.end).toISOString(),
+    available: r.yes.length,
+    ifNeeded: r.ifNeeded.length,
+    ...(!ev.hideNames && { who: { available: r.yes, ifNeeded: r.ifNeeded } }),
+  }));
+  const [first] = ranked;
+  const days = isDaysPoll(ev);
+  const trip = days && ev.durationMinutes > 1440;
+  const [one, many] = trip ? ['run of days', 'runs of days'] : days ? ['day', 'days'] : ['time', 'times'];
+  if (!answers) return { best, leading: [], summary: 'Nobody has answered yet.' };
+  if (!first) return { best, leading: [], summary: `${answers} answered, but no ${one} works for anyone yet.` };
+  const n = people.length;
+  const can = first.yes.length + first.ifNeeded.length;
+  const who =
+    can === n && !first.ifNeeded.length
+      ? n === 1
+        ? 'it works for the one person so far'
+        : 'everyone can make it'
+      : can === n && n > 1 && !first.yes.length
+        ? `all ${n} can make it if needed`
+        : `${can} of ${n} can make it${first.ifNeeded.length ? `, ${first.ifNeeded.length} if needed` : ''}`;
+  const same = (r) => r.yes.length === first.yes.length && r.ifNeeded.length === first.ifNeeded.length;
+  const alone = days && ev.durationMinutes <= ev.slotMinutes;
+  const top = alone ? ranked.filter(same) : [first];
+  const leading = top.map((r) => span(r.start, r.end, ev));
+  if (top.length > 1)
+    return { best, leading, summary: `Tied: ${andList(leading)}; for each, ${who}. No single best ${one} yet.` };
+  const others = !alone && ranked.slice(1).some(same) ? ` Other ${many} work as well.` : '';
+  return { best, leading, summary: `${leading[0]} works best: ${who}.${others}` };
 }
 
 const andList = (xs) => (xs.length < 3 ? xs.join(' and ') : `${xs.slice(0, -1).join(', ')} and ${xs.at(-1)}`);
