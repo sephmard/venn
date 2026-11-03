@@ -200,9 +200,10 @@ function hoursHtml({ ev, people, tz, inspect, you }) {
         return `<span class="ov-slot${tone}${cls}"${a}></span>`;
       });
       // Hour marks under the timeline: every hour, or every two or three on a long day.
-      const every = scale.length > 24 ? 180 : scale.length > 12 ? 120 : 60;
-      // On a clock half an hour off the poll's (Kolkata, for an hours poll made in LA), marks fall at half past.
+      // On a clock half an hour off the poll's (Kolkata, for an hours poll made in LA), marks fall at half
+      // past; those read longer ("10:30 PM"), so a long day spaces them twice as far apart.
       const shift = scale.some((m) => m % 60 === 0) ? 0 : lo % 60;
+      const every = (scale.length > 24 ? 180 : scale.length > 12 ? 120 : 60) * (shift && scale.length > 12 ? 2 : 1);
       const axis = scale.map((m) => ((m - shift) % every ? '<span></span>' : `<span>${esc(shortTime(m))}</span>`)).join('');
       const said = spans.length
         ? `Best: ${spans.map((sp) => fmtTimeRange(sp.start, sp.end, tz)).join(' and ')}, ${score(first)} of ${n}${all ? ", everyone's free" : ''}`
