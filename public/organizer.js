@@ -6,6 +6,47 @@ import { $, ago, api, copy, esc, getConfig, lastEmail, save, saved, toast } from
 import { accountHint } from './account-menu.js';
 import { currentSub, pushSupport, subscribe } from './push-client.js';
 
+/**
+ * "Pick this date?": the date in big type (`when`, HTML) and who can make it (`r`, its ranking, of
+ * `n` who answered), then Pick it or Back. Resolves true to pick it.
+ */
+export function confirmPick({ r, n, when, changing, daysMode }) {
+  let d = $('#pick-check');
+  if (!d) {
+    d = document.createElement('dialog');
+    d.className = 'submit-check pick-check';
+    d.id = 'pick-check';
+    d.setAttribute('aria-labelledby', 'pc-h');
+    document.body.append(d);
+  }
+  const can = r ? r.yes.length + r.ifNeeded.length : 0;
+  d.innerHTML = `<h2 id="pc-h">${changing ? 'Change the date to this?' : `Pick this ${daysMode ? 'date' : 'time'}?`}</h2>
+    <p class="pc-when">${when}</p>
+    <p>${can} of ${n} can make it${r?.ifNeeded.length ? `, ${r.ifNeeded.length} if needed` : ''}.${
+      r?.no.length ? ` <span class="muted">Can't: ${r.no.map(esc).join(', ')}</span>` : ''
+    }</p>
+    ${changing ? '<p class="hint">Anyone who added the old date to their calendar will need to update it.</p>' : ''}
+    <div class="sc-actions">
+      <button type="button" class="btn" id="pc-no">Back</button>
+      <button type="button" class="btn btn-primary" id="pc-yes">${changing ? 'Change it' : 'Pick it'}</button>
+    </div>`;
+  return new Promise((done) => {
+    const close = (yes) => {
+      d.close();
+      done(yes);
+    };
+    $('#pc-no', d).onclick = () => close(false);
+    $('#pc-yes', d).onclick = () => close(true);
+    d.oncancel = (e) => {
+      e.preventDefault();
+      close(false);
+    };
+    d.onclick = (e) => e.target === d && close(false); // a tap outside the box
+    d.showModal();
+    $('#pc-yes', d).focus();
+  });
+}
+
 // ----- the organizer's tools, at the top of the poll -----
 
 /**

@@ -24,7 +24,7 @@ export function dayNav(root, view, marks) {
     '<button type="button" class="pill tv-pick" popovertarget="jump"><span class="sr-only">, jump to a day</span></button><div class="tv-jump" id="jump" popover></div>',
   );
   const box = label.previousElementSibling;
-  box.previousElementSibling.prepend(label); // picker.js keeps the date in it
+  box.previousElementSibling.prepend(label); // time-view.js keeps the date in it
   const cal = monthView(box, {
     onDay: (d) => (box.hidePopover(), view.show(d)),
     active: () => shown.length === 1 && shown[0],
