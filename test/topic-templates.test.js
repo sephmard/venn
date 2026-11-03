@@ -10,7 +10,7 @@ import { cleanFormDraft } from '../public/drafts.js';
 test('vote starters: six, each with a question, a kind of answer and hints', () => {
   assert.deepEqual(
     TOPIC_TEMPLATES.map((t) => t.label),
-    ['Where to eat', 'What to do', 'Next book', 'Team decision', 'Trip destination', 'Yes or no'],
+    ['Where to eat', 'What to do', 'Next book', 'Team decision', 'Trip destination', 'Are we in?'],
   );
   for (const t of TOPIC_TEMPLATES) {
     assert.match(t.id, /^[a-z]+(-[a-z]+)*$/, t.id);

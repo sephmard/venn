@@ -52,6 +52,7 @@ document.head.insertAdjacentHTML(
   .ai-done-when { font-weight: 500; }
   .ai-done-note { margin-top: 2px; font-weight: 500; color: var(--muted); }
   .ai-done .link-btn { min-height: 44px; padding: 0 10px; }
+  .ai-by-hand .link-btn { min-height: 0; padding-block: 12px; margin-block: -12px; }
   /* What AI filled in lights up, a field at a time, then the picked days in order. */
   .ai-lit { animation: ai-lit 1.4s ease-out both; animation-delay: calc(var(--ai-i, 0) * 70ms); }
   @keyframes ai-lit {
@@ -158,6 +159,15 @@ const box = (
     <div id="ai-key-box" hidden></div>
   </div>`;
 
+/** No key: close the box and go to the form AI would have filled, focused on its first control. */
+function byHand() {
+  closeBox();
+  const after = [...$('.ai-head').parentElement.children].filter((el) => !el.matches('.ai-head, .ai-draft, .ai-done'));
+  const field = after.map((el) => el.querySelector('input:not([type=hidden]), button, textarea, select')).find(Boolean);
+  (field || $('#ai-open'))?.focus({ preventScroll: true });
+  (field || $('#ai-open'))?.scrollIntoView({ block: 'center' });
+}
+
 /** Wire the box: `fill(prompt)` asks and fills in, and says what it did. */
 function wire(fill, button = BUTTON) {
   $('#ai-key-link').innerHTML = keyLink();
@@ -174,7 +184,8 @@ function wire(fill, button = BUTTON) {
       await fill(prompt);
     } catch (ex) {
       // A key problem opens the key form; anything else is said in the box, with what to do.
-      if (keyProblem(ex)) aiFailed(ex, $('#ai-key-box'), go);
+      // "Fill it in yourself" only where Use AI opened the box and the form is right below it.
+      if (keyProblem(ex)) aiFailed(ex, $('#ai-key-box'), go, $('#ai-open') ? byHand : undefined);
       else $('#ai-err').textContent = ex.message || 'AI didn’t answer. Try again in a moment.';
     } finally {
       btn.disabled = false;
@@ -216,6 +227,8 @@ export function aiDays(st, { empty, setRow, show, level, row }) {
       body: { prompt, timezone: $('#tz').value },
       headers: aiHeaders(),
     });
+    // Choosing what, not when ("Italian, Thai or Mexican?"): nothing is filled in; it offers a vote.
+    if (!draft.days.length && draft.vote) return offerVote(draft.vote);
     const { iconEmoji, setIconEmoji, iconBg, setIconBg } = await import('./create.js'); // the page's own, already loaded
     const [t, where] = [$('#title'), $('#location')];
     const before = {
@@ -278,6 +291,8 @@ export function aiDays(st, { empty, setRow, show, level, row }) {
         : 'It replaced the days you had picked. Undo brings them back.';
     drafted = key(sets());
     if (replaced) said.note = [said.note, replaced].filter(Boolean).join(' ');
+    // Deciding where (or what) too: the vote comes first, then "Find a date for it".
+    const both = draft.vote?.both ? draft.vote : null;
     done(said, async () => {
       sets().forEach((set, i) => {
         set.clear();
@@ -294,7 +309,57 @@ export function aiDays(st, { empty, setRow, show, level, row }) {
       setRow(before.row);
       await show(before.level);
     });
+    if (both) voteLink($('#ai-done > p'), both, 'Vote on it first');
   });
+}
+
+/** Choices to name in a line: "Italian, Thai or Mexican". */
+const either = (list) => (list.length < 2 ? list.join('') : `${list.slice(0, -1).join(', ')} or ${list.at(-1)}`);
+
+/**
+ * A link to the vote (/new/topic) with the question and choices AI read, kept as that form's draft
+ * so it opens filled in (form-draft.js), and nothing else carried over.
+ */
+function voteLink(where, vote, label) {
+  where.insertAdjacentHTML(
+    'beforeend',
+    ` <a class="link-btn ai-vote" id="ai-vote" href="/new/topic?from=ai" data-link>${esc(label)}</a>`,
+  );
+  $('#ai-vote').addEventListener('click', () => {
+    const options = [...vote.options, '', ''].slice(0, Math.max(2, vote.options.length)); // two rows at least
+    try {
+      sessionStorage.setItem(
+        'venn:draft:topic',
+        JSON.stringify({
+          title: vote.question || '',
+          location: '',
+          desc: '',
+          organizer: '',
+          privacy: [],
+          options,
+          kind: 'options',
+          single: false,
+          fromAi: true,
+        }),
+      );
+    } catch {}
+  });
+}
+
+/** On /new, a description of a choice rather than a time: say so, and offer the vote. */
+function offerVote(vote) {
+  closeBox();
+  $('#ai-done')?.remove();
+  const what = vote.options.length ? either(vote.options) : '';
+  $('#ai-draft').insertAdjacentHTML(
+    'afterend',
+    `<div class="ai-done" id="ai-done" role="status"><p><b class="ai-done-head">That sounds like a vote${what ? ':' : ''}</b>${
+      what ? ` <span class="ai-done-when">${esc(what)}</span>` : ''
+    } <small class="ai-done-note">Nothing here was changed.</small></p></div>`,
+  );
+  voteLink($('#ai-done'), vote, 'Make it a vote');
+  $('#ai-vote').classList.replace('link-btn', 'btn');
+  $('#ai-done').scrollIntoView({ behavior: reducedMotion() ? 'auto' : 'smooth', block: 'center' });
 }
 
 /** On "vote on a few dates": "Use AI" beside "When could it be?"; `load(options, tz)` fills in the options. */

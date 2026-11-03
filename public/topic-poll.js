@@ -66,6 +66,20 @@ export function leaders(rows) {
   return rows.filter((r) => r.score === top.score && r.yes.length === top.yes.length);
 }
 
+/**
+ * What the leader is called, without claiming more agreement than there is: "Favourite" only when
+ * it also has the most yeses. One that leads on "if needed" alone works for the most people, or
+ * for everyone; nobody named it their favourite.
+ */
+export function leaderLabel(rows, { single = false, total = 0 } = {}) {
+  const top = leaders(rows);
+  if (top.length > 1) return 'Tied';
+  if (single) return 'Most picked so far';
+  const [lead] = top;
+  if (lead.yes.length && !rows.some((r) => r.yes.length > lead.yes.length)) return 'Favourite so far';
+  return lead.score >= total ? 'Everyone could go' : 'Works for the most so far';
+}
+
 /** Where "Find a date for it" goes: a date poll named after what was decided, following on from this one.
  *  A vote made from a starter keeps what it was about: "Dinner at Luigi’s", from the dinner template.
  *  `starters` is topic-templates.js, loaded only for the organizer (who alone sees the link). */
@@ -280,7 +294,7 @@ export async function renderTopicPoll(ctx) {
         : !top.length
           ? `<p class="empty-state muted">No answers yet. Share the link and the favourite shows here.</p>`
           : `<div class="best-hero">
-          <p class="kicker">${top.length > 1 ? 'Tied' : ev.single ? 'Most picked so far' : 'Favourite so far'}</p>
+          <p class="kicker">${leaderLabel(rows, { single: ev.single, total })}</p>
           <div class="best-when">${top.map((r) => esc(r.o.label)).join(' <span class="muted">and</span> ')}</div>
           <div class="best-who">${top[0].yes.length + top[0].maybe.length} of ${total} ${ev.single ? 'picked it' : 'would go'}${top[0].maybe.length ? ` (${top[0].maybe.length} if needed)` : ''}</div>
           ${guest || top.length > 1 ? '' : `<button type="button" class="btn btn-primary" data-pick="${top[0].o.id}">Pick ${esc(top[0].o.label)}</button>`}

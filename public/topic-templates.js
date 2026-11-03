@@ -60,7 +60,7 @@ export const TOPIC_TEMPLATES = [
   {
     id: 'yes-or-no',
     emoji: '👍',
-    label: 'Yes or no',
+    label: 'Are we in?',
     question: '',
     ask: 'Should we…?',
     yesNo: true,

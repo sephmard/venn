@@ -58,9 +58,9 @@ test('vote starters: they fill the question, kind and hints, and never what was 
   await expect(option(page, 2)).toHaveValue('Piranesi');
   await expect(page.locator('#emoji-tile')).toHaveText('🗳️');
 
-  // Yes or no switches the kind and waits for the question.
+  // Are we in? (yes or no) switches the kind and waits for the question.
   await page.locator('#title').fill('');
-  await starter(page, 'Yes or no').click();
+  await starter(page, 'Are we in?').click();
   await expect(page.getByRole('radio', { name: 'Yes or no' })).toHaveAttribute('aria-checked', 'true');
   await expect(page.locator('#yesno')).toBeVisible();
   await expect(page.locator('#title')).toBeFocused();
@@ -68,7 +68,7 @@ test('vote starters: they fill the question, kind and hints, and never what was 
   await expect(page.locator('#title')).toHaveAttribute('placeholder', 'Should we…?');
   // Switching back to options by hand lets go of it.
   await page.getByRole('radio', { name: 'Pick from options' }).click();
-  await expect(starter(page, 'Yes or no')).toHaveAttribute('aria-pressed', 'false');
+  await expect(starter(page, 'Are we in?')).toHaveAttribute('aria-pressed', 'false');
 });
 
 test('vote starters: a link presses one, a reload keeps it, and the poll is what was typed', async ({ page, browser }) => {

@@ -10,6 +10,7 @@ let own = null; // the form's own part of the draft (its picks, or its options)
 let shared = null; // { privacy, seeded, quietly } from create.js
 let queued = false;
 let restoring = false;
+let page = null; // the page the form is on: once it's left, its form is on its way out
 
 /** Stop keeping a draft (another form is drawn). */
 export function stop() {
@@ -28,7 +29,8 @@ export function changed() {
   queued = true;
   queueMicrotask(() => {
     queued = false;
-    if (!kind || restoring || !$('#create')) return;
+    // Typed into a form whose page was just left (its next one still loading): not this draft's.
+    if (!kind || restoring || !$('#create') || location.pathname !== page) return;
     const pressed = $('[data-occasion][aria-pressed="true"]');
     writeStored(sessionStorage, formDraftKey(kind), {
       title: shared.seeded() ? '' : $('#title').value,
@@ -44,7 +46,7 @@ export function changed() {
 
 /** Keep this form's draft from now on, after putting back the last one (if it has any work in it). */
 export async function keep(k, ownPart, putBack, sharedParts) {
-  [kind, own, shared] = [k, ownPart, sharedParts];
+  [kind, own, shared, page] = [k, ownPart, sharedParts, location.pathname];
   const form = $('#create');
   if (!form) return (kind = null);
   for (const type of ['input', 'change', 'click']) form.addEventListener(type, changed);
@@ -74,7 +76,7 @@ export async function keep(k, ownPart, putBack, sharedParts) {
   // Said once, quietly, with a way to start again; it goes at the first change.
   ($('.kind-switch') || $('#create h1')).insertAdjacentHTML(
     'afterend',
-    '<p class="draft-note" id="draft-note">Picked up where you left off. <button type="button" class="link-btn" id="draft-reset">Start over</button></p>',
+    `<p class="draft-note" id="draft-note">${d.fromAi ? 'Made into a vote. Check the options.' : 'Picked up where you left off.'} <button type="button" class="link-btn" id="draft-reset">Start over</button></p>`,
   );
   $('#draft-reset').onclick = () => {
     drop();

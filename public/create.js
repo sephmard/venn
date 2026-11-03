@@ -37,7 +37,7 @@ export function prefillTitle() {
   const title = titleFromUrl();
   const t = templateFromUrl();
   linkFilled = !!(title || t >= 0 || q.get('where') || q.get('after'));
-  const b = t >= 0 && $(`[data-occasion="${t}"]`); // (a topic poll has no templates)
+  const b = t >= 0 ? $(`[data-occasion="${t}"]`) : null; // (a topic poll has no templates)
   b?.click();
   b?.scrollIntoView({ block: 'nearest', inline: 'center' }); // in view in its row too
   if (title) $('#title').value = title;
