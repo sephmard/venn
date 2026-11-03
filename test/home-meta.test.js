@@ -13,7 +13,10 @@ const content = (attr, name) => {
 
 test('home: the description says dates and votes, and stays under 160 characters', () => {
   const description = content('name', 'description');
-  assert.equal(description, 'Find a day that works for everyone, or vote on what to do. Free, no sign-up.');
+  assert.equal(
+    description,
+    'Find a day that works for everyone, or vote on what to do, for dinners, book clubs and trips. Free, no sign-up, no ads.',
+  );
   assert.ok(description.length < 160);
 });
 
