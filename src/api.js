@@ -553,6 +553,7 @@ async function route(
       pollUrl: `${origin}/e/${ev.id}`,
       retro: ev.retro,
       changed: sent.length > 0,
+      whiteLabel: await whiteLabelOf(store, ev),
     });
     for (const [pid, to] of emails) {
       const headers = unsubscribeHeaders(unsubscribeLink(origin, ev.id, tokens.get(pid)));

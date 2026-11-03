@@ -469,17 +469,18 @@ const clip = (s, n = 60) => (s.length > n ? `${s.slice(0, n - 1).trimEnd()}…` 
  * To each guest who asked to hear it (or answered a poll that asks everyone for an email), once the
  * organizer picks an option on a vote: what was decided. `changed`: it replaces an earlier pick.
  */
-export function decidedEmail({ title, option, pollUrl, retro = false, changed = false }) {
+export function decidedEmail({ title, option, pollUrl, retro = false, changed = false, whiteLabel = null }) {
   const subject = `${changed ? 'Change of plan' : 'Decided'}: ${clip(option)} for “${clip(title)}”`;
   const why = `You get this because you asked to hear when “${title}” was decided. You won't get more than this one, unless the organizer changes their mind.`;
   let text = `${changed ? 'Change of plan' : 'It’s decided! 🎉'}\n\n${option}\nfor “${title}”\n\nSee the poll: ${pollUrl}\n\n${why}\n`;
-  text += `\n${signature(pollUrl)}\n`;
+  text += `\n${signature(pollUrl, false, whiteLabel)}\n`;
   const html = emailLayout(
     `${heading(changed ? 'Change of plan' : 'It’s decided! 🎉')}<p style="margin:0 0 4px;font-size:22px;font-weight:700;line-height:1.3">${escHtml(
       option,
     )}</p><p style="margin:0 0 12px;color:#6b6d70">for “${escHtml(title)}”</p>${button(pollUrl, 'See the poll')}`,
     escHtml(why),
     pollUrl,
+    { whiteLabel },
   );
   return { subject, text, html: styled(html, retro) };
 }

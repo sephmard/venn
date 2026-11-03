@@ -150,3 +150,26 @@ test('a poll that is not white label still signs its date email, calendar links 
   assert.match(date.text, /Planned with Venn\. No sign-up needed/);
   assert.match((await call(`${path}/event.ics`)).data, /Planned with Venn/);
 });
+
+test('a white-label vote: the decision email to a guest who asked carries no Venn', async () => {
+  const brand = (await call('/api/brands', { method: 'POST', body: { name: 'Acme', hideVenn: true } })).data.id;
+  const { data } = await call('/api/events', {
+    method: 'POST',
+    body: { title: 'Where to?', timezone: 'UTC', mode: 'topic', options: ['Park', 'Beach'], brand },
+  });
+  const path = `/api/events/${data.id}`;
+  const ana = (await call(`${path}/participants`, { method: 'POST', body: { name: 'Ana', availability: { 1: YES } } })).data;
+  const asked = await call(`${path}/participants/${ana.id}`, {
+    method: 'PUT',
+    body: { email: 'ana@example.com' },
+    headers: { 'x-edit-token': ana.editToken },
+  });
+  assert.equal(asked.status, 200);
+  sent.length = 0;
+  await call(`${path}/finalize`, { method: 'POST', body: { option: 1 }, headers: { 'x-admin-token': data.adminToken } });
+  const m = emails().find((e) => e.subject.startsWith('Decided'));
+  assert.ok(m, 'the decision email');
+  assert.match(m.html, /Acme/);
+  const link = (s) => s.split(base).join('https://venn.day');
+  assert.equal(vennOutsideLink(m.subject + link(m.text) + link(m.html)), null);
+});

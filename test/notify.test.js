@@ -750,7 +750,20 @@ test('the decision email in each look: retro is the same email in neon', () => {
   assert.equal(long.subject, `Change of plan: ${'x'.repeat(59)}… for “${'y'.repeat(59)}…”`);
 });
 
-test.todo('a white-label vote’s decision email says nothing of Venn (after O2)');
+test('a white-label vote’s decision email says nothing of Venn', () => {
+  const args = { title: 'Dinner', option: 'Thai Palace', pollUrl: 'https://venn.day/e/abc' };
+  for (const whiteLabel of [
+    { name: 'Acme', title: 'Dinner' },
+    { name: '', title: 'Dinner' },
+  ]) {
+    const m = decidedEmail({ ...args, whiteLabel });
+    for (const part of [m.subject, m.text, m.html]) assert.doesNotMatch(part, /Venn/);
+    assert.match(m.text, /Sent for the organizer of “Dinner”/);
+    assert.match(m.html, /Thai Palace/);
+  }
+  assert.match(decidedEmail({ ...args, whiteLabel: { name: 'Acme', title: 'Dinner' } }).html, /Acme/);
+  assert.match(decidedEmail(args).text, /Venn/);
+});
 
 test('the "Text message" link: an sms: link in the form each phone wants', () => {
   const body = 'When works for you? “Dinner & drinks”: https://venn.example/e/abc';
