@@ -839,9 +839,16 @@ div.poll-share {
   .poll-share {
     grid-column: auto;
   }
-  /* fits "Link copied ✓" */
+  /* As wide as "Link copied ✓" in any font: a hidden second row holds the room for it. */
   .poll-share .btn {
-    min-width: 148px;
+    display: inline-grid;
+    gap: 0;
+  }
+  .poll-share .btn::after {
+    content: 'Link copied ✓';
+    height: 0;
+    overflow: hidden;
+    visibility: hidden;
   }
 }
 

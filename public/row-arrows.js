@@ -61,16 +61,19 @@ export function rowArrows(row) {
   const wrap = Object.assign(document.createElement('div'), { className: 'row-wrap' });
   row.before(wrap);
   wrap.append(row);
-  wrap.insertAdjacentHTML(
-    'beforeend',
-    [-1, 1]
-      .map(
-        (d) =>
-          `<button type="button" class="row-arrow" data-dir="${d}" tabindex="-1" aria-label="${d < 0 ? 'Earlier' : 'More'} ${what}" hidden>${d < 0 ? '‹' : '›'}</button>`,
-      )
-      .join(''),
-  );
-  const [back, on] = wrap.querySelectorAll('.row-arrow');
+  // Built as elements, not HTML: the row's name is page text.
+  const [back, on] = [-1, 1].map((d) => {
+    const b = Object.assign(document.createElement('button'), {
+      type: 'button',
+      className: 'row-arrow',
+      tabIndex: -1,
+      hidden: true,
+    });
+    b.dataset.dir = d;
+    b.textContent = d < 0 ? '‹' : '›';
+    b.setAttribute('aria-label', `${d < 0 ? 'Earlier' : 'More'} ${what}`);
+    return wrap.appendChild(b);
+  });
   const sync = () => {
     back.hidden = row.scrollLeft < 4;
     on.hidden = row.scrollLeft + row.clientWidth > row.scrollWidth - 4;
