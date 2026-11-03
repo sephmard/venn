@@ -23,6 +23,8 @@ test('a new poll is retro like the site: it opens in neon for everyone, and the 
   await g.goto(page.url());
   await expect(g.locator('html')).toHaveClass(/\bretro\b/);
   await expect(g.locator('h1')).toHaveCSS('text-transform', 'uppercase');
+  // The browser's bars match the night sky, not the classic page (no dark band under Safari's bar).
+  for (const m of await g.locator('meta[name="theme-color"]').all()) await expect(m).toHaveAttribute('content', '#0d0221');
   // Leaving the poll leaves the look behind: a new poll that asks for the classic look shows it.
   await page.goto('/new?retro=0');
   await expect(html).not.toHaveClass(/\bretro\b/);

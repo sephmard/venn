@@ -288,11 +288,39 @@ button.final:focus-visible {
 .menu-panel a:hover {
   background: var(--surface-2);
 }
+/* The small print, under a hairline: one quiet line, Privacy · Terms, and (on the create pages)
+   Classic mode. Links get their 44px tap height from padding with a matching negative margin,
+   so a wrapped line stays at the text's own line height. */
 .footer {
+  width: 100%;
+  max-width: 1080px;
+  margin: 32px auto 0;
+  padding: 20px 16px calc(24px + env(safe-area-inset-bottom));
+  border-top: 1px solid var(--border);
+  display: grid;
+  justify-items: center;
+  gap: 8px;
   text-align: center;
   color: var(--muted);
   font-size: 0.875rem;
-  padding: 12px 16px calc(16px + env(safe-area-inset-bottom));
+  line-height: 1.5;
+}
+.footer p,
+.footer nav {
+  margin: 0;
+}
+.footer a {
+  color: inherit;
+  padding-block: 12px;
+  margin-block: -12px;
+  text-underline-offset: 3px;
+  text-decoration-color: color-mix(in srgb, currentColor 45%, transparent);
+}
+.footer nav a {
+  text-decoration: none;
+}
+.footer a:hover {
+  color: var(--text);
 }
 /* ---------- buttons ---------- */
 .btn {
@@ -376,6 +404,12 @@ a.link-btn {
 .hint a {
   min-height: 0;
   padding: 0;
+}
+/* A link button inside a sentence: 44px to the finger, but the line keeps the text's height. */
+.guest-share .link-btn {
+  min-height: 0;
+  padding: 12px 0;
+  margin: -12px 0;
 }
 .danger {
   color: var(--danger);
@@ -2273,14 +2307,9 @@ details.organizer > .danger {
 @media (pointer: coarse) {
   .btn-sm,
   .seg button,
-  .footer a,
   .notify-way > summary,
   .dev summary {
     min-height: 44px;
-  }
-  .footer a {
-    display: inline-flex;
-    align-items: center;
   }
   .chip button:not(.chip-flip) {
     min-width: 44px;
