@@ -64,6 +64,7 @@ import { allowContactRequest, contactEmail, contactEnabled, contactInbox, normal
 import { allowPlacesRequest, placesProvider, placesState, searchPlaces } from './places.js';
 import { handleAccount, sessionUser, signInProviders } from './auth.js';
 import { handleMcp } from './mcp.js';
+import { pollResults } from './results.js';
 import { draftFromWords, unsureOf } from './days-parse.js';
 import { checkWrite, limitHeaders, writeWindows as newWriteWindows } from './limits.js';
 import { MAX_GUEST_DEVICES, MAX_PUSH_DEVICES, checkSubscription, pushEnabled, sendPush } from './push.js';
@@ -968,7 +969,16 @@ async function route(
         // Signed in, an answer given with the account is theirs on any device, as its edit link is.
         const ownId = await answerByAccount(ev.id);
         const emails = isAdmin || ownHash || ownId ? await store.listEmails(ev.id) : undefined;
+        // ?results=1: the counts and leaders worked out here (src/results.js), as the page and MCP
+        // work them out. Not when the organizer hides the answers from this visitor: they get none.
+        // A big poll's ranking costs real CPU, so asking has a per-address limit (src/limits.js).
+        const wantsResults = url.searchParams.get('results') === '1';
+        if (wantsResults) {
+          const limited = await allowed('results');
+          if (!limited.ok) return tooFast(limited);
+        }
         const out = publicEvent(ev, await store.listParticipants(ev.id), { isAdmin, ownHash, ownId, emails });
+        if (wantsResults && !('responses' in out)) out.results = pollResults(ev, out.slots, out.participants);
         // Its brand template's look, while the template lasts (deleted, the poll is plain Venn again).
         const brand = ev.brand && (await store.getBrand(ev.brand));
         if (brand) out.brand = publicBrand(brand);
