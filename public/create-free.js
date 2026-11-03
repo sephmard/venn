@@ -657,14 +657,14 @@ export function renderFree() {
       },
     );
   }
-  // Where the server has AI, "Use AI" (ai-draft.js) picks days as taps would.
+  // "Use AI" (ai-draft.js) picks days as taps would, or plain words without AI.
   const showLevel = (next) => {
     level = null;
     return setLevel(next);
   };
   const row = () => ($('#in-row').checked ? +$('#span').value : 1);
   const hooks = { empty, setRow, show: showLevel, level: () => level, row };
-  if (!src) getConfig().then((c) => c.ai && import('./ai-draft.js').then((m) => m.aiDays(st, hooks)));
+  if (!src) getConfig().then((c) => import('./ai-draft.js').then((m) => m.aiDays(st, hooks, c)));
   $('#title').focus();
   return () => {
     painter?.cleanup();
