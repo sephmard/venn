@@ -91,8 +91,8 @@ const CASES = [
   [
     'times',
     'equal times',
-    [{ 0: 2 }, { 2: 2 }], // The page names ties only on whole days (event.js), so equal times are noted, not listed.
-    'Thu, Jan 10, 6:00 PM – 7:00 PM works best: 1 of 2 can make it. Other times work as well.',
+    [{ 0: 2 }, { 2: 2 }], // Each proposed time stands alone, so equal ones are a tie, as the page says (event.js).
+    'Tied: Thu, Jan 10, 6:00 PM – 7:00 PM and Thu, Jan 10, 8:00 PM – 9:00 PM; for each, 1 of 2 can make it. No single best time yet.',
   ],
 ];
 
