@@ -176,7 +176,7 @@ test('create a vote from options, and its results say plainly where things stand
   data = await results();
   assert.equal(data.picked, 'Thai');
   assert.match(data.summary, /^The organizer picked Thai\. Thai leads/);
-  assert.equal(JSON.stringify(data).includes('"Bo"'), false);
+  assert.doesNotMatch(JSON.stringify({ ...data, link: undefined }), /Bo/);
   assert.equal(data.options[1].who, undefined);
 
   // Answers hidden: only the count and what was picked.
