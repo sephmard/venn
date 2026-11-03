@@ -1372,7 +1372,7 @@ export async function renderEvent(id, navigate) {
   /** Answers but the organizer's (named already). */
   const guestCount = () =>
     (ev().responses ?? ev().participants.length) - ev().participants.filter((p) => p.id === ev().hostId).length;
-  const alone = () => ev().isAdmin && !guestCount();
+  const alone = () => ev().isAdmin && !guestCount() && !st.pickAnyway;
 
   // ----- best options -----
   function renderBest() {
@@ -1384,11 +1384,15 @@ export async function renderEvent(id, navigate) {
     const best = rankTimes(ev(), ev().slots, people, listMode ? Infinity : 1);
     const n = people.length;
     if (aiOn && ev().isAdmin) $('#ai-summary-btn').hidden = alone();
-    // No answers, or (no guest yet) nothing to rank, pick or summarize.
-    if (!n || alone()) {
+    // No answers, or (no guest yet) nothing to rank or summarize: no "Best date" yet either.
+    // Answers collected some other way (by text, say)? Pick anyway, quietly, under sharing.
+    const empty = !n || alone();
+    $('#best-h').hidden = empty;
+    if (empty) {
       $('#best').innerHTML = `<div class="empty-state">
         ${n ? '<h3>Only your answer so far</h3><p class="hint">Share the link to see where everyone overlaps.</p>' : '<div class="venn-art" aria-hidden="true"><i></i><i></i><i></i></div><p><b>No answers yet.</b></p>'}
         <button class="btn" data-share>${canShare ? 'Share the poll' : 'Copy invite link'}</button>
+        ${n ? `<div><button type="button" class="link-btn" id="pick-anyway">Pick ${optionsMode ? 'an option' : listMode ? 'a date' : 'a time'} anyway</button></div>` : ''}
       </div>`;
       return;
     }
@@ -1446,6 +1450,12 @@ export async function renderEvent(id, navigate) {
   // ----- picking the final time -----
   $('#event-root').addEventListener('click', async (e) => {
     if (e.target.closest('[data-share]')) return canShare ? shareSheet() : $('#copy').click();
+    if (e.target.closest('#pick-anyway')) {
+      st.pickAnyway = true;
+      renderGroup();
+      renderBest();
+      return $('#best [data-pick]')?.focus();
+    }
     // Change the date: the next best dates, right in the banner, each with Pick.
     if (e.target.closest('#change-date, #change-cancel')) {
       st.changing = !!e.target.closest('#change-date');

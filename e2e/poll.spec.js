@@ -1795,6 +1795,39 @@ test('ask when people are free: zoom from whole days to parts of the day to hour
   await expect(page.locator('.part-vote')).toHaveCount(5);
 });
 
+test('the organizer alone can still pick: answers collected by text, then Pick a date anyway', async ({ page, request }) => {
+  const t0 = Date.UTC(2031, 0, 7, 18);
+  const H = 3_600_000;
+  const { id, adminToken } = await (
+    await request.post('/api/events', {
+      data: {
+        title: 'Book club',
+        organizer: 'Sam',
+        timezone: 'UTC',
+        mode: 'options',
+        hostAnswers: true,
+        options: [
+          { start: t0, end: t0 + 2 * H },
+          { start: t0 + 24 * H, end: t0 + 26 * H },
+        ],
+      },
+    })
+  ).json();
+  await page.goto(`/e/${id}#admin=${adminToken}`);
+  const best = page.locator('#best');
+  await expect(best).toContainText('Only your answer so far');
+  await best.getByRole('button', { name: 'Pick an option anyway' }).click();
+  // The usual ranking and Pick, ready to tap.
+  await expect(page.locator('#best-h')).toBeVisible();
+  const pick = page.locator('.best-hero [data-pick]');
+  await expect(pick).toBeFocused();
+  await pick.click();
+  await page.click('#pc-yes');
+  await expect(page.locator('.banner-final')).toBeVisible();
+  const ev = await (await request.get(`/api/events/${id}`)).json();
+  expect(ev.finalStart).toBe(t0);
+});
+
 test('on a phone, a new poll leads with sharing: one share button, the group, and the answer as one line', async ({
   page,
   browser,
@@ -1834,7 +1867,9 @@ test('on a phone, a new poll leads with sharing: one share button, the group, an
   await expect(best.locator('[data-share]')).not.toHaveClass(/btn-primary/);
   await expect(page.locator('#ev-meta')).toContainText('No answers yet');
   await expect(page.locator('#group-count')).toHaveText('');
-  for (const gone of ['.best-hero', '[data-pick]', '#overlap', '#ai-summary-btn']) await expect(page.locator(gone)).toBeHidden();
+  for (const gone of ['#best-h', '.best-hero', '[data-pick]', '#overlap', '#ai-summary-btn'])
+    await expect(page.locator(gone)).toBeHidden();
+  await expect(best.getByRole('button', { name: /^Pick an? \w+ anyway$/ })).toHaveClass('link-btn');
 
   // Their own tab shows the options in their poll, nothing to submit: their answer came with it.
   await page.click('#tab-mine');
