@@ -689,7 +689,7 @@ async function route(
       const { prompt, timezone } = await readJson(request);
       if (!isValidTimeZone(timezone)) throw new ValidationError('Unknown time zone');
       const { date: today, minutes: nowMinutes } = utcToZoned(now(), timezone);
-      const draft = typeof prompt === 'string' && draftFromWords(prompt, { today, nowMinutes });
+      const draft = typeof prompt === 'string' && draftFromWords(prompt, { today, nowMinutes, ai: aiEnabled(env) });
       return draft ? json(draft) : otherwise();
     }
     // Paid for by the key the person brought (kept in their browser, never stored), or by the

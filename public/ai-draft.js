@@ -229,7 +229,7 @@ export function aiDays(st, { empty, setRow, show, level, row }, { ai } = { ai: t
         'Fridays next month, or evenings this week',
         BUTTON,
         'Check the days before you create the poll.',
-        'Read by Venn, not AI.',
+        'Venn reads this itself.',
       ),
       'Describe it',
     );

@@ -20,7 +20,7 @@ test('no AI: “Fridays next month” picks next month’s Fridays to review, an
   await page.goto('/new');
   await expect(page.getByRole('button', { name: 'Use AI' })).toHaveCount(0); // nothing says AI where there's none
   await page.getByRole('button', { name: 'Describe it' }).click();
-  await expect(page.locator('#ai-draft .hint')).toContainText('Read by Venn, not AI.');
+  await expect(page.locator('#ai-draft .hint')).toHaveText('Venn reads this itself. Check the days before you create the poll.');
   await expect(page.locator('#ai-key-link')).toBeEmpty();
 
   // Words it can't read: said in the box, and the calendar is still there to tap.
@@ -32,7 +32,7 @@ test('no AI: “Fridays next month” picks next month’s Fridays to review, an
   await page.click('#ai-go');
   const done = page.locator('#ai-done');
   await expect(done).toBeVisible();
-  await expect(done.locator('.ai-done-note')).toHaveText('Read from your words, without AI. Check the days.');
+  await expect(done.locator('.ai-done-note')).toHaveText('Read from your words. Check the days.');
   const fridays = await fridaysNextMonth(page);
   const label = (d) =>
     new Intl.DateTimeFormat(undefined, { timeZone: 'UTC', month: 'short', day: 'numeric' }).format(new Date(`${d}T00:00:00Z`));

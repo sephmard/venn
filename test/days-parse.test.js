@@ -42,7 +42,7 @@ test('the brief’s seven prompts: the date ones get a draft, the others are lef
     ['2026-11-07', 'evening'],
     ['2026-11-08', 'evening'],
   ]);
-  assert.match(dateNight.note, /^Read from your words, without AI\. Check the days\. Took date night as evenings\.$/);
+  assert.match(dateNight.note, /^Read from your words\. Check the days\. Took date night as evenings\.$/);
 });
 
 test('weekdays, weekends, parts of the day, and spans', () => {
@@ -170,7 +170,7 @@ test('a server without AI reads plain words, in the person’s time zone, across
   const post = await serve(t, { env: {}, now: () => Date.UTC(2026, 10, 1, 4, 30) });
   const ny = await (await post({ prompt: 'this week, evenings', timezone: 'America/New_York' })).json();
   assert.deepEqual(pairs(ny), [['2026-11-01', 'evening']]);
-  assert.match(ny.note, /without AI/);
+  assert.equal(ny.note, 'Read from your words. Check the days.'); // no AI here, so it isn't mentioned
   const la = await (await post({ prompt: 'this week, evenings', timezone: 'America/Los_Angeles' })).json();
   assert.deepEqual(dates(la), ['2026-10-31', '2026-11-01']);
   // New Year's Eve in UTC is already New Year's Day in Auckland.
@@ -209,7 +209,9 @@ test('with AI but no allowance, plain words still get a draft; anything else ask
   });
   const ok = await post({ prompt: 'Fridays next month', timezone: 'UTC' });
   assert.equal(ok.status, 200);
-  assert.deepEqual(dates(await ok.json()), ['2026-12-04', '2026-12-11', '2026-12-18', '2026-12-25']);
+  const fridays = await ok.json();
+  assert.deepEqual(dates(fridays), ['2026-12-04', '2026-12-11', '2026-12-18', '2026-12-25']);
+  assert.equal(fridays.note, 'Read from your words, without AI. Check the days.'); // on a server with AI, said
   const no = await post({ prompt: 'whenever suits', timezone: 'UTC' });
   assert.equal(no.status, 402); // the key form, with "Fill it in yourself" (#227)
   assert.match((await no.json()).error, /Add your own Anthropic API key/);

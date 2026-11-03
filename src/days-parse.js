@@ -187,9 +187,10 @@ export function parseDays(text, { today }) {
 
 /**
  * The draft for the page, as draftDays (src/ai.js) gives it, read from the words alone; null when
- * they don't say plainly which days. Its note says it was read without AI, so it gets checked.
+ * they don't say plainly which days. Its note says it was read from the words, so it gets checked;
+ * on a server with AI (`ai`), that it was read without it.
  */
-export function draftFromWords(text, { today, nowMinutes = 0 }) {
+export function draftFromWords(text, { today, nowMinutes = 0, ai = false }) {
   const out = parseDays(text, { today });
   if (!out) return null;
   const draft = shapeDays(out, { today, nowMinutes });
@@ -197,6 +198,6 @@ export function draftFromWords(text, { today, nowMinutes = 0 }) {
   return {
     ...draft,
     byWords: true,
-    note: ['Read from your words, without AI. Check the days.', draft.note].filter(Boolean).join(' '),
+    note: [`Read from your words${ai ? ', without AI' : ''}. Check the days.`, draft.note].filter(Boolean).join(' '),
   };
 }

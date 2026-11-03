@@ -29,7 +29,7 @@ The full policy and acceptance matrix are tested in `test/days-draft.test.js` an
 
 ## Days from plain words, without AI
 
-Where AI can't answer, Create a Venn still reads simple descriptions of when, with no model at all (`src/days-parse.js`). That covers a server without AI, where the button says **Describe it** and the box says it's read by Venn, not AI. It also covers a server with AI when the person has no key of their own and the weekly allowance is used up. It runs only in those cases, never ahead of AI, and nothing is sent to Anthropic.
+Where AI can't answer, Create a Venn still reads simple descriptions of when, with no model at all (`src/days-parse.js`). That covers a server without AI, where the button says **Describe it** and the box says Venn reads it itself. It also covers a server with AI when the person has no key of their own and the weekly allowance is used up. It runs only in those cases, never ahead of AI, and nothing is sent to Anthropic.
 
 It understands:
 
@@ -42,7 +42,7 @@ It understands:
 - this month, next month, and a month by name ("in December", "late November")
 - a trip of a few days or nights, or a weekend trip
 
-Its answer goes through the same checks as AI's (`shapeDays` in `src/days-draft.js`) and is shown the same way, for review with Undo. It notes that it was read without AI, and says what it assumed, such as "Took date night as evenings."
+Its answer goes through the same checks as AI's (`shapeDays` in `src/days-draft.js`) and is shown the same way, for review with Undo. It notes that it was read from the words (on a server with AI, without AI), and says what it assumed, such as "Took date night as evenings."
 
 It leaves alone anything it can't read for sure: clock times, dates by number, "except", "ideally" or "if needed", and anything that sounds like a vote. Then the page goes on as before. Without AI, the box asks the person to name the days or pick them on the calendar. With AI but no key, the key form offers **Fill it in yourself**. Its cases are tested in `test/days-parse.test.js` and `e2e/no-ai-days.spec.js`.
 
