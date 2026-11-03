@@ -142,13 +142,14 @@ function done(said, undo) {
 
 /** The box's markup: a text area, its button, and where the key form opens. */
 const BUTTON = 'Fill it in';
+const SENT = 'Sent to Anthropic’s Claude.';
 const box = (
   cls,
   label,
   placeholder,
   button = BUTTON,
   after = 'Check everything before you create the poll.',
-  sent = 'Sent to Anthropic’s Claude.',
+  sent = SENT,
 ) => `<div class="ai-draft ${cls}" id="ai-draft">
     <label for="ai-prompt">${label}</label>
     <div class="ai-row">
@@ -157,7 +158,7 @@ const box = (
     </div>
     <p class="ai-wait" id="ai-wait" role="status" hidden><img src="/img/dog.webp" alt="" width="40" height="40">Finn is on it. Thinking…</p>
     <p class="field-err" id="ai-err" role="alert"></p>
-    <p class="hint">${sent} ${after} <span id="ai-key-link"></span></p>
+    <p class="hint"><span id="ai-sent">${sent}</span> ${after} <span id="ai-key-link"></span></p>
     <div id="ai-key-box" hidden></div>
   </div>`;
 
@@ -244,6 +245,9 @@ export function aiDays(st, { empty, setRow, show, level, row }, { ai } = { ai: t
       body: { prompt, timezone: $('#tz').value },
       headers: aiHeaders(),
     });
+    // With the free requests used up, plain words are read on Venn's server and nothing goes to
+    // Anthropic (src/days-parse.js), so the hint stops saying it does, until AI answers again.
+    if (ai) $('#ai-sent').textContent = draft.byWords ? 'Venn reads this itself.' : SENT;
     // Choosing what, not when ("Italian, Thai or Mexican?"): nothing is filled in; it offers a vote.
     if (!draft.days.length && draft.vote) return offerVote(draft.vote);
     const { iconEmoji, setIconEmoji, iconBg, setIconBg } = await import('./create.js'); // the page's own, already loaded

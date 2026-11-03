@@ -167,6 +167,41 @@ test('AI: when the free requests are used up, the key form also offers to carry 
   await expect(page.locator('[data-level="days"]')).toBeFocused();
 });
 
+test('AI: when the free requests are used up and Venn reads the words itself, the hint stops saying they go to Anthropic', async ({
+  page,
+}) => {
+  await page.goto('/new');
+  const date = addDays(await todayIn(page), 7);
+  const draft = (byWords) => ({
+    title: '',
+    emoji: '',
+    tile: '',
+    location: '',
+    level: 'days',
+    row: 1,
+    days: [{ date }],
+    note: byWords ? 'Read from your words, without AI. Check the days.' : '',
+    ...(byWords && { byWords: true }),
+  });
+  let byWords = true; // as the server answers once the allowance is used up (src/days-parse.js)
+  await page.route('**/api/ai/draft-days', (route) =>
+    route.fulfill({ contentType: 'application/json', body: JSON.stringify(draft(byWords)) }),
+  );
+  await page.click('#ai-open');
+  await expect(page.locator('#ai-sent')).toHaveText('Sent to Anthropic’s Claude.');
+  await describe(page, 'next week');
+  await page.click('#ai-open');
+  await expect(page.locator('#ai-draft .hint')).toContainText(
+    'Venn reads this itself. Check everything before you create the poll.',
+  );
+  await expect(page.locator('#ai-draft .hint')).not.toContainText('Anthropic');
+  // AI answers again (a key, or next week's allowance): the hint says so again.
+  byWords = false;
+  await describe(page, 'next week');
+  await page.click('#ai-open');
+  await expect(page.locator('#ai-sent')).toHaveText('Sent to Anthropic’s Claude.');
+});
+
 test('AI: a choice between things on Create a Venn offers a vote, and the vote opens filled in', async ({ page }) => {
   await page.goto('/new');
   await describe(page, 'Choose between Italian, Thai, and Mexican for dinner');
