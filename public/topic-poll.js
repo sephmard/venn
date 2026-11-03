@@ -162,7 +162,7 @@ export async function renderTopicPoll(ctx) {
         </header>
         ${guest && saved(id).adminToken ? `<p class="org-switch"><span>You made this poll. This is what your guests see.</span><button type="button" class="btn btn-sm" id="org-view">Organizer view</button></p>` : ''}
         ${picked ? decided(picked, guest) : ''}
-        <div id="org-tools"></div>
+        <div id="org-tools">${ev.isAdmin && !org ? '<p class="hint" role="alert">Couldn’t load the organizer tools. Reload the page.</p>' : ''}</div>
         <div id="notify-box"></div>
         <div id="invite-box"></div>
         <div id="deadline-box"></div>
@@ -278,9 +278,9 @@ export async function renderTopicPoll(ctx) {
     const hero =
       ev.picked != null
         ? ''
-        : waiting
-          ? org?.waiting(total)
-          : !top.length
+        : waiting && org
+          ? org.waiting(total)
+          : waiting || !top.length
             ? `<p class="empty-state muted">No answers yet. Share the link and the favourite shows here.</p>`
             : `<div class="best-hero">
           <p class="kicker">${leaderLabel(rows, { single: ev.single, total })}</p>

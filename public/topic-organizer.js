@@ -28,7 +28,10 @@ export function dateLink(ev, id, starters = null) {
  */
 export async function organize(page) {
   const { id, ctx, st, shareUrl } = page;
-  const [org, starters] = await Promise.all([import('./organizer.js'), import('./topic-templates.js').catch(() => null)]);
+  const [org, starters] = await Promise.all([
+    import('./organizer.js').catch(() => null),
+    import('./topic-templates.js').catch(() => null),
+  ]);
   const panels = {};
   const canShare = !!navigator.share && matchMedia('(pointer: coarse)').matches;
 
@@ -36,7 +39,7 @@ export async function organize(page) {
     panels[name] = open;
     $(`#${name}-open`)?.setAttribute('aria-expanded', open);
     if (!open) return ($(`#${name}-box`).innerHTML = '');
-    org[name]({
+    org?.[name]({
       id,
       ev: page.ev(),
       shareUrl,
@@ -107,7 +110,7 @@ export async function organize(page) {
         page.render();
         $('.t-results [data-pick]')?.focus();
       });
-      org.tools($('#org-tools'), {
+      org?.tools($('#org-tools'), {
         id,
         ev,
         open: false,
