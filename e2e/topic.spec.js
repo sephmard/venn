@@ -170,3 +170,95 @@ test('a leader on "if needed" alone isn’t called the favourite', async ({ page
   await expect(hero.locator('.kicker')).toHaveText('Everyone could go');
   await expect(hero).toContainText('2 of 2 would go (2 if needed)');
 });
+
+// A decided vote asks one question about what was picked, as a picked date does; a pick-one vote
+// asks nothing, so its tally stays as it was decided.
+async function decidedVote(request, { options, single = false, pick, answers = [] }) {
+  const made = await (
+    await request.post('/api/events', {
+      data: { title: 'Where should we eat?', organizer: 'Priya', timezone: 'UTC', mode: 'topic', single, options },
+    })
+  ).json();
+  const ev = await (await request.get(`/api/events/${made.id}`)).json();
+  const id = (label) => ev.options.find((o) => o.label === label).id;
+  for (const [name, said] of answers)
+    await request.post(`/api/events/${made.id}/participants`, {
+      data: { name, availability: Object.fromEntries(Object.entries(said).map(([l, v]) => [id(l), v])) },
+    });
+  return {
+    made,
+    id,
+    decide: () =>
+      request.post(`/api/events/${made.id}/finalize`, {
+        data: { option: id(pick) },
+        headers: { 'x-admin-token': made.adminToken },
+      }),
+  };
+}
+
+test('decided: "Are you in?" about the pick, answered as new and as before', async ({ page, browser }) => {
+  const { made, id, decide } = await decidedVote(page.request, { options: ['Rosa’s', 'Luigi’s', 'Taco Loco'], pick: 'Luigi’s' });
+  const url = `/e/${made.id}`;
+  // Marcus answers before it's decided: yes to Rosa's, no to Luigi's.
+  const ctx = await browser.newContext();
+  const m = await ctx.newPage();
+  await m.goto(url);
+  await m.locator('.topic-row', { hasText: 'Rosa’s' }).getByRole('radio', { name: 'Yes' }).click();
+  await m.locator('.topic-row', { hasText: 'Luigi’s' }).getByRole('radio', { name: 'No' }).click();
+  await m.getByLabel('Your name').fill('Marcus');
+  await m.getByRole('button', { name: 'Submit' }).click();
+  await expect(m.locator('#toast')).toContainText('your answer is in');
+  await decide();
+
+  // A new guest: one question, the options gone, the name as before.
+  await page.goto(url);
+  await expect(page.locator('.banner-final h2')).toHaveText('Luigi’s');
+  await expect(page.getByRole('heading', { name: 'It’s decided. Are you in?' })).toBeVisible();
+  await expect(page.locator('.topic-row')).toHaveCount(0);
+  const final = page.getByRole('group', { name: 'It’s decided. Are you in?' });
+  await expect(final.getByRole('button')).toHaveText(['Yes', 'If needed', 'No']);
+  await page.getByLabel('Your name').fill('Ana');
+  await page.getByRole('button', { name: 'Submit' }).click();
+  await expect(page.locator('#save-err')).toHaveText('Tap Yes, If needed or No first.');
+  await final.getByRole('button', { name: 'If needed' }).click();
+  await expect(final.getByRole('button', { name: 'If needed' })).toHaveAttribute('aria-pressed', 'true');
+  await page.getByRole('button', { name: 'Submit' }).click();
+  await expect(page.locator('#toast')).toContainText('your answer is in');
+  await noBlockingA11y(page, 'decided vote, guest');
+
+  // Marcus comes back: his no is pressed; a yes changes only Luigi's.
+  await m.reload();
+  const his = m.getByRole('group', { name: 'It’s decided. Are you in?' });
+  await expect(his.getByRole('button', { name: 'No' })).toHaveAttribute('aria-pressed', 'true');
+  await his.getByRole('button', { name: 'Yes' }).click();
+  await expect(his.getByRole('button', { name: 'No' })).toHaveAttribute('aria-pressed', 'false');
+  await m.getByRole('button', { name: 'Update answer' }).click();
+  await expect(m.locator('#toast')).toContainText('your answer is in');
+  await ctx.close();
+
+  const ev = await (await page.request.get(`/api/events/${made.id}`)).json();
+  const said = Object.fromEntries(ev.participants.map((p) => [p.name, p.availability]));
+  expect(said.Marcus).toEqual({ [id('Rosa’s')]: 2, [id('Luigi’s')]: 2 });
+  expect(said.Ana).toEqual({ [id('Luigi’s')]: 1 });
+});
+
+test('decided pick-one and yes-or-no votes ask nothing more', async ({ page }) => {
+  for (const [options, pick] of [
+    [['Rosa’s', 'Luigi’s'], 'Luigi’s'],
+    [['Yes', 'No'], 'No'],
+    [['Yes', 'No'], 'Yes'],
+  ]) {
+    const { made, decide } = await decidedVote(page.request, {
+      options,
+      single: true,
+      pick,
+      answers: [['Ben', { [options[0]]: 2 }]],
+    });
+    await decide();
+    await page.goto(`/e/${made.id}`);
+    await expect(page.locator('.banner-final h2')).toHaveText(pick);
+    await expect(page.locator('#mine-h, #answer-final, .topic-row, #save')).toHaveCount(0);
+    await expect(page.getByRole('heading', { name: 'The group' })).toBeVisible();
+    await expect(page.locator('.t-result', { hasText: options[0] })).toContainText('1 vote');
+  }
+});
