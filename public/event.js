@@ -1476,8 +1476,11 @@ export async function renderEvent(id, navigate) {
       const people = others();
       const r = rankTimes(ev(), ev().slots, people, Infinity).find((x) => x.start === start);
       const opts = { r, n: people.length, when: bigWhen(start, r ? r.end : meetingEnd(ev(), start)) };
-      if (!(await org.confirmPick({ ...opts, changing: ev().finalStart != null, daysMode })))
-        return btn.isConnected && btn.focus();
+      // organizer.js has the dialog. If it didn't load with the page, it's fetched now, under a new
+      // address (the browser won't fetch a module that failed again).
+      const o = org ?? (await import(`./organizer.js?try=${Date.now()}`).catch(() => null));
+      if (!o) return void toast("Couldn't load that. Try again.");
+      if (!(await o.confirmPick({ ...opts, changing: ev().finalStart != null, daysMode }))) return btn.isConnected && btn.focus();
     }
     st.changing = false;
     try {

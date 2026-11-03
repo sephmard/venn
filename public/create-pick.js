@@ -70,17 +70,22 @@ export function renderPick() {
   let half = null; // the mornings, afternoons and evenings, for half-day options
   let mounts = 0; // the half-day picker loads on demand: only the latest calendar shows when it arrives
   // Options with times: the week or day (time-view.js) and dragging its blocks (block-edit.js),
-  // fetched from the start, as most plans have times. A failed fetch is tried again by Try again.
+  // fetched from the start, as most plans have times. A failed fetch is tried again by Try again,
+  // under a new address: the browser remembers a module that failed and wouldn't fetch it again.
   let tv = null;
   let loading = null;
-  const loadTime = () =>
-    (loading ??= Promise.all([import('./time-view.js'), import('./block-edit.js')]).then(
+  let tries = 0;
+  const loadTime = () => {
+    const q = tries ? `?try=${tries}` : '';
+    return (loading ??= Promise.all([import(`./time-view.js${q}`), import(`./block-edit.js${q}`)]).then(
       (m) => (tv = m),
       (e) => {
         loading = null;
+        tries++;
         throw e;
       },
     ));
+  };
   loadTime().catch(() => {}); // said where the calendar goes, when it's needed (mountPicker)
   let nav = null; // more ways around the calendar (day-nav.js), loaded after the page
   let shown = []; // the days the calendar shows
@@ -194,9 +199,9 @@ export function renderPick() {
   function mountPicker() {
     if (timed() && !tv)
       return loadTime().then(
-        () => mountPicker(),
+        () => $('#picker') && mountPicker(), // unless the page was left meanwhile
         () => {
-          if (!timed() || tv) return; // the plan changed meanwhile
+          if (!$('#picker') || !timed() || tv) return; // the page or the plan changed meanwhile
           unmount();
           $('#picker').innerHTML =
             `<p class="error" role="alert">Couldn't load the calendar. Check your connection and try again. <button type="button" class="link-btn" id="picker-retry">Try again</button></p>`;
