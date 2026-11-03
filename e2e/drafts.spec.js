@@ -74,6 +74,44 @@ test('typing while the Vote form is still loading never changes the date poll’
   await expect(page.locator('#title')).toHaveValue('Cabin plans');
 });
 
+test('while the Vote form loads, the date form says so and takes no typing', async ({ page }) => {
+  await page.goto('/new');
+  await page.fill('#title', 'Cabin plans');
+  // A slow phone: the Vote form's code takes a moment.
+  let release;
+  const held = new Promise((done) => (release = done));
+  await page.route('**/create-topic.js', async (r) => {
+    await held;
+    await r.continue();
+  });
+  await page.click('.kind-switch a[href^="/new/topic"]');
+  // The switch shows Vote at once, and the date form is quiet and can't be typed in.
+  await expect(page.locator('.kind-switch a[href^="/new/topic"]')).toHaveAttribute('aria-current', 'page');
+  await expect(page.locator('.kind-switch a[href="/new"]')).not.toHaveAttribute('aria-current', 'page');
+  const form = page.locator('#create');
+  await expect(form).toHaveAttribute('aria-busy', 'true');
+  expect(await form.evaluate((f) => f.inert)).toBe(true);
+  // Tap the name field and type, as someone would who doesn't see anything happen yet.
+  const box = await page.locator('#title').boundingBox();
+  await page.mouse.click(box.x + box.width / 2, box.y + box.height / 2);
+  await page.keyboard.type('Oops');
+  await page
+    .locator('#title')
+    .press('End')
+    .catch(() => {}); // inert: a tap or key reaches nothing
+  await expect(page.locator('#title')).toHaveValue('Cabin plans');
+  // The Vote form arrives ready to use.
+  release();
+  await expect(page.locator('#opts input').first()).toBeVisible();
+  await expect(page.locator('#create')).not.toHaveAttribute('aria-busy', 'true');
+  expect(await page.locator('#create').evaluate((f) => f.inert)).toBe(false);
+  await page.fill('#title', 'Where should we stay?');
+  await expect(page.locator('#title')).toHaveValue('Where should we stay?');
+  // And the date poll is as it was left.
+  await page.click('.kind-switch a[href="/new"]');
+  await expect(page.locator('#title')).toHaveValue('Cabin plans');
+});
+
 test('a made poll leaves no draft, and a link that fills the form wins', async ({ page }) => {
   await page.goto('/new');
   const first = await nextMonth(page);
