@@ -200,14 +200,24 @@ export const escHtml = (s) =>
 export const MASCOT_PATH = '/img/venn-dog.png';
 const mascotUrl = (pageUrl) => `${new URL(MASCOT_PATH, pageUrl).href}?v=2`;
 
-/** `signed`: end with "Planned with Venn… make your own", for guests. Organizers already use Venn. */
-export function emailLayout(bodyHtml, footerHtml, pageUrl, { signed = true } = {}) {
+/**
+ * `signed`: end with "Planned with Venn… make your own", for guests. Organizers already use Venn.
+ * `whiteLabel`: a guest email for a white-label poll, `{ name, title }` from whiteLabelOf() in
+ * src/brands.js: the template's name as plain text in place of the dog and "Venn", and a neutral
+ * signature, so members never see Venn. Any guest email builder takes it and passes it on here.
+ */
+export function emailLayout(bodyHtml, footerHtml, pageUrl, { signed = true, whiteLabel = null } = {}) {
+  const top = whiteLabel
+    ? whiteLabel.name
+      ? `<div style="font-weight:700;font-size:18px;margin-bottom:16px">${escHtml(whiteLabel.name)}</div>`
+      : ''
+    : `<div style="text-align:center;margin-bottom:12px"><img src="${escHtml(mascotUrl(pageUrl))}" width="80" height="174" alt="Finn, the Venn dog" style="display:inline-block;border:0"></div>
+<div style="font-weight:700;font-size:18px;margin-bottom:16px">Venn</div>`;
   return `<!doctype html><html><body style="margin:0;padding:24px;background:#f7f7f5;font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;color:#1c1d1f">
 <div style="max-width:520px;margin:0 auto;background:#fff;border:1px solid #e2e2dc;border-radius:10px;padding:24px">
-<div style="text-align:center;margin-bottom:12px"><img src="${escHtml(mascotUrl(pageUrl))}" width="80" height="174" alt="Finn, the Venn dog" style="display:inline-block;border:0"></div>
-<div style="font-weight:700;font-size:18px;margin-bottom:16px">Venn</div>${bodyHtml}</div>
+${top}${bodyHtml}</div>
 <p style="max-width:520px;margin:12px auto 0;color:#6b6d70;font-size:12px;line-height:1.5">${footerHtml}</p>
-${signed ? `<p style="max-width:520px;margin:8px auto 0;color:#6b6d70;font-size:12px;line-height:1.5">${signature(pageUrl, true)}</p>` : ''}</body></html>`;
+${signed ? `<p style="max-width:520px;margin:8px auto 0;color:#6b6d70;font-size:12px;line-height:1.5">${signature(pageUrl, true, whiteLabel)}</p>` : ''}</body></html>`;
 }
 
 /**
@@ -245,8 +255,15 @@ const RETRO = [
 export const retroEmail = (html) => RETRO.reduce((h, [from, to]) => h.split(from).join(to), html);
 const styled = (html, retro) => (retro ? retroEmail(html) : html);
 
-/** "Planned with Venn", at the end of every email and calendar event: how the next organizer finds it. */
-export function signature(pageUrl, html = false) {
+/**
+ * "Planned with Venn", at the end of every guest email: how the next organizer finds it. On a
+ * white-label poll (`whiteLabel` from whiteLabelOf()), who it was sent for instead.
+ */
+export function signature(pageUrl, html = false, whiteLabel = null) {
+  if (whiteLabel) {
+    const line = `Sent for the organizer of “${whiteLabel.title}”.`;
+    return html ? escHtml(line) : line;
+  }
   const site = new URL(pageUrl).origin;
   const make = `${site}/new?from=email`; // for usage stats: new polls that came from an email
   return html
@@ -346,6 +363,7 @@ export function deadlineReminderEmail({
   unsubscribeUrl,
   last = false,
   retro = false,
+  whiteLabel = null,
 }) {
   const who = organizer ? `${organizer} is` : "You're";
   const subject = last ? `Last chance: when works for “${title}”?` : `When works for “${title}”?`;
@@ -359,6 +377,7 @@ export function deadlineReminderEmail({
     )}${button(answerUrl, 'Answer the poll')}`,
     `You get these reminders because the organizer invited this address to “${escHtml(title)}”. <a href="${escHtml(unsubscribeUrl)}" style="color:#6b6d70">Stop these reminders</a>.`,
     pollUrl,
+    { whiteLabel },
   );
   return { subject, text, html: styled(html, retro) };
 }
@@ -378,6 +397,7 @@ export function inviteEmail({
   answerUrl = pollUrl,
   unsubscribeUrl,
   retro = false,
+  whiteLabel = null,
 }) {
   const who = organizer || 'Someone';
   const subject = topic ? `${who} wants your vote: “${title}”` : `${who} invited you: when works for “${title}”?`;
@@ -390,8 +410,9 @@ export function inviteEmail({
     `${heading(topic ? 'Your vote, please 🗳️' : 'When works for you? 🗓️')}${para(escHtml(lead))}${para(
       `It takes a few seconds, no sign-up.${closes ? ` Answers close <strong>${escHtml(closes)}</strong>.` : ''}`,
     )}${button(answerUrl, topic ? 'Vote' : 'Answer the poll')}`,
-    `You got this because ${escHtml(who)} added this address to “${escHtml(title)}” on Venn. <a href="${escHtml(unsubscribeUrl)}" style="color:#6b6d70">Stop emails about this poll</a>.`,
+    `You got this because ${escHtml(who)} added this address to “${escHtml(title)}”${whiteLabel ? '' : ' on Venn'}. <a href="${escHtml(unsubscribeUrl)}" style="color:#6b6d70">Stop emails about this poll</a>.`,
     pollUrl,
+    { whiteLabel },
   );
   return { subject, text, html: styled(html, retro) };
 }
@@ -422,19 +443,21 @@ export function answersClosedEmail({ title, answered, waiting, best, topic = fal
  * To everyone who answered with their email, once the organizer picks the date: it's happening, and
  * one tap to put it in their calendar. `when` is the date in the poll's time zone (src/preview.js).
  */
-export function dateSetEmail({ title, when, location, pollUrl, calendars, retro = false }) {
+export function dateSetEmail({ title, when, location, pollUrl, calendars, retro = false, whiteLabel = null }) {
   const subject = `It's happening: ${title}, ${when} 🎉`;
   const where = location ? `\nWhere: ${location}` : '';
-  let text = `It's happening! “${title}” is on ${when}.${where}\n\nAdd it to your calendar:\n${calendars.map(([l, u]) => `${l}: ${u}`).join('\n')}\n\nThe poll: ${pollUrl}\n\nYou get this one email because you answered “${title}” with this address. Venn won't email you again about it.\n`;
-  text += `\n${signature(pollUrl)}\n`;
+  const once = whiteLabel ? "You won't get another email about it." : "Venn won't email you again about it.";
+  let text = `It's happening! “${title}” is on ${when}.${where}\n\nAdd it to your calendar:\n${calendars.map(([l, u]) => `${l}: ${u}`).join('\n')}\n\nThe poll: ${pollUrl}\n\nYou get this one email because you answered “${title}” with this address. ${once}\n`;
+  text += `\n${signature(pollUrl, false, whiteLabel)}\n`;
   const html = emailLayout(
     `${heading('It’s happening! 🎉')}${para(`<strong>${escHtml(title)}</strong> is on <strong>${escHtml(when)}</strong>.`)}${
       location ? para(`📍 ${escHtml(location)}`) : ''
     }<p style="margin:16px 0 8px;font-weight:700">Add it to your calendar</p><p style="margin:0 0 12px">${calendars
       .map(([label, href]) => sharePill(href, label))
       .join('')}</p>${para(`<a href="${escHtml(pollUrl)}" style="color:#0b7a5c">See the poll</a>`)}`,
-    `You get this one email because you answered “${escHtml(title)}” with this address. Venn won't email you again about it.`,
+    `You get this one email because you answered “${escHtml(title)}” with this address. ${once}`,
     pollUrl,
+    { whiteLabel },
   );
   return { subject, text, html: styled(html, retro) };
 }
@@ -530,11 +553,12 @@ export function answerLines(ev, availability) {
  * A copy of someone's answer, for them: what they said, their own link to see and change it, and
  * the poll. `seeAnswers` is false when the organizer hides everyone's answers.
  */
-export function answerCopyEmail({ title, name, lines, pollUrl, editUrl, seeAnswers = true, retro = false }) {
+export function answerCopyEmail({ title, name, lines, pollUrl, editUrl, seeAnswers = true, retro = false, whiteLabel = null }) {
   const subject = `Your answer to “${title}”`;
   const list = lines.length ? lines : null;
   const pollLabel = seeAnswers ? "See everyone's answers" : 'Open the poll';
-  let text = `Hi ${name}, here's what you told Venn for “${title}”:\n\n${
+  const told = whiteLabel ? 'you answered' : 'you told Venn';
+  let text = `Hi ${name}, here's what ${told} for “${title}”:\n\n${
     list ? list.map((l) => `- ${l.label}: ${l.answer}`).join('\n') : 'None of these work.'
   }\n\nYour answer (open it to change it): ${editUrl}\nThis link is just for you, so don't share it.\n\n${pollLabel}: ${pollUrl}\n\nKnow someone else who should answer? Send them the poll: ${pollUrl}\n\nYou asked for this copy when you answered. If that wasn't you, ignore this email.\n`;
   const items = list
@@ -542,9 +566,9 @@ export function answerCopyEmail({ title, name, lines, pollUrl, editUrl, seeAnswe
         .map((l) => `<li>${escHtml(l.label)}: <strong>${escHtml(l.answer)}</strong></li>`)
         .join('')}</ul>`
     : para('None of these work.');
-  text += `\n${signature(pollUrl)}\n`;
+  text += `\n${signature(pollUrl, false, whiteLabel)}\n`;
   const html = emailLayout(
-    `${para(`Hi ${escHtml(name)}, here's what you told Venn for <strong>${escHtml(title)}</strong>:`)}${items}${button(
+    `${para(`Hi ${escHtml(name)}, here's what ${told} for <strong>${escHtml(title)}</strong>:`)}${items}${button(
       editUrl,
       'View or change your answer',
     )}${linkLine(editUrl)}${para("This link is just for you, so don't share it.")}${para(
@@ -552,6 +576,7 @@ export function answerCopyEmail({ title, name, lines, pollUrl, editUrl, seeAnswe
     )}`,
     "You asked for this copy when you answered the poll. If that wasn't you, ignore this email and nothing more will be sent.",
     pollUrl,
+    { whiteLabel },
   );
   return { subject, text, html: styled(html, retro) };
 }
