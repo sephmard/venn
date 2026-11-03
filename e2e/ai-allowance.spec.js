@@ -31,6 +31,9 @@ test('AI allowance: used up on Create a Venn, it says Venn reads the words itsel
   await expect(hint(page)).toHaveText(
     'This week’s free AI requests are used up, so Venn reads this itself. Check everything before you create the poll. Use your own key',
   );
+  // The heading follows: no AI fills in the poll now.
+  const heading = page.locator('label[for="ai-prompt"]');
+  await expect(heading).toHaveText('Say when, and Venn picks the days');
   const box = await keyLink(page).boundingBox();
   expect(box.height).toBeGreaterThanOrEqual(44); // to tap, though it sits in a line of text
   // With a key of their own saved, AI answers again, so the hint says where it goes.
@@ -38,6 +41,7 @@ test('AI allowance: used up on Create a Venn, it says Venn reads the words itsel
   await page.fill('#ai-key-in', `sk-ant-${'x'.repeat(30)}`);
   await page.click('#ai-key-save');
   await expect(hint(page)).toHaveText('Sent to Anthropic’s Claude. Check everything before you create the poll. Your key');
+  await expect(heading).toHaveText('Describe it, and AI fills in the poll');
 });
 
 test('AI allowance: used up on a vote, it says so before the key link', async ({ page }) => {

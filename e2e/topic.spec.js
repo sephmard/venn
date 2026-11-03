@@ -1,5 +1,6 @@
 import { test, expect } from '@playwright/test';
 import AxeBuilder from '@axe-core/playwright';
+import { mockConfig } from './helpers.js';
 
 // Topic polls: decide what or where (not when), then find a date for it.
 
@@ -134,13 +135,7 @@ async function voteFor(page, config) {
       data: { title: 'Where to?', organizer: 'Priya', timezone: 'UTC', mode: 'topic', options: ['Park', 'Beach'] },
     })
   ).json();
-  // Only keys the real /api/config sends, so a misspelt one can't make these tests pass.
-  const real = await (await page.request.get('/api/config')).json();
-  expect(Object.keys(config).filter((key) => !(key in real))).toEqual([]);
-  await page.route('**/api/config', async (route) => {
-    const res = await route.fetch();
-    await route.fulfill({ response: res, json: { ...(await res.json()), ...config } });
-  });
+  await mockConfig(page, config); // only keys the real /api/config sends
   return { id, adminToken };
 }
 

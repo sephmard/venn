@@ -106,7 +106,7 @@ const CASES = [
     model: answer({ title: 'Catch up with Sam', timeOfDay: 'parts', usualParts: [], days: ['2026-11-04', '2026-11-05'] }),
     level: 'days',
     want: W(['2026-11-04', '2026-11-05'], 'all'),
-    note: /No part of the day was given, so it asks about whole days\./,
+    note: /No time of day given, so it's whole days\./,
     words: 'same',
   },
   {
