@@ -159,6 +159,15 @@ const box = (
     <div id="ai-key-box" hidden></div>
   </div>`;
 
+/** No key: close the box and go to the form AI would have filled, focused on its first control. */
+function byHand() {
+  closeBox();
+  const after = [...$('.ai-head').parentElement.children].filter((el) => !el.matches('.ai-head, .ai-draft, .ai-done'));
+  const field = after.map((el) => el.querySelector('input:not([type=hidden]), button, textarea, select')).find(Boolean);
+  (field || $('#ai-open'))?.focus({ preventScroll: true });
+  (field || $('#ai-open'))?.scrollIntoView({ block: 'center' });
+}
+
 /** Wire the box: `fill(prompt)` asks and fills in, and says what it did. */
 function wire(fill, button = BUTTON) {
   $('#ai-key-link').innerHTML = keyLink();
@@ -175,7 +184,7 @@ function wire(fill, button = BUTTON) {
       await fill(prompt);
     } catch (ex) {
       // A key problem opens the key form; anything else is said in the box, with what to do.
-      if (keyProblem(ex)) aiFailed(ex, $('#ai-key-box'), go);
+      if (keyProblem(ex)) aiFailed(ex, $('#ai-key-box'), go, byHand);
       else $('#ai-err').textContent = ex.message || 'AI didn’t answer. Try again in a moment.';
     } finally {
       btn.disabled = false;
