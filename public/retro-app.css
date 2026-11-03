@@ -46,8 +46,11 @@ html.retro {
 }
 /* The night sky and the scanlines are fixed layers of their own, which phones move without
    repainting as the page scrolls (a fixed background attachment repaints on every frame). */
+/* The canvas is the sky's last colour, so whatever shows past the page (Safari's bottom bar, an
+   overscroll) runs on from it instead of a darker band. */
+html.retro,
 html.retro body {
-  background: #0d0221;
+  background: #24083f;
 }
 html.retro body::before,
 html.retro body::after {
