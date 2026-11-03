@@ -30,6 +30,13 @@ const SCHEMA = [
      email TEXT NOT NULL
    )`,
   `CREATE INDEX IF NOT EXISTS participant_emails_event ON participant_emails(event_id)`,
+  // A one-line note on an answer ("Can only stay till 9"). Shown with the answer, never sent anywhere.
+  `CREATE TABLE IF NOT EXISTS participant_notes (
+     participant_id TEXT PRIMARY KEY,
+     event_id TEXT NOT NULL,
+     note TEXT NOT NULL
+   )`,
+  `CREATE INDEX IF NOT EXISTS participant_notes_event ON participant_notes(event_id)`,
   // Usage stats (src/usage.js): a count per day, event and set of properties. Nothing else.
   `CREATE TABLE IF NOT EXISTS usage_counts (
      day TEXT NOT NULL,
@@ -253,6 +260,7 @@ export function createStore(db) {
     async deleteEvent(id) {
       await init();
       await db.run('DELETE FROM participant_emails WHERE event_id = ?', [id]);
+      await db.run('DELETE FROM participant_notes WHERE event_id = ?', [id]);
       await db.run('DELETE FROM notifications WHERE event_id = ?', [id]);
       await db.run('DELETE FROM event_images WHERE event_id = ?', [id]);
       await db.run('DELETE FROM reminders WHERE event_id = ?', [id]);
@@ -871,6 +879,7 @@ export function createStore(db) {
       await init();
       await db.run('DELETE FROM participants WHERE event_id = ? AND id = ?', [eventId, id]);
       await db.run('DELETE FROM participant_emails WHERE participant_id = ?', [id]);
+      await db.run('DELETE FROM participant_notes WHERE participant_id = ?', [id]);
       await db.run("DELETE FROM owners WHERE kind = 'answer' AND item_id = ?", [id]);
     },
 
@@ -976,6 +985,23 @@ export function createStore(db) {
       );
       // Only today's count matters; older days go.
       await db.run('DELETE FROM email_sends WHERE user_id = ? AND day < ?', [userId, day]);
+    },
+
+    /** Save (or, with no note, forget) the note on an answer. */
+    async setParticipantNote(eventId, id, note) {
+      await init();
+      if (!note) return db.run('DELETE FROM participant_notes WHERE participant_id = ?', [id]);
+      await db.run(
+        'INSERT INTO participant_notes (participant_id, event_id, note) VALUES (?, ?, ?) ON CONFLICT(participant_id) DO UPDATE SET note = excluded.note',
+        [id, eventId, note],
+      );
+    },
+
+    /** Participant id → note, for one poll. */
+    async listNotes(eventId) {
+      await init();
+      const rows = await db.all('SELECT participant_id, note FROM participant_notes WHERE event_id = ?', [eventId]);
+      return new Map(rows.map((r) => [r.participant_id, r.note]));
     },
 
     /** Participant id → email, for one poll. */

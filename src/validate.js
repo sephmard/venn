@@ -281,3 +281,20 @@ export function normalizeAnswer(av, slots, topic) {
 export function normalizeName(name) {
   return cleanText(name, LIMITS.name, 'Name', true);
 }
+
+/**
+ * A one-line note on an answer ("Can only stay till 9"): plain text, one line, at most
+ * LIMITS.note whole characters. Control, bidi and zero-width characters go, and whitespace
+ * (newlines too) becomes single spaces. Empty is no note: null.
+ */
+export function normalizeNote(note) {
+  if (note == null) return null;
+  if (typeof note !== 'string') throw new ValidationError('The note must be text');
+  const clean = note
+    // eslint-disable-next-line no-control-regex -- control characters are exactly what goes
+    .replace(/[\u0000-\u001f\u007f-\u009f\u200b-\u200f\u202a-\u202e\u2060-\u2069\ufeff]/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+  if (Array.from(clean).length > LIMITS.note) throw new ValidationError(`Keep the note to ${LIMITS.note} characters.`);
+  return clean || null;
+}

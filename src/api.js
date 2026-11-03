@@ -16,7 +16,14 @@ import { buildIcs, googleCalendarUrl, outlookCalendarUrl } from '../public/calen
 import { setLabel } from './preview.js';
 import { applyDeadline, closesLabel, deadlineView, isClosed, normalizeDeadline, remindNow, stopReminders } from './deadline.js';
 import { inviteRoom, newInvitees, normalizeInvitees, sendInvites } from './invites.js';
-import { checkSingle, normalizeAnswer, normalizeAvailability, normalizeEventInput, normalizeName } from './validate.js';
+import {
+  checkSingle,
+  normalizeAnswer,
+  normalizeAvailability,
+  normalizeEventInput,
+  normalizeName,
+  normalizeNote,
+} from './validate.js';
 import { SECURITY_HEADERS } from './security-headers.js';
 import { IMAGE_FILES, IMAGE_LIMITS, MAX_IMAGE_BODY, imagePath, imageResponse, parseImage } from './images.js';
 import { BRAND_ID_RE, BRAND_ROLES, MAX_BRAND_INVITES, hidesVenn, whiteLabelOf, normalizeBrand, publicBrand } from './brands.js';
@@ -154,17 +161,21 @@ function applyPrivacy(event, body) {
  * The poll as one visitor may see it. The organizer sees everything, including emails. Everyone
  * else sees their own answer in full; other people's names are swapped for "Guest 1, 2…" when the
  * organizer hides names, and other people's answers are left out when the organizer hides them.
+ * A note on an answer goes with it, except that a guest sees no one else's when names or answers
+ * are hidden: a note can say who wrote it.
  */
-function publicEvent(ev, participants, { isAdmin, ownHash = null, ownId = null, emails = new Map() }) {
+function publicEvent(ev, participants, { isAdmin, ownHash = null, ownId = null, emails = new Map(), notes = new Map() }) {
   // `repeat`: how often a plan repeated, on polls from before that was taken out.
   const { adminHash, hostId, repeat, ...rest } = ev;
   const own = (p) => (ownHash !== null && p.editHash === ownHash) || (ownId !== null && p.id === ownId);
   const visible = isAdmin || !ev.hideResults ? participants : participants.filter(own);
   let guest = 0;
   const list = visible.map(({ editHash, ...p }) => {
-    if (isAdmin || own({ editHash, id: p.id })) return emails.has(p.id) ? { ...p, email: emails.get(p.id) } : p;
+    const note = notes.get(p.id);
+    if (isAdmin || own({ editHash, id: p.id }))
+      return { ...p, ...(emails.has(p.id) && { email: emails.get(p.id) }), ...(note && { note }) };
     guest += 1;
-    return ev.hideNames ? { ...p, name: `Guest ${guest}` } : p;
+    return ev.hideNames ? { ...p, name: `Guest ${guest}` } : { ...p, ...(note && { note }) };
   });
   return {
     ...rest,
@@ -1027,7 +1038,8 @@ async function route(
           const limited = await allowed('results');
           if (!limited.ok) return tooFast(limited);
         }
-        const out = publicEvent(ev, await store.listParticipants(ev.id), { isAdmin, ownHash, ownId, emails });
+        const notes = await store.listNotes(ev.id);
+        const out = publicEvent(ev, await store.listParticipants(ev.id), { isAdmin, ownHash, ownId, emails, notes });
         if (wantsResults && !('responses' in out)) out.results = pollResults(ev, out.slots, out.participants);
         // Its brand template's look, while the template lasts (deleted, the poll is plain Venn again).
         const brand = ev.brand && (await store.getBrand(ev.brand));
@@ -1456,6 +1468,7 @@ async function route(
       const availability = checkSingle(ev, answer.availability);
       const copyTo = normalizeEmail(body.copyTo);
       const email = participantEmail(ev, body);
+      const note = normalizeNote(body.note);
       if ((await store.countParticipants(ev.id)) >= LIMITS.participants)
         throw new ValidationError('This poll has reached the participant limit');
       const id = randomId(10);
@@ -1469,6 +1482,7 @@ async function route(
         now: now(),
       });
       if (email) await store.setParticipantEmail(ev.id, id, email);
+      if (note) await store.setParticipantNote(ev.id, id, note);
       await sendCopy(ev, copyTo, { participantId: id, editToken, name, availability });
       // The organizer's first answer (sent with their link) is theirs: they aren't told about it, and
       // the poll can still be changed until someone else answers.
@@ -1477,7 +1491,7 @@ async function route(
         await store.updateEvent(ev.id, { ...data, hostId: id });
       } else {
         notify(ev, 'response.created', id, name);
-        count('answer.created', { ...kindOf(ev), copy: copyTo ? 'yes' : 'no' });
+        count('answer.created', { ...kindOf(ev), copy: copyTo ? 'yes' : 'no', note: note ? 'yes' : 'no' });
         // Signed in, it's kept with the account: My polls lists it under Answered.
         if (!isAdmin) await keepWithAccount('answer', id);
       }
@@ -1507,17 +1521,20 @@ async function route(
         const availability = checkSingle(ev, answer.availability);
         const copyTo = normalizeEmail(body.copyTo);
         const email = isHost ? null : participantEmail(ev, body);
+        // Sent without a note (an older page, or its module didn't load), the note stays as it was.
+        const note = 'note' in body ? normalizeNote(body.note) : (await store.listNotes(ev.id)).get(p.id);
         await store.updateParticipant({ id: p.id, eventId: ev.id, name, availability, now: now() });
         // Changed with its link while signed in: from now on it's with the account too.
         if (byLink && !isHost) await keepWithAccount('answer', p.id);
         // An answer sent with an email field sets it, or takes it away when left empty.
         if (!isHost && 'email' in body) await store.setParticipantEmail(ev.id, p.id, email);
+        if ('note' in body) await store.setParticipantNote(ev.id, p.id, note);
         const editToken = request.headers.get('x-edit-token');
         if (editToken) await sendCopy(ev, copyTo, { participantId: p.id, editToken, name, availability });
         // The organizer isn't told about their own answer.
         if (!isHost) {
           notify(ev, 'response.updated', p.id, name);
-          count('answer.updated', kindOf(ev));
+          count('answer.updated', { ...kindOf(ev), note: note ? 'yes' : 'no' });
         }
         return json({ ok: true, ...ignoredKeys(answer) });
       }

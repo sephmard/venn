@@ -2856,3 +2856,22 @@ html.embed body {
 .embed-no-share .guest-share {
   display: none !important;
 }
+
+/* A note on an answer (answer-note.js): room for its link before it loads, and the group's Notes. */
+#note-slot {
+  min-height: 44px;
+}
+.answer-notes {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  overflow-wrap: anywhere;
+}
+.answer-notes li {
+  padding: 8px 0;
+  border-top: 1px solid var(--border);
+}
+#notes-slot .kicker {
+  font-size: 1rem;
+  margin: 16px 0 4px;
+}
