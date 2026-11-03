@@ -192,7 +192,7 @@ export async function renderTopicPoll(ctx) {
             </div>
             <div class="save-bar">
               <div><span id="save-state" class="hint">${locked ? `Answers are closed. ${esc(ev.organizer || 'The organizer')} is picking one.` : st.draft ? 'Not sent yet' : me() ? 'Your answer is in. Change it any time.' : ''}</span><div class="error" id="save-err" role="alert"></div></div>
-              <button type="button" class="btn btn-primary" id="save"${locked ? ' disabled' : ''}>${me() ? 'Update' : 'Submit'}</button>
+              <button type="button" class="btn btn-primary" id="save"${locked ? ' disabled' : ''}>${me() ? 'Update answer' : 'Submit'}</button>
             </div>
           </section>
           <section class="panel active" aria-labelledby="group-h">

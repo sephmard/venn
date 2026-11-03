@@ -1188,11 +1188,13 @@ ol.best .when {
 .chip.person {
   cursor: pointer;
   min-height: 44px;
-  padding-right: 14px;
-  border: 1.5px solid transparent;
+  /* The name's button fills the chip top to bottom, so the whole 44px is the tap target. The ring is
+     drawn inside, so it adds no height. */
+  padding: 0 14px 0 0;
+  box-shadow: inset 0 0 0 1.5px transparent;
 }
 .chip.person:has([aria-pressed='true']) {
-  border-color: var(--accent);
+  box-shadow: inset 0 0 0 1.5px var(--accent);
   background: var(--accent-soft);
 }
 /* The name is its own button, with the remove button beside it. */
@@ -1204,7 +1206,8 @@ ol.best .when {
   font: inherit;
   color: inherit;
   font-size: inherit;
-  min-height: 36px;
+  min-height: 44px;
+  padding-left: 4px;
   min-width: 0;
   text-align: left;
 }

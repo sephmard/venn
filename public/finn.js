@@ -63,7 +63,7 @@ function styles() {
 }
 
 // Celebrating: Finn's stickers, turning over on their own.
-const STICKER_MOMENTS = ['picked', 'match'];
+const STICKER_MOMENTS = ['picked', 'match', 'matchMaybe'];
 
 /** Finn and whatever's above Finn's head. Decorative: the words say what's going on. */
 const figure = (extras) =>

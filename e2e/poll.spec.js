@@ -1658,13 +1658,14 @@ test.describe('in UTC', () => {
     await expect(check).toBeHidden();
     await expect(page.locator('.party-hero img')).toHaveCount(1);
     await expect(page.locator('.party')).toHaveCount(0, { timeout: 10_000 }); // it goes by itself
-    await expect(page.locator('#save')).toHaveText('Submit');
+    await expect(page.locator('#save')).toHaveText('Update answer');
     await expect(page.locator('#save-state')).toHaveText('Submitted');
-    // Changing it later says so. (Phones show the group after the first answer; go back to yours.)
+    // Changing it later says so, quietly: no second party. (Phones show the group after the first
+    // answer; go back to yours.)
     if (await page.locator('#tab-mine').isVisible()) await page.click('#tab-mine');
     await page.click('#save');
-    await expect(page.locator('.party [role=status]')).toContainText('Answer updated!');
-    await page.click('.party-go');
+    await expect(page.locator('#toast')).toHaveText('Answer updated.');
+    await expect(page.locator('.party')).toHaveCount(0);
   });
 });
 
@@ -2066,7 +2067,7 @@ test('parts of the day: "All day" marks every part of a day in one tap', async (
   await expect(allDay).toHaveAttribute('aria-pressed', 'false');
   await page.fill('#name', 'Ana');
   await submit(page);
-  await expect(page.locator('#save')).toHaveText('Submit', { timeout: 10_000 });
+  await expect(page.locator('#save')).toHaveText('Update answer', { timeout: 10_000 });
   const ev = await (await request.get(`/api/events/${id}`)).json();
   expect(ev.participants[0].availability).toEqual({
     [options[0].start]: 2,
@@ -2941,7 +2942,8 @@ test('Submit asks "are you sure?" only when some options have no answer, and the
   await row(2).locator('[data-vote="2"]').click();
   await expect(state).toHaveText('Ready to submit');
   await page.click('#save');
-  await expect(page.locator('.party [role=status]')).toContainText('Answer updated!');
+  await expect(page.locator('#toast')).toHaveText('Answer updated.');
+  await expect(page.locator('.party')).toHaveCount(0);
 });
 
 test('guests see the first option sooner: share at the bottom, no view switch for a short poll, quick answers under the options', async ({

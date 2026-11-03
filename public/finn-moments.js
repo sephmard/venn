@@ -17,6 +17,16 @@ export const MOMENTS = {
       'This is a date you can make. Finn approves.',
     ],
   },
+  // The same, for a guest who said only "if needed" to it: no cheering a plain yes they didn't give.
+  matchMaybe: {
+    pose: 'wag',
+    extra: ['heart'],
+    lines: [
+      'You said if needed. Finn’s saving you a spot.',
+      'It’s a date you said you could make if needed. Finn hopes it works out.',
+      'You can make this one if needed. Finn’s keeping your seat warm.',
+    ],
+  },
   picked: {
     pose: 'hop',
     extra: ['hat'],
@@ -81,17 +91,18 @@ export function pickLine(moment, rng = Math.random) {
   return lines[Math.min(lines.length - 1, Math.floor(rng() * lines.length))];
 }
 
-/** Did `p` answer yes or if needed for the picked date? */
+/** How `p` answered for the picked date: 'yes', 'maybe' (only if needed) or null (can't, or no answer). */
 function canMake(ev, p) {
-  if (!p) return false;
+  if (!p) return null;
   const [hit] = rankTimes(ev, ev.slots || [], [p], Infinity).filter((r) => r.start === ev.finalStart);
-  return !!hit && !hit.no.length;
+  return !hit || hit.no.length ? null : hit.yes.length ? 'yes' : 'maybe';
 }
 
 /**
  * Which moment a poll is at, for whoever is looking (`meId`: their own answer's id, if they've
  * answered), or null when it's nothing Finn needs to say anything about.
- * - match: the date is picked, and it's one this guest said they could make
+ * - match: the date is picked, and it's one this guest said yes to
+ * - matchMaybe: the same, but they said only if needed
  * - picked: the date is picked
  * - everyone: no date yet, but at least three people answered and one works for all of them
  * - soFar: the same, for a guest who hasn't answered yet
@@ -103,7 +114,8 @@ export function momentFor(ev, { meId = null } = {}) {
   const people = ev.participants || [];
   if (ev.finalStart != null) {
     const me = !ev.isAdmin && people.find((p) => p.id === meId);
-    return me && canMake(ev, me) ? 'match' : 'picked';
+    const can = me && canMake(ev, me);
+    return can === 'yes' ? 'match' : can === 'maybe' ? 'matchMaybe' : 'picked';
   }
   if (people.length >= 3) {
     const [best] = rankTimes(ev, ev.slots || [], people, 1);
