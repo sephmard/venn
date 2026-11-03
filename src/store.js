@@ -30,6 +30,14 @@ const SCHEMA = [
      email TEXT NOT NULL
    )`,
   `CREATE INDEX IF NOT EXISTS participant_emails_event ON participant_emails(event_id)`,
+  // Who a poll emailed today (src/recipients.js), as hashes, for its daily cap. Cleared after two days.
+  `CREATE TABLE IF NOT EXISTS email_recipients (
+     event_id TEXT NOT NULL,
+     day TEXT NOT NULL,
+     recipient_hash TEXT NOT NULL,
+     PRIMARY KEY (event_id, day, recipient_hash)
+   )`,
+  `CREATE INDEX IF NOT EXISTS email_recipients_day ON email_recipients(day)`,
   // A one-line note on an answer ("Can only stay till 9"). Shown with the answer, never sent anywhere.
   `CREATE TABLE IF NOT EXISTS participant_notes (
      participant_id TEXT PRIMARY KEY,
@@ -261,6 +269,7 @@ export function createStore(db) {
       await init();
       await db.run('DELETE FROM participant_emails WHERE event_id = ?', [id]);
       await db.run('DELETE FROM participant_notes WHERE event_id = ?', [id]);
+      await db.run('DELETE FROM email_recipients WHERE event_id = ?', [id]);
       await db.run('DELETE FROM notifications WHERE event_id = ?', [id]);
       await db.run('DELETE FROM event_images WHERE event_id = ?', [id]);
       await db.run('DELETE FROM reminders WHERE event_id = ?', [id]);
@@ -1002,6 +1011,27 @@ export function createStore(db) {
       await init();
       const rows = await db.all('SELECT participant_id, note FROM participant_notes WHERE event_id = ?', [eventId]);
       return new Map(rows.map((r) => [r.participant_id, r.note]));
+    },
+
+    /**
+     * Count `hash` among the people poll `eventId` emailed on `day`, unless it already has `cap` of
+     * them: true when it may be emailed (already counted, or counted now), false past the cap. A
+     * poll's first email of a day also clears every poll's rows from before yesterday.
+     */
+    async claimRecipient(eventId, day, hash, cap) {
+      await init();
+      const key = [eventId, day, hash];
+      if (await db.first('SELECT 1 AS x FROM email_recipients WHERE event_id = ? AND day = ? AND recipient_hash = ?', key))
+        return true;
+      const row = await db.first('SELECT COUNT(*) AS n FROM email_recipients WHERE event_id = ? AND day = ?', [eventId, day]);
+      const n = Number(row?.n) || 0;
+      if (n >= cap) return false;
+      if (!n) {
+        const before = new Date(Date.parse(`${day}T00:00:00Z`) - 86_400_000).toISOString().slice(0, 10);
+        await db.run('DELETE FROM email_recipients WHERE day < ?', [before]);
+      }
+      await db.run('INSERT OR IGNORE INTO email_recipients (event_id, day, recipient_hash) VALUES (?, ?, ?)', key);
+      return true;
     },
 
     /** Participant id → email, for one poll. */
