@@ -64,6 +64,7 @@ import { allowContactRequest, contactEmail, contactEnabled, contactInbox, normal
 import { allowPlacesRequest, placesProvider, placesState, searchPlaces } from './places.js';
 import { handleAccount, sessionUser, signInProviders } from './auth.js';
 import { handleMcp } from './mcp.js';
+import { pollResults } from './results.js';
 import { draftFromWords } from './days-parse.js';
 import { checkWrite, limitHeaders, writeWindows as newWriteWindows } from './limits.js';
 import { MAX_GUEST_DEVICES, MAX_PUSH_DEVICES, checkSubscription, pushEnabled, sendPush } from './push.js';
@@ -944,6 +945,10 @@ async function route(
         const ownId = await answerByAccount(ev.id);
         const emails = isAdmin || ownHash || ownId ? await store.listEmails(ev.id) : undefined;
         const out = publicEvent(ev, await store.listParticipants(ev.id), { isAdmin, ownHash, ownId, emails });
+        // ?results=1: the counts and leaders worked out here (src/results.js), as the page and MCP
+        // work them out. Not when the organizer hides the answers from this visitor: they get none.
+        if (url.searchParams.get('results') === '1' && !('responses' in out))
+          out.results = pollResults(ev, out.slots, out.participants);
         // Its brand template's look, while the template lasts (deleted, the poll is plain Venn again).
         const brand = ev.brand && (await store.getBrand(ev.brand));
         if (brand) out.brand = publicBrand(brand);
