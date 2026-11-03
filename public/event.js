@@ -1417,7 +1417,8 @@ export async function renderEvent(id, navigate) {
       big
         ? `<details class="reveal who-list"><summary>See who</summary>${names(b)}${missing(b)}</details>`
         : names(b) + missing(b);
-    const lenNote = !optionsMode && ev().durationMinutes > ev().slotMinutes ? ` (${lengthLabel(ev().durationMinutes)})` : '';
+    const lenNote =
+      !optionsMode && ev().durationMinutes > ev().slotMinutes ? ` (${keep(lengthLabel(ev().durationMinutes))})` : '';
     // Others just as good, named, so the organizer knows there's a choice. Only where each option
     // stands alone (not hours or days in a row, whose ranked times overlap one another).
     const same = (b) => b.yes.length === first.yes.length && b.ifNeeded.length === first.ifNeeded.length;

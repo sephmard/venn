@@ -202,9 +202,9 @@ function wallAfter(s, minutes, tz) {
   return Math.max(s + minutes * MINUTE, zonedToUtc(z.date, z.minutes + minutes, tz));
 }
 
-/** End of the slot that starts at `s`. Whole-day slots end at the next midnight, whatever DST does. */
+/** End of the slot that starts at `s`, by the clock. Whole-day slots end at the next midnight. */
 export function slotEnd(ev, s) {
-  return isDaysPoll(ev) ? midnightAfter(s, 1, ev.timezone) : s + ev.slotMinutes * MINUTE;
+  return isDaysPoll(ev) ? midnightAfter(s, 1, ev.timezone) : wallAfter(s, ev.slotMinutes, ev.timezone);
 }
 
 /** An hours poll's stretch (back-to-back slots) as guests' rows: about two hours each, or the meeting's length. */

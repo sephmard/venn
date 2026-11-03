@@ -144,6 +144,9 @@ test('US fall back: an hour from 1:00 AM on Nov 1 reads as "1:00 – 2:00 AM", a
   const half = ranked.find((x) => x.start === Date.UTC(2026, 10, 1, 8, 30));
   assert.equal(plain(fmtTimeRange(half.start, half.end, LA)), '1:30 – 2:30 AM');
   for (const x of ranked) assert.equal(utcToZoned(x.end, LA).minutes - utcToZoned(x.start, LA).minutes, 60);
+  // The 1:30 slot runs to 2:00 on the clock, so the answer rows join 1:00 – 3:00 AM into one.
+  assert.equal(slotEnd(ev, Date.UTC(2026, 10, 1, 8, 30)), Date.UTC(2026, 10, 1, 10));
+  assert.equal(slotEnd(ev, Date.UTC(2026, 10, 1, 10)), Date.UTC(2026, 10, 1, 10, 30));
 });
 
 test('EU clock changes (Berlin, Mar 29 and Oct 25 2026): gaps skipped, the long day is 25 hours', () => {
