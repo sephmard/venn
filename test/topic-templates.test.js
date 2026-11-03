@@ -36,7 +36,7 @@ test('vote starters: their own names, never a date template’s; their emoji cou
 });
 
 test('vote starters: words only, never options, votes, names or dates', () => {
-  const allowed = ['id', 'emoji', 'label', 'question', 'ask', 'hint', 'yesNo', 'card'];
+  const allowed = ['id', 'emoji', 'label', 'question', 'ask', 'hint', 'yesNo', 'card', 'then', 'plan'];
   for (const t of TOPIC_TEMPLATES) {
     for (const k of Object.keys(t)) assert.ok(allowed.includes(k), `${t.id}.${k}`);
     for (const s of [t.question, t.hint ?? '']) assert.doesNotMatch(s, /\d/, t.id);
