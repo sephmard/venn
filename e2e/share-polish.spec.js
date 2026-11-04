@@ -23,6 +23,14 @@ const noSideways = async (page) =>
   expect(
     await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth),
   ).toBeLessThanOrEqual(0);
+/** The builder's bar: its hint and every button it shows are inside the screen's width. */
+const inView = async (page) => {
+  const width = page.viewportSize().width;
+  for (const el of await page.locator('.step-bar > :visible').all()) {
+    const box = await el.boundingBox();
+    if (box) expect(box.x + box.width, await el.evaluate((e) => e.id || e.className)).toBeLessThanOrEqual(width);
+  }
+};
 /** No alert(), confirm() or prompt() on this page, ever. */
 const noBrowserDialogs = (page) =>
   page.on('dialog', (d) => {
@@ -136,8 +144,10 @@ test('the builder says what is saved, and asks in the page before leaving or del
   await expect(page.locator('#submit')).toHaveClass(/btn-primary/);
   await expect(page.locator('#next')).not.toHaveClass(/btn-primary/);
   await noSideways(page);
+  await inView(page); // the page itself can't scroll sideways here (fitPhone), so check the bar
   await page.locator('#submit').click();
   await expect(state).toHaveText('Saved. Polls made from now on use it.');
+  await inView(page);
   // What it changes on polls already made, said where their details are.
   await expect(page.locator('[data-panel="poll"]')).toContainText(
     'Changes to the look show on polls already made with this template. Their titles and details don’t change.',
@@ -213,7 +223,7 @@ test('a poll made from a template: its look follows the template, its details ne
 
 test.describe('signed in', () => {
   test.use({ baseURL: ACCOUNTS_URL });
-  test('your own template link says nothing about whose look; the invite secret stays out of the sign-in link', async ({
+  test('your own template link says nothing about whose look, and an account’s template has no manage link', async ({
     browser,
   }, info) => {
     const user = `share-${info.project.name}-${Date.now()}`;
@@ -231,17 +241,5 @@ test.describe('signed in', () => {
     await page.goto(`/brand/${id}#organizer`);
     await expect(page.locator('.brand-links')).toContainText('You manage this template from your account.');
     await expect(page.getByRole('button', { name: 'Copy manage link' })).toHaveCount(0);
-
-    // An invite, opened signed out: the sign-in link carries the way back, not the secret.
-    const { token } = await (await page.request.post(`/api/brands/${id}/invites`, { data: { role: 'user' } })).json();
-    const guest = await (await browser.newContext({ extraHTTPHeaders: { 'x-test-user': `${user}-g` } })).newPage();
-    await guest.goto(`/brand/${id}#join=${token}`);
-    const google = guest.getByRole('link', { name: 'Continue with Google' });
-    await expect(google).toHaveAttribute('href', `/api/auth/google?next=${encodeURIComponent(`/brand/${id}`)}`);
-    expect(await guest.evaluate(() => location.hash)).toBe('');
-    await google.click();
-    await expect(guest).toHaveURL(new RegExp(`/brand/${id}$`));
-    await expect(guest.locator('#toast')).toHaveText('Added to your templates.');
-    expect(await guest.evaluate((k) => sessionStorage.getItem(k), `venn:join:${id}`)).toBeNull();
   });
 });

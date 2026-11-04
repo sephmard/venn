@@ -336,7 +336,7 @@
   }
   .brand-editor .step-bar .error {
     order: -1;
-    flex-basis: 100%;
+    width: 100%;
   }
   .brand-editor .step-bar .error:empty {
     display: none;
@@ -347,7 +347,8 @@
   }
   .brand-editor .step-bar .save-state {
     order: -1;
-    flex-basis: 100%;
+    width: 100%;
+    text-align: center;
   }
   /* Starting looks: one row, swiped sideways. */
   .brand-editor .look-grid {

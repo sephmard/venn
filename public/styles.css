@@ -2881,6 +2881,10 @@ html.embed body {
 
 /* The clipboard said no (ui.js copyByHand): the link, selected, to copy by hand. */
 .copy-by-hand {
+  /* Full width wherever it lands: a column of buttons, or the poll's heading grid. */
+  grid-column: 1 / -1;
+  align-self: stretch;
+  width: 100%;
   margin: 8px 0 0;
 }
 .copy-by-hand label {

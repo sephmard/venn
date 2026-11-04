@@ -120,16 +120,16 @@ export async function renderBrand(id) {
     history.replaceState(null, '', location.pathname);
     import('./keep.js').then((k) => k.keepThisBrowser()).catch(() => {}); // signed in: it's in their templates
   }
-  // An invite link (#join=<secret>): out of the address bar. Signing in first, it waits in this
-  // tab only (sessionStorage, pendingJoin), never in a URL a server sees, and is used once back.
-  const j = id && (location.hash.match(/^#join=([A-Za-z0-9]{1,64})$/) || [null, pendingJoin(id)]);
-  if (location.hash.startsWith('#join=')) history.replaceState(null, '', location.pathname);
+  // An invite link (#join=<secret>): out of the address bar, and never stored. Signing in first
+  // carries it in the sign-in's way back (src/auth.js safeNext), so it isn't kept in the browser.
+  const j = id && location.hash.match(/^#join=([A-Za-z0-9]{1,64})$/);
+  if (j) history.replaceState(null, '', location.pathname);
   const token = id && saved(key(id)).adminToken;
   // From My polls (account.js): the account stands in for the manage link.
   // Opened that way once, this browser asks for it the same way again (after a reload, too).
   let viaAccount = !!id && (location.hash === '#organizer' || !!saved(key(id)).viaAccount);
   if (location.hash === '#organizer') history.replaceState(null, '', location.pathname);
-  if (j?.[1]) {
+  if (j) {
     const joined = await join(id, j[1]);
     if (joined === 'signin') return;
     if (joined) viaAccount = true;
@@ -307,11 +307,10 @@ async function join(id, secret) {
       const b = await api(`brands/${id}`).catch(() => null);
       if (!b) return null;
       document.title = `Sign in · ${b.name} · Venn`;
-      pendingJoin(id, secret);
       const [html, wire] = signInPanel(
         providers,
         `Sign in to add ${esc(b.name)}’s template`,
-        `/brand/${id}`,
+        `/brand/${id}#join=${secret}`,
         'It goes in your templates, on any device.',
       );
       app.innerHTML = `<div class="sheet brand-signin save-signin">${html.replace(/<(\/?)h2/g, '<$1h1')}</div>`;
@@ -319,23 +318,6 @@ async function join(id, secret) {
       return 'signin';
     }
     toast(e.status === 401 ? 'This Venn has no accounts, so the invite can’t be used here.' : e.message);
-    return null;
-  }
-}
-
-/**
- * An invite's secret waiting for sign-in to finish, in this tab only: `pendingJoin(id, secret)`
- * keeps it; `pendingJoin(id)` takes it (once). Opened again in another tab (an email's link), the
- * invite link itself still works.
- */
-function pendingJoin(id, secret) {
-  const k = `venn:join:${id}`;
-  try {
-    if (secret) return sessionStorage.setItem(k, secret);
-    const s = sessionStorage.getItem(k);
-    sessionStorage.removeItem(k);
-    return /^[A-Za-z0-9]{1,64}$/.test(s ?? '') ? s : null;
-  } catch {
     return null;
   }
 }
