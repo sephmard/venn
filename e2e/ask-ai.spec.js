@@ -173,3 +173,52 @@ test('moving to a vote with no link lands in the account’s vote default, and t
   await expect(page.locator('#title')).toHaveValue('Italian, Thai or Mexican?');
   expect(await page.locator('#opts input').evaluateAll((els) => els.map((e) => e.value))).toEqual(['Italian', 'Thai', 'Mexican']);
 });
+
+test('going between Date and Vote, nothing jumps: the bar is drawn with the switch', async ({ page }) => {
+  await page.goto('/new');
+  await expect(page.locator('#ai-open')).toBeVisible();
+  for (const to of ['/new/topic', '/new']) {
+    // Where the switch sits on every frame from the tap until the other form has settled.
+    await page.evaluate(() => {
+      window.__ys = [];
+      const t0 = performance.now();
+      const tick = () => {
+        const sw = document.querySelector('.kind-switch');
+        if (sw) window.__ys.push(Math.round(sw.getBoundingClientRect().y));
+        if (performance.now() - t0 < 1200) requestAnimationFrame(tick);
+      };
+      requestAnimationFrame(tick);
+    });
+    await page.locator(`.kind-switch a[href="${to}"]`).click();
+    await expect(page).toHaveURL(new RegExp(`${to}$`));
+    await expect(page.locator('#ai-open')).toBeVisible();
+    await page.waitForTimeout(1300);
+    const ys = await page.evaluate(() => window.__ys);
+    expect(new Set(ys).size, `switch positions: ${[...new Set(ys)]}`).toBe(1);
+    await page.click('#ai-open'); // and the bar drawn early works
+    await expect(page.locator('#ai-prompt')).toBeFocused();
+    await page.keyboard.press('Escape');
+  }
+});
+
+test('a question with no time in it makes a vote, yes or no when it is one', async ({ page }) => {
+  await page.goto('/new');
+  await ask(page, 'I want to ask my wife if she thinks I’m cute');
+  await expect(page).toHaveURL(/\/new\/topic$/);
+  await expect(page.locator('#ai-done .ai-kind')).toHaveText('Venn made this a vote, because you asked yes or no.');
+  await expect(page.getByRole('radio', { name: 'Yes or no' })).toHaveAttribute('aria-checked', 'true');
+  await expect(page.locator('#title')).toHaveValue('Do you think I’m cute?');
+  await expect(page.locator('#ai-err')).toBeEmpty();
+  // An open one: a vote with options to check.
+  await page.goto('/new');
+  await ask(page, 'what kind of dog should we get');
+  await expect(page).toHaveURL(/\/new\/topic$/);
+  await expect(page.locator('#ai-done .ai-kind')).toHaveText(
+    'Venn made this a vote, because there’s no date to find. Check the options it suggested.',
+  );
+  expect(await page.locator('#opts input').evaluateAll((els) => els.map((e) => e.value))).toEqual([
+    'Labrador',
+    'Beagle',
+    'Poodle',
+  ]);
+});

@@ -7,7 +7,7 @@ import Anthropic from '@anthropic-ai/sdk';
 import { BUTTONS, CORNERS, FONTS, isHex } from '../public/brand-look.js';
 import { firstEmoji } from '../public/emoji.js';
 import { DAYS_SCHEMA, DAYS_SYSTEM, daysPrompt, shapeDays } from './days-draft.js';
-import { eitherQuestion, fixedTime, pickKind } from './ask-kind.js';
+import { eitherQuestion, fixedTime, pickKind, readsAsQuestion } from './ask-kind.js';
 import {
   IF_NEEDED,
   LIMITS,
@@ -221,6 +221,7 @@ export async function draftDays(env, { prompt, timezone }, { now, anthropic } = 
 // ---------- 1c. The one "Use AI" box above Date · Vote: Venn picks the kind ----------
 
 const NO_DAYS = "Couldn't find any days in that description. Try mentioning when.";
+const NOTHING = "Couldn't tell what to set up from that. Try naming the choices, or when.";
 
 /**
  * One request, either kind (ask-kind.js picks): { kind: 'date', why, ...draftDays } or
@@ -240,7 +241,9 @@ export async function draftAny(env, { prompt, timezone }, { now, anthropic } = {
     prompt: daysPrompt(text, { today, timezone, nowMinutes }),
   });
   const days = shapeDays(out, { today, nowMinutes, text });
-  const picked = pickKind(text, days);
+  // Nothing to pick from and no time to find ("ask my wife if she thinks I'm cute"): a question
+  // for the group, so a vote. The vote writer says whether it's yes or no.
+  const picked = pickKind(text, days) || (readsAsQuestion(text) ? { kind: 'vote', why: 'question' } : null);
   if (!picked) throw new AiUnavailableError(NO_DAYS);
   if (picked.kind === 'date') {
     if (!days.days.length) throw new AiUnavailableError(NO_DAYS);
@@ -255,7 +258,8 @@ export async function draftAny(env, { prompt, timezone }, { now, anthropic } = {
     // when the words asked for one the days model didn't read. A question the days model read
     // keeps its (empty) choices, so none are made up ("vote on our next book").
     const topic = await draftTopic(env, { prompt: text }, { anthropic }).catch((e) => {
-      if (!(e instanceof AiUnavailableError) || !read?.question) throw e;
+      if (!(e instanceof AiUnavailableError)) throw e;
+      if (!read?.question) throw new AiUnavailableError(picked.why === 'question' ? NOTHING : e.message);
       return null;
     });
     vote = topic?.yesNo || !read?.question ? topic : { question: read.question, yesNo: false, options: read.options };

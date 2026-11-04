@@ -88,7 +88,7 @@ export const USAGE_EVENTS = {
   'ai.used': {
     feature: ['draft', 'days', 'topic', 'ask', 'template', 'answer', 'summary', 'message'],
     picked: ['date', 'vote'], // the one Use AI box (ask): which kind it made, and why (ask-kind.js)
-    why: ['words', 'open', 'both'],
+    why: ['words', 'open', 'both', 'question'],
   },
   'ai.failed': { key: ['server', 'own'], reason: AI_FAILURE_REASONS }, // why Anthropic turned an AI request down
   // Browser

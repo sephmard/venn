@@ -2,7 +2,7 @@
 // the request and the days model's answer (shaped by days-draft.js), so no model is needed.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { choicesOfWords, fixedTime, pickKind, saidKind } from '../src/ask-kind.js';
+import { choicesOfWords, fixedTime, pickKind, readsAsQuestion, saidKind } from '../src/ask-kind.js';
 import { shapeDays } from '../src/days-draft.js';
 
 const today = '2026-11-04'; // a Wednesday
@@ -33,6 +33,7 @@ test('words in the request win over the model', () => {
     'schedule a call',
     'what day works',
     'which days suit you',
+    'When’s book club?',
     'our availability',
     'decide what day',
     'Which Friday works for dinner?',
@@ -92,4 +93,33 @@ test('with no AI, a plain choice is split on commas and "or"', () => {
     'a or a',
   ])
     assert.equal(choicesOfWords(p), null, p);
+});
+
+test('a question for the group reads as one; a plan with no time does not', () => {
+  for (const p of [
+    'Should we get a dog?',
+    'I want to ask my wife if she thinks I’m cute',
+    'is the book swap on',
+    'what kind of dog should we get',
+    'Ask the team whether to cancel',
+  ])
+    assert.equal(readsAsQuestion(p), true, p);
+  for (const p of [
+    'Book club with Sam',
+    'Dinner with the Smiths sometime',
+    'hmm',
+    'hmm?',
+    'team offsite',
+    'ask Sam to bring snacks',
+    // Questions about when: still the date poll's.
+    'Can we do book club sometime?',
+    'When’s book club?',
+    'Could we meet up soon',
+    'Who can make book club?',
+    'How about drinks with Sam?',
+    'Dinner with the Smiths sometime?',
+    'Book club with Sam?',
+    'Are you free for lunch?',
+  ])
+    assert.equal(readsAsQuestion(p), false, p);
 });

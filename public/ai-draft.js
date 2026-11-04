@@ -300,6 +300,12 @@ const askBox = (ai) => `<div class="ai-draft" id="ai-draft" hidden>
     <div id="ai-key-box" hidden></div>
   </div>`;
 
+/** The box's closed bar: with AI it reads what to make; without, only the days (and only on /new). */
+const askBar = (ai) =>
+  `<button type="button" class="ask-bar" id="ai-open" aria-expanded="false" aria-controls="ai-draft"><span class="ask-spark" aria-hidden="true">✨</span><span>${
+    ai ? 'Describe it, and Venn sets it up' : 'Say when, and Venn picks the days'
+  }</span></button>`;
+
 /**
  * Put the box above the Date · Vote switch: a quiet bar that opens into the box, in place. With no
  * box to offer (`box` false), only the place where a result shows. Returns false where there's no
@@ -307,11 +313,22 @@ const askBox = (ai) => `<div class="ai-draft" id="ai-draft" hidden>
  */
 async function mountAsk(box, ai) {
   const sw = $('.kind-switch');
-  if (!sw || $('#ask') || (await import('./create.js')).whiteLabel()) return false;
-  const bar = `<button type="button" class="ask-bar" id="ai-open" aria-expanded="false" aria-controls="ai-draft"><span class="ask-spark" aria-hidden="true">✨</span><span>${
-    ai ? 'Describe it, and Venn sets it up' : 'Say when, and Venn picks the days'
-  }</span></button>`;
-  sw.insertAdjacentHTML('beforebegin', `<div class="ask" id="ask">${box ? bar + askBox(ai) : ''}</div>`);
+  const early = $('#ask[data-early]'); // the bar the switch drew from last time (create.js kindSwitch)
+  const { whiteLabel, rememberAsk } = await import('./create.js');
+  if (!sw || (!early && $('#ask')) || whiteLabel()) {
+    if (sw && early) {
+      early.remove();
+      rememberAsk({ date: '', topic: '' });
+    }
+    return false;
+  }
+  const bar = askBar(ai);
+  const html = box ? bar + askBox(ai) : '';
+  if (early) {
+    early.removeAttribute('data-early');
+    early.innerHTML = html; // the same bar, now working
+  } else sw.insertAdjacentHTML('beforebegin', `<div class="ask" id="ask">${html}</div>`);
+  rememberAsk(ai ? { date: bar, topic: bar } : { date: askBar(false), topic: '' });
   if (!box) return true;
   const open = (yes) => {
     $('#ai-draft').hidden = !yes;
@@ -357,9 +374,11 @@ function kindLine(d) {
   if (d.why === 'both')
     return `Venn made this a vote${d.options.length > 1 ? ` on ${either(d.options)}` : ' first'}. Once it’s picked, Find a date for it gives you the days.`;
   if (d.yesNo) return 'Venn made this a vote, because you asked yes or no.';
-  return d.why === 'words'
-    ? 'Venn made this a vote, because you asked for one.'
-    : 'Venn made this a vote, because you named choices to pick from.';
+  if (d.why === 'words') return 'Venn made this a vote, because you asked for one.';
+  if (d.why === 'open' && d.options.length > 1) return 'Venn made this a vote, because you named choices to pick from.';
+  return d.options.length > 1
+    ? 'Venn made this a vote, because there’s no date to find. Check the options it suggested.'
+    : 'Venn made this a vote, because there’s no date to find. Add the options below.';
 }
 
 /**

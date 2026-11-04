@@ -97,6 +97,20 @@ function reply(body) {
           note: '',
         };
     }
+    // A question with no time in it, read the way the model once did: a time to find, with no days.
+    if (/\bask\b.*\bif\b|^should we\b|what kind of/i.test(text))
+      return {
+        ...base,
+        ...plain,
+        title: 'Question',
+        timeOfDay: 'any',
+        usualParts: [],
+        firstDate: today,
+        lastDate: '',
+        daysInRow: 1,
+        days: [],
+        note: '',
+      };
     if (/vote on our next book/i.test(text))
       return {
         ...base,
@@ -192,6 +206,10 @@ function reply(body) {
     };
   }
   // A vote on /new/topic.
+  if (props.yesNo && /if she thinks I(’|')m cute/.test(prompt))
+    return { question: 'Do you think I’m cute?', yesNo: true, options: [] };
+  if (props.yesNo && /what kind of dog/i.test(prompt))
+    return { question: 'What kind of dog should we get?', yesNo: false, options: ['Labrador', 'Beagle', 'Poodle'] };
   if (props.yesNo)
     return { question: 'Where should we eat Friday?', yesNo: false, options: ['Rosa’s', 'Luigi’s', 'Thai Garden'] };
   // A brand template's look.

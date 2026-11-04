@@ -22,7 +22,7 @@ const VOTE_WORDS = new RegExp(
   'i',
 );
 const DATE_WORDS = new RegExp(
-  String.raw`\b(?:find (?:a |the |us a )?(?:date|time|day)s?\b|when (?:can|could|should|shall|are|is|do)\b|schedul(?:e|ing)\b|(?:what|which) ${TIME_NOUN}\b|availability\b)`,
+  String.raw`\b(?:find (?:a |the |us a )?(?:date|time|day)s?\b|when (?:can|could|should|shall|are|is|do)\b|when['’]s\b|schedul(?:e|ing)\b|(?:what|which) ${TIME_NOUN}\b|availability\b)`,
   'i',
 );
 
@@ -53,6 +53,24 @@ export function pickKind(prompt, draft) {
   if (days) return { kind: 'date', why: vote ? 'both' : 'open' };
   return null;
 }
+
+/**
+ * Whether the request reads as a question for the group ("Should we get a dog?", "ask my wife if
+ * she thinks I'm cute"), so that with no time and nothing named it makes a vote. A plan with no
+ * time ("Book club with Sam") doesn't: it still asks for when.
+ */
+export function readsAsQuestion(prompt) {
+  const t = String(prompt || '').trim();
+  if (ASKS_WHEN.test(t)) return false;
+  return (
+    /^(should|shall|is|are|do|does|did|can|could|would|will|who|what|which|where|how|why)\b/i.test(t) ||
+    /\bask(ing)?\b.*\b(if|whether|what|which|who|where|how|why)\b/i.test(t)
+  );
+}
+// A question about getting together ("Can we do book club sometime?", "Who can make it?") still
+// asks when, so it stays the date poll's.
+const ASKS_WHEN =
+  /\b(?:when(?:['’]s)?|sometime|soon|free|available|meet(?:ing)? up|get together|catch up|make it|hang out|how about)\b|\bwho (?:can|could) (?:make|come|join)\b/i;
 
 /**
  * The fixed time of a vote whose days come to one date ("pizza or tacos on Friday?"): "Friday,

@@ -5,7 +5,7 @@
 //   ANTHROPIC_API_KEY=sk-ant-… npm run ai:eval -- 5 date  # 5 runs of cases whose name has "date"
 //
 // Each run is one Haiku request (a fraction of a cent). AI_MODEL picks another model.
-import { draftDays } from '../src/ai.js';
+import { draftAny, draftDays } from '../src/ai.js';
 import { zonedToUtc } from '../public/core.js';
 
 const NY = 'America/New_York';
@@ -180,12 +180,31 @@ const CASES = [
     level: 'parts',
   },
   { name: 'v4 a plain plan is no vote', text: 'Which weekend works for a cabin trip?', vote: 'when', level: 'days' },
+  // The one Use AI box (draftAny): which kind of poll a request makes. A question with no time in it
+  // is a vote, yes or no when it's one; a time to find is a date poll.
+  { name: 'k1 a yes-or-no question', text: 'I want to ask my wife if she thinks I’m cute', kind: 'vote', yesNo: true },
+  { name: 'k2 should we', text: 'Should we get a dog?', kind: 'vote', yesNo: true },
+  { name: 'k3 an open question, no time', text: 'What kind of dog should we get?', kind: 'vote', yesNo: false },
+  { name: 'k4 a theme to pick', text: 'Ask the team what the party theme should be', kind: 'vote', yesNo: false },
+  { name: 'k5 choices', text: 'Italian, Thai or Mexican?', kind: 'vote', yesNo: false },
+  { name: 'k6 a time to find', text: 'Dinner with the Smiths next week', kind: 'date' },
+  { name: 'k7 when', text: 'When can everyone do a call?', kind: 'date' },
+  // A plan with no time isn't a question: a date poll or "Couldn't find any days", never made-up options.
+  { name: 'k8 a plan with no time', text: 'Book club with Sam', kind: ['date', 'none'] },
+  { name: 'k8b a question about when', text: 'Can we do book club sometime?', kind: ['date', 'none'] },
+  { name: 'k9 nonsense', text: 'asdf qwerty zxcv?', kind: 'none' },
 ];
 
 const key = (d) => `${d.date} ${d.part ?? (d.start != null ? `${d.start}-${d.end}` : 'all')}`;
 
 function check(c, draft) {
   const problems = [];
+  if (c.kind) {
+    const kinds = [c.kind].flat();
+    if (!kinds.includes(draft.kind)) problems.push(`a ${draft.kind}, not ${kinds.join(' or ')}`);
+    else if (c.yesNo != null && !!draft.yesNo !== c.yesNo) problems.push(c.yesNo ? 'not yes or no' : 'yes or no');
+    return problems;
+  }
   if (c.vote) {
     const said = draft.vote ? (draft.vote.both ? 'both' : 'what') : 'when';
     if (said !== c.vote) problems.push(`read as ${said}, not ${c.vote}`);
@@ -220,9 +239,10 @@ let total = 0;
 for (const c of CASES.filter((x) => x.name.includes(only))) {
   const results = await Promise.all(
     Array.from({ length: runs }, () =>
-      draftDays(env, { prompt: c.text, timezone: c.tz || NY }, { now: c.now ?? MON }).then(
+      (c.kind ? draftAny : draftDays)(env, { prompt: c.text, timezone: c.tz || NY }, { now: c.now ?? MON }).then(
         (draft) => ({ draft, problems: check(c, draft) }),
-        (e) => ({ problems: [`error: ${e.message}`] }),
+        // Nothing made is right where a case expects it ('none').
+        (e) => ({ problems: [c.kind].flat().includes('none') ? [] : [`error: ${e.message}`] }),
       ),
     ),
   );
