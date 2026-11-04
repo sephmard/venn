@@ -528,12 +528,13 @@
   margin: 4px 0 0;
 }
 
-/* The logo's colours, offered beside the colour picker. */
+/* The logo's colours, offered beside the colour picker. Scoped to it: this sheet stays loaded after
+   the builder, and the date form's tap key uses .swatch for its small dots. */
 .from-logo {
   display: flex;
   gap: 6px;
 }
-.swatch {
+.from-logo .swatch {
   width: 44px;
   height: 44px;
   border: 2px solid var(--surface);
