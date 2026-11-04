@@ -160,7 +160,10 @@ test('a draft keeps what it started in; an occasion or typed title is never repl
   await expect(page.locator('.brand-bar')).toHaveCount(0);
 
   // Started over: the default. Typed into, then reloaded: still the default's poll, with the typing.
-  await page.getByRole('button', { name: 'Start over' }).click();
+  // Start over reloads the page itself: let that finish before going anywhere.
+  await Promise.all([page.waitForEvent('load'), page.getByRole('button', { name: 'Start over' }).click()]);
+  await expect(page.locator('#draft-note')).toHaveCount(0);
+  await expect.poll(() => page.evaluate(() => sessionStorage.getItem('venn:draft:free') || '')).not.toContain('Picnic');
   await page.goto('/new');
   await expect(page.locator('#default-note')).toBeVisible();
   await page.fill('#title', 'Team lunch at noon');
