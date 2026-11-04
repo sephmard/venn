@@ -470,6 +470,7 @@ async function route(
       const secret = fromLink || valid(cookies(request)[joinCookie.name]);
       const res = await (async () => {
         const linkRole = secret && (await store.brandInviteRole(brand.id, await sha256(secret)));
+        if (!secret) return error(403, 'Open the invite link again to add this template.');
         if (!linkRole) return error(403, 'This invite link was turned off. Ask for a new one.');
         if ((await store.ownerOf('brand', brand.id)) === user.id) return json({ role: 'owner' });
         const had = await store.brandRole(brand.id, user.id);

@@ -11,7 +11,7 @@ const CASES = [
   ['/brand/new?look=retro', '/brand/new?look=retro'],
   ['/brand/new?ai=1', '/brand/new?ai=1'],
   ['/new?brand=abc&from=email', '/new?brand=abc&from=email'],
-  ['/brand/abc123#join=s3cret', '/brand/abc123#join=s3cret'],
+  ['/brand/abc123#join=s3cret', '/me'], // an invite's secret waits with the server, never in a URL
   ['/me', '/me'],
   ['/brand/abc', '/brand/abc'],
   ['/e/abc123#admin=tok', '/me'],
