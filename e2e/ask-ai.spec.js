@@ -155,3 +155,21 @@ test('no box on a white-label template’s forms, and the switch still works', a
   await page.locator('.kind-switch a[href^="/new?"]').click();
   await expect(page).toHaveURL(new RegExp(`/new\\?brand=${brand.id}$`));
 });
+
+test('moving to a vote with no link lands in the account’s vote default, and the AI’s question wins', async ({ page }) => {
+  const { id } = await (
+    await page.request.post('/api/brands', { data: { name: 'Supper club', title: 'Our next supper' } })
+  ).json();
+  // The account and its defaults are stood in for, as this Venn has no sign-in (default-template-ai.spec.js).
+  await page.addInitScript(() => localStorage.setItem('venn:account', JSON.stringify({ initial: 'S', name: 'Sam' })));
+  await page.route('**/api/me/defaults', (r) =>
+    r.fulfill({ json: { defaults: { date: null, vote: { id, name: 'Supper club' } } } }),
+  );
+  await page.goto('/new');
+  await expect(page.locator('.brand-bar')).toHaveCount(0); // no date default
+  await ask(page, 'Italian, Thai or Mexican?');
+  await expect(page).toHaveURL(/\/new\/topic$/);
+  await expect(page.locator('.brand-bar')).toContainText('Supper club');
+  await expect(page.locator('#title')).toHaveValue('Italian, Thai or Mexican?');
+  expect(await page.locator('#opts input').evaluateAll((els) => els.map((e) => e.value))).toEqual(['Italian', 'Thai', 'Mexican']);
+});

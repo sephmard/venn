@@ -4,6 +4,8 @@
 // poll's page, which is for answering, Sign in is only in the menu, never in the bar. Who's signed
 // in is remembered in this browser (just a name and an initial), so it shows without asking the server.
 
+import { signInHref } from './sign-in-next.js';
+
 const KEY = 'venn:account';
 
 /** The signed-in person as this browser remembers them ({ initial, name }), or null. Set with a value. */
@@ -90,14 +92,16 @@ function drawMenu(panel, me) {
   // A poll's page is for answering, so there it's only in the menu, never in the bar.
   if (!me) {
     const onPoll = /^\/e\//.test(location.pathname);
+    // From a page making a poll or a template (a template link, say), signing in comes back to it.
+    const signIn = signInHref(location.pathname + location.search);
     if (!onPoll) {
-      const a = Object.assign(document.createElement('a'), { href: '/me', className: 'site-signin', textContent: 'Sign in' });
+      const a = Object.assign(document.createElement('a'), { href: signIn, className: 'site-signin', textContent: 'Sign in' });
       if (app) a.dataset.link = '';
       panel.closest('details').before(a);
     }
     const group = document.createElement('div');
     group.className = `acct-group acct-group-out${onPoll ? ' acct-group-always' : ''}`;
-    group.innerHTML = `${link('/me', 'Sign in')}<hr class="menu-sep" />`;
+    group.innerHTML = `${link(signIn, 'Sign in')}<hr class="menu-sep" />`;
     panel.prepend(group);
     return;
   }

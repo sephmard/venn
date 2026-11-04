@@ -26,6 +26,7 @@ import {
   signInButtons,
 } from './account-data.js';
 import { emailSignInForm, wireEmailSignIn } from './email-signin.js';
+import { safeNext } from './sign-in-next.js';
 
 await new Promise((done) =>
   document.head.append(
@@ -67,7 +68,9 @@ export async function renderAccount() {
   const forgot = location.hash === '#forgot';
   const signup = location.hash === '#signup';
   const mode = forgot ? 'forgot' : signup ? 'signup' : 'signin';
-  if (location.hash) history.replaceState(null, '', location.pathname);
+  // /me?next=: where signing in comes back to (a template link, say), Google and email alike.
+  backTo = safeNext(new URLSearchParams(location.search).get('next'));
+  if (location.hash) history.replaceState(null, '', location.pathname + location.search);
   // Not signed in here: the sign-in page straight away, with the ways in this server offered last
   // time, so nothing jumps when the server answers (it's redrawn only if they changed). Signed in:
   // My polls' outline until the polls come.
@@ -109,6 +112,7 @@ export async function renderAccount() {
 
 let keptListener = null;
 let redrawMine = null; // shows My polls again, as it is now on the server
+let backTo = '/me'; // where signing in on this page comes back to (safeNext)
 
 // ---------- signed out ----------
 
@@ -165,7 +169,7 @@ function showSignIn(providers, failed, mode) {
                 : ''
             }
              ${failed ? '<p class="acct-alert" role="alert">Sign-in didn’t finish. Try again.</p>' : ''}
-             ${buttons.length ? `<div class="signin">${signInButtons(buttons, '/me')}</div>` : ''}
+             ${buttons.length ? `<div class="signin">${signInButtons(buttons, backTo)}</div>` : ''}
              ${email ? emailSignInForm({ alone: !buttons.length }) : ''}
              <p class="hint">No account needed to make or answer a poll.</p>
              ${signInAgree()}`
@@ -180,7 +184,8 @@ function showSignIn(providers, failed, mode) {
     const form = wireEmailSignIn({
       mode,
       switcher: true,
-      onSignedIn: renderAccount,
+      // backTo passed safeNext (a path starting with one /), and only ever goes on this site's origin.
+      onSignedIn: () => (backTo === '/me' ? renderAccount() : location.assign(location.origin + backTo)),
       onMode: (m) => {
         $('#acct-h').textContent = HEADINGS[m];
         for (const t of tabs)
@@ -260,11 +265,18 @@ const answeredRow = (p) => {
 
 // What each template row says: the account's own, or shared with it (to change, or to use).
 const ROLE_META = { owner: 'Edit and share', admin: 'Shared with you · Can edit', user: 'Shared with you · Can use' };
+// The account's default templates (default-template.js, loaded with My polls), once known.
+let defaults = null;
+let defaultsJs = null;
+const pill = (b) => {
+  const p = defaultsJs?.defaultPill(defaults, b.id);
+  return p ? ` · ${p}` : '';
+};
 const brandRow = (b) => `
   <li class="acct-brand">
     <a class="acct-row" href="/brand/${esc(b.id)}#organizer" data-link>
       ${b.logoV != null ? `<img class="acct-icon acct-logo" src="/api/brands/${esc(b.id)}/logo?v=${esc(b.logoV)}" alt="">` : '<span class="acct-icon" aria-hidden="true">🏷️</span>'}
-      <span class="acct-text"><b>${esc(b.name)}</b><span class="muted">${ROLE_META[b.role] || ROLE_META.owner}</span></span>
+      <span class="acct-text"><b>${esc(b.name)}</b><span class="muted">${ROLE_META[b.role] || ROLE_META.owner}${esc(pill(b))}</span></span>
     </a>
     <a class="btn acct-use" href="/new?brand=${esc(b.id)}" data-link aria-label="New poll with ${esc(b.name)}">New poll</a>
   </li>`;
@@ -415,6 +427,15 @@ function missing(view, redraw) {
 function showMine(me, view) {
   const { user } = me;
   const lists = { made: me.polls || [], answered: me.answered || [], brands: me.brands || [] };
+  // With templates of its own, the account can start new polls in one (default-template.js).
+  if (lists.brands.length)
+    import('./default-template.js')
+      .then(async (m) => {
+        defaultsJs = m;
+        defaults = await m.readDefaults();
+        if (defaults && view.tab === 'brands' && $('#acct-results')) draw();
+      })
+      .catch(() => {});
   app.innerHTML = `
     <div class="account">
       <h1>My polls</h1>
@@ -497,7 +518,10 @@ function showMine(me, view) {
     } else {
       // A few at a time: searching shows every match; Past starts folded when there's more above it.
       const key = (g) => `${view.tab}:${view.group}:${g.key}`;
+      // What new polls start with: the account's templates, above Venn's own.
+      const starts = brands && defaults && !searching ? defaultsJs.defaultsHtml(items, defaults) : '';
       out.innerHTML =
+        starts +
         top +
         (top && groups.length ? '<h2 class="acct-h">Yours</h2>' : '') +
         groups
@@ -517,6 +541,12 @@ function showMine(me, view) {
           })
           .join('') +
         (brands ? '<a class="acct-new" href="/brand/new" data-link>+ New template</a>' : '');
+      if (starts)
+        defaultsJs.wireDefaults(out, defaults, (now, focus) => {
+          defaults = now;
+          draw();
+          $(`#${focus}`)?.focus();
+        });
       for (const b of out.querySelectorAll('[data-open]'))
         b.onclick = () => {
           const k = b.dataset.open;

@@ -51,6 +51,8 @@ export function cleanFormDraft(d, today) {
     desc: text(d.desc, 1000),
     organizer: text(d.organizer, 80),
     privacy: Array.isArray(d.privacy) ? d.privacy.map((x) => x === true) : [],
+    // The template it was started in (a default, default-template.js), or null for Venn's look.
+    brand: typeof d.brand === 'string' && /^[A-Za-z0-9]{1,32}$/.test(d.brand) ? d.brand : null,
   };
   // A date poll: what's picked at each level, which level, and days in a row.
   if (d.picks && typeof d.picks === 'object') {
@@ -82,6 +84,41 @@ export function formDraftHasWork(d) {
   const picked = d.picks && Object.values(d.picks).some((l) => l.length);
   const typed = d.options?.some((s) => s.trim());
   return !!(d.title.trim() || d.location.trim() || d.desc.trim() || picked || typed);
+}
+
+/**
+ * Which template a new poll's form starts in, first match wins (sprint D, G2):
+ * 1. its link: `?brand=<id>`, or `?brand=none` for none this once (the default stays);
+ * 2. a draft being picked up (`draft`, with work in it): whatever it started in, even none;
+ * 3. the signed-in account's default for this kind of poll (`defaults[format]`, from the server);
+ * 4. none: Venn's look. Editing or copying a poll (?edit, ?copy) keeps that poll's own, elsewhere.
+ * Returns { id, from: 'link' | 'draft' | 'default', name? } or null. A draft in the template
+ * that's still the default counts as the default (the form says so).
+ */
+export function startingTemplate({ link = null, draft = null, defaults = null, format }) {
+  if (link === 'none') return null;
+  if (link) return { id: link, from: 'link' };
+  const d = defaults?.[format];
+  if (draft && !draft.brand) return null;
+  if (draft && draft.brand !== d?.id) return { id: draft.brand, from: 'draft' };
+  return d?.id ? { id: d.id, name: d.name, from: 'default' } : null;
+}
+
+// What a template's defaults are called (My polls, the template's page; default-template.js).
+const WHICH = { date: 'date polls', vote: 'votes' };
+/** Which formats template `id` is the default for: [], ['date'], ['vote'] or ['date', 'vote']. */
+export const defaultFor = (defs, id) => ['date', 'vote'].filter((f) => defs?.[f]?.id === id);
+/** "Default", "Default for votes", or '' (a template row's meta line in My polls). */
+export function defaultPill(defs, id) {
+  const on = defaultFor(defs, id);
+  return on.length === 2 ? 'Default' : on.length ? `Default for ${WHICH[on[0]]}` : '';
+}
+/** What a toast says once `formats` changed: "New date polls and votes start with Acme." (plain text) */
+export function savedText(defs, formats) {
+  const name = (f) => defs?.[f]?.name || 'no template';
+  if (formats.every((f) => name(f) === name(formats[0])))
+    return `New ${formats.map((f) => WHICH[f]).join(' and ')} start with ${name(formats[0])}.`;
+  return formats.map((f) => `New ${WHICH[f]} start with ${name(f)}.`).join(' ');
 }
 
 // ---------- a guest's answer not sent yet ----------

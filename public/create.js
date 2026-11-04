@@ -44,9 +44,11 @@ export function prefillTitle() {
   if (q.get('where')) $('#more-box').open = !!($('#location').value = q.get('where').slice(0, 200));
   after = /^[A-Za-z0-9]{1,32}$/.test(q.get('after') ?? '') ? q.get('after') : null;
   const from = fromUrl();
-  const keep = new URLSearchParams([...(from ? [['from', from]] : []), ...(brandId ? [['brand', brandId]] : [])]);
+  const link = brandId || (q.get('brand') === 'none' ? 'none' : null);
+  const keep = new URLSearchParams([...(from ? [['from', from]] : []), ...(link ? [['brand', link]] : [])]);
   if (title || t >= 0) history.replaceState(null, '', location.pathname + (keep.size ? `?${keep}` : ''));
   if (brandId) useBrand(brandId, true);
+  else if (!link && signedIn()) startIn(location.pathname === '/new/topic' ? 'topic' : 'free');
 }
 
 // ---------- an organization's brand template (/brand) ----------
@@ -57,15 +59,72 @@ let brandId = null;
 let brand = null;
 const brandFromUrl = () => {
   const id = new URLSearchParams(location.search).get('brand');
-  return /^[A-Za-z0-9]{1,32}$/.test(id ?? '') ? id : null;
+  // ?brand=none is "no template, this once" (Use no template), never a template called none.
+  return id !== 'none' && /^[A-Za-z0-9]{1,32}$/.test(id ?? '') ? id : null;
 };
-/** Show the brand's look (brand-look.js), and for a new poll fill in what it starts with. */
-async function useBrand(id, fill) {
+/**
+ * Show the brand's look (brand-look.js), and for a new poll fill in what it starts with: `fill`
+ * true for a template link, 'gentle' (only what's still empty) for a default or a draft's. A
+ * default that's gone says nothing (`quiet`): the form is just Venn's.
+ */
+async function useBrand(id, fill, quiet = false) {
   const [b, look] = await Promise.all([api(`brands/${id}`).catch(() => null), import('./brand-look.js')]);
-  if (!b) return ((brandId = null), toast("That brand template doesn't exist any more. This poll is plain Venn."));
+  if (!b && brandId === id) brandId = null;
+  if (!b) return quiet || toast("That brand template doesn't exist any more. This poll is plain Venn.");
   if (brandId !== id || !$('#create')) return;
   look.brandForm((brand = b), fill, $, esc);
   if (b.hideVenn) $('#ask')?.remove(); // a white-label template's polls offer no AI (ai-draft.js)
+  const sw = $('.footer .classic-switch');
+  if (sw) sw.hidden = true; // the template's look, not Venn's
+}
+
+// Signed in (account-menu.js remembers who), a form no link names a template for starts in the
+// account's default for its kind, or the template of the draft it picks up (default-template.js).
+let defaulted = false; // the template is the account's default, so a draft keeps it
+const signedIn = () => {
+  try {
+    return !!localStorage.getItem('venn:account');
+  } catch {
+    return false;
+  }
+};
+async function startIn(kind) {
+  const form = $('#create');
+  // The draft as the page found it, before the form starts keeping it again (form-draft.js).
+  let draft = null;
+  try {
+    draft = sessionStorage.getItem(`venn:draft:${kind}`);
+  } catch {}
+  const m = await import('./default-template.js').catch(() => null);
+  const t = await m?.startFor(kind, draft);
+  if (!t || brandId || $('#create') !== form || source()) return;
+  brandId = t.id;
+  defaulted = true;
+  await useBrand(t.id, 'gentle', true);
+  if (brand && t.from === 'default' && $('#create') === form) m.defaultLine(brand.name, noTemplate);
+  draftChanged();
+}
+/** "Use no template", for this poll only: Venn's look again, and what the default filled in goes. */
+function noTemplate() {
+  const was = brand;
+  brand = brandId = null;
+  defaulted = false;
+  $('.brand-bar')?.remove();
+  const title = $('#title');
+  if (was?.title && title.value === was.title) title.value = title.dataset.seed = SEED;
+  if (was?.where && $('#location').value === was.where) $('#location').value = '';
+  if (was?.note && $('#desc').value === was.note) $('#desc').value = '';
+  if (was?.emoji && $('#emoji-tile').textContent === was.emoji) planEmoji('🗓️');
+  title.dispatchEvent(new Event('input'));
+  const sw = $('.footer .classic-switch');
+  if (sw) sw.hidden = false;
+  // The link says so, so a reload or the Date / Vote switch keeps it.
+  const q = new URLSearchParams(location.search);
+  q.set('brand', 'none');
+  history.replaceState(history.state, '', `${location.pathname}?${q}`);
+  for (const a of $$('.kind-switch a')) a.setAttribute('href', `${a.pathname}?brand=none`);
+  draftChanged();
+  title.focus();
 }
 /** The form is a white-label template's (it hides Venn), so it offers no AI. */
 export const whiteLabel = () => !!brand?.hideVenn;
@@ -80,6 +139,7 @@ export function startForm() {
   editing = null;
   after = null;
   brand = null;
+  defaulted = false;
   brandId = brandFromUrl();
   // Coming from a branded poll, the page goes back to Venn's own look.
   if (!brandId && document.documentElement.classList.contains('branded'))
@@ -339,9 +399,10 @@ export function keepDraft(kind, own, putBack) {
 }
 async function keepDraftNow(kind, own, putBack) {
   formDraft?.stop();
-  if (source() || linkFilled || brandId) return;
+  if (source() || linkFilled || (brandId && !defaulted)) return;
   formDraft = await import('./form-draft.js').catch(() => null);
-  return formDraft?.keep(kind, own, putBack, { privacy: PRIVACY, seeded, quietly: (v) => (fromDraft = v) });
+  const kept = () => (defaulted ? brandId : null); // a default's template stays with its draft
+  return formDraft?.keep(kind, own, putBack, { privacy: PRIVACY, seeded, quietly: (v) => (fromDraft = v), brand: kept });
 }
 
 /**
