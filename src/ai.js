@@ -7,7 +7,8 @@ import Anthropic from '@anthropic-ai/sdk';
 import { BUTTONS, CORNERS, FONTS, isHex } from '../public/brand-look.js';
 import { firstEmoji } from '../public/emoji.js';
 import { DAYS_SCHEMA, DAYS_SYSTEM, daysPrompt, shapeDays } from './days-draft.js';
-import { eitherQuestion, fixedTime, pickKind, readsAsQuestion } from './ask-kind.js';
+import { eitherQuestion, fixedTime, jevPick, pickKind, readsAsQuestion } from './ask-kind.js';
+import { jevKind, SURE } from './jev.js';
 import {
   IF_NEEDED,
   LIMITS,
@@ -230,9 +231,12 @@ const NOTHING = "Couldn't tell what to set up from that. Try naming the choices,
  * needs no second request. The days model reads both; a vote is written by draftTopic only when
  * that read named nothing to pick from.
  */
-export async function draftAny(env, { prompt, timezone }, { now, anthropic } = {}) {
+export async function draftAny(env, { prompt, timezone }, { now, anthropic, fetch, jev = true } = {}) {
   const text = cleanPrompt(prompt, 'Description');
   const { date: today, minutes: nowMinutes } = utcToZoned(now, timezone);
+  // Jev (src/jev.js) reads the kind alongside Claude's read, so it adds no wait; when it's off,
+  // fails or isn't sure, it answers nothing here and Claude's read and the word rules decide.
+  const kindRead = jev ? jevKind(env, text, { fetch }) : Promise.resolve(null);
   const out = await ask(env, {
     schema: DAYS_SCHEMA,
     anthropic,
@@ -241,9 +245,13 @@ export async function draftAny(env, { prompt, timezone }, { now, anthropic } = {
     prompt: daysPrompt(text, { today, timezone, nowMinutes }),
   });
   const days = shapeDays(out, { today, nowMinutes, text });
+  const fromJev = jevPick(await kindRead, days, SURE);
   // Nothing to pick from and no time to find ("ask my wife if she thinks I'm cute"): a question
   // for the group, so a vote. The vote writer says whether it's yes or no.
-  const picked = pickKind(text, days) || (readsAsQuestion(text) ? { kind: 'vote', why: 'question' } : null);
+  const fromRules = !fromJev && (pickKind(text, days) || (readsAsQuestion(text) ? { kind: 'vote', why: 'question' } : null));
+  const picked = fromJev
+    ? { ...fromJev, by: 'jev' }
+    : fromRules && { ...fromRules, by: fromRules.why === 'words' ? 'words' : 'claude' };
   if (!picked) throw new AiUnavailableError(NO_DAYS);
   if (picked.kind === 'date') {
     if (!days.days.length) throw new AiUnavailableError(NO_DAYS);
@@ -264,8 +272,11 @@ export async function draftAny(env, { prompt, timezone }, { now, anthropic } = {
     });
     vote = topic?.yesNo || !read?.question ? topic : { question: read.question, yesNo: false, options: read.options };
   }
+  // Jev was sure it's one yes-or-no question: the vote is that, whatever options the writer offered.
+  if (picked.yesNo && vote) vote = { question: read?.question || vote.question, yesNo: true, options: [] };
   const { vote: _, ...date } = days;
-  return { ...picked, ...vote, note: fixedTime(days.days), date: days.days.length ? date : null };
+  const { yesNo: __, ...kind } = picked;
+  return { ...kind, ...vote, note: fixedTime(days.days), date: days.days.length ? date : null };
 }
 
 // ---------- 1d. Describe the decision → a vote's question and options (/new/topic) ----------

@@ -26,6 +26,20 @@ test('AI allowance: while the free requests last, no key link and no word about 
   await expect(keyLink(page)).toHaveCount(0);
 });
 
+test('AI hint: where Jev picks the kind (config jev), the box says the sentence goes to it too', async ({ page }) => {
+  await page.route('**/api/config', async (route) => {
+    const res = await route.fetch();
+    await route.fulfill({ response: res, json: { ...(await res.json()), jev: true } });
+  });
+  for (const path of ['/new', '/new/topic']) {
+    await page.goto(path);
+    await open(page);
+    await expect(hint(page)).toHaveText(
+      'Venn picks a date poll or a vote. Sent to Anthropic’s Claude and TypeSafe’s Jev. Check everything before you create the poll.',
+    );
+  }
+});
+
 test('AI allowance: used up on Create a Venn, it says Venn reads the words itself, then offers a key', async ({ page }) => {
   await allowance(page, 'used');
   await page.goto('/new');

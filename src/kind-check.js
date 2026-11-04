@@ -5,14 +5,15 @@
 // count against the weekly dollar cap (AI_WEEKLY_BUDGET_USD); past it, nothing is checked. It runs
 // only where Jev is set up (JEV_API_KEY_OPENROUTER), and only with usage stats on, to count into.
 
-import { aiBudget, aiClient, AiUnavailableError, draftAny, meteredClient, weekOf } from './ai.js';
+import Anthropic from '@anthropic-ai/sdk';
+import { aiBudget, AiUnavailableError, draftAny, meteredClient, weekOf } from './ai.js';
 import { casesForHour, jevEnabled, jevKind, SURE } from './jev.js';
 import { recordUsage, usageEnabled } from './usage.js';
 
 /** Today's picker's answer as one of the four kinds. */
 export async function claudeKind(env, text, { now, anthropic }) {
   try {
-    const out = await draftAny(env, { prompt: text, timezone: 'America/New_York' }, { now, anthropic });
+    const out = await draftAny(env, { prompt: text, timezone: 'America/New_York' }, { now, anthropic, jev: false });
     return out.kind === 'vote' && out.yesNo ? 'yesno' : out.kind;
   } catch (e) {
     return e instanceof AiUnavailableError ? 'none' : 'error';
@@ -28,7 +29,11 @@ export async function checkKinds({ store, env, now, fetch, anthropic }) {
   if (!budget || (await store.aiSpend(week)) >= budget) return [];
   const spend = (micros) => micros > 0 && store.addAiSpend(week, micros);
   const claude =
-    env.ANTHROPIC_API_KEY && meteredClient(anthropic ?? aiClient(env), env, (micros) => store.addAiSpend(week, micros));
+    env.ANTHROPIC_API_KEY &&
+    // 15 seconds and no retry: a slow hour at Anthropic can't hold the cron or double the calls.
+    meteredClient(anthropic ?? new Anthropic({ apiKey: env.ANTHROPIC_API_KEY, maxRetries: 0, timeout: 15_000 }), env, (micros) =>
+      store.addAiSpend(week, micros),
+    );
   const counted = [];
   const count = async (props) => {
     counted.push(props);

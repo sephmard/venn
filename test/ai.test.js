@@ -402,6 +402,7 @@ test('one Use AI box: Venn picks a date poll or a vote (ask-kind.js), from one a
   assert.deepEqual(vote.data, {
     kind: 'vote',
     why: 'open',
+    by: 'claude', // no Jev here: Claude's read chose the kind
     question: 'Italian, Thai or Mexican?',
     yesNo: false,
     options: ['Italian', 'Thai', 'Mexican'],

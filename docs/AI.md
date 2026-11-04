@@ -38,13 +38,19 @@ The model answers in a fixed shape (its reading first, then the mode, the usual 
 
 The full policy and acceptance matrix are tested in `test/days-draft.test.js` and `e2e/ai-days.spec.js`. To check the live model against the matrix, run `ANTHROPIC_API_KEY=… npm run ai:eval` (3 runs of each case, a fraction of a cent each). Its `k` cases check which kind of poll the box makes.
 
-## Jev: checking how Venn picks the kind
+## Jev: which kind, decided first
 
-[Jev](https://openrouter.ai/docs/guides/community/jev) is TypeSafe's decision model. It answers a typed question about a text (here: which of four kinds of poll it asks for) with a probability for each answer, in well under a second, for a few millionths of a dollar. Venn reaches it through OpenRouter's Decisions API (`src/jev.js`, model `typesafe/jev-1.14`, pinned).
+[Jev](https://openrouter.ai/docs/guides/community/jev) is TypeSafe's decision model. It answers a typed question about a text (here: which of four kinds of poll it asks for: a date poll, a vote, a yes-or-no question, or nothing to set up) with a probability for each answer, in well under a second, for a few millionths of a dollar. Venn reaches it through OpenRouter's Decisions API (`src/jev.js`, model `typesafe/jev-1.14`, pinned), asking OpenRouter for providers that don't collect the text.
 
-Today Jev only takes a test: it doesn't choose anything for anyone yet. A fixed set of 50 sentences, each with the kind it should make (`src/kind-cases.js`: date poll, vote, yes-or-no, or nothing to set up), written for the set and never anything a person typed, is checked every hour on the server (`src/kind-check.js`). Five sentences go to Jev and to today's picker (the Claude read plus the word rules above), and each answer is counted as `kind.check` in the usage stats, with whether Jev was sure (80% or more). The whole set is checked once a day, in the first ten hours (UTC). Both are paid by the server's keys and count against `AI_WEEKLY_BUDGET_USD`, about 3 cents a day; past the cap nothing is checked.
+In the one Use AI box (`draftAny` in `src/ai.js`), Jev decides and Claude writes:
 
-The word rules alone settle 13 of the 50 right (pinned in `test/jev.test.js`). Jev starts choosing the kind only once its score on the set beats today's picker's, and then only for answers it's sure of, with today's picker deciding the rest; that change will say on the privacy page that the Use AI sentence also goes to OpenRouter and TypeSafe.
+1. Jev reads the sentence at the same time as Claude's read, so it adds no wait.
+2. When Jev is sure (80% or more), its kind wins, over the words too (`jevPick` in `src/ask-kind.js`). Claude still writes everything in the poll: the days and times, the title, the question and its options. A date poll needs days Claude found; if it found none, Jev's pick is set aside rather than make days up. Sure it's yes or no, the vote is one yes-or-no question, whatever options the writer offered.
+3. When Jev isn't sure, says there's nothing to set up, fails (4 seconds at most) or isn't set up, the rules in "Which kind of poll" decide, exactly as before.
+
+It's the same press and the same one unit of the allowance; Jev's cost isn't counted against it. Only the sentence typed goes to Jev, and the privacy page says so. Usage counts `ai.used` with `by`: `jev`, `claude` or `words`, never the text.
+
+**Watching it.** A fixed set of 50 sentences, each with the kind it should make (`src/kind-cases.js`, written for the set and never anything a person typed), is checked every hour on the server (`src/kind-check.js`): five sentences go to Jev and to Claude's picker on its own (without Jev), and each answer is counted as `kind.check` in the usage stats, with whether Jev was sure. The whole set is checked once a day, in the first ten hours (UTC). Both are paid by the server's keys and count against `AI_WEEKLY_BUDGET_USD`, about 3 cents a day; past the cap nothing is checked. The word rules alone settle 13 of the 50 right (pinned in `test/jev.test.js`).
 
 ## Days from plain words, without AI
 
@@ -95,7 +101,7 @@ The weekly counts are kept in the `ai_allowance` table under a SHA-256 hash of t
 | `AI_WEEKLY_TOTAL`        | `2000`              | AI requests the server's key pays for each week, for everyone together. A ceiling on the bill.                                                                                                 |
 | `AI_WEEKLY_BUDGET_USD`   | `5`                 | The most the server's key spends each week, in US dollars, worked out from each answer's token counts. Past it, people bring their own key until Monday (UTC). `0` turns the server's key off. |
 | `AI_OWN_KEYS`            | (off)               | `on` turns AI on without a server key: everyone brings their own Anthropic key.                                                                                                                |
-| `JEV_API_KEY_OPENROUTER` | (off)               | An OpenRouter key for Jev (see "Jev" above). Turns on the hourly poll-kind check, which also needs `STATS_TOKEN`. Keep it secret.                                                              |
+| `JEV_API_KEY_OPENROUTER` | (off)               | An OpenRouter key for Jev (see "Jev" above). Turns on Jev in Use AI, and the hourly check (with `STATS_TOKEN`). Keep it secret.                                                                |
 | `JEV_MODEL`              | `typesafe/jev-1.14` | Another Jev release, such as `~typesafe/jev-latest`.                                                                                                                                           |
 
 On Cloudflare, each Worker instance counts separately. So `wrangler.toml` also sets a [rate limiting binding](https://developers.cloudflare.com/workers/runtime-apis/bindings/rate-limit/) named `AI_RATE_LIMITER` (10 a minute, counted across instances), which a request must pass as well.
