@@ -55,6 +55,20 @@ export function pickKind(prompt, draft) {
 }
 
 /**
+ * Whether the request reads as a question for the group ("Should we get a dog?", "ask my wife if
+ * she thinks I'm cute"), so that with no time and nothing named it makes a vote. A plan with no
+ * time ("Book club with Sam") doesn't: it still asks for when.
+ */
+export function readsAsQuestion(prompt) {
+  const t = String(prompt || '').trim();
+  return (
+    /\?\s*$/.test(t) ||
+    /^(should|shall|is|are|do|does|did|can|could|would|will|who|what|which|where|how|why)\b/i.test(t) ||
+    /\bask(ing)?\b.*\b(if|whether|what|which|who|where|how|why)\b/i.test(t)
+  );
+}
+
+/**
  * The fixed time of a vote whose days come to one date ("pizza or tacos on Friday?"): "Friday,
  * Nov 6", for the vote's note. Several dates, or none: ''.
  */

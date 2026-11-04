@@ -7,7 +7,7 @@ import Anthropic from '@anthropic-ai/sdk';
 import { BUTTONS, CORNERS, FONTS, isHex } from '../public/brand-look.js';
 import { firstEmoji } from '../public/emoji.js';
 import { DAYS_SCHEMA, DAYS_SYSTEM, daysPrompt, shapeDays } from './days-draft.js';
-import { eitherQuestion, fixedTime, pickKind } from './ask-kind.js';
+import { eitherQuestion, fixedTime, pickKind, readsAsQuestion } from './ask-kind.js';
 import {
   IF_NEEDED,
   LIMITS,
@@ -243,7 +243,8 @@ export async function draftAny(env, { prompt, timezone }, { now, anthropic } = {
   const days = shapeDays(out, { today, nowMinutes, text });
   // Nothing to pick from and no time to find ("ask my wife if she thinks I'm cute"): a question
   // for the group, so a vote. The vote writer says whether it's yes or no.
-  const picked = pickKind(text, days) || { kind: 'vote', why: 'question' };
+  const picked = pickKind(text, days) || (readsAsQuestion(text) ? { kind: 'vote', why: 'question' } : null);
+  if (!picked) throw new AiUnavailableError(NO_DAYS);
   if (picked.kind === 'date') {
     if (!days.days.length) throw new AiUnavailableError(NO_DAYS);
     return { ...picked, ...days };

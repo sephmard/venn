@@ -214,7 +214,7 @@ test('a question with no time in it makes a vote, yes or no when it is one', asy
   await ask(page, 'what kind of dog should we get');
   await expect(page).toHaveURL(/\/new\/topic$/);
   await expect(page.locator('#ai-done .ai-kind')).toHaveText(
-    'Venn made this a vote, because there’s no time to find. Check the options it suggested.',
+    'Venn made this a vote, because there’s no date to find. Check the options it suggested.',
   );
   expect(await page.locator('#opts input').evaluateAll((els) => els.map((e) => e.value))).toEqual([
     'Labrador',

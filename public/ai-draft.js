@@ -377,8 +377,8 @@ function kindLine(d) {
   if (d.why === 'words') return 'Venn made this a vote, because you asked for one.';
   if (d.why === 'open' && d.options.length > 1) return 'Venn made this a vote, because you named choices to pick from.';
   return d.options.length > 1
-    ? 'Venn made this a vote, because there’s no time to find. Check the options it suggested.'
-    : 'Venn made this a vote, because there’s no time to find. Add the options below.';
+    ? 'Venn made this a vote, because there’s no date to find. Check the options it suggested.'
+    : 'Venn made this a vote, because there’s no date to find. Add the options below.';
 }
 
 /**

@@ -476,14 +476,23 @@ test('one Use AI box: Venn picks a date poll or a vote (ask-kind.js), from one a
   assert.equal(dog.data.kind, 'vote');
   assert.equal(dog.data.why, 'question');
   assert.deepEqual(dog.data.options, ['Lab', 'Beagle', 'Poodle']);
-  // Nothing to fill in at all: said, and no kind.
+  // A question the vote writer can't make anything of: said, and no kind.
   nextOutput = [
     { title: '', timeOfDay: 'any', decide: 'when', days: [] },
     { question: '', yesNo: false, options: [] },
   ];
-  const none = await ask('hmm');
+  const none = await ask('hmm?');
   assert.equal(none.status, 503);
   assert.match(none.data.error, /Couldn't tell what to set up/);
+  // A plan with no time that isn't a question still asks for when, with no made-up options.
+  for (const plan of ['Book club with Sam', 'hmm']) {
+    nextOutput = { title: 'Book club', timeOfDay: 'any', decide: 'when', days: [] };
+    calls.length = 0;
+    const r = await ask(plan);
+    assert.equal(r.status, 503, plan);
+    assert.match(r.data.error, /Couldn't find any days/);
+    assert.equal(calls.length, 1, plan);
+  }
   // Asked when, but no time read: still the date poll's message.
   nextOutput = { title: '', timeOfDay: 'any', decide: 'when', days: [] };
   const when = await ask('when can we meet');

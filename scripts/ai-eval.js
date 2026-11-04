@@ -189,6 +189,9 @@ const CASES = [
   { name: 'k5 choices', text: 'Italian, Thai or Mexican?', kind: 'vote', yesNo: false },
   { name: 'k6 a time to find', text: 'Dinner with the Smiths next week', kind: 'date' },
   { name: 'k7 when', text: 'When can everyone do a call?', kind: 'date' },
+  // A plan with no time isn't a question: a date poll or "Couldn't find any days", never made-up options.
+  { name: 'k8 a plan with no time', text: 'Book club with Sam', kind: ['date', 'none'] },
+  { name: 'k9 nonsense', text: 'asdf qwerty zxcv?', kind: 'none' },
 ];
 
 const key = (d) => `${d.date} ${d.part ?? (d.start != null ? `${d.start}-${d.end}` : 'all')}`;
@@ -196,7 +199,8 @@ const key = (d) => `${d.date} ${d.part ?? (d.start != null ? `${d.start}-${d.end
 function check(c, draft) {
   const problems = [];
   if (c.kind) {
-    if (draft.kind !== c.kind) problems.push(`a ${draft.kind}, not a ${c.kind}`);
+    const kinds = [c.kind].flat();
+    if (!kinds.includes(draft.kind)) problems.push(`a ${draft.kind}, not ${kinds.join(' or ')}`);
     else if (c.yesNo != null && !!draft.yesNo !== c.yesNo) problems.push(c.yesNo ? 'not yes or no' : 'yes or no');
     return problems;
   }
@@ -236,7 +240,8 @@ for (const c of CASES.filter((x) => x.name.includes(only))) {
     Array.from({ length: runs }, () =>
       (c.kind ? draftAny : draftDays)(env, { prompt: c.text, timezone: c.tz || NY }, { now: c.now ?? MON }).then(
         (draft) => ({ draft, problems: check(c, draft) }),
-        (e) => ({ problems: [`error: ${e.message}`] }),
+        // Nothing made is right where a case expects it ('none').
+        (e) => ({ problems: [c.kind].flat().includes('none') ? [] : [`error: ${e.message}`] }),
       ),
     ),
   );
