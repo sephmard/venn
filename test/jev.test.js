@@ -538,3 +538,23 @@ test('the check counts whether a vote came with options (filled), so an empty on
   assert.deepEqual(await run(q, { question: 'Q?', yesNo: false, options: [] }), { got: 'vote', filled: 'no' });
   assert.deepEqual(await run(q, { question: 'Q?', yesNo: true, options: [] }), { got: 'yesno' });
 });
+
+test('Answer for me: every time busy in the calendar is answered with no model at all, counted as the calendar', async () => {
+  const ev = optionsPoll(2);
+  const busy = [{ start: T0 - HR, end: T0 + 48 * HR }];
+  const f = fakeFetch(answersOf({}));
+  const claude = claudeWith();
+  const out = await answerForMe(
+    ENV,
+    ev,
+    { preferences: 'Any', busy, timezone: 'UTC' },
+    { anthropic: claude.anthropic, fetch: f },
+  );
+  assert.equal(out.by, 'calendar');
+  assert.equal(f.calls.length, 0);
+  assert.equal(claude.calls.length, 0);
+  assert.deepEqual(Object.values(out.answers), [
+    { answer: 0, note: 'Busy in your calendar' },
+    { answer: 0, note: 'Busy in your calendar' },
+  ]);
+});

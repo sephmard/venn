@@ -22,7 +22,7 @@ export const jevEnabled = (env) => Boolean(env?.JEV_API_KEY_OPENROUTER);
  * One Decisions request: { answers, cost } with `cost` in millionths of a dollar, or null when Jev
  * is off or didn't answer. Logs only the status, never the key or the text.
  */
-export async function askJev(env, { state, questions }, { fetch: doFetch = fetch } = {}) {
+export async function askJev(env, { state, questions }, { fetch: doFetch = fetch, timeout = TIMEOUT_MS } = {}) {
   if (!jevEnabled(env)) return null;
   try {
     const res = await doFetch(JEV_URL, {
@@ -30,7 +30,7 @@ export async function askJev(env, { state, questions }, { fetch: doFetch = fetch
       headers: { authorization: `Bearer ${env.JEV_API_KEY_OPENROUTER}`, 'content-type': 'application/json' },
       // Only providers that don't collect or train on the text (OpenRouter's provider routing).
       body: JSON.stringify({ model: env.JEV_MODEL || JEV_MODEL, state, questions, provider: { data_collection: 'deny' } }),
-      signal: AbortSignal.timeout(TIMEOUT_MS),
+      signal: AbortSignal.timeout(timeout),
     });
     if (!res.ok) {
       console.error('Jev request failed', { status: res.status });
@@ -80,6 +80,9 @@ export function casesForHour(hour, cases = KIND_CASES, perHour = 5) {
   return start < cases.length ? cases.slice(start, start + perHour) : [];
 }
 
+/** Answer for me waits less for Jev, since Claude starts only after it answers (or doesn't). */
+export const ANSWER_TIMEOUT_MS = 2500;
+
 /** The most times one Answer for me request asks Jev about; any after them go to Claude. */
 export const MAX_ANSWER_OPTIONS = 40;
 
@@ -108,7 +111,7 @@ export async function jevAnswers(env, { preferences, timezone, options }, opts) 
     ]),
   );
   const state = `What they wrote: ${String(preferences).slice(0, 600)}\nTheir time zone: ${timezone}`;
-  const out = await askJev(env, { state, questions }, opts);
+  const out = await askJev(env, { state, questions }, { timeout: ANSWER_TIMEOUT_MS, ...opts });
   if (!out) return null;
   const answers = {};
   for (const o of options) {

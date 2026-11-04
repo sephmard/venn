@@ -45,7 +45,7 @@ Venn's AI follows one rule: **Jev is System 1 and Claude is System 2**, after Da
 Today that means:
 
 - **Use AI:** Jev picks the kind of poll and Claude writes it (below).
-- **Answer for me** (`answerForMe` in `src/ai.js`): a busy time in the calendar is No and a tentative one is at most If needed, with no model. Jev answers each other time from what the person wrote (one choice question per time, `jevAnswers` in `src/jev.js`, up to 40 times a request). Claude answers only the times Jev isn't 80% sure about, or all of them when Jev is off or fails. Jev never sees the calendar. Answers Jev decides carry no note; calendar and Claude answers keep theirs. Usage counts `ai.used` with `feature: answer` and `by`: `jev` when Claude wasn't needed, otherwise `claude`.
+- **Answer for me** (`answerForMe` in `src/ai.js`): a busy time in the calendar is No and a tentative one is at most If needed, with no model. Jev answers each other time from what the person wrote (one choice question per time, `jevAnswers` in `src/jev.js`, up to 40 times a request). Claude answers only the times Jev isn't 80% sure about, or all of them when Jev is off or fails. Jev never sees the calendar. Answers Jev decides carry no note; calendar and Claude answers keep theirs. Jev gets 2.5 seconds here (4 for Use AI), since Claude waits for it. Usage counts `ai.used` with `feature: answer` and `by`: `jev` when Claude wasn't needed, `calendar` when every time was busy, otherwise `claude`.
 
 New AI work starts by asking which part is a decision Jev can make.
 
