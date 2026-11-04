@@ -38,6 +38,12 @@ const SCHEMA = [
      PRIMARY KEY (event_id, day, recipient_hash)
    )`,
   `CREATE INDEX IF NOT EXISTS email_recipients_day ON email_recipients(day)`,
+  // When the organizer last changed a poll (its settings, date, pick or reminders), for how long
+  // it's kept (src/retention.js). Answers have their own time.
+  `CREATE TABLE IF NOT EXISTS event_activity (
+     event_id TEXT PRIMARY KEY,
+     at INTEGER NOT NULL
+   )`,
   // How many emails the whole server has sent each day (UTC), for its daily ceiling
   // (src/recipients.js). Just a count; rows from before yesterday are cleared.
   `CREATE TABLE IF NOT EXISTS email_daily (
@@ -206,7 +212,7 @@ const SCHEMA = [
 const imageOf = (row) => (row.image_v != null ? { image: { v: row.image_v, card: !!row.image_card, type: row.image_type } } : {});
 const IMAGE_COLUMNS = 'i.updated_at AS image_v, i.icon_type AS image_type, i.card IS NOT NULL AS image_card';
 
-export function createStore(db) {
+export function createStore(db, { clock = Date.now } = {}) {
   // The tables, made once per server (a Worker isolate) before its first query: all in one batch, so
   // a cold Worker waits for one database round trip, not one per table. If that fails (the database
   // was briefly unreachable), the next request tries again instead of failing for the isolate's life.
@@ -222,6 +228,12 @@ export function createStore(db) {
       ready = null;
       throw e;
     }));
+  /** Note that the organizer just changed poll `id` (event_activity, for src/retention.js). */
+  const touch = (id) =>
+    db.run('INSERT INTO event_activity (event_id, at) VALUES (?, ?) ON CONFLICT(event_id) DO UPDATE SET at = excluded.at', [
+      id,
+      clock(),
+    ]);
 
   return {
     /** For health checks: the database answers a trivial query (and its tables exist). */
@@ -289,12 +301,39 @@ export function createStore(db) {
       await db.run('DELETE FROM notifications WHERE event_id = ?', [id]);
       await db.run('DELETE FROM event_images WHERE event_id = ?', [id]);
       await db.run('DELETE FROM reminders WHERE event_id = ?', [id]);
+      await db.run('DELETE FROM event_activity WHERE event_id = ?', [id]);
       await db.run("DELETE FROM owners WHERE kind = 'poll' AND item_id = ?", [id]);
       await db.run("DELETE FROM owners WHERE kind = 'answer' AND item_id IN (SELECT id FROM participants WHERE event_id = ?)", [
         id,
       ]);
       await db.run('DELETE FROM participants WHERE event_id = ?', [id]);
       await db.run('DELETE FROM events WHERE id = ?', [id]);
+    },
+
+    /**
+     * Up to `limit` polls, oldest first, with nothing after `cutoff` (ms): made before it, no answer
+     * changed since, not changed by its organizer since (event_activity: settings, the date or a
+     * vote's pick, reminders), no date picked after it, and no day (date polls) or option (times)
+     * after it.
+     * Topic polls have no dates, so only the rest counts. For src/retention.js.
+     */
+    async expiredEvents(cutoff, limit) {
+      await init();
+      const day = new Date(cutoff).toISOString().slice(0, 10);
+      const rows = await db.all(
+        `SELECT e.id FROM events e
+         WHERE e.created_at < ?1
+           AND (e.final_start IS NULL OR e.final_start < ?1)
+           AND NOT EXISTS (SELECT 1 FROM participants p WHERE p.event_id = e.id AND p.updated_at >= ?1)
+           AND NOT EXISTS (SELECT 1 FROM event_activity a WHERE a.event_id = e.id AND a.at >= ?1)
+           AND COALESCE((SELECT MAX(value) FROM json_each(e.data, '$.dates')), '') < ?2
+           AND COALESCE((SELECT MAX(json_extract(value, '$.date')) FROM json_each(e.data, '$.windows')), '') < ?2
+           AND COALESCE((SELECT MAX(json_extract(value, '$.start')) FROM json_each(e.data, '$.options')), 0) < ?1
+         ORDER BY e.created_at
+         LIMIT ?3`,
+        [cutoff, day, limit],
+      );
+      return rows.map((r) => r.id);
     },
 
     /** When poll `eventId` is next due a look for its deadline (src/deadline.js), or never (null). */
@@ -319,6 +358,7 @@ export function createStore(db) {
     async updateEvent(id, { image: _image, ...event }) {
       await init();
       await db.run('UPDATE events SET data = ? WHERE id = ?', [JSON.stringify(event), id]);
+      await touch(id);
     },
 
     /**
@@ -863,6 +903,7 @@ export function createStore(db) {
     async setFinal(id, finalStart) {
       await init();
       await db.run('UPDATE events SET final_start = ? WHERE id = ?', [finalStart, id]);
+      await touch(id);
     },
 
     async listParticipants(eventId) {
@@ -920,6 +961,7 @@ export function createStore(db) {
         'INSERT INTO notifications (event_id, data) VALUES (?, ?) ON CONFLICT(event_id) DO UPDATE SET data = excluded.data',
         [eventId, JSON.stringify(data)],
       );
+      await touch(eventId);
     },
 
     async deleteParticipant(eventId, id) {
