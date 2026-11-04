@@ -25,6 +25,7 @@ test('words in the request win over the model', () => {
     'a poll about the theme',
     'which one should we read?',
     'decide where to eat',
+    'which restaurant Friday?',
   ])
     assert.equal(saidKind(p), 'vote', p);
   for (const p of [
@@ -34,6 +35,8 @@ test('words in the request win over the model', () => {
     'which days suit you',
     'our availability',
     'decide what day',
+    'Which Friday works for dinner?',
+    'which evening in March',
   ])
     assert.equal(saidKind(p), 'date', p);
   // Words the rule doesn't know fall through to the model.
@@ -43,6 +46,8 @@ test('words in the request win over the model', () => {
     'pizza or tacos on Friday?',
     'votar mañana',
     'Let’s decide where and when to have dinner',
+    'Which of next week works?',
+    'which of these works for you',
   ])
     assert.equal(saidKind(p), null, p);
 });
