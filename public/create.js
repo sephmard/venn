@@ -4,21 +4,7 @@
 
 import { IF_NEEDED, YES, isEmail } from './core.js';
 import { TEMPLATES, orderTemplates, templateIndex } from './templates.js';
-import {
-  $,
-  $$,
-  api,
-  copyByHand,
-  esc,
-  save,
-  toast,
-  getConfig,
-  lastEmail,
-  lastName,
-  localTz,
-  rememberEmail,
-  rememberName,
-} from './ui.js';
+import { $, $$, api, esc, save, toast, getConfig, lastEmail, lastName, localTz, rememberEmail, rememberName } from './ui.js';
 
 // The create pages' own styles, so people answering a poll never download them. They load before
 // the page is drawn, so it never shows unstyled.
@@ -504,7 +490,10 @@ export async function submit(body, occasion, answer = null) {
     scrollTo(0, 0);
     party?.finish();
     // Opening the poll clears any toast, so say the link was copied after it.
-    if (copying) (await copying) ? toast('Invite link copied. Paste it in your group chat.') : copyByHand(url, $('#copy'));
+    if (copying)
+      (await copying)
+        ? toast('Invite link copied. Paste it in your group chat.')
+        : import('./copy-by-hand.js').then((m) => m.copyByHand(url, $('#copy')));
     else invites?.done(body);
   } catch (ex) {
     $('#err').textContent = ex.message;

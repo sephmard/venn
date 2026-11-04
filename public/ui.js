@@ -116,26 +116,9 @@ export function toast(msg) {
 }
 
 /**
- * Where the clipboard says no (an in-app browser, a denied permission): `text` in a selected,
- * read-only box under `at`'s row (or at the end of the page), to copy by hand. Never a browser dialog.
- */
-export function copyByHand(text, at, label = 'Copy this link:') {
-  document.getElementById('copy-by-hand')?.remove();
-  const p = Object.assign(document.createElement('p'), { className: 'copy-by-hand', id: 'copy-by-hand' });
-  p.innerHTML = `<label>${esc(label)}<input readonly autocomplete="off"></label>`;
-  const input = p.querySelector('input');
-  input.value = text;
-  // Under the button's row, not inside it (a flex row would squeeze it).
-  const row = at?.parentElement;
-  if (!at || at === document.body) app.append(p);
-  else (row && row !== app && !/^(FORM|SECTION|MAIN|DETAILS|BODY|DIALOG)$/.test(row.tagName) ? row : at).after(p);
-  input.focus();
-  input.setSelectionRange(0, 9999);
-}
-
-/**
  * Copy `text`, then say `done`. A `button` given also reads "Link copied ✓" for two seconds (the
- * toast is for screen readers). Not allowed to: copyByHand. Resolves to whether it was copied.
+ * toast is for screen readers). Not allowed to: copyByHand (copy-by-hand.js). Resolves to
+ * whether it was copied.
  */
 export async function copy(text, done = 'Link copied', button = null) {
   const at = button || document.activeElement;
@@ -143,6 +126,7 @@ export async function copy(text, done = 'Link copied', button = null) {
   try {
     await navigator.clipboard.writeText(text);
   } catch {
+    const { copyByHand } = await import('./copy-by-hand.js');
     copyByHand(text, at, /link/i.test(done) ? 'Copy this link:' : 'Copy this:');
     return false;
   }
