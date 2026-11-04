@@ -19,7 +19,7 @@ import {
 } from './notify.js';
 import { setLabel } from './preview.js';
 import { whiteLabelOf } from './brands.js';
-import { mayEmail, recipientCap } from './recipients.js';
+import { mayEmail, recipientCap, withinDailyLimit } from './recipients.js';
 import { publicOrigin } from './site.js';
 import { normalizeInvitees } from './invites.js';
 
@@ -284,6 +284,8 @@ export async function sendDeadlines({ store, env = {}, now = Date.now(), fetchIm
           retro: ev.retro,
         });
         const headers = unsubscribeHeaders(unsubscribeLink(site, id, settings.unsubscribeToken));
+        // Past the server's daily ceiling: left as it is, so the next hour's run tries again.
+        if (!(await withinDailyLimit(store, env, {}, now))) return 0;
         await sendEmail(env, { to, ...msg, headers }, { fetchImpl });
         n++;
       }
