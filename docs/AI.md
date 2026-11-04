@@ -77,7 +77,7 @@ The weekly counts are kept in the `ai_allowance` table under a SHA-256 hash of t
 | `AI_WEEKLY_BUDGET_USD` | `5`                | The most the server's key spends each week, in US dollars, worked out from each answer's token counts. Past it, people bring their own key until Monday (UTC). `0` turns the server's key off. |
 | `AI_OWN_KEYS`          | (off)              | `on` turns AI on without a server key: everyone brings their own Anthropic key.                                                                                                                |
 
-On Cloudflare, each Worker instance counts separately. To enforce one limit everywhere, add a [rate limiting binding](https://developers.cloudflare.com/workers/runtime-apis/bindings/rate-limit/) named `AI_RATE_LIMITER` in `wrangler.toml`. Venn uses it automatically when present.
+On Cloudflare, each Worker instance counts separately. So `wrangler.toml` also sets a [rate limiting binding](https://developers.cloudflare.com/workers/runtime-apis/bindings/rate-limit/) named `AI_RATE_LIMITER` (10 a minute, counted across instances), which a request must pass as well.
 
 ## Cost
 

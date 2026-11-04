@@ -40,6 +40,39 @@ enabled = true
 # search off, or set it to "google" with the GOOGLE_PLACES_API_KEY secret.
 PLACES_PROVIDER = "photon"
 
+# Rate limits that hold across every copy of the Worker in a Cloudflare location (src/limits.js).
+# Each is per visitor (IP address) per minute, checked on top of the per-copy limits in the code.
+# The namespace_id only has to be unique within your Cloudflare account.
+[[ratelimits]]
+name = "AI_RATE_LIMITER"        # AI requests (docs/AI.md)
+namespace_id = "72601"
+simple = { limit = 10, period = 60 }
+
+[[ratelimits]]
+name = "AUTH_RATE_LIMITER"      # email sign-in, sign-up and password tries
+namespace_id = "72602"
+simple = { limit = 10, period = 60 }
+
+[[ratelimits]]
+name = "CONTACT_RATE_LIMITER"   # the contact form
+namespace_id = "72603"
+simple = { limit = 3, period = 60 }
+
+[[ratelimits]]
+name = "PLACES_RATE_LIMITER"    # address search in "Where"
+namespace_id = "72604"
+simple = { limit = 60, period = 60 }
+
+[[ratelimits]]
+name = "CREATE_RATE_LIMITER"    # new polls and templates (a class or office on one network)
+namespace_id = "72605"
+simple = { limit = 20, period = 60 }
+
+[[ratelimits]]
+name = "WRITE_RATE_LIMITER"     # answers, Claude and other assistants (/api/mcp), results, usage counts
+namespace_id = "72606"
+simple = { limit = 300, period = 60 }
+
 # Create the database once with:  npx wrangler d1 create venn
 # then paste the database_id it prints below. Tables are created automatically.
 [[d1_databases]]
