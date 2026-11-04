@@ -14,4 +14,8 @@ export const SECURITY_HEADERS = {
   'x-frame-options': 'SAMEORIGIN',
   'cross-origin-opener-policy': 'same-origin',
   'permissions-policy': 'camera=(), microphone=(), geolocation=(), payment=(), usb=()',
+  // HTTPS only, for a year (#211). Browsers ignore it over plain http (local development, a
+  // self-hosted server without HTTPS). Not includeSubDomains: other subdomains are set up
+  // elsewhere, and one without HTTPS would stop working.
+  'strict-transport-security': 'max-age=31536000',
 };
