@@ -111,6 +111,21 @@ function reply(body) {
         days: [],
         note: '',
       };
+    if (/make for dinner/i.test(text))
+      return {
+        ...base,
+        title: 'Dinner',
+        timeOfDay: 'any',
+        usualParts: [],
+        firstDate: today,
+        lastDate: '',
+        daysInRow: 1,
+        days: [],
+        decide: 'what',
+        question: 'What should we make for dinner?',
+        choices: [],
+        note: '',
+      };
     if (/vote on our next book/i.test(text))
       return {
         ...base,
@@ -208,6 +223,10 @@ function reply(body) {
   // A vote on /new/topic.
   if (props.yesNo && /if she thinks I(’|')m cute/.test(prompt))
     return { question: 'Do you think I’m cute?', yesNo: true, options: [] };
+  if (props.yesNo && /make for dinner/i.test(prompt))
+    return { question: 'What should we make?', yesNo: false, options: ['Pasta', 'Tacos', 'Stir-fry', 'Curry'] };
+  if (props.yesNo && /next book/i.test(prompt))
+    return { question: 'Which book next?', yesNo: false, options: ['Piranesi', 'Circe', 'Dune'] };
   if (props.yesNo && /what kind of dog/i.test(prompt))
     return { question: 'What kind of dog should we get?', yesNo: false, options: ['Labrador', 'Beagle', 'Poodle'] };
   if (props.yesNo)

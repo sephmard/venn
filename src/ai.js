@@ -262,15 +262,20 @@ export async function draftAny(env, { prompt, timezone }, { now, anthropic, fetc
   if (read?.options.length >= 2)
     vote = { question: read.question || eitherQuestion(read.options), yesNo: false, options: read.options };
   else {
-    // Nothing named to pick from: the vote writer says whether it's yes or no, or writes the vote
-    // when the words asked for one the days model didn't read. A question the days model read
-    // keeps its (empty) choices, so none are made up ("vote on our next book").
+    // Nothing named to pick from: Claude (System 2) writes the vote. It says whether it's yes or
+    // no, and otherwise suggests a few options to start from ("What should we make for dinner?"),
+    // marked `suggested` so the card says to check them. The question the days model read, if
+    // any, keeps its wording. Only when the writer can't suggest any does the vote stay empty.
     const topic = await draftTopic(env, { prompt: text }, { anthropic }).catch((e) => {
       if (!(e instanceof AiUnavailableError)) throw e;
       if (!read?.question) throw new AiUnavailableError(picked.why === 'question' ? NOTHING : e.message);
       return null;
     });
-    vote = topic?.yesNo || !read?.question ? topic : { question: read.question, yesNo: false, options: read.options };
+    vote = topic?.yesNo
+      ? topic
+      : topic
+        ? { question: read?.question || topic.question, yesNo: false, options: topic.options, suggested: true }
+        : { question: read.question, yesNo: false, options: read.options };
   }
   // Jev was sure it's one yes-or-no question: the vote is that, whatever options the writer offered.
   // The writer's own yes-or-no wording comes first; a question the read had might be a choice's.

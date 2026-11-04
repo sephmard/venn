@@ -373,11 +373,14 @@ const switchTo = (to) => $(`.kind-switch a[href^="${PATHS[to]}"]:not([aria-curre
 function kindLine(d) {
   if (d.kind === 'date') return 'Venn made this a date poll, because you asked when.';
   if (d.why === 'both' && d.note) return `Venn made this a vote, because ${d.note.split(',')[0]} is already set.`;
+  const check = d.suggested && d.options.length > 1 ? ' Check the options it suggested.' : '';
+  if (d.why === 'both' && check)
+    return 'Venn made this a vote first, with a few options to start from. Once it’s picked, Find a date for it gives you the days.';
   if (d.why === 'both')
     return `Venn made this a vote${d.options.length > 1 ? ` on ${either(d.options)}` : ' first'}. Once it’s picked, Find a date for it gives you the days.`;
   if (d.yesNo) return 'Venn made this a vote, because you asked yes or no.';
-  if (d.why === 'words') return 'Venn made this a vote, because you asked for one.';
-  if (d.why === 'open' && d.options.length > 1) return 'Venn made this a vote, because you named choices to pick from.';
+  if (d.why === 'words') return `Venn made this a vote, because you asked for one.${check}`;
+  if (d.why === 'open' && d.options.length > 1 && !check) return 'Venn made this a vote, because you named choices to pick from.';
   return d.options.length > 1
     ? 'Venn made this a vote, because there’s no date to find. Check the options it suggested.'
     : 'Venn made this a vote, because there’s no date to find. Add the options below.';

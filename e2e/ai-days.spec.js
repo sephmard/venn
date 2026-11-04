@@ -199,12 +199,14 @@ test('AI: "where and when" fills the evenings and offers to vote on where first'
 });
 
 for (const words of ['Vote on our next book', 'Vote on our next book.'])
-  test(`AI: "${words}" with no books named opens the vote with the question and two empty options`, async ({ page }) => {
+  test(`AI: "${words}" with no books named opens the vote with the question and a few books to start from`, async ({ page }) => {
     await page.goto('/new');
     await describe(page, words);
     await expect(page).toHaveURL(/\/new\/topic/);
     await expect(page.locator('#title')).toHaveValue('What should we read next?');
-    const options = page.locator('#opts input');
-    await expect(options).toHaveCount(2);
-    expect(await options.evaluateAll((els) => els.map((e) => e.value))).toEqual(['', '']);
+    expect(await page.locator('#opts input').evaluateAll((els) => els.map((e) => e.value))).toEqual([
+      'Piranesi',
+      'Circe',
+      'Dune',
+    ]);
   });
