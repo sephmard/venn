@@ -11,13 +11,15 @@ const now = Date.UTC(2031, 5, 15, 12);
 const ago = (d) => now - d * DAY;
 const date = (ms) => new Date(ms).toISOString().slice(0, 10);
 
-test('the retention: a year by default, POLL_RETENTION_DAYS changes it, 0 keeps polls', () => {
+test('the retention: a year by default, POLL_RETENTION_DAYS changes it, 0 or nonsense keeps polls', () => {
   assert.equal(POLL_RETENTION_DAYS, 365);
   assert.equal(retentionDays({}), 365);
   assert.equal(retentionDays({ POLL_RETENTION_DAYS: '30' }), 30);
   assert.equal(retentionDays({ POLL_RETENTION_DAYS: '0' }), 0);
-  assert.equal(retentionDays({ POLL_RETENTION_DAYS: 'forever' }), 365);
-  assert.equal(retentionDays({ POLL_RETENTION_DAYS: '-1' }), 365);
+  // A setting that can't be read keeps every poll, rather than deleting any sooner than meant.
+  assert.equal(retentionDays({ POLL_RETENTION_DAYS: 'forever' }), 0);
+  assert.equal(retentionDays({ POLL_RETENTION_DAYS: '-1' }), 0);
+  assert.equal(retentionDays({ POLL_RETENTION_DAYS: 'O' }), 0);
 });
 
 test('a poll goes once a year has passed since it was made, answered, decided and its last day or option', async () => {

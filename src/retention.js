@@ -10,12 +10,18 @@ export const PURGE_BATCH = 50;
 
 const DAY = 86_400_000;
 
-/** The retention from the server's settings, in days: a whole number, 0 for keep forever. */
+/**
+ * The retention from the server's settings, in days: a whole number, 0 for keep forever. A setting
+ * that can't be read ("forever", "-1", a typo) keeps every poll too, with a log line: this deletes
+ * data, so a mistake should never delete sooner than meant.
+ */
 export function retentionDays(env = {}) {
   const v = env.POLL_RETENTION_DAYS;
   if (v == null || v === '') return POLL_RETENTION_DAYS;
   const n = Number(v);
-  return Number.isFinite(n) && n >= 0 ? Math.floor(n) : POLL_RETENTION_DAYS;
+  if (Number.isFinite(n) && n >= 0) return Math.floor(n);
+  console.warn('POLL_RETENTION_DAYS is not a number of days; keeping every poll');
+  return 0;
 }
 
 /** Delete the polls nothing has happened with for the retention period. Returns how many. */
