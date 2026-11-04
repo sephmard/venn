@@ -476,7 +476,7 @@ function cleanBusy(busy) {
  * Answer for me, System 1 first (docs/AI.md, "Jev"): the calendar decides what it can with no model
  * (busy is no, a tentative event is at best if needed); Jev answers the other times from what the
  * person wrote; Claude answers only the times Jev isn't sure about, or all of them when Jev is off
- * or fails. Returns { answers: { [start]: { answer, note } }, by: 'jev' | 'claude' }.
+ * or fails. Returns { answers: { [start]: { answer, note } }, by: 'jev' | 'claude' | 'calendar' }.
  */
 export async function answerForMe(env, ev, { preferences, busy, timezone }, { anthropic, fetch } = {}) {
   const prefs = cleanPrompt(preferences, 'Preferences');
@@ -508,7 +508,8 @@ export async function answerForMe(env, ev, { preferences, busy, timezone }, { an
     if (a && a.p >= SURE) put(o, a.answer, '');
   });
   const rest = open.filter((o) => !(o.start in result));
-  if (!rest.length) return { answers: result, by: 'jev' };
+  // Every time busy: the calendar answered them all, with no model.
+  if (!rest.length) return { answers: result, by: asked.length ? 'jev' : 'calendar' };
   const lines = rest.map(
     (o, i) => `${i + 1}. ${o.label}${o.cal ? ` [calendar: ${o.cal === 'tentative' ? 'tentative event' : 'free'}]` : ''}`,
   );
