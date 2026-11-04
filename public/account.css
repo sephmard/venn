@@ -934,3 +934,15 @@ html.retro .btn-signin {
   margin: 0 0 10px;
   text-align: left;
 }
+
+/* What new polls start with, above the templates (default-template.js). */
+.acct-defaults {
+  margin: 0 0 20px;
+}
+.acct-defaults label {
+  display: block;
+  margin: 12px 0 6px;
+}
+.acct-defaults .hint {
+  margin: 10px 0 0;
+}

@@ -39,6 +39,7 @@ export function changed() {
       desc: $('#desc').value,
       organizer: $('#organizer').value,
       privacy: shared.privacy.map(([, el]) => $(el).checked),
+      brand: shared.brand?.() || null,
       ...own(),
     });
   });
