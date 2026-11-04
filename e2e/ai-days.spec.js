@@ -41,6 +41,7 @@ test('AI: date night on the days they are free is evenings only on those days, t
 
   // The summary names the dates and the time window, and what it assumed.
   const done = page.locator('#ai-done');
+  await expect(done.locator('.ai-kind')).toHaveText('Venn made this a date poll, because you asked when.');
   await expect(done.locator('.ai-done-head')).toHaveText('Date night 💕');
   await expect(done.locator('.ai-done-when')).toContainText(/^Evenings: /);
   const label = (d) =>

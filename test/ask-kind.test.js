@@ -75,6 +75,7 @@ test('with no AI, a plain choice is split on commas and "or"', () => {
   });
   assert.deepEqual(choicesOfWords('Dinner: Rosa’s or Luigi’s'), { question: 'Dinner?', options: ['Rosa’s', 'Luigi’s'] });
   assert.deepEqual(choicesOfWords('vote on pizza, tacos, or sushi').options, ['Pizza', 'Tacos', 'Sushi']);
+  assert.deepEqual(choicesOfWords('Book swap: yes or no?'), { question: 'Book swap?', options: [], yesNo: true });
   for (const p of [
     'pizza',
     'Italian, Thai',

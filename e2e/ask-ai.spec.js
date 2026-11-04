@@ -81,7 +81,7 @@ test('choices on a set day: a vote with the day in its note, and the date poll o
   const calls = aiCalls(page);
   await ask(page, 'pizza or tacos on Friday?');
   await expect(page).toHaveURL(/\/new\/topic$/);
-  await expect(page.locator('#ai-done .ai-kind')).toHaveText('Made it a vote, since Friday is already set.');
+  await expect(page.locator('#ai-done .ai-kind')).toHaveText('Venn made this a vote, because Friday is already set.');
   await expect(page.locator('#title')).toHaveValue('Pizza or Tacos?');
   await expect(page.locator('#desc')).toHaveValue(/^Friday, \w{3} \d{1,2}$/);
   await page.getByRole('button', { name: 'Make it a date poll instead' }).click();

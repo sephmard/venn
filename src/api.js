@@ -786,7 +786,7 @@ async function route(
       if (draft) return json(anyDraft ? { kind: 'date', why: 'words', ...draft } : draft);
       // The one box (ai/draft) with no AI: a plain choice ("Italian, Thai or Mexican?") is a vote.
       const choices = anyDraft && typeof prompt === 'string' && choicesOfWords(prompt);
-      if (choices) return json({ kind: 'vote', why: 'words', yesNo: false, note: '', date: null, ...choices });
+      if (choices) return json({ kind: 'vote', why: 'open', yesNo: false, note: '', date: null, ...choices });
       if (anyDraft && saidKind(prompt) === 'vote') return otherwise('choices');
       return otherwise(unsureOf(prompt));
     }

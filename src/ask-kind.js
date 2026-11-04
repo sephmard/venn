@@ -14,9 +14,11 @@ import { weekdayOf } from '../public/core.js';
 const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 const WEEKDAYS = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
 // "which day", "which evenings": a time to find, not a choice.
-const TIME_NOUN = String.raw`(?:days?|dates?|times?|nights?|evenings?|mornings?|afternoons?|weekends?|weeks?)`;
+const TIME_NOUN = String.raw`(?:days?|dates?|times?|nights?|evenings?|mornings?|afternoons?|weekends?|weeks?|months?|(?:mon|tues|wednes|thurs|fri|satur|sun)days?|january|february|march|april|may|june|july|august|september|october|november|december)`;
+// "which of next week", "which of these": not a choice by its own words (the model decides).
+const WHICH_NOT = String.raw`(?:${TIME_NOUN}|of (?:next|this|the) (?:week|month|weekend)|of these|of them)`;
 const VOTE_WORDS = new RegExp(
-  String.raw`\b(?:vote|poll (?:on|about)|(?:choose|pick|decide) between|decide (?:what|where|which)\b(?!\s+${TIME_NOUN}\b)(?!\s+and\s+when\b)|which\b(?!\s+${TIME_NOUN}\b)(?: one)?)`,
+  String.raw`\b(?:vote|poll (?:on|about)|(?:choose|pick|decide) between|decide (?:what|where|which)\b(?!\s+${TIME_NOUN}\b)(?!\s+and\s+when\b)|which\b(?!\s+${WHICH_NOT}\b)(?: one)?)`,
   'i',
 );
 const DATE_WORDS = new RegExp(
@@ -97,5 +99,8 @@ export function choicesOfWords(prompt) {
     options.push(cap(o));
   }
   if (options.length < 2 || options.length > 20 || options.some((o) => TIME_WORDS.test(o))) return null;
+  // "Pizza night, yes or no?": one yes-or-no question.
+  if (options.length === 2 && /^yes$/i.test(options[0]) && /^no$/i.test(options[1]))
+    return ask ? { question: `${cap(ask)}?`.slice(0, 120), options: [], yesNo: true } : null;
   return { question: ask ? `${cap(ask)}?`.slice(0, 120) : eitherQuestion(options), options };
 }

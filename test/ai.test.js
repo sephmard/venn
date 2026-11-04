@@ -492,7 +492,7 @@ test('one Use AI box: one allowance a press, given back on failure, and words wi
   const split = await ask('Italian, Thai or Mexican?');
   assert.deepEqual(split.data, {
     kind: 'vote',
-    why: 'words',
+    why: 'open',
     yesNo: false,
     note: '',
     date: null,

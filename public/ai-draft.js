@@ -64,6 +64,7 @@ document.head.insertAdjacentHTML(
   .ask .ai-done { margin-top: 10px; }
   .ask .ai-done > p:focus { outline: none; }
   .ask .ai-done .ai-kind { display: block; }
+  .ask .ai-done .ai-kind + .ai-done-head { font-weight: 500; }
   .ask .ai-row .ai-use { justify-self: end; padding: 0 22px; }
   @media (max-width: 599px) { .ask .ai-row .ai-use { justify-self: stretch; } }
   .ai-wait { display: flex; align-items: center; gap: 10px; margin: 8px 0 0; font-weight: 600; }
@@ -152,8 +153,8 @@ function done(said, undo) {
   $('#ai-done')?.remove();
   const { kind, head, when, note } = typeof said === 'string' ? { head: said } : said;
   const lines = [
-    kind && `<b class="ai-done-head ai-kind">${esc(kind)}</b>`,
-    head && (kind ? `<span class="ai-done-when">${esc(head)}</span>` : `<b class="ai-done-head">${esc(head)}</b>`),
+    kind && `<b class="ai-kind">${esc(kind)}</b>`,
+    head && (kind ? `<span class="ai-done-head">${esc(head)}</span>` : `<b class="ai-done-head">${esc(head)}</b>`),
     when && `<span class="ai-done-when">${esc(when)}</span>`,
     note && `<small class="ai-done-note">${esc(note)}</small>`,
   ].filter(Boolean);
@@ -352,9 +353,9 @@ const switchTo = (to) => $(`.kind-switch a[href^="${PATHS[to]}"]:not([aria-curre
 /** The first line of the result: the kind Venn picked, and why, in words. */
 function kindLine(d) {
   if (d.kind === 'date') return 'Venn made this a date poll, because you asked when.';
-  if (d.why === 'both' && d.note) return `Made it a vote, since ${d.note.split(',')[0]} is already set.`;
+  if (d.why === 'both' && d.note) return `Venn made this a vote, because ${d.note.split(',')[0]} is already set.`;
   if (d.why === 'both')
-    return `Made it a vote${d.options.length > 1 ? ` on ${either(d.options)}` : ' first'}. Once it’s picked, Find a date for it gives you the days.`;
+    return `Venn made this a vote${d.options.length > 1 ? ` on ${either(d.options)}` : ' first'}. Once it’s picked, Find a date for it gives you the days.`;
   if (d.yesNo) return 'Venn made this a vote, because you asked yes or no.';
   return d.why === 'words'
     ? 'Venn made this a vote, because you asked for one.'
@@ -376,7 +377,7 @@ async function askHere(here, apply, { ai, box = true, ready }) {
     $('#create')?.dispatchEvent(new Event('change')); // the form's draft (form-draft.js) follows
     const replaced = had && `It replaced the ${here === 'topic' ? 'vote' : 'date poll'} you’d started. Undo brings it back.`;
     if (moved || draft.why === 'both') said.note = [said.note, replaced].filter(Boolean).join(' ') || '';
-    if (moved || draft.why === 'both') said.kind = kindLine(draft);
+    said.kind = kindLine(draft); // always: the kind Venn made, and why
     done(said, async () => {
       await undo();
       $('#create')?.dispatchEvent(new Event('change'));

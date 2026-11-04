@@ -1287,7 +1287,7 @@ test('AI on a vote: the box writes the question and the options, the set day goe
   await expect(page.locator('#ai-open')).toHaveAttribute('aria-expanded', 'true');
   await page.fill('#ai-prompt', 'Dinner Friday: Rosa’s, Luigi’s or Thai Garden');
   await page.click('#ai-go');
-  await expect(page.locator('#ai-done .ai-kind')).toHaveText('Made it a vote, since Friday is already set.');
+  await expect(page.locator('#ai-done .ai-kind')).toHaveText('Venn made this a vote, because Friday is already set.');
   await expect(page.locator('#ai-done')).toContainText('Where should we eat? · 3 options');
   await expect(page.locator('#title')).toHaveValue('Where should we eat?');
   await expect(page.locator('#desc')).toHaveValue(/^Friday, \w{3} \d{1,2}$/);
