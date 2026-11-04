@@ -76,6 +76,7 @@ import { pollResults } from './results.js';
 import { draftFromWords, unsureOf } from './days-parse.js';
 import { checkWrite, limitHeaders, writeWindows as newWriteWindows } from './limits.js';
 import { mayEmail } from './recipients.js';
+import { siteOrigin } from './site.js';
 import { MAX_GUEST_DEVICES, MAX_PUSH_DEVICES, checkSubscription, pushEnabled, sendPush } from './push.js';
 
 const sharedPlaces = placesState();
@@ -313,7 +314,7 @@ async function route(
     .filter(Boolean);
   const method = request.method;
 
-  const origin = url.origin;
+  const origin = siteOrigin(env, url); // PUBLIC_URL, or this request's own (src/site.js)
   const TOO_FAST = "You're going a bit fast. Try again in a few minutes.";
   // Per-visitor limits on new polls, templates and answers (src/limits.js). An app with a key
   // (APP_KEYS) makes them for all its users from one server, so it isn't limited by address.
@@ -630,17 +631,20 @@ async function route(
   try {
     // /api/mcp — Venn for AI assistants (src/mcp.js): each tool is a call to this same API.
     if (parts.length === 1 && parts[0] === 'mcp')
-      return await handleMcp(request, (path, { method, body }) =>
-        handleApi(
-          new Request(`${origin}/api/${path}`, {
-            method,
-            headers: { 'content-type': 'application/json' },
-            body: body && JSON.stringify(body),
-          }),
-          store,
-          // Claude's servers call for everyone who uses Venn in Claude, so these get their own, higher limit.
-          { ...options, via: 'mcp' },
-        ),
+      return await handleMcp(
+        request,
+        (path, { method, body }) =>
+          handleApi(
+            new Request(`${origin}/api/${path}`, {
+              method,
+              headers: { 'content-type': 'application/json' },
+              body: body && JSON.stringify(body),
+            }),
+            store,
+            // Claude's servers call for everyone who uses Venn in Claude, so these get their own, higher limit.
+            { ...options, via: 'mcp' },
+          ),
+        { origin },
       );
 
     // GET /api/health — for uptime monitors: 200 when the database answers, 503 when it doesn't.
@@ -1140,18 +1144,15 @@ async function route(
       const body = buildIcs({
         id: ev.id,
         title: ev.title,
-        description: [
-          ev.description,
-          (await hidesVenn(store, ev)) ? `${url.origin}/e/${ev.id}` : `Planned with Venn: ${url.origin}/new`,
-        ]
+        description: [ev.description, (await hidesVenn(store, ev)) ? `${origin}/e/${ev.id}` : `Planned with Venn: ${origin}/new`]
           .filter(Boolean)
           .join('\n\n'),
         location: ev.location,
         start: ev.finalStart,
         end,
         allDay: allDaySpan(ev.finalStart, end, ev.timezone),
-        url: `${url.origin}/e/${ev.id}`,
-        ...(ev.image && { image: { url: url.origin + imagePath(ev.id, ev.image), type: ev.image.type } }),
+        url: `${origin}/e/${ev.id}`,
+        ...(ev.image && { image: { url: origin + imagePath(ev.id, ev.image), type: ev.image.type } }),
       });
       count('calendar.ics', {});
       return new Response(body, {

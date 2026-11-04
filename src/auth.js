@@ -14,6 +14,7 @@
 
 import { ValidationError } from '../public/core.js';
 import { BRAND_ID_RE } from './brands.js';
+import { readDefaults, writeDefault } from './defaults.js';
 import { emailSignInEnabled, handleEmailAuth } from './email-auth.js';
 import { verifyPassword } from './password.js';
 
@@ -124,8 +125,35 @@ function cookie(name, value, { url, maxAge, path = '/api' }) {
 /** Only paths on this site, so a sign-in link can't send anyone elsewhere afterwards. */
 // A path on this site, maybe with a template invite's #join=<secret> (public/brand.js), which the
 // way back carries so the browser never has to store it.
-const safeNext = (next) =>
-  typeof next === 'string' && /^\/(?!\/)[\w\-/.]*(#join=[A-Za-z0-9]{1,64})?$/.test(next) && next.length < 200 ? next : '/me';
+// Where signing in may come back to: a path on this site, and on the pages that make a poll or a
+// template, only the few query keys that pick one (decisions.md G4), so a template link survives
+// signing in. The only fragment is a template's #join= invite. Never an #admin= or #edit= token,
+// another site, or anything else: anything that doesn't fit goes to /me.
+const NEXT_PATH = /^\/(?!\/)[\w\-/.]*$/;
+const NEXT_QUERY_PATH = /^\/(new|new\/topic|brand\/new|brand\/[A-Za-z0-9]{1,32})$/;
+const NEXT_QUERY = {
+  brand: /^[A-Za-z0-9]{1,32}$/,
+  look: /^(retro|classic)$/,
+  ai: /^1$/,
+  from: /^[\w-]{1,40}$/,
+};
+export function safeNext(next) {
+  if (typeof next !== 'string' || next.length >= 200 || !next.startsWith('/') || /[\\\s]/.test(next)) return '/me';
+  const [rest, hash = null] = next.split(/#(.*)/s);
+  if (hash !== null && !/^join=[A-Za-z0-9]{1,64}$/.test(hash)) return '/me';
+  const [path, query = null] = rest.split(/\?(.*)/s);
+  if (!NEXT_PATH.test(path)) return '/me';
+  if (query !== null) {
+    if (!NEXT_QUERY_PATH.test(path) || !query) return '/me';
+    const seen = new Set();
+    for (const pair of query.split('&')) {
+      const [k, v, extra] = pair.split('=');
+      if (extra !== undefined || !Object.hasOwn(NEXT_QUERY, k) || seen.has(k) || !NEXT_QUERY[k].test(v ?? '')) return '/me';
+      seen.add(k);
+    }
+  }
+  return next;
+}
 
 function redirect(location, headers, setCookies = []) {
   const res = new Response(null, { status: 302, headers: { ...headers, location, 'cache-control': 'no-store' } });
@@ -374,9 +402,21 @@ export async function handleAccount({
       store.listAnsweredPolls(user.id),
       store.listOwnedBrands(user.id),
     ]);
-    return json({ user: publicUser(user), polls, answered, brands });
+    // Their default templates (src/defaults.js), so the create page needs no second request.
+    const defaults = await readDefaults(store, user.id, brands);
+    return json({ user: publicUser(user), polls, answered, brands, defaults });
   }
   if (!user) return error(401, 'Sign in first');
+
+  // GET /api/me/defaults: { defaults: { date, vote } }. PUT { format, template }: set one, or with
+  // template null, clear it. Only a template the account owns or has (src/defaults.js).
+  if (parts.length === 2 && parts[1] === 'defaults') {
+    if (method === 'PUT') {
+      const refused = await writeDefault(store, user.id, await readJson(request, 10_000), now);
+      if (refused) return error(...refused);
+    } else if (method !== 'GET') return error(405, 'Method not allowed');
+    return json({ defaults: await readDefaults(store, user.id) });
+  }
 
   // Changing the password or email, and signing out other browsers (src/email-auth.js).
   const sessionHash = await sessionHashOf(request);
