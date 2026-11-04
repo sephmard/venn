@@ -55,6 +55,48 @@ function reply(body) {
           .filter(Boolean),
         note: '',
       };
+    // Choices named with "or" (the one Use AI box): "Italian, Thai or Mexican?" names only
+    // choices; "pizza or tacos on Friday?" and "Dinner Friday: Rosa's, Luigi's or Thai" a day too.
+    const WEEK = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
+    const plainText = text.replace(/[?.]+$/, '');
+    const at = plainText.lastIndexOf(':');
+    const [head, list] = at > 0 ? [plainText.slice(0, at), plainText.slice(at + 1)] : ['', plainText];
+    if (/\s+or\s+/.test(list) && !/evening|morning|afternoon|night|weekend|week|month|any /i.test(list)) {
+      const dayNames = WEEK.filter((w) => new RegExp(`\\b${w}\\b`, 'i').test(head));
+      const choices = [];
+      for (const piece of list
+        .split(/\s*,\s*|\s+or\s+/)
+        .map((c) => c.trim())
+        .filter(Boolean)) {
+        const on = piece.match(/^(.*?)\s+on\s+(\w+day)$/i);
+        const name = (on ? on[2] : piece).replace(/^\w/, (c) => c.toUpperCase());
+        const dayIn = WEEK.find((w) => new RegExp(`\\b${w}\\b`, 'i').test(piece));
+        if (on) choices.push(on[1]);
+        if (WEEK.includes(name)) dayNames.push(name);
+        else if (dayIn)
+          dayNames.push(dayIn); // "Team sync Tuesday": a time, not a choice
+        else if (!on) choices.push(piece);
+      }
+      if (choices.length >= 2)
+        return {
+          ...base,
+          ...plain,
+          title: 'Dinner',
+          timeOfDay: 'any',
+          usualParts: [],
+          firstDate: today,
+          lastDate: '',
+          daysInRow: 1,
+          days: dayNames
+            .map((n) => named([n])[0])
+            .filter(Boolean)
+            .map(({ date }) => day(date)),
+          decide: dayNames.length ? 'both' : 'what',
+          question: head ? 'Where should we eat?' : '',
+          choices: choices.map((c) => c.replace(/^\w/, (x) => x.toUpperCase())),
+          note: '',
+        };
+    }
     if (/vote on our next book/i.test(text))
       return {
         ...base,

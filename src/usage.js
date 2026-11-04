@@ -85,7 +85,11 @@ export const USAGE_EVENTS = {
   'notify.push': {},
   'push.guest': {},
   'calendar.ics': {},
-  'ai.used': { feature: ['draft', 'days', 'topic', 'template', 'answer', 'summary', 'message'] },
+  'ai.used': {
+    feature: ['draft', 'days', 'topic', 'ask', 'template', 'answer', 'summary', 'message'],
+    picked: ['date', 'vote'], // the one Use AI box (ask): which kind it made, and why (ask-kind.js)
+    why: ['words', 'open', 'both'],
+  },
   'ai.failed': { key: ['server', 'own'], reason: AI_FAILURE_REASONS }, // why Anthropic turned an AI request down
   // Browser
   view: {
@@ -94,6 +98,8 @@ export const USAGE_EVENTS = {
     as: ['guest', 'organizer', 'answered'],
     from: FROM,
   },
+  // The one Use AI box: the person put back the kind it picked (Undo), or took the other kind instead.
+  'ai.ask': { client: true, undone: YN, switched: YN },
   share: { client: true, how: ['sheet', 'copy', 'download'], from: ['created', 'poll', 'card', 'sticker'] }, // card: the "It's set" picture; sticker: a Finn sticker
 };
 

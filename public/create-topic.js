@@ -9,6 +9,7 @@ import {
   explainNotReady,
   keepDraft,
   fillCommon,
+  formReady,
   kindSwitch,
   loadSource,
   nameAndEmail,
@@ -276,33 +277,40 @@ export function renderTopic() {
       },
     ).then(() => linked && $('#create') && press(linked));
   }
-  // Where the server has AI, "Use AI" (ai-draft.js) writes the question and the options.
+  // The Use AI box above Date · Vote (ai-draft.js) writes the question and the options; without AI
+  // there's no box here, but a vote the box on /new made still lands.
   if (!src)
-    getConfig().then(
-      (c) =>
-        c.ai &&
-        import('./ai-draft.js').then((m) =>
-          m.aiTopic(
-            ({ question, yesNo, options }) => {
-              mark(null); // what AI wrote isn't a starter's
-              $('#title').value = question;
-              if (yesNo) return setKind('yesno');
-              setKind('options');
-              $('#opts').innerHTML = options.map((w, i) => row(w, i + 1)).join('');
+    getConfig().then((c) =>
+      import('./ai-draft.js').then((m) =>
+        m.aiTopic(
+          ({ question, yesNo, options, note }) => {
+            mark(null); // what AI wrote isn't a starter's
+            $('#title').value = question;
+            // A time that's already set ("pizza or tacos on Friday?") goes in the note, not the question.
+            if (note && !$('#desc').value.trim()) $('#more-box').open = !!($('#desc').value = note);
+            if (yesNo) return setKind('yesno');
+            setKind('options');
+            // Two rows at least: a question with its choices still to come ("vote on our next book").
+            const rows = [...options, '', ''].slice(0, Math.max(2, options.length));
+            $('#opts').innerHTML = rows.map((w, i) => row(w, i + 1)).join('');
+            renumber();
+          },
+          // For Undo: the form as it was, put back exactly.
+          () => {
+            const [title, was, values] = [$('#title').value, kind, $$('#opts input').map((i) => i.value)];
+            const [desc, open] = [$('#desc').value, $('#more-box').open];
+            return () => {
+              $('#title').value = title;
+              $('#opts').innerHTML = values.map((w, i) => row(w, i + 1)).join('');
               renumber();
-            },
-            // For Undo: the form as it was, put back exactly.
-            () => {
-              const [title, was, values] = [$('#title').value, kind, $$('#opts input').map((i) => i.value)];
-              return () => {
-                $('#title').value = title;
-                $('#opts').innerHTML = values.map((w, i) => row(w, i + 1)).join('');
-                renumber();
-                setKind(was);
-              };
-            },
-          ),
+              setKind(was);
+              $('#desc').value = desc;
+              $('#more-box').open = open;
+            };
+          },
+          { ai: !!c.ai, ready: formReady() },
         ),
+      ),
     );
   $('#title').focus();
   return () => {};

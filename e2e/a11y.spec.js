@@ -140,17 +140,29 @@ for (const scheme of ['light', 'dark']) {
     });
 
     test('a description it can’t read under the last draft (no AI): the dimmed card, in both looks', async ({ page }) => {
-      // The Venn with sign-in has no AI, so "Describe it" reads the words itself (no-ai-days.spec.js).
+      // The Venn with sign-in has no AI, so its box ("Say when…") reads the words itself (no-ai-days.spec.js).
       for (const look of ['', '?retro=0']) {
         await page.goto(`${process.env.NO_AI_URL || ACCOUNTS_URL}/new${look}`);
-        await page.getByRole('button', { name: 'Describe it' }).click();
+        await page.getByRole('button', { name: 'Say when, and Venn picks the days' }).click();
         await page.fill('#ai-prompt', 'Fridays next month');
         await page.click('#ai-go');
-        await page.getByRole('button', { name: 'Describe it' }).click();
+        await page.getByRole('button', { name: 'Say when, and Venn picks the days' }).click();
         await page.fill('#ai-prompt', 'Friday evening or Saturday afternoon');
         await page.click('#ai-go');
         await expect(page.locator('#ai-done.stale .ai-done-kicker')).toHaveText('Last draft');
         await audit(page, `last draft under a refusal${look ? ', classic look' : ''}`);
+      }
+    });
+
+    test('the Use AI box above Date · Vote: open, and after it moves to the other form, in both looks', async ({ page }) => {
+      for (const look of ['', '?retro=0']) {
+        await page.goto(`/new${look}`);
+        await page.click('#ai-open');
+        await audit(page, `Use AI box open${look ? ', classic look' : ''}`);
+        await page.fill('#ai-prompt', 'Italian, Thai or Mexican?');
+        await page.click('#ai-go');
+        await expect(page.locator('#ai-done .ai-kind')).toBeVisible();
+        await audit(page, `Use AI moved to Vote${look ? ', classic look' : ''}`);
       }
     });
 

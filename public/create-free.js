@@ -19,6 +19,7 @@ import { monthView, tinyTime } from './picker.js';
 import { $, $$, app, dateParts, dayLabel, esc, fmtDay, getConfig, plural, rove, shortTime, track } from './ui.js';
 
 import {
+  formReady,
   kindSwitch,
   brush,
   createBar,
@@ -658,13 +659,13 @@ export function renderFree() {
       },
     );
   }
-  // "Use AI" (ai-draft.js) picks days as taps would, or plain words without AI.
+  // The Use AI box above Date · Vote (ai-draft.js) picks days as taps would, or plain words without AI.
   const showLevel = (next) => {
     level = null;
     return setLevel(next);
   };
   const row = () => ($('#in-row').checked ? +$('#span').value : 1);
-  const hooks = { empty, setRow, show: showLevel, level: () => level, row };
+  const hooks = { empty, setRow, show: showLevel, level: () => level, row, ready: formReady() };
   if (!src) getConfig().then((c) => import('./ai-draft.js').then((m) => m.aiDays(st, hooks, c)));
   $('#title').focus();
   return () => {

@@ -1,4 +1,4 @@
-// "Describe it" on a Venn without AI: Venn reads plain words itself (src/days-parse.js) and fills
+// The box above Date · Vote on a Venn without AI ("Say when, and Venn picks the days"): Venn reads plain words itself (src/days-parse.js) and fills
 // in the days for review, with Undo, as Use AI does. On the Venn with sign-in (ACCOUNTS_URL), which
 // has no AI (NO_AI_URL, for a local run on other ports).
 import { test, expect } from '@playwright/test';
@@ -19,7 +19,7 @@ async function fridaysNextMonth(page) {
 test('no AI: “Fridays next month” picks next month’s Fridays to review, and Undo puts it back', async ({ page, request }) => {
   await page.goto('/new');
   await expect(page.getByRole('button', { name: 'Use AI' })).toHaveCount(0); // nothing says AI where there's none
-  await page.getByRole('button', { name: 'Describe it' }).click();
+  await page.getByRole('button', { name: 'Say when, and Venn picks the days' }).click();
   await expect(page.locator('#ai-draft .hint')).toHaveText('Venn reads this itself. Check the days before you create the poll.');
   await expect(page.locator('#ai-key-link')).toBeEmpty();
 
@@ -42,7 +42,7 @@ test('no AI: “Fridays next month” picks next month’s Fridays to review, an
   await done.getByRole('button', { name: 'Undo' }).click();
   await expect(done).toHaveCount(0);
   await expect(page.locator('#free-list .chip')).toHaveCount(0);
-  await page.getByRole('button', { name: 'Describe it' }).click();
+  await page.getByRole('button', { name: 'Say when, and Venn picks the days' }).click();
   await page.click('#ai-go');
   await expect(done).toBeVisible();
   await page.fill('#title', 'Pub quiz');
@@ -61,7 +61,7 @@ test('no AI: words it can’t read under an earlier draft say the draft is still
   page,
 }) => {
   await page.goto('/new');
-  await page.getByRole('button', { name: 'Describe it' }).click();
+  await page.getByRole('button', { name: 'Say when, and Venn picks the days' }).click();
   const [err, done] = [page.locator('#ai-err'), page.locator('#ai-done')];
   const still = 'Your last draft is still below, unchanged.';
 
@@ -73,7 +73,8 @@ test('no AI: words it can’t read under an earlier draft say the draft is still
 
   // A draft, then words it can't read: the alert says the draft is still below, and the card is the last one.
   const open = async () => {
-    if (await page.locator('#ai-draft').isHidden()) await page.getByRole('button', { name: 'Describe it' }).click();
+    if (await page.locator('#ai-draft').isHidden())
+      await page.getByRole('button', { name: 'Say when, and Venn picks the days' }).click();
   };
   const refuse = async () => {
     await open();

@@ -62,6 +62,7 @@ import {
   draftDays,
   draftPoll,
   draftTemplate,
+  draftAny,
   draftTopic,
   summarize,
   validOwnKey,
@@ -74,6 +75,7 @@ import { handleAccount, sessionUser, signInProviders } from './auth.js';
 import { handleMcp } from './mcp.js';
 import { pollResults } from './results.js';
 import { draftFromWords, unsureOf } from './days-parse.js';
+import { choicesOfWords, saidKind } from './ask-kind.js';
 import { checkWrite, limitHeaders, writeWindows as newWriteWindows } from './limits.js';
 import { mayEmail, withinDailyLimit } from './recipients.js';
 import { siteOrigin } from './site.js';
@@ -767,20 +769,28 @@ async function route(
     const isAi = (parts[0] === 'ai' && parts.length === 2) || (parts[0] === 'events' && parts[2] === 'ai' && parts.length === 4);
     // The days on /new can also be read from plain words, with no AI (src/days-parse.js), where AI
     // can't answer: the server has none, or there's no key and no allowance left. Never ahead of AI.
-    const daysDraft = parts[0] === 'ai' && parts[1] === 'draft-days' && parts.length === 2;
+    // POST /api/ai/draft (one box for both kinds) reads days from plain words the same way.
+    const anyDraft = parts[0] === 'ai' && parts[1] === 'draft' && parts.length === 2;
+    const daysDraft = parts[0] === 'ai' && (parts[1] === 'draft-days' || parts[1] === 'draft') && parts.length === 2;
     // Why the words gave no draft, said so the person knows what to change.
     const WORDS_UNSURE = {
       days: 'Venn couldn’t tell which days from that. Name them, like “Fridays next month”, or pick them below.',
       parts:
         'Venn couldn’t be sure from that. Say one time for all the days, like “Friday or Saturday evening”, or pick them below.',
       correction: 'Venn couldn’t be sure from that. Say it in one go, like “Wednesday evening”, or pick the days below.',
+      choices: 'Without AI, Venn can read days but not choices. Type the options below.',
     };
     async function byWords(otherwise) {
       const { prompt, timezone } = await readJson(request);
       if (!isValidTimeZone(timezone)) throw new ValidationError('Unknown time zone');
       const { date: today, minutes: nowMinutes } = utcToZoned(now(), timezone);
       const draft = typeof prompt === 'string' && draftFromWords(prompt, { today, nowMinutes, ai: aiEnabled(env) });
-      return draft ? json(draft) : otherwise(unsureOf(prompt));
+      if (draft) return json(anyDraft ? { kind: 'date', why: 'words', ...draft } : draft);
+      // The one box (ai/draft) with no AI: a plain choice ("Italian, Thai or Mexican?") is a vote.
+      const choices = anyDraft && typeof prompt === 'string' && choicesOfWords(prompt);
+      if (choices) return json({ kind: 'vote', why: 'open', yesNo: false, note: '', date: null, ...choices });
+      if (anyDraft && saidKind(prompt) === 'vote') return otherwise('choices');
+      return otherwise(unsureOf(prompt));
     }
     // GET /api/ai/allowance — whether this visitor's free AI requests (the server's key) are there
     // this week: 'available', 'used' (their own share, everyone's, or the dollar cap: it doesn't say
@@ -842,6 +852,16 @@ async function route(
       if (!isValidTimeZone(timezone)) throw new ValidationError('Unknown time zone');
       count('ai.used', { feature: 'draft' });
       return json(await draftPoll(env, { prompt, timezone }, { now: now(), anthropic }));
+    }
+
+    // POST /api/ai/draft  { prompt, timezone } — the one Use AI box above Date · Vote, which picks
+    // the kind (ai.js draftAny, ask-kind.js). One request, one allowance, whichever form it fills.
+    if (isAi && anyDraft) {
+      const { prompt, timezone } = await readJson(request);
+      if (!isValidTimeZone(timezone)) throw new ValidationError('Unknown time zone');
+      const draft = await draftAny(env, { prompt, timezone }, { now: now(), anthropic });
+      count('ai.used', { feature: 'ask', picked: draft.kind, why: draft.why });
+      return json(draft);
     }
 
     // POST /api/ai/draft-days  { prompt, timezone } — the days on "Create a Venn"
