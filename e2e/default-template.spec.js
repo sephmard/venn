@@ -1,6 +1,6 @@
 import { test, expect } from '@playwright/test';
 import AxeBuilder from '@axe-core/playwright';
-import { ACCOUNTS_URL } from '../playwright.config.js';
+import { ACCOUNTS_URL, FAKE_OAUTH_URL } from '../playwright.config.js';
 
 // A signed-in account's default templates (sprint D): the brand template its new date polls start
 // in, and the one its votes start in. Set in My polls › Templates or on the template's page; a
@@ -99,14 +99,14 @@ test('Use no template is for this poll only; a template link and a copied poll c
   await page.reload();
   await expect(page.locator('.brand-bar')).toHaveCount(0);
   // The default stays.
-  expect((await (await page.request.get('/api/me/defaults')).json()).vote.id).toBe(ids.Acme);
+  expect((await (await page.request.get('/api/me/defaults')).json()).defaults.vote.id).toBe(ids.Acme);
 
   // Another template's link wins over the default, and doesn't change it.
   await page.goto(`/new?brand=${ids.Other}`);
   await expect(page.locator('.brand-bar')).toContainText('Other');
   await expect(page.locator('#default-note')).toHaveCount(0);
   await expect(page.locator('#title')).toHaveValue('Board games');
-  expect((await (await page.request.get('/api/me/defaults')).json()).date.id).toBe(ids.Acme);
+  expect((await (await page.request.get('/api/me/defaults')).json()).defaults.date.id).toBe(ids.Acme);
 
   // A vote made with the template link, end to end: /new/topic?brand= makes Other's vote.
   await page.goto(`/new/topic?brand=${ids.Other}`);
@@ -211,4 +211,48 @@ test('signed out, nobody asks for defaults', async ({ page }) => {
   await expect(page.locator('#title')).toBeVisible();
   await page.waitForTimeout(300);
   expect(asked).toEqual([]);
+});
+
+test('signing in from a template link comes back to it, by email as by Google (C10)', async ({ page }, info) => {
+  const email = `rio-${info.project.name}-${Date.now()}@example.com`.toLowerCase();
+  // An account with an email and password, made and confirmed, then signed out.
+  await page.goto('/me#signup');
+  await page.getByLabel('Email').fill(email);
+  await page.getByLabel('Password', { exact: true }).fill('tangerine-kayak-41');
+  await page.locator('.em-submit').click();
+  let link;
+  await expect
+    .poll(async () => {
+      const mails = await (await page.request.get(`${FAKE_OAUTH_URL}/outbox?to=${encodeURIComponent(email)}`)).json();
+      return (link = mails.at(-1)?.text.match(/https?:\/\/\S+#t=[\w-]{43}/)?.[0]);
+    })
+    .toBeTruthy();
+  await page.goto(link);
+  await page.getByRole('button', { name: 'Confirm and sign in' }).click();
+  await expect(page).toHaveURL(/\/me$/);
+  const { id } = await (await page.request.post('/api/brands', { data: { name: 'Riverside', title: 'Book club' } })).json();
+  await page.context().clearCookies();
+  await page.evaluate(() => localStorage.removeItem('venn:account'));
+
+  // A template link, opened signed out: Sign in, then straight back to it.
+  await page.goto(`/new?brand=${id}`);
+  await expect(page.locator('.brand-bar')).toContainText('Riverside');
+  const signIn = page.locator('.menu-panel .acct-group-out a');
+  await expect(signIn).toHaveAttribute('href', `/me?next=${encodeURIComponent(`/new?brand=${id}`)}`);
+  await page.goto(await signIn.getAttribute('href'));
+  await expect(page.getByRole('link', { name: 'Continue with Google' })).toHaveAttribute(
+    'href',
+    `/api/auth/google?next=${encodeURIComponent(`/new?brand=${id}`)}`,
+  );
+  await page.getByLabel('Email').fill(email);
+  await page.getByLabel('Password', { exact: true }).fill('tangerine-kayak-41');
+  await page.locator('.em-submit').click();
+  await expect(page).toHaveURL(new RegExp(`/new\\?brand=${id}$`));
+  await expect(page.locator('.brand-bar')).toContainText('Riverside');
+
+  // Anything else in ?next= is never followed.
+  await page.context().clearCookies();
+  await page.evaluate(() => localStorage.removeItem('venn:account'));
+  await page.goto(`/me?next=${encodeURIComponent('//evil.example/x')}`);
+  await expect(page.getByRole('link', { name: 'Continue with Google' })).toHaveAttribute('href', '/api/auth/google?next=%2Fme');
 });

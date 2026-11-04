@@ -26,6 +26,7 @@ import {
   signInButtons,
 } from './account-data.js';
 import { emailSignInForm, wireEmailSignIn } from './email-signin.js';
+import { safeNext } from './sign-in-next.js';
 
 await new Promise((done) =>
   document.head.append(
@@ -67,7 +68,9 @@ export async function renderAccount() {
   const forgot = location.hash === '#forgot';
   const signup = location.hash === '#signup';
   const mode = forgot ? 'forgot' : signup ? 'signup' : 'signin';
-  if (location.hash) history.replaceState(null, '', location.pathname);
+  // /me?next=: where signing in comes back to (a template link, say), Google and email alike.
+  backTo = safeNext(new URLSearchParams(location.search).get('next'));
+  if (location.hash) history.replaceState(null, '', location.pathname + location.search);
   // Not signed in here: the sign-in page straight away, with the ways in this server offered last
   // time, so nothing jumps when the server answers (it's redrawn only if they changed). Signed in:
   // My polls' outline until the polls come.
@@ -108,7 +111,8 @@ export async function renderAccount() {
 }
 
 let keptListener = null;
-let redrawMine = null; // shows My polls again, as it is now on the server
+let redrawMine = null;
+let backTo = '/me'; // where signing in on this page comes back to (safeNext) // shows My polls again, as it is now on the server
 
 // ---------- signed out ----------
 
@@ -165,7 +169,7 @@ function showSignIn(providers, failed, mode) {
                 : ''
             }
              ${failed ? '<p class="acct-alert" role="alert">Sign-in didn’t finish. Try again.</p>' : ''}
-             ${buttons.length ? `<div class="signin">${signInButtons(buttons, '/me')}</div>` : ''}
+             ${buttons.length ? `<div class="signin">${signInButtons(buttons, backTo)}</div>` : ''}
              ${email ? emailSignInForm({ alone: !buttons.length }) : ''}
              <p class="hint">No account needed to make or answer a poll.</p>
              ${signInAgree()}`
@@ -180,7 +184,7 @@ function showSignIn(providers, failed, mode) {
     const form = wireEmailSignIn({
       mode,
       switcher: true,
-      onSignedIn: renderAccount,
+      onSignedIn: () => (backTo === '/me' ? renderAccount() : location.assign(backTo)),
       onMode: (m) => {
         $('#acct-h').textContent = HEADINGS[m];
         for (const t of tabs)

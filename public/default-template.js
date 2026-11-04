@@ -14,10 +14,15 @@ export { defaultPill } from './drafts.js';
 export const FORMAT = { free: 'date', topic: 'vote' };
 
 let asked = null;
-/** { date: { id, name } | null, vote: … }, or null when signed out or it can't be read. Asked once per page. */
-export function readDefaults() {
+/**
+ * { date: { id, name } | null, vote: … }, or null when signed out or it can't be read. Asked once
+ * until `fresh` (a new form) or a change.
+ */
+export function readDefaults(fresh = false) {
+  if (fresh) asked = null;
   asked ??= fetch('/api/me/defaults', { headers: { accept: 'application/json' } })
     .then((r) => (r.ok ? r.json() : null))
+    .then((d) => d?.defaults ?? null)
     .catch(() => null);
   return asked;
 }
@@ -28,10 +33,12 @@ export async function setDefault(format, template) {
     method: 'PUT',
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify({ format, template }),
-  });
-  if (!r.ok) throw new Error("Couldn't save that. Try again.");
-  asked = null;
-  return (await readDefaults()) ?? { date: null, vote: null };
+  }).catch(() => null);
+  const d = await r?.json().catch(() => null);
+  // Its own words when it says why (a template not in the account); otherwise, try again.
+  if (!r?.ok || !d?.defaults) throw new Error((r?.status === 403 && d?.error) || "Couldn't save that. Try again.");
+  asked = Promise.resolve(d.defaults);
+  return d.defaults;
 }
 
 /**
@@ -42,7 +49,7 @@ export async function setDefault(format, template) {
 export async function startFor(kind, stored) {
   const d = cleanFormDraft(readStored({ getItem: () => stored }, ''), new Date().toLocaleDateString('en-CA'));
   const draft = formDraftHasWork(d) ? d : null;
-  return startingTemplate({ draft, defaults: draft ? null : await readDefaults(), format: FORMAT[kind] });
+  return startingTemplate({ draft, defaults: draft ? null : await readDefaults(true), format: FORMAT[kind] });
 }
 
 /** Under the form's heading, once the default is in: what it is, and a way out for this poll only. */
