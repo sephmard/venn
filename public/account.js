@@ -184,7 +184,8 @@ function showSignIn(providers, failed, mode) {
     const form = wireEmailSignIn({
       mode,
       switcher: true,
-      onSignedIn: () => (backTo === '/me' ? renderAccount() : location.assign(backTo)),
+      // backTo passed safeNext (a path starting with one /), and only ever goes on this site's origin.
+      onSignedIn: () => (backTo === '/me' ? renderAccount() : location.assign(location.origin + backTo)),
       onMode: (m) => {
         $('#acct-h').textContent = HEADINGS[m];
         for (const t of tabs)
