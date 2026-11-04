@@ -10,6 +10,7 @@
 // Neither set: the feature is off, /api/config says `places: false`, and "Where" is a plain field.
 // What people type is never logged.
 
+import { bindingAllows } from './limits.js';
 import { ValidationError } from '../public/core.js';
 
 export const MAX_PLACES = 5;
@@ -29,9 +30,9 @@ export function placesProvider(env) {
 /** Per-server state: the rate limit's windows and Photon's answers. The Worker shares one per isolate. */
 export const placesState = () => ({ windows: new Map(), cache: new Map() });
 
-/** At most PLACES_RATE_LIMIT (default 60) searches a minute per IP, or Cloudflare's rate limiting binding. */
+/** At most PLACES_RATE_LIMIT (default 60) searches a minute per IP, and Cloudflare's rate limiting binding's limit when there is one. */
 export async function allowPlacesRequest(env, ip, now, windows) {
-  if (env.PLACES_RATE_LIMITER) return (await env.PLACES_RATE_LIMITER.limit({ key: ip || 'unknown' })).success;
+  if (!(await bindingAllows(env.PLACES_RATE_LIMITER, ip || 'unknown'))) return false;
   const limit = Number(env.PLACES_RATE_LIMIT) || 60;
   const key = ip || 'unknown';
   const recent = (windows.get(key) || []).filter((t) => now - t < 60_000);
