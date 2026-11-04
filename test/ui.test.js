@@ -106,22 +106,44 @@ test("saved answers and the visitor's name and email are kept in local storage",
   assert.equal(ui.lastEmail(), 'priya@example.com');
 });
 
-test('copy puts the text on the clipboard and says so, or asks the person to copy it', async (t) => {
+test('copy puts the text on the clipboard and says so on the button, or shows it to copy by hand', async (t) => {
   t.mock.timers.enable({ apis: ['setTimeout'] });
   let clip;
   const clipboard = { writeText: async (s) => (clip = s) };
   Object.defineProperty(globalThis, 'navigator', { value: { clipboard }, configurable: true });
-  await ui.copy('https://venn.day/e/abc', 'Invite link copied');
+  const button = { textContent: 'Copy template link' };
+  assert.equal(await ui.copy('https://venn.day/new?brand=abc', 'Template link copied', button), true);
   t.mock.timers.tick(50);
-  assert.equal(clip, 'https://venn.day/e/abc');
-  assert.equal(toastEl.textContent, 'Invite link copied');
-  let asked;
-  globalThis.prompt = (msg, text) => (asked = text);
+  assert.equal(clip, 'https://venn.day/new?brand=abc');
+  assert.equal(toastEl.textContent, 'Template link copied');
+  assert.equal(button.textContent, 'Link copied ✓'); // for two seconds, then as it was
+  t.mock.timers.tick(2000);
+  assert.equal(button.textContent, 'Copy template link');
+
+  // The clipboard says no: a selected, read-only box under the button's row, never prompt().
+  globalThis.prompt = () => assert.fail('no browser dialogs');
   clipboard.writeText = async () => {
     throw new Error('denied');
   };
-  await ui.copy('x');
-  assert.equal(asked, 'x');
+  const input = { focus() {}, setSelectionRange: (a, b) => (input.selected = [a, b]) };
+  let shown = null;
+  const made = { querySelector: () => input };
+  const real = globalThis.document;
+  globalThis.document = { ...real, activeElement: null, createElement: () => made };
+  const row = { tagName: 'P', after: (el) => (shown = el) };
+  try {
+    toastEl.textContent = '';
+    assert.equal(await ui.copy('https://venn.day/e/abc', 'Link copied', { textContent: 'Copy link', parentElement: row }), false);
+  } finally {
+    globalThis.document = real;
+  }
+  assert.equal(shown, made);
+  assert.equal(made.id, 'copy-by-hand');
+  assert.match(made.innerHTML, /Copy this link:<input readonly/);
+  assert.equal(input.value, 'https://venn.day/e/abc');
+  assert.deepEqual(input.selected, [0, 9999]);
+  t.mock.timers.tick(50);
+  assert.equal(toastEl.textContent, ''); // it wasn't copied, so nothing says it was
 });
 
 test('config is fetched once, and an unreachable server means no optional features', async () => {

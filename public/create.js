@@ -48,6 +48,8 @@ export function prefillTitle() {
   const keep = new URLSearchParams([...(from ? [['from', from]] : []), ...(link ? [['brand', link]] : [])]);
   if (title || t >= 0) history.replaceState(null, '', location.pathname + (keep.size ? `?${keep}` : ''));
   if (brandId) useBrand(brandId, true);
+  // A template link that can't be one (cut short, say): said like one that's gone.
+  else if (q.get('brand') && !link) templateLine(GONE, 'hint');
   else if (!link && signedIn()) startIn(location.pathname === '/new/topic' ? 'topic' : 'free');
 }
 
@@ -68,9 +70,11 @@ const brandFromUrl = () => {
  * default that's gone says nothing (`quiet`): the form is just Venn's.
  */
 async function useBrand(id, fill, quiet = false) {
-  const [b, look] = await Promise.all([api(`brands/${id}`).catch(() => null), import('./brand-look.js')]);
+  // Signed in, it asks whether the template is in the account (its role), for the line below.
+  const headers = fill === true && signedIn() ? { 'x-organizer': '1' } : {};
+  const [b, look] = await Promise.all([api(`brands/${id}`, { headers }).catch(() => null), import('./brand-look.js')]);
   if (!b && brandId === id) brandId = null;
-  if (!b) return quiet || toast("That brand template doesn't exist any more. This poll is plain Venn.");
+  if (!b) return quiet || templateLine(GONE, 'hint');
   if (brandId !== id || !$('#create')) return;
   look.brandForm((brand = b), fill, $, esc);
   if (b.hideVenn) {
@@ -79,6 +83,14 @@ async function useBrand(id, fill, quiet = false) {
   }
   const sw = $('.footer .classic-switch');
   if (sw) sw.hidden = true; // the template's look, not Venn's
+  // Opened from someone's template link: whose look, and that the poll is theirs alone.
+  if (fill === true && !b.role) templateLine(`A new poll of your own, in ${esc(b.name)}’s look.`, 'default-note');
+}
+const GONE = 'That template isn’t available any more, so this poll is in Venn’s look.';
+/** A line under the heading, where the default's goes (default-template.js): `html` is escaped. */
+function templateLine(html, cls) {
+  $('#template-note')?.remove();
+  ($('.kind-switch') || $('#create h1'))?.insertAdjacentHTML('afterend', `<p class="${cls}" id="template-note">${html}</p>`);
 }
 
 // Signed in (account-menu.js remembers who), a form no link names a template for starts in the
@@ -503,7 +515,10 @@ export async function submit(body, occasion, answer = null) {
     scrollTo(0, 0);
     party?.finish();
     // Opening the poll clears any toast, so say the link was copied after it.
-    if (copying) (await copying) ? toast('Invite link copied. Paste it in your group chat.') : prompt('Copy this:', url);
+    if (copying)
+      (await copying)
+        ? toast('Invite link copied. Paste it in your group chat.')
+        : import('./copy-by-hand.js').then((m) => m.copyByHand(url, $('#copy')));
     else invites?.done(body);
   } catch (ex) {
     $('#err').textContent = ex.message;
