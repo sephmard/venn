@@ -94,11 +94,7 @@ export async function organize(page) {
     wire() {
       const ev = page.ev();
       $('#copy')?.addEventListener('click', ({ target: b }) => {
-        copy(shareUrl, 'Invite link copied. Paste it in your group chat.');
-        if (b.textContent === 'Link copied ✓') return;
-        const was = b.textContent;
-        b.textContent = 'Link copied ✓'; // for sighted people too
-        setTimeout(() => (b.textContent = was), 2e3);
+        copy(shareUrl, 'Invite link copied. Paste it in your group chat.', b);
       });
       $('#share-sheet')?.addEventListener('click', () =>
         navigator.share({ title: ev.title, text: inviteText({ ...ev }), url: shareUrl }).catch(() => {}),

@@ -219,7 +219,7 @@ test('brand template: make one, share it, and its polls show the organization’
   await expect(other.locator('#b-name')).toHaveValue('Acme Inc.');
   await expect(other).toHaveURL(/\/brand\/[A-Za-z0-9]+$/); // the token leaves the address bar
   await other.click('#b-delete');
-  await other.click('#b-really');
+  await other.getByRole('dialog').getByRole('button', { name: 'Delete' }).click();
   await expect(other.locator('h1')).toHaveText('Your brand on every poll');
   await guest.goto(poll);
   await expect(guest.locator('#ev-title')).toBeVisible();

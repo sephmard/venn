@@ -83,14 +83,16 @@ export function tools(box, ctx) {
   </details>`;
   $('details.organizer', box).addEventListener('toggle', (e) => ctx.onToggle(e.target.open));
   // The one link that carries the organizer's secret, and it says so.
-  $('#copy-admin').onclick = () =>
+  $('#copy-admin').onclick = ({ currentTarget: b }) =>
     copy(
       `${ctx.shareUrl}#admin=${ctx.adminToken}`,
       'Organizer link copied. Keep it private: anyone with it can change or delete the poll.',
+      b,
     );
   if ($('#keep-admin', box))
     $('#keep-admin', box).onclick = async () => {
-      await copy(`${ctx.shareUrl}#admin=${ctx.adminToken}`, 'Organizer link copied. Keep it private.');
+      // Not copied: the line stays, with the link to copy by hand under it.
+      if (!(await copy(`${ctx.shareUrl}#admin=${ctx.adminToken}`, 'Organizer link copied. Keep it private.'))) return;
       save(id, { linkKept: 1 });
       $('#org-keep', box)?.remove();
     };

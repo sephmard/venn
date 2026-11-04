@@ -669,7 +669,8 @@ function showMine(me, view) {
           toast(msg);
         };
         const acts = {
-          copy: () => copy(url).then(() => sheet.close()),
+          // Not copied: the sheet stays open, with the link to copy by hand.
+          copy: () => copy(url).then((done) => done && sheet.close()),
           nudge: async () => {
             const text = nudgeText(p, url);
             try {

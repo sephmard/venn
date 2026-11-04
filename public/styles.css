@@ -2878,3 +2878,19 @@ html.embed body {
   font-size: 1rem;
   margin: 16px 0 4px;
 }
+
+/* The clipboard said no (ui.js copyByHand): the link, selected, to copy by hand. */
+.copy-by-hand {
+  margin: 8px 0 0;
+}
+.copy-by-hand label {
+  display: block;
+  font-size: 0.875rem;
+  color: var(--muted);
+}
+.copy-by-hand input {
+  display: block;
+  width: 100%;
+  margin-top: 4px;
+  font-size: 1rem;
+}

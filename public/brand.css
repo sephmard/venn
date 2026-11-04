@@ -339,6 +339,10 @@
   .brand-editor .step-bar .error:empty {
     display: none;
   }
+  .brand-editor .step-bar .save-state {
+    order: -1;
+    flex-basis: 100%;
+  }
   /* Starting looks: one row, swiped sideways. */
   .brand-editor .look-grid {
     display: flex;
@@ -425,6 +429,13 @@
 }
 .step-bar #back:disabled {
   visibility: hidden;
+}
+.step-bar .save-state {
+  margin: 0;
+  align-self: center;
+}
+.step-bar .save-state:empty {
+  display: none;
 }
 
 /* Starting looks: each a little page with a heading in its font and a button in its colour. */
