@@ -361,3 +361,136 @@ test('Jev sure it’s a date poll but Claude found no days: it defers rather tha
   assert.equal(out.kind, 'vote');
   assert.equal(out.by, 'claude');
 });
+
+// ---------- Answer for me: the calendar, then Jev, then Claude for what Jev isn't sure of ----------
+
+import { answerForMe } from '../src/ai.js';
+import { jevAnswers, MAX_ANSWER_OPTIONS } from '../src/jev.js';
+
+const T0 = Date.UTC(2030, 0, 8, 15); // Tue
+const HR = 3_600_000;
+const optionsPoll = (n = 4) => ({
+  title: 'Sync',
+  timezone: 'UTC',
+  mode: 'options',
+  options: Array.from({ length: n }, (_, i) => ({ start: T0 + i * 24 * HR, end: T0 + i * 24 * HR + HR })),
+});
+/** Jev answering per time key: { t1: ['no', 0.95], ... }; keys left out aren't answered. */
+const answersOf = (by) => ({
+  answers: Object.fromEntries(
+    Object.entries(by).map(([k, [choice, p]]) => [k, { type: 'choice', choice, confidence: p, probabilities: { [choice]: p } }]),
+  ),
+  usage: { cost: 0.00003 },
+});
+
+test('jevAnswers: one question per time, only the words, the time zone and the times are sent', async () => {
+  const f = fakeFetch(answersOf({ t1: ['no', 0.9], t2: ['maybe', 0.9] }));
+  const out = await jevAnswers(
+    ENV,
+    {
+      preferences: 'No Tuesdays',
+      timezone: 'Europe/London',
+      options: [
+        { key: 't1', label: 'Tue, Jan 8' },
+        { key: 't2', label: 'Wed' },
+      ],
+    },
+    { fetch: f },
+  );
+  assert.deepEqual(out, { answers: { t1: { answer: 'no', p: 0.9 } }, cost: 30 }); // an unknown choice is dropped
+  const { body } = f.calls[0];
+  assert.deepEqual(Object.keys(body.questions), ['t1', 't2']);
+  assert.deepEqual(Object.keys(body.questions.t1.criteria), ['yes', 'if_needed', 'no']);
+  assert.match(body.questions.t1.instructions, /Tue, Jan 8/);
+  assert.equal(body.state, 'What they wrote: No Tuesdays\nTheir time zone: Europe/London');
+  assert.deepEqual(body.provider, { data_collection: 'deny' });
+  assert.equal(
+    await jevAnswers({}, { preferences: 'x', timezone: 'UTC', options: [{ key: 't1', label: 'x' }] }, { fetch: f }),
+    null,
+  );
+  assert.equal(await jevAnswers(ENV, { preferences: 'x', timezone: 'UTC', options: [] }, { fetch: f }), null);
+});
+
+test('Answer for me: Jev sure of every time, so Claude is never called; busy and tentative times follow the calendar', async () => {
+  const ev = optionsPoll(4);
+  // Time 1 busy (never sent to Jev), time 2 tentative, times 3 and 4 free.
+  const busy = [
+    { start: T0, end: T0 + HR },
+    { start: T0 + 24 * HR, end: T0 + 25 * HR, tentative: true },
+  ];
+  const f = fakeFetch(answersOf({ t1: ['yes', 0.95], t2: ['no', 0.9], t3: ['if_needed', 0.85] }));
+  const claude = claudeWith();
+  const out = await answerForMe(
+    ENV,
+    ev,
+    { preferences: 'Not Thursdays', busy, timezone: 'UTC' },
+    { anthropic: claude.anthropic, fetch: f },
+  );
+  assert.equal(out.by, 'jev');
+  assert.equal(claude.calls.length, 0);
+  assert.deepEqual(out.answers, {
+    [T0]: { answer: 0, note: 'Busy in your calendar' },
+    [T0 + 24 * HR]: { answer: 1, note: 'Tentative in your calendar' }, // Jev said yes; a tentative event caps it
+    [T0 + 48 * HR]: { answer: 0, note: '' },
+    [T0 + 72 * HR]: { answer: 1, note: '' },
+  });
+  // Three questions, none for the busy time, and nothing from the calendar in what's sent.
+  const { body } = f.calls[0];
+  assert.equal(Object.keys(body.questions).length, 3);
+  assert.doesNotMatch(JSON.stringify(body), /calendar|busy|tentative/i);
+});
+
+test('Answer for me: Claude answers only the times Jev isn’t sure about, numbered for itself', async () => {
+  const ev = optionsPoll(3);
+  const f = fakeFetch(answersOf({ t1: ['no', 0.95], t2: ['yes', 0.6] })); // t3 not answered
+  const claude = claudeWith({
+    answers: [
+      { option: 1, answer: 'if_needed', note: 'Late for you' },
+      { option: 2, answer: 'yes', note: '' },
+    ],
+  });
+  const out = await answerForMe(
+    ENV,
+    ev,
+    { preferences: 'Not Tuesdays', timezone: 'UTC' },
+    { anthropic: claude.anthropic, fetch: f },
+  );
+  assert.equal(out.by, 'claude');
+  assert.equal(claude.calls.length, 1);
+  const prompt = claude.calls[0].messages[0].content;
+  assert.match(prompt, /1\. Wed, Jan 9/);
+  assert.match(prompt, /2\. Thu, Jan 10/);
+  assert.doesNotMatch(prompt, /Jan 8/);
+  assert.deepEqual(out.answers, {
+    [T0]: { answer: 0, note: '' },
+    [T0 + 24 * HR]: { answer: 1, note: 'Late for you' },
+    [T0 + 48 * HR]: { answer: 2, note: '' },
+  });
+});
+
+test('Answer for me: Jev off or failing sends every open time to Claude, as before; past the cap, Claude takes the rest', async () => {
+  for (const [env, f] of [
+    [{}, fakeFetch(answersOf({ t1: ['no', 0.99] }))],
+    [ENV, fakeFetch({}, { status: 500 })],
+  ]) {
+    const claude = claudeWith({ answers: [1, 2].map((option) => ({ option, answer: 'yes', note: '' })) });
+    const { out } = await quietly(() =>
+      answerForMe(env, optionsPoll(2), { preferences: 'Any', timezone: 'UTC' }, { anthropic: claude.anthropic, fetch: f }),
+    );
+    assert.equal(out.by, 'claude');
+    assert.equal(Object.keys(out.answers).length, 2);
+    assert.match(claude.calls[0].messages[0].content, /2\. Wed, Jan 9/);
+  }
+  const n = MAX_ANSWER_OPTIONS + 2;
+  const all = Object.fromEntries(Array.from({ length: n }, (_, i) => [`t${i + 1}`, ['yes', 0.99]]));
+  const f = fakeFetch(answersOf(all));
+  const claude = claudeWith({ answers: [1, 2].map((option) => ({ option, answer: 'no', note: '' })) });
+  const out = await answerForMe(
+    ENV,
+    optionsPoll(n),
+    { preferences: 'Any', timezone: 'UTC' },
+    { anthropic: claude.anthropic, fetch: f },
+  );
+  assert.equal(Object.keys(f.calls[0].body.questions).length, MAX_ANSWER_OPTIONS);
+  assert.equal(Object.values(out.answers).filter((a) => a.answer === 0).length, 2);
+});

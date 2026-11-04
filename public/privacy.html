@@ -149,10 +149,12 @@
             AI requests; Venn never stores it. AI isn't offered on polls inside other websites or on white-label polls.
           </li>
           <li>
-            <b>OpenRouter</b> and <b>TypeSafe</b> run Jev, a small model that reads what you typed in <i>Use AI</i> to tell
-            whether it's a date poll, a vote or a yes-or-no question, when you press <i>Fill it in</i>. Only that sentence is
-            sent, through Venn's server, so they don't see your IP address, and Venn asks OpenRouter to use only providers that
-            don't keep or train on it. Claude then writes the poll as above.
+            <b>OpenRouter</b> and <b>TypeSafe</b> run Jev, a small model that makes quick choices before Claude is asked. In
+            <i>Use AI</i>, when you press <i>Fill it in</i>, it reads what you typed to tell whether it's a date poll, a vote or a
+            yes-or-no question; only that sentence is sent, and Claude then writes the poll as above. In <i>Answer for me</i>, it
+            reads what you typed and the poll's times to answer each one; your calendar is never sent to it, and Claude answers
+            only the times Jev isn't sure about. Both go through Venn's server, so they don't see your IP address, and Venn asks
+            OpenRouter to use only providers that don't keep or train on it.
           </li>
         </ul>
         <p>We never sell or share poll data with anyone else.</p>

@@ -38,6 +38,17 @@ The model answers in a fixed shape (its reading first, then the mode, the usual 
 
 The full policy and acceptance matrix are tested in `test/days-draft.test.js` and `e2e/ai-days.spec.js`. To check the live model against the matrix, run `ANTHROPIC_API_KEY=… npm run ai:eval` (3 runs of each case, a fraction of a cent each). Its `k` cases check which kind of poll the box makes.
 
+## Jev and Claude: System 1, then System 2
+
+Venn's AI follows one rule: **Jev is System 1 and Claude is System 2**, after Daniel Kahneman's _Thinking, Fast and Slow_. Jev makes the fast, typed decisions first: which of a few answers, yes or no, a score. Claude is called only when it's needed: to create something (titles, questions, options, days, messages, summaries) or to reason where Jev isn't sure. Anything that needs no model at all (the calendar's busy times, the word rules) is decided in code before either. Jev is named after William Stanley Jevons: cheaper intelligence gets used for more.
+
+Today that means:
+
+- **Use AI:** Jev picks the kind of poll and Claude writes it (below).
+- **Answer for me** (`answerForMe` in `src/ai.js`): a busy time in the calendar is No and a tentative one is at most If needed, with no model. Jev answers each other time from what the person wrote (one choice question per time, `jevAnswers` in `src/jev.js`, up to 40 times a request). Claude answers only the times Jev isn't 80% sure about, or all of them when Jev is off or fails. Jev never sees the calendar. Answers Jev decides carry no note; calendar and Claude answers keep theirs. Usage counts `ai.used` with `feature: answer` and `by`: `jev` when Claude wasn't needed, otherwise `claude`.
+
+New AI work starts by asking which part is a decision Jev can make.
+
 ## Jev: which kind, decided first
 
 [Jev](https://openrouter.ai/docs/guides/community/jev) is TypeSafe's decision model. It answers a typed question about a text (here: which of four kinds of poll it asks for: a date poll, a vote, a yes-or-no question, or nothing to set up) with a probability for each answer, in well under a second, for a few millionths of a dollar. Venn reaches it through OpenRouter's Decisions API (`src/jev.js`, model `typesafe/jev-1.14`, pinned), asking OpenRouter for providers that don't collect the text.
@@ -116,6 +127,8 @@ Each AI action is a single, short request. Effort is set to `low` for summaries,
   - for drafts and template looks, the description typed in (and the organization's name)
   - for summaries and messages, the poll's title, details, times, and participants' names and answers
   - for "Answer for me", the person's preferences and, only if they tick the box, the start and end of their busy calendar blocks
+
+  What is sent to Jev (OpenRouter and TypeSafe): the Use AI sentence, and for "Answer for me" the preferences, the time zone and the poll's times, never the calendar.
 
   Calendar event titles are never read, so they can't be sent. Each feature tells people their text goes to Anthropic.
 

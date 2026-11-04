@@ -8,7 +8,7 @@ import { BUTTONS, CORNERS, FONTS, isHex } from '../public/brand-look.js';
 import { firstEmoji } from '../public/emoji.js';
 import { DAYS_SCHEMA, DAYS_SYSTEM, daysPrompt, shapeDays } from './days-draft.js';
 import { eitherQuestion, fixedTime, jevPick, pickKind, readsAsQuestion } from './ask-kind.js';
-import { jevKind, SURE } from './jev.js';
+import { jevAnswers, jevKind, MAX_ANSWER_OPTIONS, SURE } from './jev.js';
 import {
   IF_NEEDED,
   LIMITS,
@@ -467,28 +467,51 @@ function cleanBusy(busy) {
     .filter((b) => Number.isFinite(b.start) && Number.isFinite(b.end) && b.end > b.start);
 }
 
-export async function answerForMe(env, ev, { preferences, busy, timezone }, { anthropic } = {}) {
+/**
+ * Answer for me, System 1 first (docs/AI.md, "Jev"): the calendar decides what it can with no model
+ * (busy is no, a tentative event is at best if needed); Jev answers the other times from what the
+ * person wrote; Claude answers only the times Jev isn't sure about, or all of them when Jev is off
+ * or fails. Returns { answers: { [start]: { answer, note } }, by: 'jev' | 'claude' }.
+ */
+export async function answerForMe(env, ev, { preferences, busy, timezone }, { anthropic, fetch } = {}) {
   const prefs = cleanPrompt(preferences, 'Preferences');
   const tz = timezone || ev.timezone;
   const blocks = cleanBusy(busy);
-  const slots = buildSlots(ev);
-  const lines = slots.map((s, i) => {
+  const options = buildSlots(ev).map((s) => {
     const end = meetingEnd(ev, s);
     const clashes = blocks.filter((b) => b.start < end && b.end > s);
-    const cal = !blocks.length
-      ? ''
-      : !clashes.length
-        ? ' [calendar: free]'
-        : clashes.every((b) => b.tentative)
-          ? ' [calendar: tentative event]'
-          : ' [calendar: busy]';
-    return `${i + 1}. ${label(s, end, tz)}${cal}`;
+    const cal = !blocks.length ? '' : !clashes.length ? 'free' : clashes.every((b) => b.tentative) ? 'tentative' : 'busy';
+    return { start: s, label: label(s, end, tz), cal };
   });
+  const map = { yes: YES, if_needed: IF_NEEDED, no: 0 };
+  const result = {};
+  for (const o of options) if (o.cal === 'busy') result[o.start] = { answer: 0, note: 'Busy in your calendar' };
+  // Tentative: at best "if needed", whoever answers.
+  const put = (o, answer, note) => {
+    const capped = o.cal === 'tentative' && answer === 'yes';
+    result[o.start] = { answer: map[capped ? 'if_needed' : answer], note: capped ? 'Tentative in your calendar' : note };
+  };
+  const open = options.filter((o) => o.cal !== 'busy');
+  const asked = open.slice(0, MAX_ANSWER_OPTIONS);
+  const jev = await jevAnswers(
+    env,
+    { preferences: prefs, timezone: tz, options: asked.map((o, i) => ({ key: `t${i + 1}`, label: o.label })) },
+    { fetch },
+  );
+  asked.forEach((o, i) => {
+    const a = jev?.answers[`t${i + 1}`];
+    if (a && a.p >= SURE) put(o, a.answer, '');
+  });
+  const rest = open.filter((o) => !(o.start in result));
+  if (!rest.length) return { answers: result, by: 'jev' };
+  const lines = rest.map(
+    (o, i) => `${i + 1}. ${o.label}${o.cal ? ` [calendar: ${o.cal === 'tentative' ? 'tentative event' : 'free'}]` : ''}`,
+  );
   const out = await ask(env, {
     schema: ANSWER_SCHEMA,
     anthropic,
     system: `You fill in a scheduling poll on someone's behalf from their stated preferences and calendar. For each option answer "yes", "if_needed" or "no".
-- A [calendar: busy] option is "no". A [calendar: tentative event] option is at best "if_needed".
+- A [calendar: tentative event] option is at best "if_needed".
 - Otherwise follow the preferences. When preferences don't decide an option, answer "yes".
 - Times are in the person's own time zone (${tz}).
 Answer every option exactly once.
@@ -499,14 +522,12 @@ ${lines.join('\n')}
 Preferences:
 <user_text>${prefs}</user_text>`,
   });
-  const map = { yes: YES, if_needed: IF_NEEDED, no: 0 };
-  const result = {};
   for (const a of out.answers || []) {
-    const s = slots[Number(a.option) - 1];
-    if (s == null || !(a.answer in map)) continue;
-    result[s] = { answer: map[a.answer], note: String(a.note || '').slice(0, 80) };
+    const o = rest[Number(a.option) - 1];
+    if (!o || !(a.answer in map)) continue;
+    put(o, a.answer, String(a.note || '').slice(0, 80));
   }
-  return { answers: result };
+  return { answers: result, by: 'claude' };
 }
 
 // ---------- 4. Write the messages ----------
