@@ -12,6 +12,7 @@ import {
   overlapEnd,
   utcToZoned,
 } from '../public/core.js';
+import { jevEnabled } from './jev.js';
 import { buildIcs, googleCalendarUrl, outlookCalendarUrl } from '../public/calendar-export.js';
 import { setLabel } from './preview.js';
 import { applyDeadline, closesLabel, deadlineView, isClosed, normalizeDeadline, remindNow, stopReminders } from './deadline.js';
@@ -666,6 +667,8 @@ async function route(
       return json({
         email: emailEnabled(env),
         ai: aiEnabled(env),
+        // Jev picks the kind in Use AI (src/jev.js), so the box says the sentence goes to it too.
+        jev: aiEnabled(env) && jevEnabled(env),
         // AI requests the server's key pays for, per person each week. 0: people bring their own key.
         aiWeekly: aiAllowance(env).perPerson,
         usage: usageEnabled(env),
@@ -860,7 +863,7 @@ async function route(
       const { prompt, timezone } = await readJson(request);
       if (!isValidTimeZone(timezone)) throw new ValidationError('Unknown time zone');
       const draft = await draftAny(env, { prompt, timezone }, { now: now(), anthropic });
-      count('ai.used', { feature: 'ask', picked: draft.kind, why: draft.why });
+      count('ai.used', { feature: 'ask', picked: draft.kind, why: draft.why, by: draft.by });
       return json(draft);
     }
 

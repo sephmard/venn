@@ -308,7 +308,7 @@ export function renderTopic() {
               $('#more-box').open = open;
             };
           },
-          { ai: !!c.ai, ready: formReady() },
+          { ai: !!c.ai, jev: !!c.jev, ready: formReady() },
         ),
       ),
     );

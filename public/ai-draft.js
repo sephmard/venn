@@ -281,7 +281,7 @@ const PLACEHOLDERS = ['Book club, any weeknight in the next two weeks', 'Dinner 
 const either = (list) => (list.length < 2 ? list.join('') : `${list.slice(0, -1).join(', ')} or ${list.at(-1)}`);
 
 /** The open box: what to describe, Fill it in, the hint and Close. `ai` false: Venn reads days itself. */
-const askBox = (ai) => `<div class="ai-draft" id="ai-draft" hidden>
+const askBox = (ai, jev) => `<div class="ai-draft" id="ai-draft" hidden>
     <label for="ai-prompt">${ai ? 'Describe what you’re planning' : 'Say when, and Venn picks the days'}</label>
     <div class="ai-row">
       <textarea id="ai-prompt" rows="3" maxlength="600" placeholder="${
@@ -293,7 +293,9 @@ const askBox = (ai) => `<div class="ai-draft" id="ai-draft" hidden>
     <p class="field-err" id="ai-err" role="alert"></p>
     <div class="ai-go-row">
       <p class="hint"><span id="ai-sent">${
-        ai ? 'Venn picks a date poll or a vote. Sent to Anthropic’s Claude.' : 'Venn reads this itself.'
+        ai
+          ? `Venn picks a date poll or a vote. Sent to Anthropic’s Claude${jev ? ' and TypeSafe’s Jev' : ''}.`
+          : 'Venn reads this itself.'
       }</span> ${ai ? 'Check everything before you create the poll.' : 'Check the days before you create the poll.'} <span id="ai-key-link"></span></p>
       <button type="button" class="link-btn" id="ai-close">Close</button>
     </div>
@@ -311,7 +313,7 @@ const askBar = (ai) =>
  * box to offer (`box` false), only the place where a result shows. Returns false where there's no
  * switch (editing or copying a poll) or the page is a white-label template's.
  */
-async function mountAsk(box, ai) {
+async function mountAsk(box, ai, jev) {
   const sw = $('.kind-switch');
   const early = $('#ask[data-early]'); // the bar the switch drew from last time (create.js kindSwitch)
   const { whiteLabel, rememberAsk } = await import('./create.js');
@@ -323,7 +325,7 @@ async function mountAsk(box, ai) {
     return false;
   }
   const bar = askBar(ai);
-  const html = box ? bar + askBox(ai) : '';
+  const html = box ? bar + askBox(ai, jev) : '';
   if (early) {
     early.removeAttribute('data-early');
     early.innerHTML = html; // the same bar, now working
@@ -386,9 +388,9 @@ function kindLine(d) {
  * this form from the box's answer and returns { said, undo, changed }: what it read, how to put the
  * form back, and what to light up. A draft of the other kind goes to the other form, which shows it.
  */
-async function askHere(here, apply, { ai, box = true, ready }) {
+async function askHere(here, apply, { ai, jev, box = true, ready }) {
   const carried = takeAsk(here);
-  if (!(await mountAsk(box, ai)) && !carried) return;
+  if (!(await mountAsk(box, ai, jev)) && !carried) return;
   if (!$('#ask') && !(await mountAsk(false, ai))) return;
   const show = async (draft, prompt, { moved = false, had = false, back = '' } = {}) => {
     const { said, undo, changed } = await apply(draft);
@@ -460,7 +462,7 @@ async function askHere(here, apply, { ai, box = true, ready }) {
  * the page: `empty()`, `setRow(n)`, `show(level)`, the current `level()` and `row()`, and `ready`,
  * which settles once any draft of the form is back.
  */
-export function aiDays(st, { empty, setRow, show, level, row, ready }, { ai } = { ai: true }) {
+export function aiDays(st, { empty, setRow, show, level, row, ready }, { ai, jev } = { ai: true }) {
   if (!$('#when-h')) return;
   // What AI itself filled in last time: asking again may replace those, never what was typed.
   let filled = {};
@@ -548,7 +550,7 @@ export function aiDays(st, { empty, setRow, show, level, row, ready }, { ai } = 
       };
       return { said, undo, changed: [...changed, ...$$('#free-list .chip')] };
     },
-    { ai, ready },
+    { ai, jev, ready },
   );
   // With no AI here, there's no key to add.
   if (ai)
@@ -583,7 +585,7 @@ const usedLine =
  * there's no box here (Venn can't read choices well by itself), but a vote the box on /new made
  * still lands.
  */
-export function aiTopic(fill, snapshot, { ai, ready } = { ai: true }) {
+export function aiTopic(fill, snapshot, { ai, jev, ready } = { ai: true }) {
   if (!$('#plan-h')) return;
   const asked = askHere(
     'topic',
@@ -597,7 +599,7 @@ export function aiTopic(fill, snapshot, { ai, ready } = { ai: true }) {
         changed: [$('#title'), ...(draft.yesNo ? [] : $$('#opts input')), ...(draft.note ? [$('#desc')] : [])],
       };
     },
-    { ai, box: ai, ready },
+    { ai, jev, box: ai, ready },
   );
   if (ai)
     asked.then(() => $('#ai-go') && hintOnOpen(usedLine('This week’s free AI requests are used up, so Venn reads this itself.')));

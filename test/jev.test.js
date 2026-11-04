@@ -238,3 +238,126 @@ test('with the server’s Claude key too, today’s picker answers the same case
   assert.ok(claude.every((c) => KINDS.includes(c.got) || c.got === 'error'));
   assert.ok((await store.aiSpend(weekOf(HOUR0))) > 100, 'Claude’s cost is counted too');
 });
+
+// ---------- Jev in real requests: it picks the kind when it's sure, Claude writes the poll ----------
+
+import { draftAny } from '../src/ai.js';
+import { jevPick } from '../src/ask-kind.js';
+
+test('jevPick: only a sure answer the read can fill in; "nothing" and unsure answers defer', () => {
+  const days = { days: [{ date: '2030-01-10' }], vote: null };
+  const choices = { days: [], vote: { question: 'Where?', options: ['A', 'B'], both: false } };
+  const none = { days: [], vote: null };
+  assert.equal(jevPick(null, days), null);
+  assert.equal(jevPick({ kind: 'date', p: 0.79 }, days), null);
+  assert.deepEqual(jevPick({ kind: 'date', p: 0.8 }, days), { kind: 'date', why: 'open' });
+  assert.equal(jevPick({ kind: 'date', p: 0.99 }, none), null); // no days to fill a date poll with
+  assert.deepEqual(jevPick({ kind: 'vote', p: 0.9 }, choices), { kind: 'vote', why: 'open' });
+  assert.deepEqual(jevPick({ kind: 'vote', p: 0.9 }, none), { kind: 'vote', why: 'question' });
+  assert.deepEqual(jevPick({ kind: 'vote', p: 0.9 }, { ...choices, days: days.days }), { kind: 'vote', why: 'both' });
+  // Days found but nothing named ("pick a restaurant for dinner next week"): the vote comes first.
+  assert.deepEqual(jevPick({ kind: 'vote', p: 0.9 }, days), { kind: 'vote', why: 'both' });
+  assert.deepEqual(jevPick({ kind: 'yesno', p: 0.9 }, days), { kind: 'vote', why: 'question', yesNo: true });
+  assert.equal(jevPick({ kind: 'none', p: 0.99 }, days), null);
+});
+
+/** A Claude stand-in: the days model's read, then (if asked) the vote writer's. */
+function claudeWith(...outputs) {
+  const calls = [];
+  const anthropic = {
+    beta: {
+      messages: {
+        create: async (params) => {
+          calls.push(params);
+          return {
+            model: 'claude-haiku-5-5',
+            stop_reason: 'end_turn',
+            usage: { input_tokens: 10, output_tokens: 10 },
+            content: [{ type: 'text', text: JSON.stringify(outputs.shift()) }],
+          };
+        },
+      },
+    },
+  };
+  return { anthropic, calls };
+}
+const read = (over = {}) => ({
+  reading: 'r',
+  title: 'Plan',
+  emoji: '🍕',
+  tile: 'sunset',
+  location: '',
+  timeOfDay: 'any',
+  usualParts: [],
+  firstDate: '2030-01-07',
+  lastDate: '2030-01-13',
+  daysInRow: 1,
+  days: [],
+  decide: 'when',
+  question: '',
+  choices: [],
+  note: '',
+  ...over,
+});
+const day = (date) => ({ date, parts: [], from: '', to: '', ifNeeded: false });
+const NOW = Date.UTC(2030, 0, 7, 12); // a Monday
+const ask = (prompt, { jev, claude, env = ENV }) =>
+  draftAny(env, { prompt, timezone: 'UTC' }, { now: NOW, anthropic: claude.anthropic, fetch: jev });
+
+test('Jev sure it’s yes or no: a yes-or-no vote, even where Claude read a time to find; Claude writes the question', async () => {
+  const jev = fakeFetch(answer('yesno', 0.97));
+  const claude = claudeWith(read({ decide: 'when' }), {
+    question: 'Do you think I’m cute?',
+    yesNo: false,
+    options: ['Yes', 'Very'],
+  });
+  const out = await ask('I want to ask my wife if she thinks I’m cute', { jev, claude });
+  assert.equal(out.kind, 'vote');
+  assert.equal(out.by, 'jev');
+  assert.equal(out.yesNo, true);
+  assert.deepEqual(out.options, []);
+  assert.equal(out.question, 'Do you think I’m cute?');
+  // Only the sentence went to Jev, asked not to be kept.
+  assert.equal(jev.calls[0].body.state, 'I want to ask my wife if she thinks I’m cute');
+  assert.deepEqual(jev.calls[0].body.provider, { data_collection: 'deny' });
+});
+
+test('Jev sure it’s a date poll wins over words that read as a vote; Claude’s days fill it', async () => {
+  const jev = fakeFetch(answer('date', 0.95));
+  const claude = claudeWith(read({ days: [day('2030-01-10'), day('2030-01-11')] }));
+  const out = await ask('Dinner with the team, which works better, Thursday or Friday?', { jev, claude });
+  assert.equal(out.kind, 'date');
+  assert.equal(out.by, 'jev');
+  assert.deepEqual(
+    out.days.map((d) => d.date),
+    ['2030-01-10', '2030-01-11'],
+  );
+  assert.equal(claude.calls.length, 1, 'one Claude call, as before');
+});
+
+test('Jev unsure, off, failing or saying "nothing": Claude’s read and the word rules decide, as before', async () => {
+  const cases = [
+    [fakeFetch(answer('yesno', 0.6)), ENV],
+    [fakeFetch(answer('none', 0.99)), ENV],
+    [fakeFetch({}, { status: 500 }), ENV],
+    [fakeFetch(answer('yesno', 0.99)), {}],
+  ];
+  for (const [jev, env] of cases) {
+    const claude = claudeWith(read({ decide: 'what', question: 'Where should we eat?', choices: ['Rosa’s', 'Luigi’s'] }));
+    const { out } = await quietly(() => ask('Rosa’s or Luigi’s for dinner', { jev, claude, env }));
+    assert.equal(out.kind, 'vote');
+    assert.equal(out.by, 'claude');
+    assert.deepEqual(out.options, ['Rosa’s', 'Luigi’s']);
+  }
+  // Words that say which still count as the words' pick when Jev doesn't decide.
+  const claude = claudeWith(read({ decide: 'what', question: 'Which book?', choices: ['Dune', 'Emma'] }));
+  const out = await ask('Vote on our next book: Dune or Emma', { jev: fakeFetch(answer('vote', 0.5)), claude });
+  assert.equal(out.by, 'words');
+});
+
+test('Jev sure it’s a date poll but Claude found no days: it defers rather than make up days', async () => {
+  const claude = claudeWith(read({ decide: 'what', question: 'What theme?', choices: ['Disco', '80s'] }));
+  const out = await ask('Party theme: disco or 80s', { jev: fakeFetch(answer('date', 0.9)), claude });
+  assert.equal(out.kind, 'vote');
+  assert.equal(out.by, 'claude');
+});

@@ -122,3 +122,19 @@ export function choicesOfWords(prompt) {
     return ask ? { question: `${cap(ask)}?`.slice(0, 120), options: [], yesNo: true } : null;
   return { question: ask ? `${cap(ask)}?`.slice(0, 120) : eitherQuestion(options), options };
 }
+
+/**
+ * The kind Jev picked (src/jev.js jevKind: { kind, p }), when it's sure and the days model's read
+ * can fill that kind in: { kind, why, yesNo? }, or null to let pickKind decide. A date poll needs
+ * days the read found; "nothing to set up" is never taken from Jev, so Claude's read and the word
+ * rules still get their say. `why` keeps the meaning it has in pickKind, for the card's words.
+ */
+export function jevPick(jev, draft, sure = 0.8) {
+  if (!jev || !(jev.p >= sure)) return null;
+  const days = draft?.days?.length > 0;
+  const named = draft?.vote?.options?.length >= 2;
+  if (jev.kind === 'date') return days ? { kind: 'date', why: 'open' } : null;
+  if (jev.kind === 'vote') return { kind: 'vote', why: days ? 'both' : named ? 'open' : 'question' };
+  if (jev.kind === 'yesno') return { kind: 'vote', why: 'question', yesNo: true };
+  return null;
+}

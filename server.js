@@ -102,7 +102,7 @@ export function createApp({
   server.deadlines = async (at = now()) => {
     const sent = await sendDeadlines({ store, env, fetchImpl, now: at });
     await purgeOldPolls({ store, env, now: at }).catch((e) => console.error('retention run failed', e));
-    await checkKinds({ store, env, now: at, fetch: fetchImpl }).catch((e) => console.error('kind check failed', e?.message));
+    await checkKinds({ store, env, now: at, fetch: fetchImpl }).catch((e) => console.error('kind check failed', e?.name));
     return sent;
   };
   return server;
