@@ -220,5 +220,18 @@ test('a question with no time in it makes a vote, yes or no when it is one', asy
     'Labrador',
     'Beagle',
     'Poodle',
+  ]); // A question with nothing named ("what should we make for dinner?"): Claude suggests a few to start from.
+  await page.goto('/new');
+  await ask(page, 'What should we make for dinner?');
+  await expect(page).toHaveURL(/\/new\/topic$/);
+  await expect(page.locator('#ai-done .ai-kind')).toHaveText(
+    'Venn made this a vote, because there’s no date to find. Check the options it suggested.',
+  );
+  await expect(page.locator('#title')).toHaveValue('What should we make for dinner?');
+  expect(await page.locator('#opts input').evaluateAll((els) => els.map((e) => e.value))).toEqual([
+    'Pasta',
+    'Tacos',
+    'Stir-fry',
+    'Curry',
   ]);
 });

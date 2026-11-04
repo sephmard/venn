@@ -95,7 +95,8 @@ export const USAGE_EVENTS = {
   'ai.failed': { key: ['server', 'own'], reason: AI_FAILURE_REASONS }, // why Anthropic turned an AI request down
   // The hourly check of the poll-kind pickers on fixed sentences (src/kind-check.js): which case,
   // who answered (Jev or today's Claude picker), what it picked, and whether Jev was sure.
-  'kind.check': { case: KIND_CASE_IDS, by: ['jev', 'claude'], got: [...POLL_KINDS, 'error'], sure: YN },
+  // filled: a vote (not yes-or-no) came back with options to pick from, not an empty list.
+  'kind.check': { case: KIND_CASE_IDS, by: ['jev', 'claude'], got: [...POLL_KINDS, 'error'], sure: YN, filled: YN },
   // Browser
   view: {
     client: true,
