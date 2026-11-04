@@ -140,7 +140,10 @@ export const REVIEW_QUESTION = {
 /** A draft from draftAny as a few plain lines for Jev to read. */
 export function draftSummary(d) {
   if (d.kind === 'date') {
-    const days = (d.days || []).slice(0, 8).map((x) => [x.date, x.part || x.from || ''].filter(Boolean).join(' '));
+    const hhmm = (m) => `${String(Math.floor(m / 60)).padStart(2, '0')}:${String(m % 60).padStart(2, '0')}`;
+    // A day is { date }, { date, part } or { date, start, end } (minutes after midnight).
+    const when = (x) => x.part || (Number.isFinite(x.start) && Number.isFinite(x.end) ? `${hhmm(x.start)}–${hhmm(x.end)}` : '');
+    const days = (d.days || []).slice(0, 8).map((x) => [x.date, when(x)].filter(Boolean).join(' '));
     return [`Kind: date poll`, `Title: ${d.title || ''}`, `Days: ${days.length ? days.join(', ') : 'none'}`].join('\n');
   }
   return [

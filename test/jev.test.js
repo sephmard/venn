@@ -583,6 +583,10 @@ test('jevReview: the request and a plain summary of the draft go to Jev; ready o
   );
   assert.equal(draftSummary({ kind: 'date', title: 'X', days: [] }), 'Kind: date poll\nTitle: X\nDays: none');
   assert.equal(
+    draftSummary({ kind: 'date', title: 'Sync', days: [{ date: '2030-01-10', start: 14 * 60, end: 16 * 60 + 30 }] }),
+    'Kind: date poll\nTitle: Sync\nDays: 2030-01-10 14:00–16:30',
+  );
+  assert.equal(
     draftSummary({ kind: 'vote', question: 'Q?', yesNo: true, options: [] }),
     'Kind: yes-or-no question\nQuestion: Q?',
   );
