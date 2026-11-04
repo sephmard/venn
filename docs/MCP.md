@@ -49,7 +49,7 @@ Polls made this way are ordinary polls: the same limits, the same links, and the
 
 ## Connecting it
 
-- **Claude:** in Settings, under Connectors, add a custom connector with the address above.
+- **Claude:** Venn is in Claude's connector directory: open [claude.ai/directory/venn](https://claude.ai/directory/venn) and connect it there (the website's menu links to it as **Use with AI**). You can also add a custom connector with the address above in Settings, under Connectors.
 - **ChatGPT:** in Settings, under Apps and Connectors, turn on developer mode and create a connector with the address above.
 - **Other MCP clients:** add a remote (HTTP) server with the address above. With no remote support, a bridge such as `npx mcp-remote https://venn.day/api/mcp` works.
 

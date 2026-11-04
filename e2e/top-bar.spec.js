@@ -45,6 +45,11 @@ for (const width of [390, 1200]) {
       const panel = bar.locator('.menu-panel');
       for (const name of ['For organizations', 'For developers', 'Contact'])
         await expect(panel.getByRole('link', { name }), `${path}: ${name}`).toBeVisible();
+      // Use with AI: Venn's page in Claude's directory, in a new tab, and it says so.
+      const ai = panel.getByRole('link', { name: 'Use with AI (opens Claude in a new tab)' });
+      await expect(ai, path).toHaveAttribute('href', 'https://claude.ai/directory/venn');
+      await expect(ai, path).toHaveAttribute('target', '_blank');
+      expect((await ai.boundingBox()).height, path).toBeGreaterThanOrEqual(44);
       await page.keyboard.press('Escape');
       await expect(panel).toBeHidden();
       await expect(toggle).toBeFocused();
