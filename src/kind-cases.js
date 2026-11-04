@@ -66,6 +66,12 @@ export const KIND_CASES = [
   ['k48', 'asdf qwerty zxcv?', 'none'],
   ['k49', 'hmm', 'none'],
   ['k50', 'Thanks!', 'none'],
+  // Open questions with nothing named: a vote, and Claude suggests a few options (Seph, Nov 4)
+  ['k51', 'What should we make for dinner?', 'vote'],
+  ['k52', 'What should we name the group chat?', 'vote'],
+  ['k53', 'Which snacks should I bring to the game?', 'vote'],
+  ['k54', 'Ideas for the team offsite activity?', 'vote'],
+  ['k55', 'What color should we paint the kitchen?', 'vote'],
 ].map(([id, text, kind]) => ({ id, text, kind }));
 
 /** The cases' ids, for the usage counts the server keeps of each check (src/usage.js, kind.check). */

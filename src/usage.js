@@ -90,12 +90,24 @@ export const USAGE_EVENTS = {
     feature: ['draft', 'days', 'topic', 'ask', 'template', 'answer', 'summary', 'message'],
     picked: ['date', 'vote'], // the one Use AI box (ask): which kind it made, and why (ask-kind.js)
     why: ['words', 'open', 'both', 'question'],
-    by: ['jev', 'claude', 'words'], // who chose the kind: Jev when it was sure, else Claude's read or the words
+    // who chose: Jev when it was sure, else Claude's read or the words; for Answer for me, the calendar
+    // when every time was busy
+    by: ['jev', 'claude', 'words', 'calendar'],
   },
   'ai.failed': { key: ['server', 'own'], reason: AI_FAILURE_REASONS }, // why Anthropic turned an AI request down
   // The hourly check of the poll-kind pickers on fixed sentences (src/kind-check.js): which case,
   // who answered (Jev or today's Claude picker), what it picked, and whether Jev was sure.
-  'kind.check': { case: KIND_CASE_IDS, by: ['jev', 'claude'], got: [...POLL_KINDS, 'error'], sure: YN },
+  // filled: a vote (not yes-or-no) came back with options to pick from, not an empty list.
+  'kind.check': {
+    case: KIND_CASE_IDS,
+    by: ['jev', 'claude'],
+    got: [...POLL_KINDS, 'error'],
+    sure: YN,
+    filled: YN,
+    // Jev's read of the Claude picker's draft: ready, or fix (send it back to Claude), and how sure.
+    review: ['ready', 'fix', 'error'],
+    reviewSure: YN,
+  },
   // Browser
   view: {
     client: true,

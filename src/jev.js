@@ -22,7 +22,7 @@ export const jevEnabled = (env) => Boolean(env?.JEV_API_KEY_OPENROUTER);
  * One Decisions request: { answers, cost } with `cost` in millionths of a dollar, or null when Jev
  * is off or didn't answer. Logs only the status, never the key or the text.
  */
-export async function askJev(env, { state, questions }, { fetch: doFetch = fetch } = {}) {
+export async function askJev(env, { state, questions }, { fetch: doFetch = fetch, timeout = TIMEOUT_MS } = {}) {
   if (!jevEnabled(env)) return null;
   try {
     const res = await doFetch(JEV_URL, {
@@ -30,7 +30,7 @@ export async function askJev(env, { state, questions }, { fetch: doFetch = fetch
       headers: { authorization: `Bearer ${env.JEV_API_KEY_OPENROUTER}`, 'content-type': 'application/json' },
       // Only providers that don't collect or train on the text (OpenRouter's provider routing).
       body: JSON.stringify({ model: env.JEV_MODEL || JEV_MODEL, state, questions, provider: { data_collection: 'deny' } }),
-      signal: AbortSignal.timeout(TIMEOUT_MS),
+      signal: AbortSignal.timeout(timeout),
     });
     if (!res.ok) {
       console.error('Jev request failed', { status: res.status });
@@ -72,13 +72,16 @@ export async function jevKind(env, text, opts) {
 }
 
 /**
- * The cases a check at `hour` (0–23, UTC) covers: 5 an hour for the first 10 hours of each day, so
+ * The cases a check at `hour` (0–23, UTC) covers: 5 an hour for the first 11 hours of each day, so
  * the whole set is checked once a day, a few requests at a time. Other hours: none.
  */
 export function casesForHour(hour, cases = KIND_CASES, perHour = 5) {
   const start = hour * perHour;
   return start < cases.length ? cases.slice(start, start + perHour) : [];
 }
+
+/** Answer for me waits less for Jev, since Claude starts only after it answers (or doesn't). */
+export const ANSWER_TIMEOUT_MS = 2500;
 
 /** The most times one Answer for me request asks Jev about; any after them go to Claude. */
 export const MAX_ANSWER_OPTIONS = 40;
@@ -108,7 +111,7 @@ export async function jevAnswers(env, { preferences, timezone, options }, opts) 
     ]),
   );
   const state = `What they wrote: ${String(preferences).slice(0, 600)}\nTheir time zone: ${timezone}`;
-  const out = await askJev(env, { state, questions }, opts);
+  const out = await askJev(env, { state, questions }, { timeout: ANSWER_TIMEOUT_MS, ...opts });
   if (!out) return null;
   const answers = {};
   for (const o of options) {
@@ -118,4 +121,44 @@ export async function jevAnswers(env, { preferences, timezone, options }, opts) 
     answers[o.key] = { answer: a.choice, p: Number.isFinite(p) ? p : 0 };
   }
   return { answers, cost: out.cost };
+}
+
+// ---------- Does a draft need another pass? (Jev checks Claude's work: measured first, in kind.check) ----------
+
+/** Asked of a Use AI draft: is it ready for the person to check, or does Claude need another pass? */
+export const REVIEW_QUESTION = {
+  type: 'choice',
+  instructions:
+    'Someone typed the request above into a group poll app, and an assistant drafted the poll shown under it. Is the draft ready for them to check and send, or does it need another pass?',
+  criteria: {
+    ready:
+      'It is the kind of poll they asked for, and it has what that kind needs: days or times for a date poll; options to pick from for a vote, unless it is one yes-or-no question; and a question that fits the request.',
+    fix: 'It is the wrong kind of poll, or it lacks what the request needs: no days, no options to pick from, or a question that does not fit.',
+  },
+};
+
+/** A draft from draftAny as a few plain lines for Jev to read. */
+export function draftSummary(d) {
+  if (d.kind === 'date') {
+    const hhmm = (m) => `${String(Math.floor(m / 60)).padStart(2, '0')}:${String(m % 60).padStart(2, '0')}`;
+    // A day is { date }, { date, part } or { date, start, end } (minutes after midnight).
+    const when = (x) => x.part || (Number.isFinite(x.start) && Number.isFinite(x.end) ? `${hhmm(x.start)}–${hhmm(x.end)}` : '');
+    const days = (d.days || []).slice(0, 8).map((x) => [x.date, when(x)].filter(Boolean).join(' '));
+    return [`Kind: date poll`, `Title: ${d.title || ''}`, `Days: ${days.length ? days.join(', ') : 'none'}`].join('\n');
+  }
+  return [
+    `Kind: ${d.yesNo ? 'yes-or-no question' : 'vote'}`,
+    `Question: ${d.question || ''}`,
+    ...(d.yesNo ? [] : [`Options: ${d.options?.length ? d.options.join(', ') : 'none'}`]),
+  ].join('\n');
+}
+
+/** Jev's read of a draft: { verdict: 'ready' | 'fix', p, cost }, or null when it can't answer. */
+export async function jevReview(env, request, draft, opts) {
+  const state = `Request: ${String(request ?? '').slice(0, 600)}\n\nDraft:\n${draftSummary(draft)}`;
+  const out = await askJev(env, { state, questions: { review: REVIEW_QUESTION } }, opts);
+  const a = out?.answers?.review;
+  if (!a || !Object.hasOwn(REVIEW_QUESTION.criteria, a.choice)) return null;
+  const p = Number(a.probabilities?.[a.choice] ?? a.confidence);
+  return { verdict: a.choice, p: Number.isFinite(p) ? p : 0, cost: out.cost };
 }
