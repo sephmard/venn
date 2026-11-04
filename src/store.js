@@ -291,6 +291,29 @@ export function createStore(db) {
       await db.run('DELETE FROM events WHERE id = ?', [id]);
     },
 
+    /**
+     * Up to `limit` polls, oldest first, with nothing after `cutoff` (ms): made before it, no answer
+     * changed since, no date picked after it, and no day (date polls) or option (times) after it.
+     * Topic polls have no dates, so only the rest counts. For src/retention.js.
+     */
+    async expiredEvents(cutoff, limit) {
+      await init();
+      const day = new Date(cutoff).toISOString().slice(0, 10);
+      const rows = await db.all(
+        `SELECT e.id FROM events e
+         WHERE e.created_at < ?1
+           AND (e.final_start IS NULL OR e.final_start < ?1)
+           AND NOT EXISTS (SELECT 1 FROM participants p WHERE p.event_id = e.id AND p.updated_at >= ?1)
+           AND COALESCE((SELECT MAX(value) FROM json_each(e.data, '$.dates')), '') < ?2
+           AND COALESCE((SELECT MAX(json_extract(value, '$.date')) FROM json_each(e.data, '$.windows')), '') < ?2
+           AND COALESCE((SELECT MAX(json_extract(value, '$.start')) FROM json_each(e.data, '$.options')), 0) < ?1
+         ORDER BY e.created_at
+         LIMIT ?3`,
+        [cutoff, day, limit],
+      );
+      return rows.map((r) => r.id);
+    },
+
     /** When poll `eventId` is next due a look for its deadline (src/deadline.js), or never (null). */
     async setReminderDue(eventId, at) {
       await init();
