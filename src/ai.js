@@ -2,6 +2,7 @@
 // people can bring their own Anthropic key. Every call returns structured JSON
 // (output_config.format), so the server never parses free text.
 
+import { bindingAllows } from './limits.js';
 import Anthropic from '@anthropic-ai/sdk';
 import { BUTTONS, CORNERS, FONTS, isHex } from '../public/brand-look.js';
 import { firstEmoji } from '../public/emoji.js';
@@ -553,11 +554,11 @@ export async function allowanceKey(week, userId, ip) {
 const sharedWindows = new Map(); // ip -> [timestamps], for this isolate / process
 
 /**
- * At most AI_RATE_LIMIT (default 10) AI requests per minute per IP. Uses Cloudflare's rate
- * limiting binding when configured, which counts across all of Cloudflare's servers.
+ * At most AI_RATE_LIMIT (default 10) AI requests per minute per IP. Cloudflare's rate
+ * limiting binding, when configured, also has to allow it: it counts across every isolate.
  */
 export async function allowAiRequest(env, ip, now, windows = sharedWindows) {
-  if (env.AI_RATE_LIMITER) return (await env.AI_RATE_LIMITER.limit({ key: ip || 'unknown' })).success;
+  if (!(await bindingAllows(env.AI_RATE_LIMITER, ip || 'unknown'))) return false;
   const limit = Number(env.AI_RATE_LIMIT) || 10;
   const key = ip || 'unknown';
   const recent = (windows.get(key) || []).filter((t) => now - t < 60_000);

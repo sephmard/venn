@@ -2,6 +2,7 @@
 // Nothing is stored: the message goes out in one email, with the sender's address (if they gave
 // one) as Reply-To so the reply goes straight to them. Needs email to be set up and EMAIL_REPLY_TO.
 
+import { bindingAllows } from './limits.js';
 import { ValidationError } from '../public/core.js';
 import { parseAddress } from './email.js';
 import { emailEnabled, escHtml, normalizeEmail } from './notify.js';
@@ -42,9 +43,9 @@ export function contactEmail({ kind, message, email }, origin) {
   return { subject, text, html, ...(email && { replyTo: email }) };
 }
 
-/** At most CONTACT_RATE_LIMIT (default 3) messages an hour per IP, or Cloudflare's rate limiting binding. */
+/** At most CONTACT_RATE_LIMIT (default 3) messages an hour per IP, and Cloudflare's rate limiting binding's limit when there is one. */
 export async function allowContactRequest(env, ip, now, windows) {
-  if (env.CONTACT_RATE_LIMITER) return (await env.CONTACT_RATE_LIMITER.limit({ key: ip || 'unknown' })).success;
+  if (!(await bindingAllows(env.CONTACT_RATE_LIMITER, ip || 'unknown'))) return false;
   const limit = Number(env.CONTACT_RATE_LIMIT) || 3;
   const key = ip || 'unknown';
   const recent = (windows.get(key) || []).filter((t) => now - t < 3_600_000);

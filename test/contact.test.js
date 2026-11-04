@@ -67,6 +67,10 @@ test('a few messages an hour per visitor, then a wait', async () => {
   assert.equal(await allowContactRequest({}, '1.2.3.4', now + 3_600_001, windows), true);
   const limiter = { limit: async ({ key }) => ({ success: key === 'ok' }) };
   assert.equal(await allowContactRequest({ CONTACT_RATE_LIMITER: limiter }, 'ok', now, windows), true);
+  // The binding is on top of the hour's count, not instead of it.
+  assert.equal(await allowContactRequest({ CONTACT_RATE_LIMITER: limiter }, 'ok', now + 1, windows), true);
+  assert.equal(await allowContactRequest({ CONTACT_RATE_LIMITER: limiter }, 'ok', now + 2, windows), true);
+  assert.equal(await allowContactRequest({ CONTACT_RATE_LIMITER: limiter }, 'ok', now + 3, windows), false);
   assert.equal(await allowContactRequest({ CONTACT_RATE_LIMITER: limiter }, '', now, windows), false);
 });
 
