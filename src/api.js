@@ -72,7 +72,7 @@ import {
 } from './ai.js';
 import { allowContactRequest, contactEmail, contactEnabled, contactInbox, normalizeContact } from './contact.js';
 import { allowPlacesRequest, placesProvider, placesState, searchPlaces } from './places.js';
-import { handleAccount, sessionUser, signInProviders } from './auth.js';
+import { cookie, cookies, handleAccount, sessionUser, signInProviders } from './auth.js';
 import { handleMcp } from './mcp.js';
 import { pollResults } from './results.js';
 import { draftFromWords, unsureOf } from './days-parse.js';
@@ -452,19 +452,34 @@ async function route(
     }
     // POST /api/brands/:id/join { token }: an invite link, opened signed in. The template goes in the
     // account's templates with the link's role (someone who can already change it keeps that).
+    // Opened signed out, the server holds the secret while they sign in: an HttpOnly cookie for this
+    // path only, for 10 minutes, so it is never in a URL or in the page's storage. Back signed in,
+    // a join with no token uses it, and any signed-in answer clears it.
     if (parts.length === 3 && parts[2] === 'join' && method === 'POST') {
-      const user = await currentUser();
-      if (!user) return error(401, 'Sign in to add this template');
+      const joinCookie = { name: `venn_join_${brand.id}`, path: `/api/brands/${brand.id}/join` };
+      const valid = (t) => (typeof t === 'string' && /^[A-Za-z0-9]{1,64}$/.test(t) ? t : null);
       const body = await readJson(request, 1000);
-      const hash = typeof body?.token === 'string' && /^[A-Za-z0-9]{1,64}$/.test(body.token) ? await sha256(body.token) : null;
-      const linkRole = hash && (await store.brandInviteRole(brand.id, hash));
-      if (!linkRole) return error(403, 'This invite link was turned off. Ask for a new one.');
-      if ((await store.ownerOf('brand', brand.id)) === user.id) return json({ role: 'owner' });
-      const had = await store.brandRole(brand.id, user.id);
-      const next = had === 'admin' ? 'admin' : linkRole;
-      if (next !== had) await store.setBrandMember(brand.id, user.id, next, now());
-      count('brand.joined', { role: next });
-      return json({ role: next });
+      const fromLink = valid(body?.token);
+      const user = await currentUser();
+      if (!user) {
+        const res = error(401, 'Sign in to add this template');
+        if (fromLink)
+          res.headers.append('set-cookie', cookie(joinCookie.name, fromLink, { url, maxAge: 600, path: joinCookie.path }));
+        return res;
+      }
+      const secret = fromLink || valid(cookies(request)[joinCookie.name]);
+      const res = await (async () => {
+        const linkRole = secret && (await store.brandInviteRole(brand.id, await sha256(secret)));
+        if (!linkRole) return error(403, 'This invite link was turned off. Ask for a new one.');
+        if ((await store.ownerOf('brand', brand.id)) === user.id) return json({ role: 'owner' });
+        const had = await store.brandRole(brand.id, user.id);
+        const next = had === 'admin' ? 'admin' : linkRole;
+        if (next !== had) await store.setBrandMember(brand.id, user.id, next, now());
+        count('brand.joined', { role: next });
+        return json({ role: next });
+      })();
+      res.headers.append('set-cookie', cookie(joinCookie.name, '', { url, maxAge: 0, path: joinCookie.path }));
+      return res;
     }
     // PUT /api/brands/:id/members/:userId { role }: change what someone can do. DELETE: take it
     // away from them (the owner), or leave it (themselves).

@@ -387,7 +387,21 @@ test('sharing a brand template: admins change it, users make polls with it, only
   assert.equal((await invite('owner')).status, 400);
   // Opening one needs an account, and its secret.
   const join = (token, cookie) => call(`/api/brands/${made.id}/join`, { method: 'POST', body: { token }, cookie });
-  assert.equal((await join(adminLink)).status, 401);
+  const out = await join(adminLink);
+  assert.equal(out.status, 401);
+  // Signed out, the server holds the secret while they sign in: HttpOnly, this path only, 10 minutes.
+  const held = out.headers.get('set-cookie');
+  assert.match(
+    held,
+    new RegExp(`^venn_join_${made.id}=${adminLink}; Path=/api/brands/${made.id}/join; Max-Age=600; HttpOnly; SameSite=Lax`),
+  );
+  // Back signed in, a join with no token uses it, and the answer clears it.
+  const pending = held.split(';')[0];
+  const back = await call(`/api/brands/${made.id}/join`, { method: 'POST', body: {}, cookie: `${ana}; ${pending}` });
+  assert.equal(back.data.role, 'admin');
+  assert.match(back.headers.get('set-cookie'), new RegExp(`^venn_join_${made.id}=; Path=/api/brands/${made.id}/join; Max-Age=0`));
+  // No token and no cookie: nothing to join with.
+  assert.equal((await call(`/api/brands/${made.id}/join`, { method: 'POST', body: {}, cookie: ben })).status, 403);
   assert.equal((await join('nope', ana)).status, 403);
   assert.equal((await join(adminLink, ana)).data.role, 'admin');
   assert.equal((await join(userLink, ben)).data.role, 'user');

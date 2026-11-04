@@ -117,7 +117,8 @@ export function cookies(request) {
   return out;
 }
 
-function cookie(name, value, { url, maxAge, path = '/api' }) {
+/** A Set-Cookie value: HttpOnly and SameSite=Lax always, Secure on https. */
+export function cookie(name, value, { url, maxAge, path = '/api' }) {
   const secure = url.protocol === 'https:' ? '; Secure' : '';
   return `${name}=${value}; Path=${path}; Max-Age=${maxAge}; HttpOnly; SameSite=Lax${secure}`;
 }
