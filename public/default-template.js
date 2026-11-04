@@ -128,15 +128,17 @@ export async function defaultToggle(btn, b) {
   btn.hidden = false;
   btn.onclick = async () => {
     // Both: off for both. Neither, or only one: on for both.
+    if (btn.getAttribute('aria-busy') === 'true') return;
     const both = defaultFor(defs, b.id).length === 2;
-    btn.disabled = true;
+    // Busy, not disabled: a disabled button drops the keyboard's focus.
+    btn.setAttribute('aria-busy', 'true');
     try {
       for (const f of ['date', 'vote']) if (both || defs[f]?.id !== b.id) defs = await setDefault(f, both ? null : b.id);
       toast(savedText(defs, ['date', 'vote']));
     } catch (e) {
       toast(e.message);
     }
-    btn.disabled = false;
+    btn.removeAttribute('aria-busy');
     draw();
   };
 }

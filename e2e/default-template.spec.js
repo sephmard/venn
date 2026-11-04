@@ -109,8 +109,24 @@ test('Use no template is for this poll only; a template link and a copied poll c
   await expect(page.locator('#title')).toBeFocused();
   await expect(page).toHaveURL(/\/new\/topic\?brand=none$/);
   await expect(page.getByRole('link', { name: '📅 Date' })).toHaveAttribute('href', '/new?brand=none');
+  // Typed into, then reloaded: the typing stays, and nothing asks for a template called "none".
+  const asked = [];
+  page.on('request', (r) => /\/api\/brands\/none/.test(r.url()) && asked.push(r.url()));
+  await page.fill('#title', 'Pizza or tacos');
+  await expect.poll(() => page.evaluate(() => sessionStorage.getItem('venn:draft:topic') || '')).toContain('Pizza or tacos');
   await page.reload();
+  await expect(page.locator('#title')).toHaveValue('Pizza or tacos');
   await expect(page.locator('.brand-bar')).toHaveCount(0);
+  await expect(page.locator('#toast')).not.toContainText('template');
+  // The same through the Date switch.
+  await page.getByRole('link', { name: '📅 Date' }).click();
+  await expect(page).toHaveURL(/\/new\?brand=none$/);
+  await page.fill('#title', 'Team picnic');
+  await expect.poll(() => page.evaluate(() => sessionStorage.getItem('venn:draft:free') || '')).toContain('Team picnic');
+  await page.reload();
+  await expect(page.locator('#title')).toHaveValue('Team picnic');
+  await expect(page.locator('.brand-bar')).toHaveCount(0);
+  expect(asked).toEqual([]);
   // The default stays.
   expect((await (await page.request.get('/api/me/defaults')).json()).defaults.vote.id).toBe(ids.Acme);
 
@@ -207,9 +223,13 @@ test('the template page: Make it my default ⇄ ✓ Your default, and a vote wit
   await expect(page.locator('#toast')).toHaveText('New date polls and votes start with Acme.');
   await expect(toggle).toHaveText('✓ Your default');
   await expect(toggle).toHaveAttribute('aria-pressed', 'true');
-  await toggle.click();
+  // By keyboard: Enter saves, and the focus stays on the button.
+  await toggle.focus();
+  await page.keyboard.press('Enter');
   await expect(page.locator('#toast')).toHaveText('New date polls and votes start with no template.');
   await expect(toggle).toHaveText('Make it my default');
+  await expect(toggle).toBeFocused();
+  await expect(toggle).not.toHaveAttribute('aria-busy', 'true');
   await expect(page.getByRole('link', { name: 'Or make a vote with it' })).toHaveAttribute(
     'href',
     `/new/topic?brand=${ids.Acme}`,

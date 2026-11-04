@@ -59,7 +59,8 @@ let brandId = null;
 let brand = null;
 const brandFromUrl = () => {
   const id = new URLSearchParams(location.search).get('brand');
-  return /^[A-Za-z0-9]{1,32}$/.test(id ?? '') ? id : null;
+  // ?brand=none is "no template, this once" (Use no template), never a template called none.
+  return id !== 'none' && /^[A-Za-z0-9]{1,32}$/.test(id ?? '') ? id : null;
 };
 /**
  * Show the brand's look (brand-look.js), and for a new poll fill in what it starts with: `fill`
