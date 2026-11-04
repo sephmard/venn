@@ -64,9 +64,9 @@ namespace_id = "72604"
 simple = { limit = 60, period = 60 }
 
 [[ratelimits]]
-name = "CREATE_RATE_LIMITER"    # new polls and templates
+name = "CREATE_RATE_LIMITER"    # new polls and templates (a class or office on one network)
 namespace_id = "72605"
-simple = { limit = 10, period = 60 }
+simple = { limit = 20, period = 60 }
 
 [[ratelimits]]
 name = "WRITE_RATE_LIMITER"     # answers, Claude and other assistants (/api/mcp), results, usage counts
