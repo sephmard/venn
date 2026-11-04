@@ -8,6 +8,7 @@ import { SECURITY_HEADERS } from './security-headers.js';
 import { homePage, pollShell } from './preview.js';
 import { sendDeadlines } from './deadline.js';
 import { purgeOldPolls } from './retention.js';
+import { checkKinds } from './kind-check.js';
 import { canonicalRedirect, siteOrigin } from './site.js';
 
 let store;
@@ -38,14 +39,15 @@ export default {
   },
 
   // Every hour (wrangler.toml): reminders before a poll's deadline, and "answers are in" after it;
-  // then polls past their retention go (src/retention.js).
+  // then polls past their retention go (src/retention.js); then a few fixed sentences check the
+  // poll-kind pickers (src/kind-check.js).
   async scheduled(event, env, ctx) {
     store ??= createStore(d1Adapter(env.DB));
     const now = event.scheduledTime || Date.now();
     ctx.waitUntil(
-      sendDeadlines({ store, env, now }).finally(() =>
-        purgeOldPolls({ store, env, now }).catch((e) => console.error('retention run failed', e)),
-      ),
+      sendDeadlines({ store, env, now })
+        .finally(() => purgeOldPolls({ store, env, now }).catch((e) => console.error('retention run failed', e)))
+        .finally(() => checkKinds({ store, env, now }).catch((e) => console.error('kind check failed', e?.message))),
     );
   },
 };

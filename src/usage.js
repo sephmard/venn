@@ -12,6 +12,7 @@
 import { allDaySpan, isOptionsPoll, isPartsPoll } from '../public/core.js';
 import { PAGE_SLUGS } from '../pages/pages.js';
 import { AI_FAILURE_REASONS } from './ai.js';
+import { KIND_CASE_IDS, KINDS as POLL_KINDS } from './kind-cases.js';
 
 const BUCKETS = ['1', '2-3', '4-7', '8-15', '16+'];
 const bucket = (n) => (n <= 1 ? '1' : n <= 3 ? '2-3' : n <= 7 ? '4-7' : n <= 15 ? '8-15' : '16+');
@@ -91,6 +92,9 @@ export const USAGE_EVENTS = {
     why: ['words', 'open', 'both', 'question'],
   },
   'ai.failed': { key: ['server', 'own'], reason: AI_FAILURE_REASONS }, // why Anthropic turned an AI request down
+  // The hourly check of the poll-kind pickers on fixed sentences (src/kind-check.js): which case,
+  // who answered (Jev or today's Claude picker), what it picked, and whether Jev was sure.
+  'kind.check': { case: KIND_CASE_IDS, by: ['jev', 'claude'], got: [...POLL_KINDS, 'error'], sure: YN },
   // Browser
   view: {
     client: true,

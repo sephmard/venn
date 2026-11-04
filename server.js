@@ -16,6 +16,7 @@ import { isAppRoute } from './src/routes.js';
 import { homePage, pollShell } from './src/preview.js';
 import { sendDeadlines } from './src/deadline.js';
 import { purgeOldPolls } from './src/retention.js';
+import { checkKinds } from './src/kind-check.js';
 import { placesState } from './src/places.js';
 import { writeWindows } from './src/limits.js';
 
@@ -97,10 +98,11 @@ export function createApp({
   });
   server.settled = () => Promise.all([...pending]);
   // Reminders before a poll's deadline, and "answers are in" after it (src/deadline.js); hourly below.
-  // Then polls past their retention go (src/retention.js).
+  // Then polls past their retention go (src/retention.js), and the poll-kind check runs (src/kind-check.js).
   server.deadlines = async (at = now()) => {
     const sent = await sendDeadlines({ store, env, fetchImpl, now: at });
     await purgeOldPolls({ store, env, now: at }).catch((e) => console.error('retention run failed', e));
+    await checkKinds({ store, env, now: at, fetch: fetchImpl }).catch((e) => console.error('kind check failed', e?.message));
     return sent;
   };
   return server;
