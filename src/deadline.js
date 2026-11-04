@@ -20,6 +20,7 @@ import {
 import { setLabel } from './preview.js';
 import { whiteLabelOf } from './brands.js';
 import { mayEmail, recipientCap } from './recipients.js';
+import { publicOrigin } from './site.js';
 import { normalizeInvitees } from './invites.js';
 
 export { MAX_INVITEES } from './invites.js';
@@ -217,7 +218,7 @@ export async function remindNow({ store, env = {}, ev, now = Date.now(), fetchIm
   const r = settings.remind;
   if (!r?.invitees?.length) return { error: 'This poll has no invite list to remind' };
   if (r.lastManual && now - r.lastManual < 12 * HOUR) return { error: 'Reminders went out less than 12 hours ago' };
-  const site = (r.origin || origin || env.PUBLIC_URL || '').replace(/\/+$/, '');
+  const site = (publicOrigin(env) || r.origin || origin || '').replace(/\/+$/, '');
   const round = await remindRound({ store, env, fetchImpl, ev, r, site, last: false, mail: true, now });
   if (!round.sent)
     return {
@@ -255,7 +256,7 @@ export async function sendDeadlines({ store, env = {}, now = Date.now(), fetchIm
     if (!ev || ev.deadline == null) return (void (await store.setReminderDue(id, null)), 0);
     const settings = (await store.getNotify(id)) || {};
     const r = settings.remind || {};
-    const site = (r.origin || env.PUBLIC_URL || '').replace(/\/+$/, '');
+    const site = (publicOrigin(env) || r.origin || '').replace(/\/+$/, '');
     const pollUrl = `${site}/e/${id}`;
     const mail = emailEnabled(env) && site;
     let n = 0;

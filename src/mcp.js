@@ -279,7 +279,7 @@ function voteResults(ev, origin) {
  * Answer one MCP request. `call(path, { method, body })` runs a request against Venn's own API
  * (as the same visitor, with its limits) and returns its Response.
  */
-export async function handleMcp(request, call) {
+export async function handleMcp(request, call, { origin: site } = {}) {
   const headers = { 'content-type': 'application/json; charset=utf-8', 'cache-control': 'no-store' };
   const send = (obj, status = 200) => new Response(obj ? JSON.stringify(obj) : null, { status, headers });
   // Stateless: no server-to-client stream to open, and no session to end.
@@ -296,7 +296,7 @@ export async function handleMcp(request, call) {
     return send(rpcError(msg?.id, -32600, 'Invalid request'), 400);
   // A notification (no id) needs no answer.
   if (msg.id === undefined) return send(null, 202);
-  const origin = new URL(request.url).origin;
+  const origin = site || new URL(request.url).origin; // the site's public address (src/site.js)
   switch (msg.method) {
     case 'initialize': {
       const asked = msg.params?.protocolVersion;
