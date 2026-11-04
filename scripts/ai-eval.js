@@ -191,6 +191,7 @@ const CASES = [
   { name: 'k7 when', text: 'When can everyone do a call?', kind: 'date' },
   // A plan with no time isn't a question: a date poll or "Couldn't find any days", never made-up options.
   { name: 'k8 a plan with no time', text: 'Book club with Sam', kind: ['date', 'none'] },
+  { name: 'k8b a question about when', text: 'Can we do book club sometime?', kind: ['date', 'none'] },
   { name: 'k9 nonsense', text: 'asdf qwerty zxcv?', kind: 'none' },
 ];
 

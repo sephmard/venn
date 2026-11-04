@@ -33,6 +33,7 @@ test('words in the request win over the model', () => {
     'schedule a call',
     'what day works',
     'which days suit you',
+    'When’s book club?',
     'our availability',
     'decide what day',
     'Which Friday works for dinner?',
@@ -103,6 +104,22 @@ test('a question for the group reads as one; a plan with no time does not', () =
     'Ask the team whether to cancel',
   ])
     assert.equal(readsAsQuestion(p), true, p);
-  for (const p of ['Book club with Sam', 'Dinner with the Smiths sometime', 'hmm', 'team offsite', 'ask Sam to bring snacks'])
+  for (const p of [
+    'Book club with Sam',
+    'Dinner with the Smiths sometime',
+    'hmm',
+    'hmm?',
+    'team offsite',
+    'ask Sam to bring snacks',
+    // Questions about when: still the date poll's.
+    'Can we do book club sometime?',
+    'When’s book club?',
+    'Could we meet up soon',
+    'Who can make book club?',
+    'How about drinks with Sam?',
+    'Dinner with the Smiths sometime?',
+    'Book club with Sam?',
+    'Are you free for lunch?',
+  ])
     assert.equal(readsAsQuestion(p), false, p);
 });

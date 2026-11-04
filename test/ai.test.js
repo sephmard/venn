@@ -481,7 +481,7 @@ test('one Use AI box: Venn picks a date poll or a vote (ask-kind.js), from one a
     { title: '', timeOfDay: 'any', decide: 'when', days: [] },
     { question: '', yesNo: false, options: [] },
   ];
-  const none = await ask('hmm?');
+  const none = await ask('should we?');
   assert.equal(none.status, 503);
   assert.match(none.data.error, /Couldn't tell what to set up/);
   // A plan with no time that isn't a question still asks for when, with no made-up options.
