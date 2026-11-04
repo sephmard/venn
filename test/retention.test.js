@@ -22,7 +22,8 @@ test('the retention: a year by default, POLL_RETENTION_DAYS changes it, 0 keeps 
 
 test('a poll goes once a year has passed since it was made, answered, decided and its last day or option', async () => {
   const db = new DatabaseSync(':memory:');
-  const store = createStore(sqliteAdapter(db));
+  let clock = now;
+  const store = createStore(sqliteAdapter(db), { clock: () => clock });
   const make = (id, created, event) => store.createEvent({ id, event: { title: id, ...event }, adminHash: 'h', now: created });
   const days = (...ms) => ({ dates: ms.map(date), slotMinutes: 1440, timezone: 'UTC' });
 
@@ -36,6 +37,13 @@ test('a poll goes once a year has passed since it was made, answered, decided an
   await make('options', ago(400), { mode: 'options', options: [{ start: ago(395) }, { start: ago(300) }] });
   await make('oldOptions', ago(400), { mode: 'options', options: [{ start: ago(395) }] }); // goes
   await make('topic', ago(400), { mode: 'topic', options: [{ id: 'a', label: 'Pizza' }] }); // goes: no dates
+  // A vote whose option was picked, or a poll its organizer changed, a month ago: kept.
+  await make('picked', ago(400), { mode: 'topic', options: [{ id: 'a', label: 'Pizza' }] });
+  await make('edited', ago(400), days(ago(390)));
+  clock = ago(30);
+  await store.updateEvent('picked', { title: 'picked', mode: 'topic', options: [{ id: 'a', label: 'Pizza' }], picked: 'a' });
+  await store.setNotify('edited', { remind: { every: 1 } });
+  clock = now;
   await make('new', ago(20), days(ago(10)));
   await store.insertParticipant({ id: 'p2', eventId: 'old', name: 'Ben', availability: '{}', editHash: 'e', now: ago(398) });
   db.prepare('INSERT INTO participant_emails (participant_id, event_id, email) VALUES (?, ?, ?)').run(
@@ -50,10 +58,12 @@ test('a poll goes once a year has passed since it was made, answered, decided an
     .prepare('SELECT id FROM events ORDER BY id')
     .all()
     .map((r) => r.id);
-  assert.deepEqual(left, ['ahead', 'answered', 'decided', 'new', 'options', 'windows']);
+  assert.deepEqual(left, ['ahead', 'answered', 'decided', 'edited', 'new', 'options', 'picked', 'windows']);
   // With everything that belonged to it.
   assert.equal(db.prepare("SELECT COUNT(*) AS n FROM participants WHERE event_id = 'old'").get().n, 0);
   assert.equal(db.prepare('SELECT COUNT(*) AS n FROM participant_emails').get().n, 0);
+  // A year after that change, it goes too.
+  assert.equal(await purgeOldPolls({ store, now: now + 400 * DAY }), 8);
   assert.equal(await purgeOldPolls({ store, now }), 0);
 });
 

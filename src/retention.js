@@ -1,7 +1,7 @@
 // How long polls are kept (#213): a poll is deleted, with its answers, emails and notes, once a
 // year has passed since anything happened with it. That is: it was made, someone answered or
-// changed an answer, its date was picked, and its last day or option, all more than
-// POLL_RETENTION_DAYS (default 365) ago. 0 keeps polls until their organizer deletes them.
+// changed an answer, its organizer changed it (a date or option picked, too), and its last day
+// or option, all more than POLL_RETENTION_DAYS (default 365) ago. 0 keeps polls until their organizer deletes them.
 // Run hourly with the deadline reminders (src/worker.js scheduled, server.js), a batch at a time.
 
 export const POLL_RETENTION_DAYS = 365;
