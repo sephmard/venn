@@ -17,6 +17,7 @@
 
 import { ValidationError, isEmail } from '../public/core.js';
 import { emailEnabled, sendEmail } from './notify.js';
+import { withinDailyLimit } from './recipients.js';
 import { button, emailLayout, escHtml, heading, linkLine, para } from './notify.js';
 import { siteOrigin } from './site.js';
 import { acceptablePassword, decoyHash, hashPassword, needsRehash, verifyPassword } from './password.js';
@@ -234,6 +235,7 @@ async function sendLink(ctx, { purpose, email, userId = null, data = null, minut
   });
   const site = siteOrigin(env, url); // PUBLIC_URL, or this request's own (src/site.js)
   const link = `${site}${path}#t=${token}`;
+  if (!(await withinDailyLimit(store, env, {}, now))) return true; // "check your inbox", as ever
   waitUntil(
     sendEmail(env, { to: email, ...make(link, site) }, { fetchImpl }).catch((e) =>
       console.error('sign-in email failed', e.message),
@@ -245,7 +247,9 @@ async function sendLink(ctx, { purpose, email, userId = null, data = null, minut
 const notify = (ctx, to, msg) =>
   to &&
   ctx.waitUntil(
-    sendEmail(ctx.env, { to, ...msg }, { fetchImpl: ctx.fetchImpl }).catch((e) => console.error('notice failed', e.message)),
+    withinDailyLimit(ctx.store, ctx.env, {}, ctx.now)
+      .then((ok) => ok && sendEmail(ctx.env, { to, ...msg }, { fetchImpl: ctx.fetchImpl }))
+      .catch((e) => console.error('notice failed', e.message)),
   );
 
 /** "Check your inbox", whatever happened: the same answer whether or not the address has an account. */
