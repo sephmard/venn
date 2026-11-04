@@ -15,6 +15,7 @@ import {
   rankTimes,
 } from '../public/core.js';
 import { emailProvider, sendEmail } from './email.js';
+import { withinDailyLimit } from './recipients.js';
 
 export { sendEmail };
 
@@ -683,7 +684,14 @@ export async function notifyResponse({ store, env, fetchImpl, now, origin, ev, k
     }
     const recentlyEmailed = kind === 'response.updated' && now() - (emailedAt[participantId] || 0) < EDIT_EMAIL_COOLDOWN_MS;
     let emailsSent = settings.emailsSent || 0;
-    if (!picked && settings.email && emailEnabled(env) && !recentlyEmailed && emailsSent < MAX_ORGANIZER_EMAILS) {
+    if (
+      !picked &&
+      settings.email &&
+      emailEnabled(env) &&
+      !recentlyEmailed &&
+      emailsSent < MAX_ORGANIZER_EMAILS &&
+      (await withinDailyLimit(store, env, {}, now()))
+    ) {
       const unsubscribeUrl = `${origin}/e/${ev.id}#unsubscribe=${settings.unsubscribeToken}`;
       const msg = responseEmail(s, unsubscribeUrl, { retro: ev.retro });
       jobs.push(
