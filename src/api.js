@@ -77,7 +77,7 @@ import { pollResults } from './results.js';
 import { draftFromWords, unsureOf } from './days-parse.js';
 import { choicesOfWords, saidKind } from './ask-kind.js';
 import { checkWrite, limitHeaders, writeWindows as newWriteWindows } from './limits.js';
-import { mayEmail } from './recipients.js';
+import { mayEmail, withinDailyLimit } from './recipients.js';
 import { siteOrigin } from './site.js';
 import { MAX_GUEST_DEVICES, MAX_PUSH_DEVICES, checkSubscription, pushEnabled, sendPush } from './push.js';
 
@@ -717,6 +717,8 @@ async function route(
       const msg = normalizeContact(body);
       if (!(await allowContactRequest(env, clientIp, now(), contactWindows)))
         return error(429, "That's a few messages already. Try again in an hour.");
+      if (!(await withinDailyLimit(store, env, {}, now())))
+        return error(503, "Messages can't be sent right now. Try again tomorrow.");
       try {
         await sendEmail(env, { to: contactInbox(env), ...contactEmail(msg, origin) }, { fetchImpl });
       } catch (e) {
@@ -943,9 +945,12 @@ async function route(
           retro: event.retro,
         });
         const headers = unsubscribeHeaders(unsubscribeLink(origin, id, settings.unsubscribeToken));
-        waitUntil(
-          sendEmail(env, { to: notifyEmail, ...msg, headers }, { fetchImpl }).catch((e) => console.error('poll email failed', e)),
-        );
+        if (await withinDailyLimit(store, env, {}, now()))
+          waitUntil(
+            sendEmail(env, { to: notifyEmail, ...msg, headers }, { fetchImpl }).catch((e) =>
+              console.error('poll email failed', e),
+            ),
+          );
       }
       if (!notifyEmail && remind.remind) await store.setNotify(id, remind);
       if (due != null) await store.setReminderDue(id, due);

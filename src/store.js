@@ -38,6 +38,12 @@ const SCHEMA = [
      PRIMARY KEY (event_id, day, recipient_hash)
    )`,
   `CREATE INDEX IF NOT EXISTS email_recipients_day ON email_recipients(day)`,
+  // How many emails the whole server has sent each day (UTC), for its daily ceiling
+  // (src/recipients.js). Just a count; rows from before yesterday are cleared.
+  `CREATE TABLE IF NOT EXISTS email_daily (
+     day TEXT PRIMARY KEY,
+     sent INTEGER NOT NULL
+   )`,
   // A signed-in account's default template for each kind of poll ('date' or 'vote'): a brand
   // template it owns or was given (src/defaults.js). Checked again whenever it's read.
   `CREATE TABLE IF NOT EXISTS user_defaults (
@@ -1063,6 +1069,25 @@ export function createStore(db) {
         await db.run('DELETE FROM email_recipients WHERE day < ?', [before]);
       }
       await db.run('INSERT OR IGNORE INTO email_recipients (event_id, day, recipient_hash) VALUES (?, ?, ?)', key);
+      return true;
+    },
+
+    /**
+     * Count one more email sent on `day`, unless `limit` have been already: true when it may be
+     * sent. The day's first email also clears the counts from before yesterday.
+     */
+    async countEmail(day, limit) {
+      await init();
+      const row = await db.first(
+        `INSERT INTO email_daily (day, sent) VALUES (?, 1)
+         ON CONFLICT(day) DO UPDATE SET sent = sent + 1 WHERE sent < ? RETURNING sent`,
+        [day, limit],
+      );
+      if (!row) return false;
+      if (Number(row.sent) === 1) {
+        const before = new Date(Date.parse(`${day}T00:00:00Z`) - 86_400_000).toISOString().slice(0, 10);
+        await db.run('DELETE FROM email_daily WHERE day < ?', [before]);
+      }
       return true;
     },
 
