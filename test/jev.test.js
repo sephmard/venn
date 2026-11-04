@@ -255,6 +255,8 @@ test('jevPick: only a sure answer the read can fill in; "nothing" and unsure ans
   assert.deepEqual(jevPick({ kind: 'vote', p: 0.9 }, choices), { kind: 'vote', why: 'open' });
   assert.deepEqual(jevPick({ kind: 'vote', p: 0.9 }, none), { kind: 'vote', why: 'question' });
   assert.deepEqual(jevPick({ kind: 'vote', p: 0.9 }, { ...choices, days: days.days }), { kind: 'vote', why: 'both' });
+  // Days found but nothing named ("pick a restaurant for dinner next week"): the vote comes first.
+  assert.deepEqual(jevPick({ kind: 'vote', p: 0.9 }, days), { kind: 'vote', why: 'both' });
   assert.deepEqual(jevPick({ kind: 'yesno', p: 0.9 }, days), { kind: 'vote', why: 'question', yesNo: true });
   assert.equal(jevPick({ kind: 'none', p: 0.99 }, days), null);
 });

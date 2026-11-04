@@ -134,7 +134,7 @@ export function jevPick(jev, draft, sure = 0.8) {
   const days = draft?.days?.length > 0;
   const named = draft?.vote?.options?.length >= 2;
   if (jev.kind === 'date') return days ? { kind: 'date', why: 'open' } : null;
-  if (jev.kind === 'vote') return { kind: 'vote', why: days && named ? 'both' : named ? 'open' : 'question' };
+  if (jev.kind === 'vote') return { kind: 'vote', why: days ? 'both' : named ? 'open' : 'question' };
   if (jev.kind === 'yesno') return { kind: 'vote', why: 'question', yesNo: true };
   return null;
 }

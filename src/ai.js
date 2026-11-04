@@ -273,7 +273,9 @@ export async function draftAny(env, { prompt, timezone }, { now, anthropic, fetc
     vote = topic?.yesNo || !read?.question ? topic : { question: read.question, yesNo: false, options: read.options };
   }
   // Jev was sure it's one yes-or-no question: the vote is that, whatever options the writer offered.
-  if (picked.yesNo && vote) vote = { question: read?.question || vote.question, yesNo: true, options: [] };
+  // The writer's own yes-or-no wording comes first; a question the read had might be a choice's.
+  if (picked.yesNo && vote)
+    vote = { question: vote.yesNo ? vote.question : read?.question || vote.question, yesNo: true, options: [] };
   const { vote: _, ...date } = days;
   const { yesNo: __, ...kind } = picked;
   return { ...kind, ...vote, note: fixedTime(days.days), date: days.days.length ? date : null };
