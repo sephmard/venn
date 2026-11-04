@@ -84,6 +84,8 @@
 }
 .brand-vote {
   margin: 0 0 14px;
+  /* Scrolled to, it stays clear of the sticky Back / Next bar on a phone. */
+  scroll-margin-bottom: 96px;
 }
 /* Sharing (owner only): invite links for admins and users, then who has it. */
 .brand-sharing {
@@ -338,6 +340,10 @@
   }
   .brand-editor .step-bar .error:empty {
     display: none;
+  }
+  /* Room under the Share step's last line, so nothing ends under the bar. */
+  .brand-editor [data-panel='share'] {
+    padding-bottom: 24px;
   }
   .brand-editor .step-bar .save-state {
     order: -1;
