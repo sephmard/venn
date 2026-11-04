@@ -899,6 +899,7 @@ export async function renderEvent(id, navigate) {
 
   // ----- AI: answer for me, and the organizer's summary -----
   let aiOn = false;
+  let jevOn = false;
   getConfig().then((c) => {
     // Guests can get their answer by email. Optional, and on by default once they give an address.
     // Guests can give it so the organizer can invite them; the organizer only for a copy.
@@ -919,6 +920,7 @@ export async function renderEvent(id, navigate) {
     // Not inside other websites or on white-label polls.
     if (!c.ai || embedded || whiteLabel) return;
     aiOn = true;
+    jevOn = !!c.jev;
     if (optionsMode) $('#ai-answer-btn').hidden = $('#quick-top').hidden = false;
     if (ev().isAdmin) $('#ai-summary-btn').hidden = alone();
     renderBanners();
@@ -930,6 +932,7 @@ export async function renderEvent(id, navigate) {
       (await import('./ai-answer.js')).answerForMe({
         id,
         st,
+        jev: jevOn,
         done: () => {
           renderMine();
           changed();

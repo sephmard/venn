@@ -79,3 +79,43 @@ export function casesForHour(hour, cases = KIND_CASES, perHour = 5) {
   const start = hour * perHour;
   return start < cases.length ? cases.slice(start, start + perHour) : [];
 }
+
+/** The most times one Answer for me request asks Jev about; any after them go to Claude. */
+export const MAX_ANSWER_OPTIONS = 40;
+
+const ANSWER_CRITERIA = {
+  yes: 'They can make this time: it fits what they wrote, or nothing they wrote rules it out.',
+  if_needed: 'They could make it but would rather not, or wrote that it works only if it has to.',
+  no: 'What they wrote rules this time out.',
+};
+
+/**
+ * Answer for me, decided first: how the person would answer each time, from what they wrote.
+ * `options` is [{ key, label }] (the time as the person reads it, in their time zone). Only the
+ * preferences, the time zone and the times are sent, never the calendar. Returns
+ * { answers: { [key]: { answer: 'yes' | 'if_needed' | 'no', p } }, cost } or null.
+ */
+export async function jevAnswers(env, { preferences, timezone, options }, opts) {
+  if (!options.length) return null;
+  const questions = Object.fromEntries(
+    options.map((o) => [
+      o.key,
+      {
+        type: 'choice',
+        instructions: `Someone was asked which times work for them for a group plan, and wrote what's above. The time: ${o.label}. How would they answer for this time?`,
+        criteria: ANSWER_CRITERIA,
+      },
+    ]),
+  );
+  const state = `What they wrote: ${String(preferences).slice(0, 600)}\nTheir time zone: ${timezone}`;
+  const out = await askJev(env, { state, questions }, opts);
+  if (!out) return null;
+  const answers = {};
+  for (const o of options) {
+    const a = out.answers[o.key];
+    if (!a || !Object.hasOwn(ANSWER_CRITERIA, a.choice)) continue;
+    const p = Number(a.probabilities?.[a.choice] ?? a.confidence);
+    answers[o.key] = { answer: a.choice, p: Number.isFinite(p) ? p : 0 };
+  }
+  return { answers, cost: out.cost };
+}

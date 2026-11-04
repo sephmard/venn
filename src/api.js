@@ -1278,11 +1278,13 @@ async function route(
     if (isAi) {
       const kind = parts[3];
       if (isTopicPoll(ev)) return error(404, 'Not available for this kind of poll');
-      if (['answer', 'summary', 'message'].includes(kind)) count('ai.used', { feature: kind });
+      if (['summary', 'message'].includes(kind)) count('ai.used', { feature: kind });
       if (kind === 'answer') {
         const body = await readJson(request);
         if (body.timezone && !isValidTimeZone(body.timezone)) throw new ValidationError('Unknown time zone');
-        return json(await answerForMe(env, ev, body, { anthropic }));
+        const { answers, by } = await answerForMe(env, ev, body, { anthropic });
+        count('ai.used', { feature: 'answer', by });
+        return json({ answers });
       }
       if (!isAdmin) return error(403, 'Only the organizer can use this');
       const participants = await store.listParticipants(ev.id);

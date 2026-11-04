@@ -128,11 +128,11 @@ test('smart recommendation is organizer-only and points at a real option', async
 
 test('answer for me uses calendar conflicts and preferences', async () => {
   const { id } = (await call('/api/events', { body: poll })).data;
+  // The busy time is decided from the calendar alone; Claude answers the other two, numbered 1 and 2.
   nextOutput = {
     answers: [
-      { option: 1, answer: 'no', note: 'Busy in your calendar' },
-      { option: 2, answer: 'if_needed', note: 'Morning' },
-      { option: 3, answer: 'yes', note: '' },
+      { option: 1, answer: 'if_needed', note: 'Morning' },
+      { option: 2, answer: 'yes', note: '' },
       { option: 9, answer: 'yes', note: 'not a real option' },
     ],
   };
@@ -147,8 +147,9 @@ test('answer for me uses calendar conflicts and preferences', async () => {
     [t0 + 48 * H]: { answer: 2, note: '' },
   });
   const prompt = calls[0].messages[0].content;
-  assert.match(prompt, /1\. Tue, Jan 8, 3:00 PM–4:00 PM GMT \[calendar: busy\]/);
-  assert.match(prompt, /2\. .*\[calendar: free\]/);
+  assert.doesNotMatch(prompt, /Jan 8/); // the busy time isn't asked about
+  assert.match(prompt, /1\. Wed, Jan 9, .*\[calendar: free\]/);
+  assert.doesNotMatch(prompt, /calendar: busy/);
   assert.equal((await call(`/api/events/${id}/ai/answer`, { body: { preferences: '' } })).status, 400);
 });
 

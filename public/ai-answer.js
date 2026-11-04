@@ -1,14 +1,14 @@
-// "Answer for me" on the poll page: a guest says what works for them in words, and Claude fills in
-// their answers to review. Only servers with AI switched on offer it, so it loads when it's opened.
+// "Answer for me" on the poll page: a guest says what works for them in words, and AI fills in
+// their answers to review (Jev first where the server has it, then Claude: src/ai.js answerForMe). Only servers with AI switched on offer it, so it loads when it's opened.
 
 import { aiFailed, aiHeaders, keyHint } from './ai-key.js';
 import { $, api, toast } from './ui.js';
 
 /**
  * Open or close the panel. ctx: { id, st (the poll page's state: mine, touched, aiNotes, lastBusy, tz),
- * done() to show the new answers }.
+ * done() to show the new answers, jev: whether the server has Jev }.
  */
-export function answerForMe({ id, st, done }) {
+export function answerForMe({ id, st, done, jev }) {
   const panel = $('#ai-answer');
   if (!panel.firstElementChild) {
     panel.innerHTML = `<label for="ai-prefs">What works for you?</label>
@@ -16,7 +16,7 @@ export function answerForMe({ id, st, done }) {
       <label class="check" id="ai-use-cal-row" hidden><input type="checkbox" id="ai-use-cal" checked> Also use the busy times from my calendar</label>
       <div class="btn-row">
         <button type="button" class="btn btn-primary btn-sm" id="ai-answer-go">Fill in my answers</button>
-        <span class="hint">Sent to Anthropic’s Claude to fill in. You can change anything before saving. <span id="ai-answer-key"></span></span>
+        <span class="hint">Sent to Anthropic’s Claude${jev ? ' and TypeSafe’s Jev' : ''} to fill in. You can change anything before saving. <span id="ai-answer-key"></span></span>
       </div>
       <p class="hint" id="ai-replace" hidden>This replaces the answers you’ve marked.</p>
       <div id="ai-key-box" hidden></div>`;
