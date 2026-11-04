@@ -449,11 +449,46 @@ test('one Use AI box: Venn picks a date poll or a vote (ask-kind.js), from one a
   const found = await ask('find a date for book club: a, b or c?');
   assert.equal(found.data.kind, 'date');
   assert.equal(found.data.why, 'words');
-  // Nothing to fill in: said, and no kind.
-  nextOutput = { title: '', timeOfDay: 'any', decide: 'when', days: [] };
+  // A question with no time in it and nothing named to pick from: a vote, never "no days". The vote
+  // writer says it's yes or no, whether the days model read the question (what) or not (when).
+  for (const first of [
+    { title: 'Cute?', timeOfDay: 'any', decide: 'when', days: [] },
+    { title: 'Cute?', timeOfDay: 'any', decide: 'what', question: 'Do you think I’m cute?', choices: [], days: [] },
+  ]) {
+    nextOutput = [first, { question: 'Do you think I’m cute?', yesNo: true, options: [] }];
+    calls.length = 0;
+    const cute = await ask('I want to ask my wife if she thinks I’m cute');
+    assert.equal(cute.status, 200, JSON.stringify(cute.data));
+    assert.equal(cute.data.kind, 'vote');
+    assert.equal(cute.data.why, first.decide === 'when' ? 'question' : 'open');
+    assert.equal(cute.data.yesNo, true);
+    assert.equal(cute.data.question, 'Do you think I’m cute?');
+    assert.deepEqual(cute.data.options, []);
+    assert.equal(cute.data.date, null);
+    assert.equal(calls.length, 2);
+  }
+  // An open question with no time: a vote with the options the vote writer suggests.
+  nextOutput = [
+    { title: 'Dog', timeOfDay: 'any', decide: 'when', days: [] },
+    { question: 'Which dog should we get?', yesNo: false, options: ['Lab', 'Beagle', 'Poodle'] },
+  ];
+  const dog = await ask('what kind of dog should we get');
+  assert.equal(dog.data.kind, 'vote');
+  assert.equal(dog.data.why, 'question');
+  assert.deepEqual(dog.data.options, ['Lab', 'Beagle', 'Poodle']);
+  // Nothing to fill in at all: said, and no kind.
+  nextOutput = [
+    { title: '', timeOfDay: 'any', decide: 'when', days: [] },
+    { question: '', yesNo: false, options: [] },
+  ];
   const none = await ask('hmm');
   assert.equal(none.status, 503);
-  assert.match(none.data.error, /Couldn't find any days/);
+  assert.match(none.data.error, /Couldn't tell what to set up/);
+  // Asked when, but no time read: still the date poll's message.
+  nextOutput = { title: '', timeOfDay: 'any', decide: 'when', days: [] };
+  const when = await ask('when can we meet');
+  assert.equal(when.status, 503);
+  assert.match(when.data.error, /Couldn't find any days/);
   assert.equal((await call('/api/ai/draft', { body: { prompt: 'x', timezone: 'Mars/Base' } })).status, 400);
 });
 

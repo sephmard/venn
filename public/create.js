@@ -73,7 +73,10 @@ async function useBrand(id, fill, quiet = false) {
   if (!b) return quiet || toast("That brand template doesn't exist any more. This poll is plain Venn.");
   if (brandId !== id || !$('#create')) return;
   look.brandForm((brand = b), fill, $, esc);
-  if (b.hideVenn) $('#ask')?.remove(); // a white-label template's polls offer no AI (ai-draft.js)
+  if (b.hideVenn) {
+    $('#ask')?.remove(); // a white-label template's polls offer no AI (ai-draft.js)
+    rememberAsk({ date: '', topic: '' });
+  }
   const sw = $('.footer .classic-switch');
   if (sw) sw.hidden = true; // the template's look, not Venn's
 }
@@ -203,6 +206,16 @@ const seeded = () => $('#title').value === $('#title').dataset.seed;
 
 let failed = ''; // a form that couldn't open, said by the next switch drawn
 
+const askBars = {};
+/**
+ * What the Use AI box puts above each form's switch with this link's template ({ date, topic }: its
+ * closed bar, or '' for nothing), for the next time that form is drawn.
+ */
+export function rememberAsk(bars) {
+  const brand = new URLSearchParams(location.search).get('brand') || '';
+  for (const [kind, bar] of Object.entries(bars)) askBars[`${kind}|${brand}`] = bar;
+}
+
 /**
  * Which kind of Venn: find a date (/new) or vote on what or where (/new/topic). The same switch on
  * both forms, in the same place, so going between them feels like one page. A brand template stays.
@@ -215,7 +228,10 @@ export function kindSwitch(on) {
   const brand = new URLSearchParams(location.search).get('brand');
   const q = brand ? `?brand=${encodeURIComponent(brand)}` : '';
   const link = (k, href, label) => `<a href="${href}${q}" data-link${k === on ? ' aria-current="page"' : ''}>${label}</a>`;
-  return `<nav class="seg kind-switch" aria-label="Kind of Venn">${link('date', '/new', '📅 Date')}${link('topic', '/new/topic', '🗳️ Vote')}</nav>${err}`;
+  // The Use AI bar this form showed last time (ai-draft.js), drawn with the switch so that going
+  // between Date and Vote doesn't make it pop in a moment later and push the form down.
+  const bar = askBars[`${on}|${brand || ''}`];
+  return `${bar ? `<div class="ask" id="ask" data-early>${bar}</div>` : ''}<nav class="seg kind-switch" aria-label="Kind of Venn">${link('date', '/new', '📅 Date')}${link('topic', '/new/topic', '🗳️ Vote')}</nav>${err}`;
 }
 
 // Date or Vote, tapped: the form being left takes no typing while the next one loads. If that one
