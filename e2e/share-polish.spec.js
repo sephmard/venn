@@ -242,4 +242,39 @@ test.describe('signed in', () => {
     await expect(page.locator('.brand-links')).toContainText('You manage this template from your account.');
     await expect(page.getByRole('button', { name: 'Copy manage link' })).toHaveCount(0);
   });
+
+  test('an invite opened signed out: the secret waits in this tab, not in the sign-in link, and is used once', async ({
+    browser,
+  }, info) => {
+    const user = `invite-${info.project.name}-${Date.now()}`;
+    const owner = await (await browser.newContext({ extraHTTPHeaders: { 'x-test-user': user } })).newPage();
+    await owner.goto('/me');
+    await owner.getByRole('link', { name: 'Continue with Google' }).click();
+    await expect(owner).toHaveURL(/\/me$/);
+    const { id } = await (
+      await owner.request.post('/api/brands', { data: { name: 'Invite Club', primaryColor: '#2255aa' } })
+    ).json();
+    const { token } = await (await owner.request.post(`/api/brands/${id}/invites`, { data: { role: 'user' } })).json();
+    const k = `venn:join:${id}`;
+
+    const guest = await (await browser.newContext({ extraHTTPHeaders: { 'x-test-user': `${user}-g` } })).newPage();
+    noBrowserDialogs(guest);
+    await guest.goto(`/brand/${id}#join=${token}`);
+    const google = guest.getByRole('link', { name: 'Continue with Google' });
+    // The way back is just the template's page: no secret in the query string a server sees.
+    await expect(google).toHaveAttribute('href', `/api/auth/google?next=${encodeURIComponent(`/brand/${id}`)}`);
+    expect(await guest.evaluate(() => location.hash)).toBe('');
+    expect(await guest.evaluate((key) => sessionStorage.getItem(key), k)).toBe(token);
+    await google.click();
+    await expect(guest).toHaveURL(new RegExp(`/brand/${id}$`));
+    await expect(guest.locator('#toast')).toHaveText('Added to your templates.');
+    // Gone once used.
+    expect(await guest.evaluate((key) => sessionStorage.getItem(key), k)).toBeNull();
+
+    // A waiting secret is taken even when a fresh link brings its own, so it can't be used later.
+    await guest.evaluate((key) => sessionStorage.setItem(key, 'stale0'), k);
+    await guest.goto(`/brand/${id}#join=${token}`);
+    await guest.waitForLoadState('networkidle');
+    expect(await guest.evaluate((key) => sessionStorage.getItem(key), k)).toBeNull();
+  });
 });
