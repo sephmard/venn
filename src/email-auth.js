@@ -15,6 +15,7 @@
 // - Accounts are never joined up by matching emails. A Google (or other) sign-in joins an account
 //   only when connected from Account settings while signed in.
 
+import { bindingAllows } from './limits.js';
 import { ValidationError, isEmail } from '../public/core.js';
 import { emailEnabled, sendEmail } from './notify.js';
 import { withinDailyLimit } from './recipients.js';
@@ -56,12 +57,12 @@ const tokenOf = (body) => {
 };
 
 /**
- * At most AUTH_RATE_LIMIT (default 30) email sign-in requests per 10 minutes from one address, or
- * Cloudflare's rate limiting binding AUTH_RATE_LIMITER. The per-account lock is the real guard; this
+ * At most AUTH_RATE_LIMIT (default 30) email sign-in requests per 10 minutes from one address, and
+ * Cloudflare's rate limiting binding AUTH_RATE_LIMITER's limit when there is one. The per-account lock is the real guard; this
  * stops one machine from hammering many accounts.
  */
 export async function allowAuthRequest(env, ip, now, windows = sharedWindows) {
-  if (env.AUTH_RATE_LIMITER) return (await env.AUTH_RATE_LIMITER.limit({ key: ip || 'unknown' })).success;
+  if (!(await bindingAllows(env.AUTH_RATE_LIMITER, ip || 'unknown'))) return false;
   const limit = Number(env.AUTH_RATE_LIMIT) || 30;
   const key = ip || 'unknown';
   const recent = (windows.get(key) || []).filter((t) => now - t < IP_WINDOW_MS);
