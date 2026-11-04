@@ -92,13 +92,15 @@ export function formDraftHasWork(d) {
  * 2. a draft being picked up (`draft`, with work in it): whatever it started in, even none;
  * 3. the signed-in account's default for this kind of poll (`defaults[format]`, from the server);
  * 4. none: Venn's look. Editing or copying a poll (?edit, ?copy) keeps that poll's own, elsewhere.
- * Returns { id, from: 'link' | 'draft' | 'default', name? } or null.
+ * Returns { id, from: 'link' | 'draft' | 'default', name? } or null. A draft in the template
+ * that's still the default counts as the default (the form says so).
  */
 export function startingTemplate({ link = null, draft = null, defaults = null, format }) {
   if (link === 'none') return null;
   if (link) return { id: link, from: 'link' };
-  if (draft) return draft.brand ? { id: draft.brand, from: 'draft' } : null;
   const d = defaults?.[format];
+  if (draft && !draft.brand) return null;
+  if (draft && draft.brand !== d?.id) return { id: draft.brand, from: 'draft' };
   return d?.id ? { id: d.id, name: d.name, from: 'default' } : null;
 }
 

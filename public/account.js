@@ -111,8 +111,8 @@ export async function renderAccount() {
 }
 
 let keptListener = null;
-let redrawMine = null;
-let backTo = '/me'; // where signing in on this page comes back to (safeNext) // shows My polls again, as it is now on the server
+let redrawMine = null; // shows My polls again, as it is now on the server
+let backTo = '/me'; // where signing in on this page comes back to (safeNext)
 
 // ---------- signed out ----------
 

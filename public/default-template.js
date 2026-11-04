@@ -43,13 +43,14 @@ export async function setDefault(format, template) {
 
 /**
  * The template a new form of `kind` starts in, when its link names none: the draft's (if one's
- * being picked up), else the default. Asks the server only when there's no draft to pick up.
+ * being picked up), else the default. Asks the server unless the draft is in Venn's look.
  * `stored`: the form's draft as the page found it (sessionStorage), before the form kept it again.
  */
 export async function startFor(kind, stored) {
   const d = cleanFormDraft(readStored({ getItem: () => stored }, ''), new Date().toLocaleDateString('en-CA'));
   const draft = formDraftHasWork(d) ? d : null;
-  return startingTemplate({ draft, defaults: draft ? null : await readDefaults(true), format: FORMAT[kind] });
+  const defaults = draft && !draft.brand ? null : await readDefaults(true);
+  return startingTemplate({ draft, defaults, format: FORMAT[kind] });
 }
 
 /** Under the form's heading, once the default is in: what it is, and a way out for this poll only. */

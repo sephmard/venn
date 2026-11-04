@@ -56,6 +56,12 @@ test('a default for date polls: set in My polls, used by /new, and not by votes'
   await expect(page.locator('#toast')).toHaveText('New date polls start with Acme.');
   await expect(page.locator('.acct-brand', { hasText: 'Acme' }).locator('.muted')).toContainText('Default for date polls');
   await expect(page.getByLabel('Date polls start with')).toBeFocused();
+  // Not saved (the connection drops): the select goes back, and the page says so.
+  await page.route('**/api/me/defaults', (r) => (r.request().method() === 'PUT' ? r.abort() : r.continue()));
+  await page.getByLabel('Votes start with').selectOption({ label: 'Book club' });
+  await expect(page.locator('#def-err')).toHaveText("Couldn't save that. Try again.");
+  await expect(page.getByLabel('Votes start with')).toHaveValue('');
+  await page.unroute('**/api/me/defaults');
   await noSideways(page);
   await noBlockingA11y(page, 'My polls, Templates, with defaults');
 
@@ -78,6 +84,13 @@ test('a default for date polls: set in My polls, used by /new, and not by votes'
   await expect(page.locator('#title')).toBeVisible();
   await expect(page.locator('.brand-bar')).toHaveCount(0);
   await expect(page.locator('#default-note')).toHaveCount(0);
+  // With a vote default too, Date ⇄ Vote swaps one default for the other, each with its line.
+  expect((await page.request.put('/api/me/defaults', { data: { format: 'vote', template: ids['Book club'] } })).ok()).toBe(true);
+  await page.getByRole('link', { name: '📅 Date' }).click();
+  await expect(page.locator('#default-note')).toContainText('Acme');
+  await page.getByRole('link', { name: '🗳️ Vote' }).click();
+  await expect(page.locator('#default-note')).toContainText('Book club');
+  await expect(page.locator('.brand-bar')).toContainText('Book club');
 });
 
 test('Use no template is for this poll only; a template link and a copied poll come first', async ({ browser }, info) => {
@@ -164,10 +177,10 @@ test('a draft keeps what it started in; an occasion or typed title is never repl
 });
 
 test('a default that is gone: plain Venn, nothing said, nothing of it shown', async ({ browser }, info) => {
-  const { page, ids, context } = await signedIn(browser, info, { Acme: { title: 'Team lunch' } });
+  const { page, ids } = await signedIn(browser, info, { Acme: { title: 'Team lunch' } });
   expect((await page.request.put('/api/me/defaults', { data: { format: 'date', template: ids.Acme } })).ok()).toBe(true);
-  // As if the template were deleted or left after the default was read (the server clears it on read).
-  await context.route(`**/api/brands/${ids.Acme}`, (r) => r.fulfill({ status: 404, json: { error: 'Not found' } }));
+  // Deleted: the server forgets the default on the next read.
+  expect((await page.request.delete(`/api/brands/${ids.Acme}`)).ok()).toBe(true);
   const errors = [];
   page.on('pageerror', (e) => errors.push(e));
   await page.goto('/new');

@@ -56,3 +56,16 @@ test('what a template is the default for, as its row and the toasts say it', () 
   assert.equal(savedText({ date: null, vote: null }, ['date', 'vote']), 'New date polls and votes start with no template.');
   assert.equal(savedText(defaults, ['date', 'vote']), 'New date polls start with Acme. New votes start with Book club.');
 });
+
+test('a draft still in the default’s template says it is the default', () => {
+  assert.deepEqual(startingTemplate({ draft: draft({ brand: 'acme1' }), defaults, format: 'date' }), {
+    id: 'acme1',
+    name: 'Acme',
+    from: 'default',
+  });
+  // The default changed since: the draft keeps its own, and isn't called the default.
+  assert.deepEqual(startingTemplate({ draft: draft({ brand: 'acme1' }), defaults: { date: book }, format: 'date' }), {
+    id: 'acme1',
+    from: 'draft',
+  });
+});
