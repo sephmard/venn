@@ -7,6 +7,7 @@ import { isAppRoute } from './routes.js';
 import { SECURITY_HEADERS } from './security-headers.js';
 import { homePage, pollShell } from './preview.js';
 import { sendDeadlines } from './deadline.js';
+import { purgeOldPolls } from './retention.js';
 import { canonicalRedirect, siteOrigin } from './site.js';
 
 let store;
@@ -36,10 +37,16 @@ export default {
     }
   },
 
-  // Every hour (wrangler.toml): reminders before a poll's deadline, and "answers are in" after it.
+  // Every hour (wrangler.toml): reminders before a poll's deadline, and "answers are in" after it;
+  // then polls past their retention go (src/retention.js).
   async scheduled(event, env, ctx) {
     store ??= createStore(d1Adapter(env.DB));
-    ctx.waitUntil(sendDeadlines({ store, env, now: event.scheduledTime || Date.now() }));
+    const now = event.scheduledTime || Date.now();
+    ctx.waitUntil(
+      sendDeadlines({ store, env, now }).finally(() =>
+        purgeOldPolls({ store, env, now }).catch((e) => console.error('retention run failed', e)),
+      ),
+    );
   },
 };
 
