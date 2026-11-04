@@ -430,8 +430,7 @@ export async function renderEvent(id, navigate) {
   };
   $('#copy').onclick = ({ target: b }) => {
     track('share', { how: 'copy', from: 'poll' });
-    copy(shareUrl, 'Link copied');
-    if (!guest && b.textContent !== 'Link copied ✓') copied(b);
+    copy(shareUrl, 'Link copied', guest ? null : b);
   };
   if ($('#share-sheet')) $('#share-sheet').onclick = shareSheet;
   $('#name').value = me()?.name || host?.name || lastName();

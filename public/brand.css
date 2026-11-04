@@ -84,6 +84,8 @@
 }
 .brand-vote {
   margin: 0 0 14px;
+  /* Scrolled to, it stays clear of the sticky Back / Next bar on a phone. */
+  scroll-margin-bottom: 96px;
 }
 /* Sharing (owner only): invite links for admins and users, then who has it. */
 .brand-sharing {
@@ -334,10 +336,19 @@
   }
   .brand-editor .step-bar .error {
     order: -1;
-    flex-basis: 100%;
+    width: 100%;
   }
   .brand-editor .step-bar .error:empty {
     display: none;
+  }
+  /* Room under the Share step's last line, so nothing ends under the bar. */
+  .brand-editor [data-panel='share'] {
+    padding-bottom: 24px;
+  }
+  .brand-editor .step-bar .save-state {
+    order: -1;
+    width: 100%;
+    text-align: center;
   }
   /* Starting looks: one row, swiped sideways. */
   .brand-editor .look-grid {
@@ -425,6 +436,13 @@
 }
 .step-bar #back:disabled {
   visibility: hidden;
+}
+.step-bar .save-state {
+  margin: 0;
+  align-self: center;
+}
+.step-bar .save-state:empty {
+  display: none;
 }
 
 /* Starting looks: each a little page with a heading in its font and a button in its colour. */

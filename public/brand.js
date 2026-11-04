@@ -5,7 +5,7 @@
 // the draft waits in this tab while its maker signs in. See src/brands.js. Loaded only on these pages.
 
 import { BUTTONS, CORNERS, FONTS, LOGO_SIZES, brandLook, mainColours, scheme } from './brand-look.js';
-import { $, $$, api, app, esc, forget, getConfig, save, saved, toast } from './ui.js';
+import { $, $$, api, app, copy, esc, forget, getConfig, save, saved, toast } from './ui.js';
 import { accountHint, refreshAccountMenu } from './account-menu.js';
 import { signInAgree, signInButtons } from './account-data.js';
 
@@ -49,8 +49,8 @@ function unremember(id) {
 }
 
 const shareUrl = (id) => `${location.origin}/new?brand=${id}`;
-// Managed through an account (no token on this device): the link that opens it for the account.
-const manageUrl = (id, token) => `${location.origin}/brand/${id}${token ? `#admin=${token}` : '#organizer'}`;
+// The owner's secret link (only shown when this device has the token; an account's needs none).
+const manageUrl = (id, token) => `${location.origin}/brand/${id}#admin=${token}`;
 
 /** Make a picked file into a small logo: a PNG data URL (or WebP or JPEG, if that's too big). */
 export async function shrinkLogo(file) {
@@ -375,11 +375,9 @@ async function drawSharing(b, token) {
         return toast(e.message);
       }
       const url = inviteUrl(b.id, secret);
-      navigator.clipboard.writeText(url).then(
-        () => toast(`Link copied. Whoever opens it ${role === 'admin' ? 'can use and change' : 'can use'} this template.`),
-        () => prompt('Copy this:', url),
-      );
-      if (!data.invites[role]) drawSharing(b, token);
+      const said = `Link copied. Whoever opens it ${role === 'admin' ? 'can use and change' : 'can use'} this template.`;
+      // Not copied: the link stays on show to copy by hand, so the list isn't redrawn under it.
+      if ((await copy(url, said, btn)) && !data.invites[role]) drawSharing(b, token);
     };
   for (const sel of box.querySelectorAll('[data-member]'))
     sel.onchange = async () => {
@@ -559,6 +557,7 @@ function showForm(b, token, start, draft = null) {
   const others = mine().filter((x) => x.id !== b?.id);
   let logo = init?.logo || null; // what shows: the saved one's URL, or a new one's data URL
   let logoChanged = !b && !!logo;
+  let savedAs = null; // the form as last saved or opened (below), to tell if it's changed
   let emoji = init?.emoji || ''; // its polls' emoji: kept when it's edited, suggested by AI
   // A saved template opens on its links; a new one on its name.
   const steps = b ? [['share', 'Share', 'top'], ...STEPS] : STEPS;
@@ -718,7 +717,8 @@ function showForm(b, token, start, draft = null) {
           <label for="b-where">Where</label>
           <input id="b-where" type="text" maxlength="200" value="${v('where')}" placeholder="The office, or a video link">
           <label for="b-note">Note for everyone</label>
-          <textarea id="b-note" maxlength="1000" placeholder="What everyone should know">${v('note')}</textarea>`,
+          <textarea id="b-note" maxlength="1000" placeholder="What everyone should know">${v('note')}</textarea>
+          ${b ? '<p class="hint">Changes to the look show on polls already made with this template. Their titles and details don’t change.</p>' : ''}`,
         )}
         ${panel(
           'embed',
@@ -737,6 +737,7 @@ function showForm(b, token, start, draft = null) {
           <ol>${stepList}</ol>
         </details>
         <span class="error" id="err" role="alert"></span>
+        <span class="hint save-state" id="save-state" aria-live="polite"></span>
         <button type="submit" class="btn" id="submit">${b ? 'Save' : 'Save template'}</button>
         <button type="button" class="btn btn-primary" id="next">Next</button>
       </div>
@@ -844,6 +845,7 @@ function showForm(b, token, start, draft = null) {
     $('#submit').hidden = b ? ids[at] === 'share' : !last;
     $('#submit').classList.toggle('btn-primary', last);
     $('#err').textContent = '';
+    saveState();
     send();
     if (focus) $(`#st-${ids[at]}`).focus({ preventScroll: true });
     // On a phone each step starts at its top.
@@ -914,32 +916,33 @@ function showForm(b, token, start, draft = null) {
     show();
     offerColours();
   };
-  for (const c of $$('[data-copy]'))
-    c.onclick = () =>
-      navigator.clipboard.writeText(c.dataset.copy).then(
-        () => toast('Copied.'),
-        () => prompt('Copy this:', c.dataset.copy),
-      );
+  for (const c of $$('[data-copy]')) c.onclick = () => copy(c.dataset.copy, c.dataset.done, c);
   if ($('#b-leave')) $('#b-leave').onclick = () => leave(b);
   wireDefault(b);
   if (b) drawSharing(b, token);
   if ($('#b-delete'))
-    $('#b-delete').onclick = () => {
-      // Asked in the page, never with confirm() (in-app browsers block it).
-      const row = $('#b-delete').parentElement;
-      row.innerHTML = `<span>Delete it? Its polls go back to Venn’s look.</span> <button type="button" class="link-btn danger" id="b-really">Delete</button> <button type="button" class="link-btn" id="b-keep">Keep</button>`;
-      $('#b-keep').onclick = () => showForm(b, token);
-      $('#b-really').onclick = async () => {
-        try {
-          await api(`brands/${b.id}`, { method: 'DELETE', headers: { 'x-admin-token': token } });
-          unremember(b.id);
-          history.replaceState(null, '', '/brand');
-          renderBrand(null);
-          toast('Template deleted.');
-        } catch (e) {
-          $('#err').textContent = e.message;
-        }
-      };
+    $('#b-delete').onclick = async () => {
+      // Asked in the page, never with confirm() (in-app browsers block it). A poll reads its
+      // template's look as it opens (src/api.js), so once it's gone they're in Venn's.
+      const { ask } = await import('./ask.js');
+      const sure = await ask({
+        title: `Delete ${b.name}?`,
+        text: 'Polls already made with it keep working, in Venn’s look.',
+        yes: 'Delete',
+        no: 'Keep',
+        danger: true,
+      });
+      if (!sure) return;
+      try {
+        await api(`brands/${b.id}`, { method: 'DELETE', headers: { 'x-admin-token': token } });
+        unremember(b.id);
+        savedAs = snap();
+        history.replaceState(null, '', '/brand');
+        renderBrand(null);
+        toast('Template deleted.');
+      } catch (e) {
+        $('#err').textContent = e.message;
+      }
     };
 
   // Where the server has sign-in, a new template is saved to an account: signed out, Save says so.
@@ -1039,8 +1042,11 @@ function showForm(b, token, start, draft = null) {
       if (b) {
         $('#submit').disabled = false;
         logoChanged = false;
-        return toast('Saved. New polls from it look like this.');
+        savedAs = snap();
+        saveState('Saved. Polls made from now on use it.');
+        return;
       }
+      savedAs = snap(); // made: leaving now loses nothing
       dropDraft();
       history.replaceState(null, '', `/brand/${id}`);
       showReady(id, admin, body.name);
@@ -1059,7 +1065,53 @@ function showForm(b, token, start, draft = null) {
   const from = !init && new URLSearchParams(location.search).get('look');
   if (from && Object.hasOwn(LOOKS, from)) applyLook(LOOKS[from][1]);
   if (!b && !PHONE.matches) $('#b-name').focus();
-  return fitPhone($('#brand-form'));
+
+  // Saved or not: "Not saved yet" while it differs from what was last saved (or opened).
+  const form = $('#brand-form');
+  // A draft brought back (from signing in to save) isn't saved yet.
+  savedAs = draft && !b ? '' : snap();
+  function snap() {
+    return JSON.stringify([fields(), logoChanged && logo]);
+  }
+  function saveState(done = '') {
+    const s = $('#save-state');
+    if (!s) return;
+    const dirty = savedAs !== null && snap() !== savedAs;
+    s.textContent = dirty ? 'Not saved yet' : done || (s.textContent === 'Not saved yet' ? '' : s.textContent);
+    // Changed: Save is the one filled button.
+    if (!dirty) return;
+    $('#submit').classList.add('btn-primary');
+    $('#next').classList.remove('btn-primary');
+  }
+  const changed = () => setTimeout(() => form.isConnected && saveState(), 0);
+  for (const t of ['input', 'change', 'click']) form.addEventListener(t, changed);
+  // Leaving with changes not saved: asked in the page first (never confirm()).
+  const leaving = async (e) => {
+    if (!form.isConnected) return document.removeEventListener('click', leaving, true);
+    const a = e.target.closest('a[href]');
+    if (!a || a.target === '_blank' || a.getAttribute('href').startsWith('#') || e.metaKey || e.ctrlKey || e.shiftKey) return;
+    // Signing in to save keeps the draft first (askToSignIn), so that's not leaving it.
+    if (snap() === savedAs || $('#submit').disabled || a.closest('#save-signin')) return;
+    e.preventDefault();
+    e.stopPropagation();
+    const { ask } = await import('./ask.js');
+    const ok = await ask({
+      title: 'Leave without saving?',
+      text: 'Your changes to this template will be lost.',
+      yes: 'Leave',
+      no: 'Keep editing',
+      danger: true,
+    });
+    if (!ok) return;
+    document.removeEventListener('click', leaving, true);
+    a.click();
+  };
+  document.addEventListener('click', leaving, true);
+  const unfitPhone = fitPhone(form);
+  return () => {
+    document.removeEventListener('click', leaving, true);
+    unfitPhone?.();
+  };
 }
 
 /**
@@ -1203,13 +1255,16 @@ const links = (b, token, others) => {
   const owner = b.role !== 'admin';
   return `
   <div class="brand-links">
-    <p class="hint">Anyone with this link makes polls in your look.</p>
-    <p class="link-row"><input type="text" readonly value="${esc(shareUrl(id))}" aria-label="Link for your team"><button type="button" class="btn btn-primary" data-copy="${esc(shareUrl(id))}">Copy link</button></p>
+    <p class="hint">Anyone with this link makes a new poll of their own in this look. They don’t see your polls or answers.</p>
+    <p class="link-row"><input type="text" readonly value="${esc(shareUrl(id))}" aria-label="Template link"><button type="button" class="btn btn-primary" data-copy="${esc(shareUrl(id))}" data-done="Template link copied">Copy template link</button></p>
     ${
-      owner
-        ? `<p class="hint">Your manage link changes this template. Keep it private, as nobody can send it to you again.</p>
-    <p class="link-row"><input type="text" readonly value="${esc(manageUrl(id, token))}" aria-label="Your manage link"><button type="button" class="btn" data-copy="${esc(manageUrl(id, token))}">Copy</button></p>`
-        : '<p class="hint">Shared with you to edit: you can change it. Its owner shares it.</p>'
+      !owner
+        ? '<p class="hint">Shared with you to edit: you can change it. Its owner shares it.</p>'
+        : token
+          ? `<p class="hint">Your manage link changes this template. Keep it private, as nobody can send it to you again.</p>
+    <p class="link-row"><input type="text" readonly value="${esc(manageUrl(id, token))}" aria-label="Your manage link"><button type="button" class="btn" data-copy="${esc(manageUrl(id, token))}" data-done="Manage link copied. Keep it private.">Copy manage link</button></p>`
+          : // Kept with the account: no manage link to give, it opens wherever they sign in.
+            '<p class="hint">You manage this template from your account. Sign in on any device and it’s in My polls.</p>'
     }
     ${makeRow(b, false)}
     ${owner && (token || b.role === 'owner') ? '<div class="brand-sharing" id="b-sharing"></div>' : ''}
