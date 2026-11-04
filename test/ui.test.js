@@ -144,6 +144,28 @@ test('copy puts the text on the clipboard and says so on the button, or shows it
   assert.deepEqual(input.selected, [0, 9999]);
   t.mock.timers.tick(50);
   assert.equal(toastEl.textContent, ''); // it wasn't copied, so nothing says it was
+
+  // A link still being made: the write starts now (Safari needs it in the tap), and waits for it.
+  const items = [];
+  globalThis.ClipboardItem = class {
+    constructor(parts) {
+      this.parts = parts;
+    }
+  };
+  clipboard.write = async (list) => {
+    items.push(...list);
+    clip = await (await list[0].parts['text/plain']).text();
+  };
+  let made2;
+  const link = new Promise((r) => (made2 = r));
+  const copying = ui.copy(link, 'Link copied');
+  assert.equal(items.length, 1); // written before the link exists
+  made2('https://venn.day/brand/abc#join=Secret1');
+  assert.equal(await copying, true);
+  assert.equal(clip, 'https://venn.day/brand/abc#join=Secret1');
+  // Making it failed: nothing to copy by hand, and copy says no.
+  assert.equal(await ui.copy(Promise.reject(new Error('off')), 'Link copied'), false);
+  delete globalThis.ClipboardItem;
 });
 
 test('config is fetched once, and an unreachable server means no optional features', async () => {

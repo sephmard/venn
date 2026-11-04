@@ -386,17 +386,16 @@ async function drawSharing(b, token) {
   for (const btn of box.querySelectorAll('[data-invite]'))
     btn.onclick = async () => {
       const role = btn.dataset.invite;
-      // The last link made here, while it still works; otherwise a new one.
-      let secret = data.invites[role] ? saved(key(b.id))[`invite-${role}`] : null;
-      try {
-        if (!secret) {
-          secret = (await api(`brands/${b.id}/invites`, { method: 'POST', body: { role }, headers })).token;
-          save(key(b.id), { [`invite-${role}`]: secret });
-        }
-      } catch (e) {
-        return toast(e.message);
-      }
-      const url = inviteUrl(b.id, secret);
+      // The last link made here, while it still works; otherwise a new one. The copy starts in the
+      // tap, with the link still on its way (ui.js copy), or iOS Safari won't let it write.
+      const kept = data.invites[role] ? saved(key(b.id))[`invite-${role}`] : null;
+      const url = kept
+        ? inviteUrl(b.id, kept)
+        : api(`brands/${b.id}/invites`, { method: 'POST', body: { role }, headers }).then(({ token: secret }) => {
+            save(key(b.id), { [`invite-${role}`]: secret });
+            return inviteUrl(b.id, secret);
+          });
+      url.catch?.((e) => toast(e.message));
       const said = `Link copied. Whoever opens it ${role === 'admin' ? 'can use and change' : 'can use'} this template.`;
       // Not copied: the link stays on show to copy by hand, so the list isn't redrawn under it.
       if ((await copy(url, said, btn)) && !data.invites[role]) drawSharing(b, token);

@@ -124,10 +124,12 @@ export async function copy(text, done = 'Link copied', button = null) {
   const at = button || document.activeElement;
   document.getElementById('copy-by-hand')?.remove();
   try {
-    await navigator.clipboard.writeText(text);
+    await write(text);
   } catch {
+    const shown = await Promise.resolve(text).catch(() => null);
+    if (shown == null) return false; // making it failed; the caller says why
     const { copyByHand } = await import('./copy-by-hand.js');
-    copyByHand(text, at, /link/i.test(done) ? 'Copy this link:' : 'Copy this:');
+    copyByHand(shown, at, /link/i.test(done) ? 'Copy this link:' : 'Copy this:');
     return false;
   }
   toast(done);
@@ -137,6 +139,20 @@ export async function copy(text, done = 'Link copied', button = null) {
     setTimeout(() => (button.textContent = was), 2e3);
   }
   return true;
+}
+
+/**
+ * Put `text` on the clipboard. It can be a promise (a link still being made): Safari only lets a
+ * page write in the tap itself, not after an await, so the write starts now with a ClipboardItem
+ * that waits for it. Elsewhere, wait for the text, then write it.
+ */
+function write(text) {
+  if (typeof text === 'string') return navigator.clipboard.writeText(text);
+  if (typeof ClipboardItem === 'function' && navigator.clipboard.write) {
+    const blob = Promise.resolve(text).then((t) => new Blob([t], { type: 'text/plain' }));
+    return navigator.clipboard.write([new ClipboardItem({ 'text/plain': blob })]);
+  }
+  return Promise.resolve(text).then((t) => navigator.clipboard.writeText(t));
 }
 
 // ---------- API ----------

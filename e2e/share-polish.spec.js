@@ -241,6 +241,13 @@ test.describe('signed in', () => {
     await page.goto(`/brand/${id}#organizer`);
     await expect(page.locator('.brand-links')).toContainText('You manage this template from your account.');
     await expect(page.getByRole('button', { name: 'Copy manage link' })).toHaveCount(0);
+
+    // An invite link is made in the tap and copied as it arrives (the way iOS Safari allows).
+    await context.grantPermissions(['clipboard-read', 'clipboard-write']);
+    await page.getByRole('button', { name: 'Copy link to use' }).click();
+    await expect(page.locator('#toast')).toContainText('Whoever opens it can use this template.');
+    expect(await page.evaluate(() => navigator.clipboard.readText())).toMatch(new RegExp(`/brand/${id}#join=[A-Za-z0-9]+$`));
+    await expect(page.locator('#copy-by-hand')).toHaveCount(0);
   });
 
   test('an invite opened signed out: the secret is never in the sign-in link or the page’s storage, and is used once', async ({
