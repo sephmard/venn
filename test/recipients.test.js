@@ -5,7 +5,15 @@ import assert from 'node:assert/strict';
 import { DatabaseSync } from 'node:sqlite';
 import { handleApi } from '../src/api.js';
 import { createStore, sqliteAdapter } from '../src/store.js';
-import { POLL_RECIPIENTS_PER_DAY, mayEmail, recipientCap } from '../src/recipients.js';
+import {
+  EMAIL_DAILY_LIMIT,
+  POLL_RECIPIENTS_PER_DAY,
+  dailyLimit,
+  mayEmail,
+  recipientCap,
+  recipientHash,
+  withinDailyLimit,
+} from '../src/recipients.js';
 import { YES } from '../public/core.js';
 
 const DAY = 86_400_000;
@@ -185,4 +193,77 @@ test('invitations and reminders past the cap: left unsent, not counted as remind
   const capped = await call(`/api/events/${two.id}/remind`, { method: 'POST', headers: two.admin });
   assert.equal(capped.status, 400);
   assert.match(capped.data.error, /emailed 1 different people today, its limit for a day/);
+});
+
+test('with EMAIL_HASH_SECRET the stored hash is an HMAC: not the plain SHA-256, and different per secret', async () => {
+  const plain = await recipientHash('p1', 'ana@example.com');
+  const a = await recipientHash('p1', 'Ana@Example.com ', { EMAIL_HASH_SECRET: 'one' });
+  const b = await recipientHash('p1', 'ana@example.com', { EMAIL_HASH_SECRET: 'two' });
+  assert.match(a, /^[0-9a-f]{64}$/);
+  assert.notEqual(a, plain);
+  assert.notEqual(a, b);
+  assert.equal(a, await recipientHash('p1', 'ana@example.com', { EMAIL_HASH_SECRET: 'one' }));
+
+  const db = new DatabaseSync(':memory:');
+  const store = createStore(sqliteAdapter(db));
+  await mayEmail(store, { EMAIL_HASH_SECRET: 'one' }, 'p1', 'ana@example.com', today);
+  assert.equal(db.prepare('SELECT recipient_hash FROM email_recipients').get().recipient_hash, a);
+});
+
+test('the daily ceiling: 1,000 by default; guests stop at 80%, the rest stays for account and organizer emails', async () => {
+  assert.equal(EMAIL_DAILY_LIMIT, 1000);
+  assert.equal(dailyLimit({}), 1000);
+  assert.equal(dailyLimit({ EMAIL_DAILY_LIMIT: '50' }), 50);
+  assert.equal(dailyLimit({ EMAIL_DAILY_LIMIT: '0' }), 0);
+  assert.equal(dailyLimit({ EMAIL_DAILY_LIMIT: 'x' }), 1000);
+
+  const db = new DatabaseSync(':memory:');
+  const store = createStore(sqliteAdapter(db));
+  const env = { EMAIL_DAILY_LIMIT: '10', POLL_RECIPIENTS_PER_DAY: '0' };
+  const guest = [];
+  for (let i = 0; i < 12; i++) guest.push(await mayEmail(store, env, `p${i}`, `g${i}@example.com`, today));
+  assert.deepEqual(
+    guest.map((x) => (x ? 1 : 0)),
+    [1, 1, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0],
+  ); // 8 of 10, and the refused ones don't eat into the rest
+  assert.equal(await withinDailyLimit(store, env, {}, today), true);
+  assert.equal(await withinDailyLimit(store, env, {}, today), true);
+  assert.equal(await withinDailyLimit(store, env, {}, today), false); // 10 sent
+  assert.equal(await mayEmail(store, env, 'p1', 'g1@example.com', today + DAY), true); // a new day
+  assert.equal(await withinDailyLimit(store, { EMAIL_DAILY_LIMIT: '0' }, {}, today), true);
+  // Only counts, and only from yesterday on.
+  await withinDailyLimit(store, env, {}, today + 3 * DAY);
+  assert.deepEqual(
+    db
+      .prepare('SELECT day, sent FROM email_daily ORDER BY day')
+      .all()
+      .map((r) => ({ ...r })),
+    [{ day: '2030-01-13', sent: 1 }],
+  );
+});
+
+test('past the ceiling, an email sign-in still answers "check your inbox" but sends nothing', async () => {
+  const store = createStore(sqliteAdapter(new DatabaseSync(':memory:')));
+  const sent = [];
+  const pending = [];
+  const env = { RESEND_API_KEY: 're_test', EMAIL_FROM: 'Venn <n@venn.example>', EMAIL_DAILY_LIMIT: '1' };
+  const fetchImpl = async (url, init) => (sent.push(JSON.parse(init.body)), new Response('{}'));
+  const ask = (email) =>
+    handleApi(
+      new Request('http://localhost/api/auth/email/signup', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json', origin: 'http://localhost' },
+        body: JSON.stringify({ email, password: 'correct horse battery staple' }),
+      }),
+      store,
+      { env, fetchImpl, waitUntil: (p) => pending.push(p), now: () => today },
+    );
+  assert.equal((await ask('one@example.com')).status, 200);
+  await Promise.all(pending);
+  assert.equal(sent.length, 1); // the day's one email
+  const res = await ask('two@example.com');
+  assert.equal(res.status, 200);
+  assert.equal((await res.json()).ok, true);
+  await Promise.all(pending);
+  assert.equal(sent.length, 1);
 });

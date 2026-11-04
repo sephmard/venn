@@ -35,12 +35,21 @@ test('200 answers per ten minutes (a big poll on one office network), and the se
   assert.equal(await allowWrite({ CREATE_RATE_LIMIT: 'lots' }, 'create', 'a', 31, bad), false);
 });
 
-test("Cloudflare's rate limiting binding is used when there is one", async () => {
+test("Cloudflare's rate limiting bindings: new polls have their own, and the memory window still applies", async () => {
   const keys = [];
-  const env = { WRITE_RATE_LIMITER: { limit: async ({ key }) => (keys.push(key), { success: keys.length < 2 }) } };
-  assert.equal(await allowWrite(env, 'create', '1.2.3.4', 0, writeWindows()), true);
-  assert.equal(await allowWrite(env, 'answer', '', 0, writeWindows()), false);
-  assert.deepEqual(keys, ['create:1.2.3.4', 'answer:unknown']);
+  const binding = (name, ok) => ({ limit: async ({ key }) => (keys.push(`${name} ${key}`), { success: ok() }) });
+  let writes = 0;
+  const env = {
+    CREATE_RATE_LIMITER: binding('create', () => true),
+    WRITE_RATE_LIMITER: binding('write', () => ++writes < 2),
+    CREATE_RATE_LIMIT: '1',
+  };
+  const w = writeWindows();
+  assert.equal(await allowWrite(env, 'create', '1.2.3.4', 0, w), true);
+  assert.equal(await allowWrite(env, 'answer', '', 0, w), true);
+  assert.equal(await allowWrite(env, 'answer', '', 0, w), false); // the binding says no
+  assert.equal(await allowWrite(env, 'create', '1.2.3.4', 0, w), false); // the binding says yes, the window no
+  assert.deepEqual(keys, ['create create:1.2.3.4', 'write answer:unknown', 'write answer:unknown', 'create create:1.2.3.4']);
 });
 
 test('a refused write says how long to wait: the oldest write in the window ageing out', async () => {
@@ -66,7 +75,7 @@ test('a refused write says how long to wait: the oldest write in the window agei
   assert.deepEqual(await checkWrite({ CREATE_RATE_LIMIT: '0' }, 'create', 'a', 0, w), { ok: true });
   assert.deepEqual(limitHeaders({ ok: true }), {});
   // Cloudflare's binding only says no, and counts over at most a minute: wait a minute.
-  const binding = { WRITE_RATE_LIMITER: { limit: async () => ({ success: false }) } };
+  const binding = { CREATE_RATE_LIMITER: { limit: async () => ({ success: false }) } };
   const no = await checkWrite(binding, 'create', 'a', 0, w);
   assert.deepEqual(no, { ok: false, reset: 60 });
   assert.deepEqual(limitHeaders(no), { 'retry-after': '60' });

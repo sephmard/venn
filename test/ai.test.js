@@ -27,7 +27,8 @@ const fakeAnthropic = {
         return {
           stop_reason: nextStop,
           usage: nextUsage,
-          content: [{ type: 'text', text: JSON.stringify(nextOutput) }],
+          // A list answers one call each, in turn (an endpoint that asks twice).
+          content: [{ type: 'text', text: JSON.stringify(Array.isArray(nextOutput) ? nextOutput.shift() : nextOutput) }],
         };
       },
     },
@@ -373,6 +374,158 @@ test('describe a vote: a question and its options, tidied; or one yes-or-no ques
   });
   nextOutput = { question: 'Which?', yesNo: false, options: ['Only one'] };
   assert.equal((await call('/api/ai/draft-topic', { body: { prompt: 'hmm' } })).status, 503);
+});
+
+test('one Use AI box: Venn picks a date poll or a vote (ask-kind.js), from one answer where it can', async () => {
+  const day = (date) => ({ date, parts: [], from: '', to: '', ifNeeded: false });
+  const ask = (prompt) => call('/api/ai/draft', { body: { prompt, timezone: 'UTC' } });
+  // A time to find: the date poll's draft, as draft-days gives it, from one call.
+  nextOutput = { title: 'Dinner', timeOfDay: 'any', decide: 'when', days: [day('2030-01-10')] };
+  calls.length = 0;
+  const date = await ask('dinner next week');
+  assert.equal(date.status, 200);
+  assert.equal(date.data.kind, 'date');
+  assert.equal(date.data.why, 'open');
+  assert.deepEqual(date.data.days, [{ date: '2030-01-10' }]);
+  assert.equal(calls.length, 1);
+  // Choosing between named things: a vote from the same answer, with no second call.
+  nextOutput = {
+    title: 'Dinner',
+    timeOfDay: 'any',
+    decide: 'what',
+    question: '',
+    choices: ['Italian', 'Thai', 'Mexican'],
+    days: [],
+  };
+  calls.length = 0;
+  const vote = await ask('Italian, Thai or Mexican?');
+  assert.deepEqual(vote.data, {
+    kind: 'vote',
+    why: 'open',
+    question: 'Italian, Thai or Mexican?',
+    yesNo: false,
+    options: ['Italian', 'Thai', 'Mexican'],
+    note: '',
+    date: null,
+  });
+  assert.equal(calls.length, 1);
+  // Choices on a day that's set: a vote, the day in its note, and the days kept for "Make it a date poll instead".
+  nextOutput = {
+    title: 'Dinner',
+    timeOfDay: 'any',
+    decide: 'both',
+    question: 'Pizza or tacos?',
+    choices: ['Pizza', 'Tacos'],
+    days: [day('2030-01-11')],
+  };
+  const both = await ask('pizza or tacos on Friday?');
+  assert.equal(both.data.kind, 'vote');
+  assert.equal(both.data.why, 'both');
+  assert.equal(both.data.question, 'Pizza or tacos?');
+  assert.equal(both.data.note, 'Friday, Jan 11');
+  assert.deepEqual(both.data.date.days, [{ date: '2030-01-11' }]);
+  assert.equal(both.data.date.vote, undefined);
+  // The words win over the model: "a vote on…" is a vote, written by the vote writer when nothing was named.
+  nextOutput = [
+    { title: 'Book club', timeOfDay: 'any', decide: 'when', days: [day('2030-01-10')] },
+    { question: 'Which book next?', yesNo: false, options: ['Dune', 'Emma'] },
+  ];
+  calls.length = 0;
+  const words = await ask('a vote on our next book');
+  assert.equal(words.data.kind, 'vote');
+  assert.equal(words.data.why, 'words');
+  assert.deepEqual(words.data.options, ['Dune', 'Emma']);
+  assert.equal(calls.length, 2);
+  for (const c of calls) assert.match(c.messages[0].content, /<user_text>a vote on our next book<\/user_text>/);
+  // …and "find a date…" is a date poll, though the model read choices.
+  nextOutput = {
+    title: 'Book club',
+    timeOfDay: 'any',
+    decide: 'what',
+    question: '',
+    choices: ['a', 'b', 'c'],
+    days: [day('2030-01-12')],
+  };
+  const found = await ask('find a date for book club: a, b or c?');
+  assert.equal(found.data.kind, 'date');
+  assert.equal(found.data.why, 'words');
+  // Nothing to fill in: said, and no kind.
+  nextOutput = { title: '', timeOfDay: 'any', decide: 'when', days: [] };
+  const none = await ask('hmm');
+  assert.equal(none.status, 503);
+  assert.match(none.data.error, /Couldn't find any days/);
+  assert.equal((await call('/api/ai/draft', { body: { prompt: 'x', timezone: 'Mars/Base' } })).status, 400);
+});
+
+test('one Use AI box: one allowance a press, given back on failure, and words without it', async (t) => {
+  const s = createApp({ env: { ANTHROPIC_API_KEY: 'sk-test', AI_WEEKLY_LIMIT: '1' }, anthropic: fakeAnthropic });
+  await new Promise((r) => s.listen(0, r));
+  t.after(() => s.close());
+  const port = s.address().port;
+  const ask = (prompt, headers = {}) =>
+    fetch(`http://localhost:${port}/api/ai/draft`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json', ...headers },
+      body: JSON.stringify({ prompt, timezone: 'UTC' }),
+    }).then(async (r) => ({ status: r.status, data: await r.json() }));
+  const allowance = async () => (await fetch(`http://localhost:${port}/api/ai/allowance`)).json();
+  // A failed answer gives its unit back.
+  nextError = new Anthropic.APIConnectionError({ message: 'down' });
+  assert.notEqual((await ask('a vote on films')).status, 200);
+  assert.deepEqual(await allowance(), { allowance: 'available' });
+  // A press that lands on a vote takes one unit, though the model is asked twice.
+  nextOutput = [
+    { title: 'Films', timeOfDay: 'any', decide: 'when', days: [] },
+    { question: 'Which film?', yesNo: false, options: ['Heat', 'Up'] },
+  ];
+  calls.length = 0;
+  assert.equal((await ask('a vote on films')).status, 200);
+  assert.equal(calls.length, 2);
+  assert.deepEqual(await allowance(), { allowance: 'used' });
+  // Used up, no key: days are read from the words, a plain choice is split, and nothing reaches Anthropic.
+  calls.length = 0;
+  const days = await ask('Fridays next month');
+  assert.equal(days.status, 200);
+  assert.equal(days.data.kind, 'date');
+  assert.equal(days.data.why, 'words');
+  assert.ok(days.data.days.length >= 4);
+  const split = await ask('Italian, Thai or Mexican?');
+  assert.deepEqual(split.data, {
+    kind: 'vote',
+    why: 'open',
+    yesNo: false,
+    note: '',
+    date: null,
+    question: 'Italian, Thai or Mexican?',
+    options: ['Italian', 'Thai', 'Mexican'],
+  });
+  assert.equal((await ask('a vote on films')).status, 402); // the key form opens
+  assert.equal(calls.length, 0);
+  // Your own key still works, and isn't counted.
+  nextOutput = {
+    title: 'Lunch',
+    timeOfDay: 'any',
+    decide: 'when',
+    days: [{ date: '2030-01-10', parts: [], from: '', to: '', ifNeeded: false }],
+  };
+  assert.equal((await ask('lunch', { 'x-anthropic-key': `sk-ant-${'a'.repeat(30)}` })).status, 200);
+});
+
+test('one Use AI box with no AI on the server: days and plain choices from the words', async (t) => {
+  const s = createApp({ env: {} });
+  await new Promise((r) => s.listen(0, r));
+  t.after(() => s.close());
+  const ask = (prompt) =>
+    fetch(`http://localhost:${s.address().port}/api/ai/draft`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ prompt, timezone: 'UTC' }),
+    }).then(async (r) => ({ status: r.status, data: await r.json() }));
+  assert.equal((await ask('evenings this week')).data.kind, 'date');
+  assert.deepEqual((await ask('pizza or tacos?')).data.options, ['Pizza', 'Tacos']);
+  const vote = await ask('a vote on our next book');
+  assert.equal(vote.status, 400);
+  assert.equal(vote.data.error, 'Without AI, Venn can read days but not choices. Type the options below.');
 });
 
 test('the server key has a weekly allowance; past it, people bring their own key', async (t) => {
