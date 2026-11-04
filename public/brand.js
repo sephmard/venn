@@ -120,20 +120,20 @@ export async function renderBrand(id) {
     history.replaceState(null, '', location.pathname);
     import('./keep.js').then((k) => k.keepThisBrowser()).catch(() => {}); // signed in: it's in their templates
   }
-  // An invite link (#join=<secret>): out of the address bar. Signing in first, it waits in this
-  // tab only (sessionStorage, pendingJoin), never in a URL a server sees (Seph's choice, U4: a link
-  // ends up in history, logs and referrers). A stored one is taken on every visit, so it is used
-  // at most once; the link's own secret wins.
+  // An invite link (#join=<secret>): out of the address bar. Signing in first, the server holds
+  // the secret (an HttpOnly cookie, src/api.js join), never a URL or this page's storage (Seph's
+  // choice, U4: a link ends up in history, logs and referrers). This tab only notes that a join is
+  // waiting (pendingJoin), taken on every visit, so it's tried once on the way back.
   const j = id && location.hash.match(/^#join=([A-Za-z0-9]{1,64})$/);
   if (location.hash.startsWith('#join=')) history.replaceState(null, '', location.pathname);
-  const waiting = id ? pendingJoin(id) : null;
-  const secret = j?.[1] || waiting;
+  const waiting = id ? pendingJoin(id) : false;
+  const secret = j?.[1] || (waiting ? null : undefined);
   const token = id && saved(key(id)).adminToken;
   // From My polls (account.js): the account stands in for the manage link.
   // Opened that way once, this browser asks for it the same way again (after a reload, too).
   let viaAccount = !!id && (location.hash === '#organizer' || !!saved(key(id)).viaAccount);
   if (location.hash === '#organizer') history.replaceState(null, '', location.pathname);
-  if (secret) {
+  if (secret !== undefined) {
     const joined = await join(id, secret);
     if (joined === 'signin') return;
     if (joined) viaAccount = true;
@@ -282,7 +282,7 @@ const inviteUrl = (id, secret) => `${location.origin}/brand/${id}#join=${secret}
  */
 async function join(id, secret) {
   try {
-    const { role } = await api(`brands/${id}/join`, { method: 'POST', body: { token: secret } });
+    const { role } = await api(`brands/${id}/join`, { method: 'POST', body: secret ? { token: secret } : {} });
     // Signed in (perhaps just now): the top bar knows it.
     const me = await api('me').catch(() => ({}));
     if (me.user)
@@ -311,7 +311,7 @@ async function join(id, secret) {
       const b = await api(`brands/${id}`).catch(() => null);
       if (!b) return null;
       document.title = `Sign in · ${b.name} · Venn`;
-      pendingJoin(id, secret);
+      pendingJoin(id, true);
       const [html, wire] = signInPanel(
         providers,
         `Sign in to add ${esc(b.name)}’s template`,
@@ -328,19 +328,19 @@ async function join(id, secret) {
 }
 
 /**
- * An invite's secret waiting for sign-in to finish, in this tab only: `pendingJoin(id, secret)`
- * keeps it; `pendingJoin(id)` takes it (once). Opened again in another tab (an email's link), the
- * invite link itself still works.
+ * Whether a join waits for sign-in to finish, in this tab: `pendingJoin(id, true)` notes it;
+ * `pendingJoin(id)` takes the note (once). Only the note: the secret itself is with the server.
+ * Opened again in another tab (an email's link), the invite link itself still works.
  */
-function pendingJoin(id, secret) {
+function pendingJoin(id, note) {
   const k = `venn:join:${id}`;
   try {
-    if (secret) return sessionStorage.setItem(k, secret);
+    if (note) return sessionStorage.setItem(k, '1');
     const s = sessionStorage.getItem(k);
     sessionStorage.removeItem(k);
-    return /^[A-Za-z0-9]{1,64}$/.test(s ?? '') ? s : null;
+    return s === '1';
   } catch {
-    return null;
+    return false;
   }
 }
 

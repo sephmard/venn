@@ -243,7 +243,7 @@ test.describe('signed in', () => {
     await expect(page.getByRole('button', { name: 'Copy manage link' })).toHaveCount(0);
   });
 
-  test('an invite opened signed out: the secret waits in this tab, not in the sign-in link, and is used once', async ({
+  test('an invite opened signed out: the secret is never in the sign-in link or the page’s storage, and is used once', async ({
     browser,
   }, info) => {
     const user = `invite-${info.project.name}-${Date.now()}`;
@@ -264,17 +264,18 @@ test.describe('signed in', () => {
     // The way back is just the template's page: no secret in the query string a server sees.
     await expect(google).toHaveAttribute('href', `/api/auth/google?next=${encodeURIComponent(`/brand/${id}`)}`);
     expect(await guest.evaluate(() => location.hash)).toBe('');
-    expect(await guest.evaluate((key) => sessionStorage.getItem(key), k)).toBe(token);
+    // This tab notes only that a join waits; the secret is in an HttpOnly cookie the page can't read.
+    expect(await guest.evaluate((key) => sessionStorage.getItem(key), k)).toBe('1');
+    expect(await guest.evaluate(() => document.cookie)).not.toContain(token);
+    const held = (await guest.context().cookies()).find((c) => c.name === `venn_join_${id}`);
+    expect(held).toMatchObject({ value: token, httpOnly: true, sameSite: 'Lax', path: `/api/brands/${id}/join` });
     await google.click();
     await expect(guest).toHaveURL(new RegExp(`/brand/${id}$`));
     await expect(guest.locator('#toast')).toHaveText('Added to your templates.');
-    // Gone once used.
+    // Gone once used: the note and the server's cookie.
     expect(await guest.evaluate((key) => sessionStorage.getItem(key), k)).toBeNull();
-
-    // A waiting secret is taken even when a fresh link brings its own, so it can't be used later.
-    await guest.evaluate((key) => sessionStorage.setItem(key, 'stale0'), k);
-    await guest.goto(`/brand/${id}#join=${token}`);
-    await guest.waitForLoadState('networkidle');
-    expect(await guest.evaluate((key) => sessionStorage.getItem(key), k)).toBeNull();
+    expect((await guest.context().cookies()).find((c) => c.name === `venn_join_${id}`)).toBeUndefined();
+    // The page's storage never held it.
+    expect(await guest.evaluate(() => JSON.stringify({ ...sessionStorage, ...localStorage }))).not.toContain(token);
   });
 });
