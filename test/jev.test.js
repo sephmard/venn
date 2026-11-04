@@ -228,12 +228,21 @@ test('with the server’s Claude key too, today’s picker answers the same case
     },
   };
   const env = { ...statsEnv, ANTHROPIC_API_KEY: 'sk-ant-test' };
-  const counted = await checkKinds({ store, env, now: HOUR0, fetch: fakeFetch(answer('date')), anthropic });
+  // Jev answers the kind question with "date", and reviews each Claude draft as one to fix.
+  const jevFetch = fakeFetch((body) =>
+    body.questions.review
+      ? { answers: { review: { type: 'choice', choice: 'fix', confidence: 0.9, probabilities: { fix: 0.9 } } } }
+      : answer('date'),
+  );
+  const counted = await checkKinds({ store, env, now: HOUR0, fetch: jevFetch, anthropic });
   const claude = counted.filter((c) => c.by === 'claude');
   assert.equal(claude.length, 5);
   assert.equal(calls.length, 5);
   // k01's words name no choice ("ask my wife if…"), so the model's read decides: a vote.
-  assert.deepEqual(claude[0], { case: 'k01', by: 'claude', got: 'vote', filled: 'yes' });
+  assert.deepEqual(claude[0], { case: 'k01', by: 'claude', got: 'vote', filled: 'yes', review: 'fix', reviewSure: 'yes' });
+  // Jev read the request and the draft, never anything else.
+  const review = jevFetch.calls.find((c) => c.body.questions.review).body;
+  assert.equal(review.state, `Request: ${KIND_CASES[0].text}\n\nDraft:\nKind: vote\nQuestion: Which?\nOptions: A, B`);
   // k07 "When can everyone do a call?" is a date poll by its words, but the read gave no days.
   assert.ok(claude.every((c) => KINDS.includes(c.got) || c.got === 'error'));
   assert.ok((await store.aiSpend(weekOf(HOUR0))) > 100, 'Claude’s cost is counted too');
@@ -532,7 +541,14 @@ test('an open question with nothing named ("What should we make for dinner?"): a
 test('the check counts whether a vote came with options (filled), so an empty one shows in the stats', async () => {
   const { claudeKind } = await import('../src/kind-check.js');
   const now = HOUR0;
-  const run = (...outs) => claudeKind({}, 'What should we make for dinner?', { now, anthropic: claudeWith(...outs).anthropic });
+  const run = async (...outs) => {
+    const { draft, ...rest } = await claudeKind({}, 'What should we make for dinner?', {
+      now,
+      anthropic: claudeWith(...outs).anthropic,
+    });
+    assert.equal(draft.kind, 'vote');
+    return rest;
+  };
   const q = read({ decide: 'what', question: 'What should we make for dinner?', choices: [] });
   assert.deepEqual(await run(q, { question: 'Q?', yesNo: false, options: ['A', 'B'] }), { got: 'vote', filled: 'yes' });
   assert.deepEqual(await run(q, { question: 'Q?', yesNo: false, options: [] }), { got: 'vote', filled: 'no' });
@@ -557,4 +573,31 @@ test('Answer for me: every time busy in the calendar is answered with no model a
     { answer: 0, note: 'Busy in your calendar' },
     { answer: 0, note: 'Busy in your calendar' },
   ]);
+});
+
+test('jevReview: the request and a plain summary of the draft go to Jev; ready or fix comes back', async () => {
+  const { draftSummary, jevReview, REVIEW_QUESTION } = await import('../src/jev.js');
+  assert.equal(
+    draftSummary({ kind: 'date', title: 'Dinner', days: [{ date: '2030-01-10', part: 'evening' }, { date: '2030-01-11' }] }),
+    'Kind: date poll\nTitle: Dinner\nDays: 2030-01-10 evening, 2030-01-11',
+  );
+  assert.equal(draftSummary({ kind: 'date', title: 'X', days: [] }), 'Kind: date poll\nTitle: X\nDays: none');
+  assert.equal(
+    draftSummary({ kind: 'vote', question: 'Q?', yesNo: true, options: [] }),
+    'Kind: yes-or-no question\nQuestion: Q?',
+  );
+  assert.equal(draftSummary({ kind: 'vote', question: 'Q?', options: [] }), 'Kind: vote\nQuestion: Q?\nOptions: none');
+  const reply = (choice, p) => ({
+    answers: { review: { type: 'choice', choice, confidence: p, probabilities: { [choice]: p } } },
+    usage: { cost: 0.00001 },
+  });
+  const f = fakeFetch(reply('fix', 0.85));
+  assert.deepEqual(await jevReview(ENV, 'Dinner?', { kind: 'vote', question: 'Q?', options: [] }, { fetch: f }), {
+    verdict: 'fix',
+    p: 0.85,
+    cost: 10,
+  });
+  assert.deepEqual(f.calls[0].body.questions, { review: REVIEW_QUESTION });
+  assert.equal(await jevReview(ENV, 'x', { kind: 'vote', options: [] }, { fetch: fakeFetch(reply('maybe', 0.9)) }), null);
+  assert.equal(await jevReview({}, 'x', { kind: 'vote', options: [] }, { fetch: f }), null);
 });
