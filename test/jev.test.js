@@ -1,0 +1,240 @@
+// Jev (src/jev.js), the fixed poll-kind cases (src/kind-cases.js) and the hourly check that scores
+// Jev against today's picker on them (src/kind-check.js). No real request leaves the test.
+import { test } from 'node:test';
+import assert from 'node:assert/strict';
+import { DatabaseSync } from 'node:sqlite';
+import { createStore, sqliteAdapter } from '../src/store.js';
+import { askJev, casesForHour, JEV_MODEL, JEV_URL, jevEnabled, jevKind, KIND_QUESTION } from '../src/jev.js';
+import { KIND_CASES, KINDS } from '../src/kind-cases.js';
+import { checkKinds } from '../src/kind-check.js';
+import { choicesOfWords, saidKind } from '../src/ask-kind.js';
+import { cleanUsage } from '../src/usage.js';
+import { weekOf } from '../src/ai.js';
+
+const KEY = 'sk-or-v1-test-key-not-real';
+const ENV = { JEV_API_KEY_OPENROUTER: KEY };
+const answer = (choice, p = 0.9, cost = 0.00002) => ({
+  answers: { kind: { type: 'choice', choice, confidence: p, probabilities: { [choice]: p } } },
+  usage: { input_tokens: 120, output_tokens: 5, cost },
+});
+function fakeFetch(reply = answer('date'), { status = 200 } = {}) {
+  const calls = [];
+  const f = async (url, init) => {
+    calls.push({ url, init, body: JSON.parse(init.body) });
+    if (reply instanceof Error) throw reply;
+    return new Response(JSON.stringify(typeof reply === 'function' ? reply(JSON.parse(init.body)) : reply), { status });
+  };
+  f.calls = calls;
+  return f;
+}
+const quietly = async (fn) => {
+  const was = console.error;
+  const logged = [];
+  console.error = (...a) => logged.push(a);
+  try {
+    return { out: await fn(), logged };
+  } finally {
+    console.error = was;
+  }
+};
+
+test('Jev is off without its key, and then nothing is sent', async () => {
+  const f = fakeFetch();
+  assert.equal(jevEnabled({}), false);
+  assert.equal(await askJev({}, { state: 'x', questions: {} }, { fetch: f }), null);
+  assert.equal(await jevKind({ JEV_API_KEY_OPENROUTER: '' }, 'Dinner Friday', { fetch: f }), null);
+  assert.equal(f.calls.length, 0);
+});
+
+test('a request goes to OpenRouter’s Decisions API with the key only in its authorization header', async () => {
+  const f = fakeFetch();
+  const out = await jevKind(ENV, 'Dinner with the Smiths next week', { fetch: f });
+  assert.deepEqual(out, { kind: 'date', p: 0.9, cost: 20 });
+  const [{ url, init, body }] = f.calls;
+  assert.equal(url, JEV_URL);
+  assert.equal(url, 'https://openrouter.ai/api/alpha/decisions');
+  assert.ok(!url.includes(KEY));
+  assert.equal(init.method, 'POST');
+  assert.equal(init.headers.authorization, `Bearer ${KEY}`);
+  assert.ok(!init.body.includes(KEY));
+  assert.equal(body.model, JEV_MODEL);
+  assert.equal(body.state, 'Dinner with the Smiths next week');
+  assert.deepEqual(body.questions, { kind: KIND_QUESTION });
+  assert.deepEqual(Object.keys(KIND_QUESTION.criteria), KINDS);
+  assert.ok(init.signal, 'a request has a timeout');
+  // JEV_MODEL picks another release.
+  await jevKind({ ...ENV, JEV_MODEL: '~typesafe/jev-latest' }, 'x', { fetch: f });
+  assert.equal(f.calls[1].body.model, '~typesafe/jev-latest');
+});
+
+test('when Jev can’t answer, Venn gets null, and the log has the status but never the key or the text', async () => {
+  for (const [f, want] of [
+    [fakeFetch({ error: { code: 401, message: `bad key ${KEY}` } }, { status: 401 }), { status: 401 }],
+    [fakeFetch({ error: { code: 402 } }, { status: 402 }), { status: 402 }],
+    [fakeFetch(new TypeError('fetch failed')), { reason: 'connection' }],
+    [fakeFetch(Object.assign(new Error('slow'), { name: 'TimeoutError' })), { reason: 'timeout' }],
+  ]) {
+    const { out, logged } = await quietly(() => jevKind(ENV, 'my secret plan', { fetch: f }));
+    assert.equal(out, null);
+    assert.deepEqual(logged, [['Jev request failed', want]]);
+    assert.ok(!JSON.stringify(logged).includes(KEY) && !JSON.stringify(logged).includes('secret plan'));
+  }
+  // An answer that isn't one of the kinds, or no answer at all.
+  assert.equal(await jevKind(ENV, 'x', { fetch: fakeFetch(answer('maybe')) }), null);
+  assert.equal(await jevKind(ENV, 'x', { fetch: fakeFetch({ answers: {} }) }), null);
+  assert.equal(await jevKind(ENV, 'x', { fetch: fakeFetch({}) }), null);
+});
+
+test('the fixed cases: about 50, unique, every kind, and short enough to send', () => {
+  assert.ok(KIND_CASES.length >= 45 && KIND_CASES.length <= 60);
+  assert.equal(new Set(KIND_CASES.map((c) => c.id)).size, KIND_CASES.length);
+  assert.equal(new Set(KIND_CASES.map((c) => c.text.toLowerCase())).size, KIND_CASES.length);
+  for (const k of KINDS)
+    assert.ok(
+      KIND_CASES.some((c) => c.kind === k),
+      k,
+    );
+  for (const c of KIND_CASES) assert.ok(KINDS.includes(c.kind) && c.text.length <= 600, c.id);
+  // Seph's question, which first showed the picker going wrong (#286).
+  assert.equal(KIND_CASES.find((c) => c.id === 'k01').kind, 'yesno');
+});
+
+test('the baseline: the word rules alone settle 13 of the 50 cases right', () => {
+  // Today's picker settles a case by its words first (saidKind, then choicesOfWords without AI);
+  // the rest is the Claude read, which only the server's check can score. Pinned, so the number in
+  // docs/AI.md can't drift without the test saying so.
+  const rules = (text) => {
+    const said = saidKind(text);
+    if (said) return said;
+    const w = choicesOfWords(text);
+    return w ? (w.yesNo ? 'yesno' : 'vote') : null;
+  };
+  const right = KIND_CASES.filter((c) => rules(c.text) === c.kind).map((c) => c.id);
+  const wrong = KIND_CASES.filter((c) => rules(c.text) && rules(c.text) !== c.kind).map((c) => c.id);
+  assert.equal(right.length, 13);
+  assert.deepEqual(wrong, ['k20', 'k21']); // "which works better, Thursday or Friday?" reads as a vote
+});
+
+test('the check covers every case once a day, 5 an hour in the first 10 hours (UTC)', () => {
+  const seen = [];
+  for (let h = 0; h < 24; h++) {
+    const cases = casesForHour(h);
+    assert.ok(cases.length <= 5);
+    if (h >= 10) assert.equal(cases.length, 0, `hour ${h}`);
+    seen.push(...cases.map((c) => c.id));
+  }
+  assert.deepEqual(
+    seen,
+    KIND_CASES.map((c) => c.id),
+  );
+});
+
+test('every check result is a usage count the stats accept', () => {
+  for (const c of KIND_CASES)
+    for (const got of [...KINDS, 'error']) {
+      assert.ok(cleanUsage('kind.check', { case: c.id, by: 'jev', got, sure: 'yes' }));
+      assert.ok(cleanUsage('kind.check', { case: c.id, by: 'claude', got }));
+    }
+  assert.equal(cleanUsage('kind.check', { case: 'a real sentence', by: 'jev', got: 'date' }), null);
+});
+
+const HOUR0 = Date.UTC(2026, 10, 9, 0, 0); // a Monday, 00:00 UTC: cases k01–k05
+const statsEnv = { ...ENV, STATS_TOKEN: 't' };
+const newStore = () => createStore(sqliteAdapter(new DatabaseSync(':memory:')));
+const countsOf = async (store) =>
+  (await store.listUsage('2026-01-01')).filter((r) => r.name === 'kind.check').map((r) => JSON.parse(r.props));
+
+test('the hourly check sends only the fixed sentences, counts each answer, and adds Jev’s cost to the weekly spend', async () => {
+  const store = newStore();
+  const sent = [];
+  const f = fakeFetch((body) => {
+    sent.push(body.state);
+    return answer(KIND_CASES.find((c) => c.text === body.state).kind, 0.95);
+  });
+  const counted = await checkKinds({ store, env: statsEnv, now: HOUR0, fetch: f });
+  assert.deepEqual(
+    sent,
+    KIND_CASES.slice(0, 5).map((c) => c.text),
+  );
+  assert.deepEqual(
+    counted,
+    KIND_CASES.slice(0, 5).map((c) => ({ case: c.id, by: 'jev', got: c.kind, sure: 'yes' })),
+  );
+  assert.deepEqual(await countsOf(store), counted);
+  assert.equal(await store.aiSpend(weekOf(HOUR0)), 100); // 5 × $0.00002
+  // Hours with no cases, no Jev, or no stats to count into: nothing is sent.
+  for (const [env, now] of [
+    [statsEnv, HOUR0 + 12 * 3600_000],
+    [{ STATS_TOKEN: 't' }, HOUR0],
+    [ENV, HOUR0],
+  ])
+    assert.deepEqual(await checkKinds({ store: newStore(), env, now, fetch: f }), []);
+  assert.equal(sent.length, 5);
+});
+
+test('the check stops at the weekly dollar cap, and counts a failed or unsure answer', async () => {
+  const store = newStore();
+  await store.addAiSpend(weekOf(HOUR0), 5_000_000); // $5, the default cap
+  const f = fakeFetch(answer('vote', 0.5));
+  assert.deepEqual(await checkKinds({ store, env: statsEnv, now: HOUR0, fetch: f }), []);
+  assert.equal(f.calls.length, 0);
+  assert.deepEqual(
+    await checkKinds({ store: newStore(), env: { ...statsEnv, AI_WEEKLY_BUDGET_USD: '0' }, now: HOUR0, fetch: f }),
+    [],
+  );
+
+  const unsure = await checkKinds({ store: newStore(), env: statsEnv, now: HOUR0, fetch: f });
+  assert.deepEqual(unsure[0], { case: 'k01', by: 'jev', got: 'vote', sure: 'no' });
+  const { out: failed } = await quietly(() =>
+    checkKinds({ store: newStore(), env: statsEnv, now: HOUR0, fetch: fakeFetch({}, { status: 503 }) }),
+  );
+  assert.deepEqual(failed[0], { case: 'k01', by: 'jev', got: 'error', sure: 'no' });
+});
+
+test('with the server’s Claude key too, today’s picker answers the same cases, metered into the same spend', async () => {
+  const store = newStore();
+  const calls = [];
+  // The days model reads each case; this one reads every sentence as a vote on two named things.
+  const anthropic = {
+    beta: {
+      messages: {
+        create: async (params) => {
+          calls.push(params);
+          const text = JSON.stringify({
+            reading: 'r',
+            title: 'Plan',
+            emoji: '🍕',
+            tile: 'sunset',
+            location: '',
+            timeOfDay: 'any',
+            usualParts: [],
+            firstDate: '',
+            lastDate: '',
+            daysInRow: 1,
+            days: [],
+            decide: 'what',
+            question: 'Which?',
+            choices: ['A', 'B'],
+            note: '',
+          });
+          return {
+            model: 'claude-haiku-5-5',
+            stop_reason: 'end_turn',
+            usage: { input_tokens: 1000, output_tokens: 100 },
+            content: [{ type: 'text', text }],
+          };
+        },
+      },
+    },
+  };
+  const env = { ...statsEnv, ANTHROPIC_API_KEY: 'sk-ant-test' };
+  const counted = await checkKinds({ store, env, now: HOUR0, fetch: fakeFetch(answer('date')), anthropic });
+  const claude = counted.filter((c) => c.by === 'claude');
+  assert.equal(claude.length, 5);
+  assert.equal(calls.length, 5);
+  // k01's words name no choice ("ask my wife if…"), so the model's read decides: a vote.
+  assert.deepEqual(claude[0], { case: 'k01', by: 'claude', got: 'vote' });
+  // k07 "When can everyone do a call?" is a date poll by its words, but the read gave no days.
+  assert.ok(claude.every((c) => KINDS.includes(c.got) || c.got === 'error'));
+  assert.ok((await store.aiSpend(weekOf(HOUR0))) > 100, 'Claude’s cost is counted too');
+});
