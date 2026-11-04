@@ -1,5 +1,5 @@
 // A fixed set of things people type into the one Use AI box, each with the kind of poll it should
-// make. It scores how well a picker chooses the kind: today's word rules (test/kind-cases.test.js)
+// make. It scores how well a picker chooses the kind: today's word rules (test/jev.test.js)
 // and Jev (src/jev.js, checked on the server by the cron in src/worker.js). Nothing here comes
 // from real people: every sentence was written for this set, so it can be sent anywhere.
 //
@@ -68,5 +68,5 @@ export const KIND_CASES = [
   ['k50', 'Thanks!', 'none'],
 ].map(([id, text, kind]) => ({ id, text, kind }));
 
-/** The cases' ids, for the usage counts the server keeps of each check (src/usage.js, jev.eval). */
+/** The cases' ids, for the usage counts the server keeps of each check (src/usage.js, kind.check). */
 export const KIND_CASE_IDS = KIND_CASES.map((c) => c.id);

@@ -1,7 +1,7 @@
 // Jev, TypeSafe's decision model, reached through OpenRouter's Decisions API. Jev answers typed
 // questions about a text (pick one of a few kinds, yes or no, a score) with a probability for each
 // answer, in well under a second, for a few millionths of a dollar. Venn asks it which kind of poll
-// a request makes (docs/AI.md, "Jev").
+// a Use AI request makes, and Claude writes what goes in it (docs/AI.md, "Jev").
 //
 // Optional like the rest of AI: off until the server has JEV_API_KEY_OPENROUTER. The key is sent
 // only in the authorization header, never in a URL, and never logged. A failure is never the
@@ -28,7 +28,8 @@ export async function askJev(env, { state, questions }, { fetch: doFetch = fetch
     const res = await doFetch(JEV_URL, {
       method: 'POST',
       headers: { authorization: `Bearer ${env.JEV_API_KEY_OPENROUTER}`, 'content-type': 'application/json' },
-      body: JSON.stringify({ model: env.JEV_MODEL || JEV_MODEL, state, questions }),
+      // Only providers that don't collect or train on the text (OpenRouter's provider routing).
+      body: JSON.stringify({ model: env.JEV_MODEL || JEV_MODEL, state, questions, provider: { data_collection: 'deny' } }),
       signal: AbortSignal.timeout(TIMEOUT_MS),
     });
     if (!res.ok) {

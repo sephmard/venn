@@ -47,7 +47,7 @@ export default {
     ctx.waitUntil(
       sendDeadlines({ store, env, now })
         .finally(() => purgeOldPolls({ store, env, now }).catch((e) => console.error('retention run failed', e)))
-        .finally(() => checkKinds({ store, env, now }).catch((e) => console.error('kind check failed', e?.message))),
+        .finally(() => checkKinds({ store, env, now }).catch((e) => console.error('kind check failed', e?.name))),
     );
   },
 };
