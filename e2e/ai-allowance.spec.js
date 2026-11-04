@@ -40,6 +40,26 @@ test('AI hint: where Jev picks the kind (config jev), the box says the sentence 
   }
 });
 
+test('AI hint: Answer for me says Jev reads it too where the server has Jev, and not otherwise', async ({ page, request }) => {
+  const t0 = Date.UTC(2030, 0, 8, 15);
+  const { id } = await (
+    await request.post('/api/events', {
+      data: { title: 'Sync', timezone: 'UTC', mode: 'options', options: [{ start: t0, end: t0 + 3_600_000 }] },
+    })
+  ).json();
+  const answerHint = page.locator('#ai-answer .btn-row .hint');
+  await page.goto(`/e/${id}`);
+  await page.click('#ai-answer-btn');
+  await expect(answerHint).toContainText('Sent to Anthropic’s Claude to fill in.');
+  await page.route('**/api/config', async (route) => {
+    const res = await route.fetch();
+    await route.fulfill({ response: res, json: { ...(await res.json()), jev: true } });
+  });
+  await page.goto(`/e/${id}`);
+  await page.click('#ai-answer-btn');
+  await expect(answerHint).toContainText('Sent to Anthropic’s Claude and TypeSafe’s Jev to fill in.');
+});
+
 test('AI allowance: used up on Create a Venn, it says Venn reads the words itself, then offers a key', async ({ page }) => {
   await allowance(page, 'used');
   await page.goto('/new');
