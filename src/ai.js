@@ -6,6 +6,7 @@ import Anthropic from '@anthropic-ai/sdk';
 import { BUTTONS, CORNERS, FONTS, isHex } from '../public/brand-look.js';
 import { firstEmoji } from '../public/emoji.js';
 import { DAYS_SCHEMA, DAYS_SYSTEM, daysPrompt, shapeDays } from './days-draft.js';
+import { eitherQuestion, fixedTime, pickKind } from './ask-kind.js';
 import {
   IF_NEEDED,
   LIMITS,
@@ -214,6 +215,52 @@ export async function draftDays(env, { prompt, timezone }, { now, anthropic } = 
   if (!draft.days.length && draft.vote && !draft.vote.both) return draft;
   if (!draft.days.length) throw new AiUnavailableError("Couldn't find any days in that description. Try mentioning when.");
   return draft;
+}
+
+// ---------- 1c. The one "Use AI" box above Date · Vote: Venn picks the kind ----------
+
+const NO_DAYS = "Couldn't find any days in that description. Try mentioning when.";
+
+/**
+ * One request, either kind (ask-kind.js picks): { kind: 'date', why, ...draftDays } or
+ * { kind: 'vote', why, question, yesNo, options, note, date }, where `note` is a fixed time
+ * ("Friday, Nov 6") and `date` the days the words gave (or null), so "Make it a date poll instead"
+ * needs no second request. The days model reads both; a vote is written by draftTopic only when
+ * that read named nothing to pick from.
+ */
+export async function draftAny(env, { prompt, timezone }, { now, anthropic } = {}) {
+  const text = cleanPrompt(prompt, 'Description');
+  const { date: today, minutes: nowMinutes } = utcToZoned(now, timezone);
+  const out = await ask(env, {
+    schema: DAYS_SCHEMA,
+    anthropic,
+    effort: 'medium',
+    system: DAYS_SYSTEM,
+    prompt: daysPrompt(text, { today, timezone, nowMinutes }),
+  });
+  const days = shapeDays(out, { today, nowMinutes, text });
+  const picked = pickKind(text, days);
+  if (!picked) throw new AiUnavailableError(NO_DAYS);
+  if (picked.kind === 'date') {
+    if (!days.days.length) throw new AiUnavailableError(NO_DAYS);
+    return { ...picked, ...days };
+  }
+  const read = days.vote;
+  let vote;
+  if (read?.options.length >= 2)
+    vote = { question: read.question || eitherQuestion(read.options), yesNo: false, options: read.options };
+  else {
+    // Nothing named to pick from: the vote writer says whether it's yes or no, or writes the vote
+    // when the words asked for one the days model didn't read. A question the days model read
+    // keeps its (empty) choices, so none are made up ("vote on our next book").
+    const topic = await draftTopic(env, { prompt: text }, { anthropic }).catch((e) => {
+      if (!(e instanceof AiUnavailableError) || !read?.question) throw e;
+      return null;
+    });
+    vote = topic?.yesNo || !read?.question ? topic : { question: read.question, yesNo: false, options: read.options };
+  }
+  const { vote: _, ...date } = days;
+  return { ...picked, ...vote, note: fixedTime(days.days), date: days.days.length ? date : null };
 }
 
 // ---------- 1d. Describe the decision → a vote's question and options (/new/topic) ----------

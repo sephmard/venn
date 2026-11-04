@@ -121,7 +121,7 @@ test('AI: works from the keyboard, and a failed request leaves the box ready to 
   await page.keyboard.press('Enter');
   await expect(page.locator('#ai-prompt')).toBeFocused();
   // The server is down for a moment: it says so, and the button works again.
-  await page.route('**/api/ai/draft-days', (route) =>
+  await page.route('**/api/ai/draft', (route) =>
     route.fulfill({
       status: 503,
       contentType: 'application/json',
@@ -133,7 +133,7 @@ test('AI: works from the keyboard, and a failed request leaves the box ready to 
   await expect(page.locator('#ai-err')).toHaveText('The AI couldn’t respond. Try again later.');
   await expect(page.locator('#ai-go')).toBeEnabled();
   await expect(page.locator('#ai-wait')).toBeHidden();
-  await page.unroute('**/api/ai/draft-days');
+  await page.unroute('**/api/ai/draft');
   // Try again: Ctrl or ⌘ + Enter in the box, then Tab to Undo.
   await page.locator('#ai-prompt').focus();
   await page.keyboard.press('ControlOrMeta+Enter');
@@ -147,7 +147,7 @@ test('AI: works from the keyboard, and a failed request leaves the box ready to 
 
 test('AI: when the free requests are used up, the key form also offers to carry on by hand', async ({ page }) => {
   await page.goto('/new');
-  await page.route('**/api/ai/draft-days', (route) =>
+  await page.route('**/api/ai/draft', (route) =>
     route.fulfill({
       status: 402,
       contentType: 'application/json',
@@ -165,23 +165,22 @@ test('AI: when the free requests are used up, the key form also offers to carry 
   // The AI box closes and the form it would have filled is next, ready to use.
   await expect(page.locator('#ai-draft')).toBeHidden();
   await expect(page.locator('#ai-open')).toHaveAttribute('aria-expanded', 'false');
-  await expect(page.locator('[data-level="days"]')).toBeFocused();
+  await expect(page.locator('#title')).toBeFocused();
 });
 
-test('AI: a choice between things on Create a Venn offers a vote, and the vote opens filled in', async ({ page }) => {
+test('AI: a choice between things on Create a Venn moves to Vote, filled in, and nothing is created', async ({ page }) => {
   await page.goto('/new');
+  const created = [];
+  page.on('request', (r) => r.method() === 'POST' && r.url().endsWith('/api/events') && created.push(r));
   await describe(page, 'Choose between Italian, Thai, and Mexican for dinner');
-  // Nothing on the date form changed; the reply says it's a vote and names the choices.
-  await expect(page.locator('#ai-done')).toContainText('That sounds like a vote');
-  await expect(page.locator('#ai-done')).toContainText('Italian, Thai or Mexican');
-  await expect(page.locator('#free-list .chip')).toHaveCount(0);
-  await page.click('#ai-vote');
   await expect(page).toHaveURL(/\/new\/topic/);
+  await expect(page.locator('#ai-done .ai-kind')).toHaveText('Venn made this a vote, because you asked for one.');
   await expect(page.locator('#title')).toHaveValue('Where should we eat?');
   const options = page.locator('#opts input');
   await expect(options).toHaveCount(3);
   expect(await options.evaluateAll((els) => els.map((e) => e.value))).toEqual(['Italian', 'Thai', 'Mexican']);
-  await expect(page.locator('#draft-note')).toContainText('Made into a vote. Check the options.');
+  await expect(page.locator('.kind-switch [aria-current]')).toHaveText('🗳️ Vote');
+  expect(created).toHaveLength(0);
   // It makes a real vote with those options.
   await page.fill('#organizer', 'Sam');
   await page.click('#submit');
@@ -193,33 +192,18 @@ test('AI: "where and when" fills the evenings and offers to vote on where first'
   await describe(page, 'Let’s decide where and when to have dinner');
   await expect(page.locator('#free-list .chip').first()).toBeVisible();
   await expect(page.locator('#ai-undo')).toBeVisible();
-  await page.click('#ai-vote');
+  await page.getByRole('button', { name: 'Vote on it first' }).click();
   await expect(page).toHaveURL(/\/new\/topic/);
   await expect(page.locator('#title')).toHaveValue('Where should we have dinner?');
 });
 
-test('AI: "vote on our next book" with no books named opens the vote with the question and empty options', async ({ page }) => {
-  await page.goto('/new');
-  await describe(page, 'Vote on our next book');
-  await expect(page.locator('#ai-done')).toContainText('That sounds like a vote');
-  await page.click('#ai-vote');
-  await expect(page).toHaveURL(/\/new\/topic/);
-  await expect(page.locator('#title')).toHaveValue('What should we read next?');
-  const options = page.locator('#opts input');
-  await expect(options).toHaveCount(2);
-  expect(await options.evaluateAll((els) => els.map((e) => e.value))).toEqual(['', '']);
-});
-
-test('AI: "Vote on our next book." with no books named opens the vote with the question and two empty options', async ({
-  page,
-}) => {
-  await page.goto('/new');
-  await describe(page, 'Vote on our next book.');
-  await expect(page.locator('#ai-done')).toContainText('That sounds like a vote');
-  await page.click('#ai-vote');
-  await expect(page).toHaveURL(/\/new\/topic/);
-  await expect(page.locator('#title')).toHaveValue('What should we read next?');
-  const options = page.locator('#opts input');
-  await expect(options).toHaveCount(2);
-  expect(await options.evaluateAll((els) => els.map((e) => e.value))).toEqual(['', '']);
-});
+for (const words of ['Vote on our next book', 'Vote on our next book.'])
+  test(`AI: "${words}" with no books named opens the vote with the question and two empty options`, async ({ page }) => {
+    await page.goto('/new');
+    await describe(page, words);
+    await expect(page).toHaveURL(/\/new\/topic/);
+    await expect(page.locator('#title')).toHaveValue('What should we read next?');
+    const options = page.locator('#opts input');
+    await expect(options).toHaveCount(2);
+    expect(await options.evaluateAll((els) => els.map((e) => e.value))).toEqual(['', '']);
+  });

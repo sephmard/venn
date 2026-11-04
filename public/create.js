@@ -63,8 +63,12 @@ const brandFromUrl = () => {
 async function useBrand(id, fill) {
   const [b, look] = await Promise.all([api(`brands/${id}`).catch(() => null), import('./brand-look.js')]);
   if (!b) return ((brandId = null), toast("That brand template doesn't exist any more. This poll is plain Venn."));
-  if (brandId === id && $('#create')) look.brandForm((brand = b), fill, $, esc);
+  if (brandId !== id || !$('#create')) return;
+  look.brandForm((brand = b), fill, $, esc);
+  if (b.hideVenn) $('#ask')?.remove(); // a white-label template's polls offer no AI (ai-draft.js)
 }
+/** The form is a white-label template's (it hides Venn), so it offers no AI. */
+export const whiteLabel = () => !!brand?.hideVenn;
 
 // ---------- editing or duplicating a poll ----------
 
@@ -327,7 +331,13 @@ export const draftChanged = () => formDraft?.changed();
  * A new poll's form keeps a draft of itself in this tab (not an edit, a copy, a brand template's
  * poll or a form a link filled in). `own()` gives the form's own part; `putBack(draft)` restores it.
  */
-export async function keepDraft(kind, own, putBack) {
+let ready = Promise.resolve();
+/** Settles once the form's draft, if it has one, is back (Use AI fills in after it: ai-draft.js). */
+export const formReady = () => ready;
+export function keepDraft(kind, own, putBack) {
+  return (ready = keepDraftNow(kind, own, putBack).catch(() => {}));
+}
+async function keepDraftNow(kind, own, putBack) {
   formDraft?.stop();
   if (source() || linkFilled || brandId) return;
   formDraft = await import('./form-draft.js').catch(() => null);

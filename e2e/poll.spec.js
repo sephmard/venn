@@ -1277,7 +1277,9 @@ test('installable: manifest and icons are served', async ({ request }) => {
   }
 });
 
-test('AI on a vote: Use AI writes the question and the options, and Undo puts the form back', async ({ page }) => {
+test('AI on a vote: the box writes the question and the options, the set day goes in the note, and Undo puts the form back', async ({
+  page,
+}) => {
   await page.goto('/new/topic');
   await page.locator('#opts input').first().fill('Pizza place');
   await expect(page.locator('#ai-draft')).toBeHidden();
@@ -1285,13 +1287,17 @@ test('AI on a vote: Use AI writes the question and the options, and Undo puts th
   await expect(page.locator('#ai-open')).toHaveAttribute('aria-expanded', 'true');
   await page.fill('#ai-prompt', 'Dinner Friday: Rosa’s, Luigi’s or Thai Garden');
   await page.click('#ai-go');
-  await expect(page.locator('#ai-done')).toContainText('Where should we eat Friday? · 3 options');
-  await expect(page.locator('#title')).toHaveValue('Where should we eat Friday?');
+  await expect(page.locator('#ai-done .ai-kind')).toHaveText('Made it a vote, since Friday is already set.');
+  await expect(page.locator('#ai-done')).toContainText('Where should we eat? · 3 options');
+  await expect(page.locator('#title')).toHaveValue('Where should we eat?');
+  await expect(page.locator('#desc')).toHaveValue(/^Friday, \w{3} \d{1,2}$/);
   await expect(page.locator('#opts input')).toHaveCount(3);
   await expect(page.locator('#opts input').nth(2)).toHaveValue('Thai Garden');
   await expect(page.locator('#ai-draft')).toBeHidden();
+  await expect(page.getByRole('button', { name: 'Make it a date poll instead' })).toBeVisible();
   await page.getByRole('button', { name: 'Undo' }).click();
   await expect(page.locator('#title')).toHaveValue('');
+  await expect(page.locator('#desc')).toHaveValue('');
   await expect(page.locator('#opts input').first()).toHaveValue('Pizza place');
   await expect(page.locator('#ai-done')).toHaveCount(0);
 });
@@ -1370,7 +1376,7 @@ test('AI: describe it instead on Create a Venn picks the days, with your own key
   await page.fill('#ai-key-in', `sk-ant-${'x'.repeat(30)}`);
   await page.click('#ai-key-save');
   await expect(page.locator('#toast')).toContainText('Key saved on this device');
-  const sent = page.waitForRequest((r) => r.url().endsWith('/api/ai/draft-days'));
+  const sent = page.waitForRequest((r) => r.url().endsWith('/api/ai/draft'));
   await page.fill('#ai-prompt', 'Dinner, any Friday or Saturday evening');
   await page.click('#ai-go');
   expect((await sent).headers()['x-anthropic-key']).toMatch(/^sk-ant-x+$/);
@@ -1411,7 +1417,7 @@ test('AI: one sentence fills the whole poll for review, shows what it did, and U
   await expect(page.locator('#ai-go')).toBeEnabled();
   // Finn shows at once while it thinks, and the button can't be pressed twice.
   let answer;
-  await page.route('**/api/ai/draft-days', async (route) => {
+  await page.route('**/api/ai/draft', async (route) => {
     await new Promise((r) => (answer = r));
     await route.continue();
   });
