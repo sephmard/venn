@@ -75,6 +75,16 @@
 .brand-links .hint {
   margin: 0 0 8px;
 }
+/* Making polls with it, and (signed in) making it the default (default-template.js). */
+.brand-make {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 0 0 4px;
+}
+.brand-vote {
+  margin: 0 0 14px;
+}
 /* Sharing (owner only): invite links for admins and users, then who has it. */
 .brand-sharing {
   margin: 18px 0 0;
