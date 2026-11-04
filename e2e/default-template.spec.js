@@ -1,0 +1,214 @@
+import { test, expect } from '@playwright/test';
+import AxeBuilder from '@axe-core/playwright';
+import { ACCOUNTS_URL } from '../playwright.config.js';
+
+// A signed-in account's default templates (sprint D): the brand template its new date polls start
+// in, and the one its votes start in. Set in My polls › Templates or on the template's page; a
+// template link, a draft being picked up, or "Use no template" for one poll comes first. On a Venn
+// with sign-in switched on (ACCOUNTS_URL).
+test.use({ baseURL: ACCOUNTS_URL });
+
+async function noBlockingA11y(page, label) {
+  const results = await new AxeBuilder({ page }).withTags(['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa', 'wcag22aa']).analyze();
+  const blocking = results.violations.filter((v) => v.impact === 'serious' || v.impact === 'critical');
+  expect(
+    blocking,
+    `${label}\n${blocking.map((v) => `${v.id}: ${v.nodes.map((n) => n.target.join(' ')).join(', ')}`).join('\n')}`,
+  ).toEqual([]);
+}
+const noSideways = async (page) =>
+  expect(
+    await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth),
+  ).toBeLessThanOrEqual(0);
+
+/** A signed-in browser (the test sign-in, e2e/fake-oauth.js) with templates of its own: { page, ids }. */
+async function signedIn(browser, info, names) {
+  const context = await browser.newContext({
+    extraHTTPHeaders: { 'x-test-user': `defaults-${info.project.name}-${Date.now()}` },
+  });
+  const page = await context.newPage();
+  await page.goto('/me');
+  await page.getByRole('link', { name: 'Continue with Google' }).click();
+  await expect(page.getByRole('heading', { name: 'My polls' })).toBeVisible();
+  const ids = {};
+  for (const [name, more] of Object.entries(names))
+    ids[name] = (await (await page.request.post('/api/brands', { data: { name, ...more } })).json()).id;
+  await page.reload();
+  return { page, context, ids };
+}
+
+const created = (page) =>
+  page
+    .waitForResponse((r) => r.request().method() === 'POST' && /\/api\/events$/.test(r.url()))
+    .then((r) => r.request().postDataJSON());
+
+test('a default for date polls: set in My polls, used by /new, and not by votes', async ({ browser }, info) => {
+  test.slow();
+  const { page, ids } = await signedIn(browser, info, { Acme: { title: 'Team lunch', where: 'The canteen' }, 'Book club': {} });
+  await page.getByRole('tab', { name: /Templates/ }).click();
+  const date = page.getByLabel('Date polls start with');
+  const vote = page.getByLabel('Votes start with');
+  await expect(date).toHaveValue('');
+  await expect(vote).toHaveValue('');
+  expect((await date.boundingBox()).height).toBeGreaterThanOrEqual(44);
+  expect(await date.evaluate((el) => getComputedStyle(el).fontSize)).toBe('16px');
+  await date.selectOption({ label: 'Acme' });
+  await expect(page.locator('#toast')).toHaveText('New date polls start with Acme.');
+  await expect(page.locator('.acct-brand', { hasText: 'Acme' }).locator('.muted')).toContainText('Default for date polls');
+  await expect(page.getByLabel('Date polls start with')).toBeFocused();
+  await noSideways(page);
+  await noBlockingA11y(page, 'My polls, Templates, with defaults');
+
+  // Kept on the server: another browser signed in as the same person sees it.
+  await page.reload();
+  await page.getByRole('tab', { name: /Templates/ }).click();
+  await expect(page.getByLabel('Date polls start with')).toHaveValue(ids.Acme);
+
+  // Create a Venn: the date form starts in Acme, says so, and makes Acme's poll.
+  await page.goto('/new');
+  await expect(page.locator('.brand-bar')).toContainText('Acme');
+  await expect(page.locator('#default-note')).toHaveText('Using your default template, Acme. Use no template');
+  await expect(page.locator('#title')).toHaveValue('Team lunch');
+  await expect(page.locator('#location')).toHaveValue('The canteen');
+  await noSideways(page);
+  await noBlockingA11y(page, '/new with a default');
+  // A vote has no default: Venn's look, no line.
+  await page.getByRole('link', { name: '🗳️ Vote' }).click();
+  await expect(page).toHaveURL(/\/new\/topic$/);
+  await expect(page.locator('#title')).toBeVisible();
+  await expect(page.locator('.brand-bar')).toHaveCount(0);
+  await expect(page.locator('#default-note')).toHaveCount(0);
+});
+
+test('Use no template is for this poll only; a template link and a copied poll come first', async ({ browser }, info) => {
+  test.slow();
+  const { page, ids } = await signedIn(browser, info, { Acme: { title: 'Team lunch' }, Other: { title: 'Board games' } });
+  for (const format of ['date', 'vote'])
+    expect((await page.request.put('/api/me/defaults', { data: { format, template: ids.Acme } })).ok()).toBe(true);
+
+  // "Use no template": plain Venn now, the default's title goes, and the link says so.
+  await page.goto('/new/topic');
+  await expect(page.locator('#default-note')).toBeVisible();
+  await expect(page.locator('#title')).toHaveValue('Team lunch');
+  await page.getByRole('button', { name: 'Use no template' }).click();
+  await expect(page.locator('.brand-bar')).toHaveCount(0);
+  await expect(page.locator('#default-note')).toHaveCount(0);
+  await expect(page.locator('#title')).toBeFocused();
+  await expect(page).toHaveURL(/\/new\/topic\?brand=none$/);
+  await expect(page.getByRole('link', { name: '📅 Date' })).toHaveAttribute('href', '/new?brand=none');
+  await page.reload();
+  await expect(page.locator('.brand-bar')).toHaveCount(0);
+  // The default stays.
+  expect((await (await page.request.get('/api/me/defaults')).json()).vote.id).toBe(ids.Acme);
+
+  // Another template's link wins over the default, and doesn't change it.
+  await page.goto(`/new?brand=${ids.Other}`);
+  await expect(page.locator('.brand-bar')).toContainText('Other');
+  await expect(page.locator('#default-note')).toHaveCount(0);
+  await expect(page.locator('#title')).toHaveValue('Board games');
+  expect((await (await page.request.get('/api/me/defaults')).json()).date.id).toBe(ids.Acme);
+
+  // A vote made with the template link, end to end: /new/topic?brand= makes Other's vote.
+  await page.goto(`/new/topic?brand=${ids.Other}`);
+  await expect(page.locator('.brand-bar')).toContainText('Other');
+  await page.locator('#opts input').nth(0).fill('Catan');
+  await page.locator('#opts input').nth(1).fill('Azul');
+  await page.getByLabel(/Your name/).fill('Priya');
+  await page.getByLabel(/Your email/).fill('priya@example.com');
+  const body = created(page);
+  await page.click('#submit');
+  expect((await body).brand).toBe(ids.Other);
+
+  // A copy of a plain vote stays plain: the poll's own look, not the default.
+  const plain = await (
+    await page.request.post('/api/events', {
+      data: { title: 'Where to?', organizer: 'Priya', timezone: 'UTC', mode: 'topic', options: ['Rosa’s', 'Taco Loco'] },
+    })
+  ).json();
+  await page.goto(`/new/topic?copy=${plain.id}`);
+  await expect(page.locator('#title')).toHaveValue('Where to?');
+  await page.waitForTimeout(300);
+  await expect(page.locator('.brand-bar')).toHaveCount(0);
+  await expect(page.locator('#default-note')).toHaveCount(0);
+});
+
+test('a draft keeps what it started in; an occasion or typed title is never replaced', async ({ browser }, info) => {
+  test.slow();
+  const { page, ids } = await signedIn(browser, info, { Acme: { title: 'Team lunch', note: 'Bring a dish' } });
+  // A draft started before there was a default: picked up as it was, in Venn's look.
+  await page.goto('/new');
+  await page.fill('#title', 'Picnic');
+  await expect.poll(() => page.evaluate(() => sessionStorage.getItem('venn:draft:free'))).toContain('Picnic');
+  expect((await page.request.put('/api/me/defaults', { data: { format: 'date', template: ids.Acme } })).ok()).toBe(true);
+  await page.reload();
+  await expect(page.locator('#title')).toHaveValue('Picnic');
+  await expect(page.locator('#draft-note')).toBeVisible();
+  await page.waitForTimeout(300); // the default would have come in by now
+  await expect(page.locator('.brand-bar')).toHaveCount(0);
+
+  // Started over: the default. Typed into, then reloaded: still the default's poll, with the typing.
+  await page.getByRole('button', { name: 'Start over' }).click();
+  await page.goto('/new');
+  await expect(page.locator('#default-note')).toBeVisible();
+  await page.fill('#title', 'Team lunch at noon');
+  await page.reload();
+  await expect(page.locator('#title')).toHaveValue('Team lunch at noon');
+  await expect(page.locator('.brand-bar')).toContainText('Acme');
+  await expect(page.locator('#desc')).toHaveValue('Bring a dish');
+
+  // An occasion from a template page (/templates/…) keeps its own name and emoji; the look is Acme's.
+  await page.evaluate(() => sessionStorage.clear());
+  await page.goto('/new?template=book-club');
+  await expect(page.locator('.brand-bar')).toContainText('Acme');
+  await expect(page.locator('#title')).not.toHaveValue('Team lunch');
+});
+
+test('a default that is gone: plain Venn, nothing said, nothing of it shown', async ({ browser }, info) => {
+  const { page, ids, context } = await signedIn(browser, info, { Acme: { title: 'Team lunch' } });
+  expect((await page.request.put('/api/me/defaults', { data: { format: 'date', template: ids.Acme } })).ok()).toBe(true);
+  // As if the template were deleted or left after the default was read (the server clears it on read).
+  await context.route(`**/api/brands/${ids.Acme}`, (r) => r.fulfill({ status: 404, json: { error: 'Not found' } }));
+  const errors = [];
+  page.on('pageerror', (e) => errors.push(e));
+  await page.goto('/new');
+  await expect(page.locator('#title')).toHaveValue('Get-together');
+  await page.waitForTimeout(300);
+  await expect(page.locator('.brand-bar')).toHaveCount(0);
+  await expect(page.locator('#default-note')).toHaveCount(0);
+  await expect(page.locator('#toast')).toHaveText('');
+  await expect(page.locator('#app')).not.toContainText('Acme');
+  expect(errors).toEqual([]);
+});
+
+test('the template page: Make it my default ⇄ ✓ Your default, and a vote with it', async ({ browser }, info) => {
+  const { page, ids } = await signedIn(browser, info, { Acme: {} });
+  expect((await page.request.put('/api/me/defaults', { data: { format: 'vote', template: ids.Acme } })).ok()).toBe(true);
+  await page.goto(`/brand/${ids.Acme}#organizer`);
+  const toggle = page.locator('#b-default');
+  await expect(toggle).toHaveText('✓ Your default for votes');
+  await expect(toggle).toHaveAttribute('aria-pressed', 'mixed');
+  await toggle.click();
+  await expect(page.locator('#toast')).toHaveText('New date polls and votes start with Acme.');
+  await expect(toggle).toHaveText('✓ Your default');
+  await expect(toggle).toHaveAttribute('aria-pressed', 'true');
+  await toggle.click();
+  await expect(page.locator('#toast')).toHaveText('New date polls and votes start with no template.');
+  await expect(toggle).toHaveText('Make it my default');
+  await expect(page.getByRole('link', { name: 'Or make a vote with it' })).toHaveAttribute(
+    'href',
+    `/new/topic?brand=${ids.Acme}`,
+  );
+  await noSideways(page);
+  await noBlockingA11y(page, 'template page with the default toggle');
+});
+
+test('signed out, nobody asks for defaults', async ({ page }) => {
+  const asked = [];
+  page.on('request', (r) => r.url().includes('/api/me/defaults') && asked.push(r.url()));
+  await page.goto('/new');
+  await expect(page.locator('#title')).toBeVisible();
+  await page.goto('/new/topic');
+  await expect(page.locator('#title')).toBeVisible();
+  await page.waitForTimeout(300);
+  expect(asked).toEqual([]);
+});

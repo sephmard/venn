@@ -1577,12 +1577,15 @@ ol.best .when {
 .org-keep .link-btn {
   font-size: 1rem;
 }
-/* A create form put back from its draft (create.js keepDraft). */
-.draft-note {
+/* A create form put back from its draft (create.js keepDraft), or started in the account's
+   default template (default-template.js). */
+.draft-note,
+.default-note {
   margin: 0 0 8px;
   color: var(--muted);
 }
-.draft-note .link-btn {
+.draft-note .link-btn,
+.default-note .link-btn {
   min-height: 0;
   padding-block: 12px;
   margin-block: -12px;

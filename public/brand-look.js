@@ -205,12 +205,16 @@ export function brandForm(b, fill, $, esc) {
     document.head.append(Object.assign(document.createElement('style'), { id: 'brand-bar-look', textContent: BAR }));
   $('#create').insertAdjacentHTML('afterbegin', brandBar(b, esc));
   if (!fill) return;
+  // 'gentle' (a default, or a draft's template): only into what nobody has filled yet, so it never
+  // replaces what someone typed, what a link or an occasion filled in, or what AI wrote.
+  const gentle = fill === 'gentle';
   const title = $('#title');
-  if (b.title) title.value = title.dataset.seed = b.title;
-  if (b.where) $('#location').value = b.where;
-  if (b.note) $('#desc').value = b.note;
-  if (b.where || b.note) $('#more-box').open = true;
-  if (b.emoji) $('#emoji-tile').textContent = b.emoji;
+  const plain = !gentle || !$('[data-occasion][aria-pressed="true"]');
+  if (b.title && plain && (!gentle || title.value === title.dataset.seed)) title.value = title.dataset.seed = b.title;
+  if (b.where && !(gentle && $('#location').value)) $('#location').value = b.where;
+  if (b.note && !(gentle && $('#desc').value)) $('#desc').value = b.note;
+  if ($('#location').value || $('#desc').value) $('#more-box').open = true;
+  if (b.emoji && plain) $('#emoji-tile').textContent = b.emoji;
   title.dispatchEvent(new Event('input'));
 }
 

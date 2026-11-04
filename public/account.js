@@ -260,11 +260,18 @@ const answeredRow = (p) => {
 
 // What each template row says: the account's own, or shared with it (to change, or to use).
 const ROLE_META = { owner: 'Edit and share', admin: 'Shared with you · Can edit', user: 'Shared with you · Can use' };
+// The account's default templates (default-template.js, loaded with My polls), once known.
+let defaults = null;
+let defaultsJs = null;
+const pill = (b) => {
+  const p = defaultsJs?.defaultPill(defaults, b.id);
+  return p ? ` · ${p}` : '';
+};
 const brandRow = (b) => `
   <li class="acct-brand">
     <a class="acct-row" href="/brand/${esc(b.id)}#organizer" data-link>
       ${b.logoV != null ? `<img class="acct-icon acct-logo" src="/api/brands/${esc(b.id)}/logo?v=${esc(b.logoV)}" alt="">` : '<span class="acct-icon" aria-hidden="true">🏷️</span>'}
-      <span class="acct-text"><b>${esc(b.name)}</b><span class="muted">${ROLE_META[b.role] || ROLE_META.owner}</span></span>
+      <span class="acct-text"><b>${esc(b.name)}</b><span class="muted">${ROLE_META[b.role] || ROLE_META.owner}${esc(pill(b))}</span></span>
     </a>
     <a class="btn acct-use" href="/new?brand=${esc(b.id)}" data-link aria-label="New poll with ${esc(b.name)}">New poll</a>
   </li>`;
@@ -415,6 +422,15 @@ function missing(view, redraw) {
 function showMine(me, view) {
   const { user } = me;
   const lists = { made: me.polls || [], answered: me.answered || [], brands: me.brands || [] };
+  // With templates of its own, the account can start new polls in one (default-template.js).
+  if (lists.brands.length)
+    import('./default-template.js')
+      .then(async (m) => {
+        defaultsJs = m;
+        defaults = await m.readDefaults();
+        if (defaults && view.tab === 'brands' && $('#acct-results')) draw();
+      })
+      .catch(() => {});
   app.innerHTML = `
     <div class="account">
       <h1>My polls</h1>
@@ -497,7 +513,10 @@ function showMine(me, view) {
     } else {
       // A few at a time: searching shows every match; Past starts folded when there's more above it.
       const key = (g) => `${view.tab}:${view.group}:${g.key}`;
+      // What new polls start with: the account's templates, above Venn's own.
+      const starts = brands && defaults && !searching ? defaultsJs.defaultsHtml(items, defaults) : '';
       out.innerHTML =
+        starts +
         top +
         (top && groups.length ? '<h2 class="acct-h">Yours</h2>' : '') +
         groups
@@ -517,6 +536,12 @@ function showMine(me, view) {
           })
           .join('') +
         (brands ? '<a class="acct-new" href="/brand/new" data-link>+ New template</a>' : '');
+      if (starts)
+        defaultsJs.wireDefaults(out, defaults, (now, focus) => {
+          defaults = now;
+          draw();
+          $(`#${focus}`)?.focus();
+        });
       for (const b of out.querySelectorAll('[data-open]'))
         b.onclick = () => {
           const k = b.dataset.open;
