@@ -99,7 +99,7 @@ test('the fixed cases: about 50, unique, every kind, and short enough to send', 
   assert.equal(KIND_CASES.find((c) => c.id === 'k01').kind, 'yesno');
 });
 
-test('the baseline: the word rules alone settle 13 of the 50 cases right', () => {
+test('the baseline: the word rules alone settle 14 of the 55 cases right', () => {
   // Today's picker settles a case by its words first (saidKind, then choicesOfWords without AI);
   // the rest is the Claude read, which only the server's check can score. Pinned, so the number in
   // docs/AI.md can't drift without the test saying so.
@@ -111,16 +111,16 @@ test('the baseline: the word rules alone settle 13 of the 50 cases right', () =>
   };
   const right = KIND_CASES.filter((c) => rules(c.text) === c.kind).map((c) => c.id);
   const wrong = KIND_CASES.filter((c) => rules(c.text) && rules(c.text) !== c.kind).map((c) => c.id);
-  assert.equal(right.length, 13);
+  assert.equal(right.length, 14);
   assert.deepEqual(wrong, ['k20', 'k21']); // "which works better, Thursday or Friday?" reads as a vote
 });
 
-test('the check covers every case once a day, 5 an hour in the first 10 hours (UTC)', () => {
+test('the check covers every case once a day, 5 an hour in the first 11 hours (UTC)', () => {
   const seen = [];
   for (let h = 0; h < 24; h++) {
     const cases = casesForHour(h);
     assert.ok(cases.length <= 5);
-    if (h >= 10) assert.equal(cases.length, 0, `hour ${h}`);
+    if (h >= 11) assert.equal(cases.length, 0, `hour ${h}`);
     seen.push(...cases.map((c) => c.id));
   }
   assert.deepEqual(
@@ -233,7 +233,7 @@ test('with the server’s Claude key too, today’s picker answers the same case
   assert.equal(claude.length, 5);
   assert.equal(calls.length, 5);
   // k01's words name no choice ("ask my wife if…"), so the model's read decides: a vote.
-  assert.deepEqual(claude[0], { case: 'k01', by: 'claude', got: 'vote' });
+  assert.deepEqual(claude[0], { case: 'k01', by: 'claude', got: 'vote', filled: 'yes' });
   // k07 "When can everyone do a call?" is a date poll by its words, but the read gave no days.
   assert.ok(claude.every((c) => KINDS.includes(c.got) || c.got === 'error'));
   assert.ok((await store.aiSpend(weekOf(HOUR0))) > 100, 'Claude’s cost is counted too');
@@ -493,4 +493,48 @@ test('Answer for me: Jev off or failing sends every open time to Claude, as befo
   );
   assert.equal(Object.keys(f.calls[0].body.questions).length, MAX_ANSWER_OPTIONS);
   assert.equal(Object.values(out.answers).filter((a) => a.answer === 0).length, 2);
+});
+
+test('an open question with nothing named ("What should we make for dinner?"): a vote, with options Claude suggests', async () => {
+  for (const jev of [fakeFetch(answer('vote', 0.95)), fakeFetch(answer('vote', 0.4))]) {
+    const claude = claudeWith(read({ decide: 'what', question: 'What should we make for dinner?', choices: [] }), {
+      question: 'What should we make?',
+      yesNo: false,
+      options: ['Pasta', 'Tacos', 'Curry'],
+    });
+    const out = await ask('What should we make for dinner?', { jev, claude });
+    assert.equal(out.kind, 'vote');
+    assert.equal(out.question, 'What should we make for dinner?'); // the read's wording stays
+    assert.deepEqual(out.options, ['Pasta', 'Tacos', 'Curry']);
+    assert.equal(out.suggested, true);
+    assert.equal(claude.calls.length, 2);
+  }
+  // Named choices aren't "suggested", and when the writer can't suggest any, the vote stays empty.
+  const named = await ask('Pizza or tacos?', {
+    jev: fakeFetch(answer('vote', 0.95)),
+    claude: claudeWith(read({ decide: 'what', question: 'Pizza or tacos?', choices: ['Pizza', 'Tacos'] })),
+  });
+  assert.equal(named.suggested, undefined);
+  const { out: empty } = await quietly(() =>
+    ask('Vote on our next book.', {
+      jev: fakeFetch(answer('vote', 0.95)),
+      claude: claudeWith(read({ decide: 'what', question: 'What should we read next?', choices: [] }), {
+        question: 'Which?',
+        yesNo: false,
+        options: [],
+      }),
+    }),
+  );
+  assert.deepEqual(empty.options, []);
+  assert.equal(empty.suggested, undefined);
+});
+
+test('the check counts whether a vote came with options (filled), so an empty one shows in the stats', async () => {
+  const { claudeKind } = await import('../src/kind-check.js');
+  const now = HOUR0;
+  const run = (...outs) => claudeKind({}, 'What should we make for dinner?', { now, anthropic: claudeWith(...outs).anthropic });
+  const q = read({ decide: 'what', question: 'What should we make for dinner?', choices: [] });
+  assert.deepEqual(await run(q, { question: 'Q?', yesNo: false, options: ['A', 'B'] }), { got: 'vote', filled: 'yes' });
+  assert.deepEqual(await run(q, { question: 'Q?', yesNo: false, options: [] }), { got: 'vote', filled: 'no' });
+  assert.deepEqual(await run(q, { question: 'Q?', yesNo: true, options: [] }), { got: 'yesno' });
 });

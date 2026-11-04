@@ -72,7 +72,7 @@ export async function jevKind(env, text, opts) {
 }
 
 /**
- * The cases a check at `hour` (0–23, UTC) covers: 5 an hour for the first 10 hours of each day, so
+ * The cases a check at `hour` (0–23, UTC) covers: 5 an hour for the first 11 hours of each day, so
  * the whole set is checked once a day, a few requests at a time. Other hours: none.
  */
 export function casesForHour(hour, cases = KIND_CASES, perHour = 5) {
