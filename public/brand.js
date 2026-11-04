@@ -428,6 +428,20 @@ async function leave(b) {
 }
 
 /**
+ * Making polls with template `b`: a date poll (its form has the Date · Vote switch too) or a vote.
+ * In the account's templates, also making it the default its new polls start in (default-template.js).
+ */
+const makeRow = (b, big) => {
+  const id = esc(encodeURIComponent(b.id));
+  return `<p class="brand-make"><a class="btn${big ? ' btn-primary btn-lg' : ''}" href="/new?brand=${id}" data-link>Make a poll with it</a>${
+    b.role ? '<button type="button" class="btn" id="b-default" aria-pressed="false" hidden>Make it my default</button>' : ''
+  }</p>
+    <p class="brand-vote"><a class="link-btn" href="/new/topic?brand=${id}" data-link>Or make a vote with it</a></p>`;
+};
+const wireDefault = (b) =>
+  b?.role && import('./default-template.js').then((m) => m.defaultToggle($('#b-default'), b)).catch(() => {});
+
+/**
  * Someone with the share link, not the manage link: the template, and one button to use it. Shared
  * with them as a user: it's in their templates, and they can leave it.
  */
@@ -438,11 +452,12 @@ function showPublic(b) {
     <div class="create brand-page">
       <h1>${esc(b.name)}’s template</h1>
       ${user ? '<p class="hint">In your templates, to make polls with. Its owner can change it.</p>' : ''}
-      <p><a class="btn btn-primary btn-lg" href="/new?brand=${esc(b.id)}" data-link>Make a poll with it</a></p>
+      ${makeRow(b, true)}
       ${previewBox(false)}
       ${user ? '<p class="delete-row"><button type="button" class="link-btn danger" id="b-leave">Leave template</button></p>' : ''}
     </div>`;
   livePreview(() => ({ brand: b, view: 'guest' }))();
+  wireDefault(b);
   if (user) $('#b-leave').onclick = () => leave(b);
 }
 
@@ -906,6 +921,7 @@ function showForm(b, token, start, draft = null) {
         () => prompt('Copy this:', c.dataset.copy),
       );
   if ($('#b-leave')) $('#b-leave').onclick = () => leave(b);
+  wireDefault(b);
   if (b) drawSharing(b, token);
   if ($('#b-delete'))
     $('#b-delete').onclick = () => {
@@ -1195,7 +1211,7 @@ const links = (b, token, others) => {
     <p class="link-row"><input type="text" readonly value="${esc(manageUrl(id, token))}" aria-label="Your manage link"><button type="button" class="btn" data-copy="${esc(manageUrl(id, token))}">Copy</button></p>`
         : '<p class="hint">Shared with you to edit: you can change it. Its owner shares it.</p>'
     }
-    <p><a class="btn" href="/new?brand=${esc(id)}" data-link>Make a poll with it</a></p>
+    ${makeRow(b, false)}
     ${owner && (token || b.role === 'owner') ? '<div class="brand-sharing" id="b-sharing"></div>' : ''}
     ${
       others.length
