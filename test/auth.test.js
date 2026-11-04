@@ -374,10 +374,10 @@ test('sharing a brand template: admins change it, users make polls with it, only
   const ben = (await signIn('g-share-user')).session;
   const made = (await call('/api/brands', { method: 'POST', body: { name: 'Acme' }, cookie: owner })).data;
   const as = (cookie) => ({ cookie, headers: { 'x-organizer': '1' } });
-  // Signing in from an invite link comes back to it, secret and all (the browser never stores it);
+  // Signing in never carries an invite's secret back in a URL (it waits with the server), and
   // anything else after the path falls back to My polls.
   const via = (await signIn('g-share-via', { next: '/brand/abc#join=Secret123' })).back.headers.get('location');
-  assert.match(via, /\/brand\/abc#join=Secret123$/);
+  assert.doesNotMatch(via, /Secret123/);
   assert.match((await signIn('g-share-via', { next: '/brand/abc#evil' })).back.headers.get('location'), /\/me#signed-in$/);
   // Invite links: one for admins, one for users. Only the owner makes them.
   const invite = async (role, cookie = owner) =>
@@ -400,8 +400,10 @@ test('sharing a brand template: admins change it, users make polls with it, only
   const back = await call(`/api/brands/${made.id}/join`, { method: 'POST', body: {}, cookie: `${ana}; ${pending}` });
   assert.equal(back.data.role, 'admin');
   assert.match(back.headers.get('set-cookie'), new RegExp(`^venn_join_${made.id}=; Path=/api/brands/${made.id}/join; Max-Age=0`));
-  // No token and no cookie: nothing to join with.
-  assert.equal((await call(`/api/brands/${made.id}/join`, { method: 'POST', body: {}, cookie: ben })).status, 403);
+  // No token and no cookie (the 10 minutes ran out): nothing to join with, and it says what works.
+  const late = await call(`/api/brands/${made.id}/join`, { method: 'POST', body: {}, cookie: ben });
+  assert.equal(late.status, 403);
+  assert.equal(late.data.error, 'Open the invite link again to add this template.');
   assert.equal((await join('nope', ana)).status, 403);
   assert.equal((await join(adminLink, ana)).data.role, 'admin');
   assert.equal((await join(userLink, ben)).data.role, 'user');

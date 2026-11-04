@@ -124,12 +124,11 @@ export function cookie(name, value, { url, maxAge, path = '/api' }) {
 }
 
 /** Only paths on this site, so a sign-in link can't send anyone elsewhere afterwards. */
-// A path on this site, maybe with a template invite's #join=<secret> (public/brand.js), which the
-// way back carries so the browser never has to store it.
 // Where signing in may come back to: a path on this site, and on the pages that make a poll or a
 // template, only the few query keys that pick one (decisions.md G4), so a template link survives
-// signing in. The only fragment is a template's #join= invite. Never an #admin= or #edit= token,
-// another site, or anything else: anything that doesn't fit goes to /me.
+// signing in. No fragment at all: a template invite's secret waits with the server instead
+// (src/api.js join), and never an #admin= or #edit= token, another site, or anything else:
+// anything that doesn't fit goes to /me.
 const NEXT_PATH = /^\/(?!\/)[\w\-/.]*$/;
 const NEXT_QUERY_PATH = /^\/(new|new\/topic|brand\/new|brand\/[A-Za-z0-9]{1,32})$/;
 const NEXT_QUERY = {
@@ -139,10 +138,8 @@ const NEXT_QUERY = {
   from: /^[\w-]{1,40}$/,
 };
 export function safeNext(next) {
-  if (typeof next !== 'string' || next.length >= 200 || !next.startsWith('/') || /[\\\s]/.test(next)) return '/me';
-  const [rest, hash = null] = next.split(/#(.*)/s);
-  if (hash !== null && !/^join=[A-Za-z0-9]{1,64}$/.test(hash)) return '/me';
-  const [path, query = null] = rest.split(/\?(.*)/s);
+  if (typeof next !== 'string' || next.length >= 200 || !next.startsWith('/') || /[\\\s#]/.test(next)) return '/me';
+  const [path, query = null] = next.split(/\?(.*)/s);
   if (!NEXT_PATH.test(path)) return '/me';
   if (query !== null) {
     if (!NEXT_QUERY_PATH.test(path) || !query) return '/me';
