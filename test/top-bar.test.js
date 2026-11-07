@@ -16,12 +16,7 @@ const WEBSITE = ['public/index.html', 'public/templates.html', 'public/privacy.h
 
 test('every page with a top bar has the same menu, the app included', () => {
   const want = links(read('public/index.html'));
-  assert.deepEqual(want, [
-    'For organizations /brand',
-    'Use with AI (opens Claude in a new tab) https://claude.ai/directory/venn',
-    'For developers https://docs.venn.day',
-    'Contact /#contact',
-  ]);
+  assert.deepEqual(want, ['For organizations /brand', 'For developers https://docs.venn.day', 'Contact /#contact']);
   for (const f of [...WEBSITE, 'scripts/build-pages.js', 'public/app.html']) assert.deepEqual(links(read(f)), want, f);
 });
 
@@ -32,12 +27,13 @@ test("the app's bar is the website's: the logo, Create a Venn and the menu butto
   assert.match(bar, /<summary aria-label="Menu">/);
 });
 
-test('Use with AI opens the Venn connector in Claude, in a new tab that says so', () => {
-  for (const f of [...WEBSITE, 'scripts/build-pages.js', 'public/app.html']) {
-    const a = read(f).match(/<div class="menu-panel">[\s\S]*?(<a href="https:\/\/claude\.ai\/directory\/venn"[^>]*>)/)?.[1];
-    assert.equal(a?.replace(/\s+>$/, '>'), '<a href="https://claude.ai/directory/venn" target="_blank" rel="noopener">', f);
-  }
-  // The one quiet mention on the home page says what happens next: you connect it in Claude.
+test('Works with Claude is on the home page, under Create a Venn, and not in the menu', () => {
+  for (const f of [...WEBSITE, 'scripts/build-pages.js', 'public/app.html'])
+    assert.doesNotMatch(read(f).match(/<div class="menu-panel">[\s\S]*?<\/div>/)[0], /claude\.ai/, f);
+  // One quiet line under the hero's button, opening Venn's page in Claude in a new tab.
+  const hero = read('public/index.html').match(/<section class="hero"[\s\S]*?<\/section>/)[0];
+  assert.match(hero, /<p class="claude-note">\s*<a href="https:\/\/claude\.ai\/directory\/venn" target="_blank" rel="noopener"/);
+  // The list further down still says what happens next: you connect it in Claude.
   const home = read('public/index.html').match(/<ul class="hl-list">[\s\S]*?<\/ul>/)[0];
   assert.match(home, /href="https:\/\/claude\.ai\/directory\/venn" target="_blank" rel="noopener"/);
   assert.match(home, /where you connect it/);

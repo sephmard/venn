@@ -423,6 +423,17 @@ h2 em {
   color: var(--ink-2);
   font-size: 0.9375rem;
 }
+/* Works with Claude: one quiet line under Create a Venn, never a second button (Seph, Nov 4). */
+.claude-note {
+  margin: 4px 0 0;
+  font-size: 0.9375rem;
+}
+.claude-note a {
+  display: inline-block;
+  padding: 12px 0;
+  color: var(--ink-2);
+  text-underline-offset: 3px;
+}
 .btn-start span {
   transition: translate 0.15s;
 }

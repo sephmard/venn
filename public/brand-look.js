@@ -200,7 +200,7 @@ export const brandBar = (brand, esc) => {
 
 /** On the create page: the bar (the poll gets the brand's look), and (`fill`, a new poll) what it starts with. */
 export function brandForm(b, fill, $, esc) {
-  // Only the poll is branded: the create page keeps Venn's look, and shows whose template it is.
+  // Whose template it is, over the form (create.js gives the form the template's look too).
   if (!document.getElementById('brand-bar-look'))
     document.head.append(Object.assign(document.createElement('style'), { id: 'brand-bar-look', textContent: BAR }));
   $('#create').insertAdjacentHTML('afterbegin', brandBar(b, esc));

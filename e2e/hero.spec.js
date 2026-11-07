@@ -59,3 +59,17 @@ test('with reduced motion, the Venn is still: the circles met, Saturday shown', 
   await expect(venn.locator('.venn-hit')).not.toHaveClass(/\boff\b/);
   await expect(venn.locator('.venn-c.c1')).toHaveCSS('opacity', '1');
 });
+
+test('Works with Claude: one quiet line under Create a Venn, to Venn’s page in Claude', { tag: '@site' }, async ({ page }) => {
+  await page.goto('/');
+  const line = page.locator('.hero .claude-note').getByRole('link', { name: /Works with Claude/ });
+  await expect(line).toHaveAttribute('href', 'https://claude.ai/directory/venn');
+  await expect(line).toHaveAttribute('target', '_blank');
+  await expect(line).toHaveAccessibleName('Works with Claude (opens Venn’s page in Claude, in a new tab)'.replace('’', "'"));
+  expect((await line.boundingBox()).height).toBeGreaterThanOrEqual(44);
+  // Create a Venn stays the one button: the line is a plain link below it, with no logo.
+  const start = await page.locator('.hero .btn-start').boundingBox();
+  expect((await line.boundingBox()).y).toBeGreaterThan(start.y + start.height);
+  await expect(page.locator('.hero .claude-note img, .hero .claude-note svg')).toHaveCount(0);
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+});

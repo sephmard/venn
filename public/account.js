@@ -287,15 +287,6 @@ const BUILT_IN = [
   ['retro', 'Retro', 'Venn’s look, to make yours'],
   ['classic', 'Classic', 'Venn’s plain look, to make yours'],
 ];
-// Where the server has AI: one sentence about the organization makes a template (brand.js, ?ai=1).
-const AI_ROW = `
-  <li class="acct-brand">
-    <a class="acct-row" href="/brand/new?ai=1" data-link>
-      <span class="acct-icon acct-ai" aria-hidden="true">✨</span>
-      <span class="acct-text"><b>Make one with AI</b><span class="muted">Describe your group in a sentence</span></span>
-    </a>
-    <a class="btn acct-use" href="/brand/new?ai=1" data-link aria-label="Describe it: make a template with AI">Describe it</a>
-  </li>`;
 const builtInRow = ([k, name, meta]) => `
   <li class="acct-brand">
     <a class="acct-row" href="/brand/new?look=${k}" data-link>
@@ -305,12 +296,12 @@ const builtInRow = ([k, name, meta]) => `
     <a class="btn acct-use" href="/brand/new?look=${k}" data-link aria-label="Duplicate ${name}">Duplicate</a>
   </li>`;
 /** The built-in looks that match the search, under their own heading; the account's follow. */
-const builtIns = (q, ai) => {
+// Making one with AI is part of a new template (brand.js), where the server has AI.
+const builtIns = (q) => {
   const words = q.trim().toLowerCase();
   const shown = BUILT_IN.filter(([, name]) => name.toLowerCase().includes(words));
-  const withAi = ai && 'make one with ai'.includes(words);
-  return shown.length || withAi
-    ? `<h2 class="acct-h">Built in</h2><ul class="acct-list" aria-label="Built in">${shown.map(builtInRow).join('')}${withAi ? AI_ROW : ''}</ul>`
+  return shown.length
+    ? `<h2 class="acct-h">Built in</h2><ul class="acct-list" aria-label="Built in">${shown.map(builtInRow).join('')}</ul>`
     : '';
 };
 
@@ -470,7 +461,7 @@ function showMine(me, view) {
       <dialog class="acct-sheet" id="acct-sheet" aria-label="Options"></dialog>
     </div>`;
 
-  let config = {}; // the server's, once known: email and AI change what shows
+  let config = {}; // the server's, once known: email changes what shows
   const draw = () => {
     saveView(view);
     for (const b of app.querySelectorAll('[role="tab"]')) {
@@ -498,7 +489,7 @@ function showMine(me, view) {
     const searching = !!view.q.trim();
     const row = { made: pollRow, answered: answeredRow, brands: brandRow }[view.tab];
     const out = $('#acct-results');
-    const top = brands ? builtIns(view.q, config.ai) : '';
+    const top = brands ? builtIns(view.q) : '';
     if (!items.length) {
       const [line, action] = EMPTY[view.tab];
       out.innerHTML = `${brands ? `${top}<h2 class="acct-h">Yours</h2>` : ''}<div class="sheet acct-empty"><p>${line}</p>${action}</div>`;
@@ -728,7 +719,6 @@ function showMine(me, view) {
   };
   getConfig().then((c) => {
     config = c || {};
-    if (config.ai && view.tab === 'brands') draw(); // its "Make one with AI" row
   });
 
   const tabs = [...app.querySelectorAll('[role="tab"]')];

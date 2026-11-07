@@ -36,6 +36,8 @@ async function route() {
   // My polls (account.js): signing in, the account's polls, and its settings.
   else if (/^\/me(\/\w+)?$/.test(path)) {
     if (look) (await look).retroLook((await look).wantsRetro());
+    // From a template's create form or a branded poll, My polls is in Venn's own look again.
+    if (document.documentElement.classList.contains('branded')) (await import('./brand-look.js')).brandLook(null);
     off = await (await import('./account.js')).renderAccount();
   } else {
     // Every new poll is a Venn (create-free.js). /new/pick is the older "vote on a few dates" page,

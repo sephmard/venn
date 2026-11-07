@@ -105,12 +105,32 @@ test('copied: the button says Link copied ✓, and each link is named for what i
 });
 
 test('a template link: whose look it is, or that it is gone; the form works either way', async ({ browser, request }) => {
-  const b = await brandOf(request, { name: 'Riverside Books' });
+  const b = await brandOf(request, {
+    name: 'Riverside Books',
+    bg: '#fdf6e3',
+    surface: '#ffffff',
+    text: '#1f2933',
+    accent: '#8a2b0e',
+    font: 'humanist',
+    hideVenn: true,
+  });
   const page = await (await browser.newContext()).newPage();
   noBrowserDialogs(page);
   await page.goto(`/new?brand=${b.id}`);
   await expect(page.locator('.brand-bar')).toContainText('Riverside Books');
   await expect(page.locator('#template-note')).toHaveText('A new poll of your own, in Riverside Books’s look.');
+  // The form itself is in the template's look (Seph: "make a poll with it" didn't look like it),
+  // with Venn's top bar still there, white label or not.
+  const bg = () => page.evaluate(() => getComputedStyle(document.body).backgroundColor);
+  await expect.poll(bg).toBe('rgb(253, 246, 227)');
+  await expect(page.locator('html')).toHaveClass(/branded/);
+  await expect(page.locator('html')).not.toHaveClass(/white-label/);
+  await expect(page.locator('.topbar')).toBeVisible();
+  // A template's look stays with its link: Create a Venn without one is Venn's again.
+  await page.goto('/new');
+  await expect(page.locator('html')).not.toHaveClass(/branded/);
+  await page.goto(`/new?brand=${b.id}`);
+  await expect.poll(bg).toBe('rgb(253, 246, 227)');
   await noSideways(page);
   await noBlockingA11y(page, 'a template link opened');
   // A vote from it says so too.

@@ -133,6 +133,7 @@ export async function renderBrand(id) {
   // Opened that way once, this browser asks for it the same way again (after a reload, too).
   let viaAccount = !!id && (location.hash === '#organizer' || !!saved(key(id)).viaAccount);
   if (location.hash === '#organizer') history.replaceState(null, '', location.pathname);
+  useLinkCheck = false;
   if (secret !== undefined) {
     const joined = await join(id, secret);
     if (joined === 'signin') return;
@@ -155,7 +156,7 @@ export async function renderBrand(id) {
     if (brand.role && !token) save(key(id), { viaAccount: true });
     else if (!brand.role) forget(key(id), 'viaAccount');
   }
-  if (brand && !brand.isAdmin) return showPublic(brand);
+  if (brand && (!brand.isAdmin || useLinkCheck)) return showPublic(brand, useLinkCheck);
   if (brand?.role === 'admin') forget(key(id), 'adminToken');
   if (brand) remember(id, brand.name);
   // Back from signing in to save: the draft as it was, saved straight away once signed in.
@@ -280,9 +281,13 @@ const inviteUrl = (id, secret) => `${location.origin}/brand/${id}#join=${secret}
  * lets them do. Signed out, they sign in first and come back here. Returns the role, null (the link
  * didn't work) or 'signin' (the page is asking them to).
  */
+let useLinkCheck = false; // join() opened its owner's (or an admin's) own link to use
 async function join(id, secret) {
+  useLinkCheck = false;
   try {
-    const { role } = await api(`brands/${id}/join`, { method: 'POST', body: secret ? { token: secret } : {} });
+    const { role, link } = await api(`brands/${id}/join`, { method: 'POST', body: secret ? { token: secret } : {} });
+    // Their own link to use, opened by someone who can change it (checking it): what others see.
+    if (link === 'user' && role !== 'user') useLinkCheck = true;
     // Signed in (perhaps just now): the top bar knows it.
     const me = await api('me').catch(() => ({}));
     if (me.user)
@@ -291,13 +296,14 @@ async function join(id, secret) {
         name: me.user.name || me.user.email || '',
       });
     refreshAccountMenu();
-    toast(
-      role === 'admin'
-        ? 'Added to your templates. You can change it.'
-        : role === 'owner'
-          ? 'It’s your own template.'
-          : 'Added to your templates.',
-    );
+    if (!useLinkCheck)
+      toast(
+        role === 'admin'
+          ? 'Added to your templates. You can change it.'
+          : role === 'owner'
+            ? 'It’s your own template.'
+            : 'Added to your templates.',
+      );
     return role;
   } catch (e) {
     const providers =
@@ -464,20 +470,25 @@ const wireDefault = (b) =>
  * Someone with the share link, not the manage link: the template, and one button to use it. Shared
  * with them as a user: it's in their templates, and they can leave it.
  */
-function showPublic(b) {
+function showPublic(b, checking = false) {
   document.title = `${b.name} · Venn`;
   const user = b.role === 'user';
   app.innerHTML = `
     <div class="create brand-page">
       <h1>${esc(b.name)}’s template</h1>
       ${user ? '<p class="hint">In your templates, to make polls with. Its owner can change it.</p>' : ''}
+      ${
+        checking
+          ? `<p class="hint" id="use-check">This is your link to use, as people you send it to see it: it adds the template to their templates, to make polls with. They can’t change it. <a href="/brand/${esc(b.id)}" data-link>Manage your template</a></p>`
+          : ''
+      }
       ${makeRow(b, true)}
       ${previewBox(false)}
       ${user ? '<p class="delete-row"><button type="button" class="link-btn danger" id="b-leave">Leave template</button></p>' : ''}
     </div>`;
   livePreview(() => ({ brand: b, view: 'guest' }))();
   wireDefault(b);
-  if (user) $('#b-leave').onclick = () => leave(b);
+  if (user && !checking) $('#b-leave').onclick = () => leave(b);
 }
 
 /**
@@ -603,7 +614,8 @@ function showForm(b, token, start, draft = null) {
         ${b ? panel('share', links(b, token, others)) : ''}
         ${panel(
           'name',
-          `<label for="b-name">Organization <span class="req" aria-hidden="true">Required</span></label>
+          `${b ? '' : '<div id="ai-look"></div>'}
+          <label for="b-name">Organization <span class="req" aria-hidden="true">Required</span></label>
           <input id="b-name" type="text" maxlength="60" value="${v('name')}" placeholder="Acme Inc." aria-required="true" autocomplete="organization">
           <div>
             <span class="label" id="logo-l">Logo</span>
@@ -631,7 +643,7 @@ function showForm(b, token, start, draft = null) {
         )}
         ${panel(
           'look',
-          `<div id="ai-look"></div>
+          `${b ? '<div id="ai-look"></div>' : ''}
           <div class="look-grid" id="looks">
             ${lookCard('logo', 'Your logo’s colour', LOOKS.classic[1]).replace('<button', '<button id="look-logo" hidden')}
             ${Object.entries(LOOKS)
@@ -1014,9 +1026,9 @@ function showForm(b, token, start, draft = null) {
             }),
         )
         .then(() => {
-          // From My polls' "Make one with AI": straight to the description.
+          // A new template starts with the description (older links say ?ai=1): straight to it.
           if (b || !new URLSearchParams(location.search).has('ai') || !$('#ai-prompt')) return;
-          go(ids.indexOf('look'), { focus: false });
+          go(ids.indexOf('name'), { focus: false });
           $('#ai-prompt').focus();
         })
         .catch(() => {});
