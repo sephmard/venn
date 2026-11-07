@@ -208,6 +208,9 @@ export function parseDays(text, { today }) {
     decide: 'when',
     question: '',
     choices: [],
+    spots: 0,
+    plusOnes: 0,
+    approve: false,
     note: notes.join(' '),
   };
 }

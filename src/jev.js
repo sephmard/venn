@@ -55,12 +55,13 @@ export const KIND_QUESTION = {
     date: 'Finding a day or time that works for everyone, including picking between named days, dates or times.',
     vote: 'Choosing between things (places, food, books, films, games, names, themes, designs), named or still to come. Not when.',
     yesno: 'One question the group answers yes or no.',
+    rsvp: 'The day is already set: finding out who is coming (RSVPs, a guest list, spots, plus-ones).',
     none: 'Nothing to set up: no plan, no question, no choices.',
   },
 };
 
 /**
- * Which kind of poll Jev reads in a request: { kind: 'date' | 'vote' | 'yesno' | 'none', p, cost },
+ * Which kind of poll Jev reads in a request: { kind: 'date' | 'vote' | 'yesno' | 'rsvp' | 'none', p, cost },
  * where `p` is how sure it is (0 to 1), or null when Jev can't answer.
  */
 export async function jevKind(env, text, opts) {
@@ -72,7 +73,7 @@ export async function jevKind(env, text, opts) {
 }
 
 /**
- * The cases a check at `hour` (0–23, UTC) covers: 5 an hour for the first 11 hours of each day, so
+ * The cases a check at `hour` (0–23, UTC) covers: 5 an hour for the first 12 hours of each day, so
  * the whole set is checked once a day, a few requests at a time. Other hours: none.
  */
 export function casesForHour(hour, cases = KIND_CASES, perHour = 5) {

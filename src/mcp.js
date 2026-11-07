@@ -15,7 +15,7 @@ const TOOLS = [
     name: 'create_venn',
     title: 'Create a Venn',
     description:
-      'Create a Venn: a group poll that helps a group decide. Give exactly one of: whole `days` or specific `times` to find when to meet (e.g. "which weekend", "an evening next week"), or `options` to vote on what or where (e.g. "choose between Italian, Thai and Mexican", "which book next"). Returns the link to share with guests and a private organizer link to manage the poll.',
+      'Create a Venn: a group poll that helps a group decide. Give exactly one of: whole `days` or specific `times` to find when to meet (e.g. "which weekend", "an evening next week"), `options` to vote on what or where (e.g. "choose between Italian, Thai and Mexican", "which book next"), or `rsvp` when the date is already set and the organizer wants to know who is coming (e.g. "dinner at mine Saturday 7pm, 10 people max"). Returns the link to share with guests and a private organizer link to manage the poll.',
     inputSchema: {
       type: 'object',
       properties: {
@@ -24,7 +24,7 @@ const TOOLS = [
         days: {
           type: 'array',
           items: { type: 'string', description: 'YYYY-MM-DD' },
-          description: 'Whole days guests choose from (up to 62), to find a date. Use one of days, times or options.',
+          description: 'Whole days guests choose from (up to 62), to find a date. Use one of days, times, options or rsvp.',
         },
         times: {
           type: 'array',
@@ -36,13 +36,29 @@ const TOOLS = [
             },
             required: ['start', 'end'],
           },
-          description: 'Specific times guests choose from (up to 60), to find a time. Use one of days, times or options.',
+          description: 'Specific times guests choose from (up to 60), to find a time. Use one of days, times, options or rsvp.',
         },
         options: {
           type: 'array',
           items: { type: 'string', description: 'A short label, e.g. "Thai" (up to 120 characters)' },
           description:
-            'Choices to vote on that are not dates: places, books, games, or a yes-or-no question (["Yes", "No"] with single). 1 to 20, no two the same. Use one of days, times or options.',
+            'Choices to vote on that are not dates: places, books, games, or a yes-or-no question (["Yes", "No"] with single). 1 to 20, no two the same. Use one of days, times, options or rsvp.',
+        },
+        rsvp: {
+          type: 'object',
+          properties: {
+            start: { type: 'string', description: 'ISO 8601 with offset, e.g. 2026-11-07T19:00:00-05:00' },
+            end: { type: 'string', description: 'ISO 8601 with offset. For an all-day plan, midnight to midnight.' },
+            spots: {
+              type: 'integer',
+              description: 'Most people who can come, guests included (1 to 1000). Leave out for no limit.',
+            },
+            plusOnes: { type: 'integer', description: 'Guests each person may bring (0 to 5). Default 0.' },
+            approve: { type: 'boolean', description: 'True to approve each RSVP before it counts. Default false.' },
+          },
+          required: ['start', 'end'],
+          description:
+            'The date is set: guests say Going, Maybe or Can’t go, with a waitlist once the spots are taken. Use one of days, times, options or rsvp.',
         },
         single: {
           type: 'boolean',
@@ -108,16 +124,27 @@ function optionsProblem(options, single) {
 }
 
 async function createVenn(args, call, origin) {
-  const { title, timezone, days, times, options, single, organizer, description, location } = args || {};
-  const given = [days, times, options].filter((x) => x != null && !(Array.isArray(x) && !x.length)).length;
+  const { title, timezone, days, times, options, rsvp, single, organizer, description, location } = args || {};
+  const given = [days, times, options, rsvp].filter((x) => x != null && !(Array.isArray(x) && !x.length)).length;
   if (given !== 1)
     return toolText(
-      'Give exactly one of days, times or options: days or times to find when to meet, options to vote on what or where.',
+      'Give exactly one of days, times, options or rsvp: days or times to find when to meet, options to vote on what or where, rsvp when the date is set.',
       true,
     );
   if (single === true && options == null) return toolText('single only applies to options (a vote), not to days or times.', true);
   const body = { title, timezone, organizer, description, location };
-  if (options != null) {
+  if (rsvp != null) {
+    const [start, end] = [Date.parse(rsvp?.start), Date.parse(rsvp?.end)];
+    if (!Number.isFinite(start) || !Number.isFinite(end))
+      return toolText('rsvp needs a start and end in ISO 8601, like 2026-11-07T19:00:00-05:00.', true);
+    const { spots, plusOnes, approve } = rsvp;
+    Object.assign(body, {
+      mode: 'rsvp',
+      start,
+      end,
+      rsvp: { cap: spots ?? null, plusOnes: plusOnes ?? 0, approve: approve === true },
+    });
+  } else if (options != null) {
     const problem = optionsProblem(options, single);
     if (problem) return toolText(problem, true);
     Object.assign(body, { mode: 'topic', options: options.map((o) => o.trim()), ...(single === true && { single: true }) });
@@ -146,6 +173,7 @@ async function getResults(args, call, origin) {
   const ev = await res.json();
   if (!res.ok) return toolText(ev.error || 'Venn could not find that poll.', true);
   if (ev.mode === 'topic') return toolText(voteResults(ev, origin));
+  if (ev.rsvpCount) return toolText(rsvpResults(ev, origin));
   const people = ev.participants || [];
   const wholeDay = ev.slotMinutes === 1440;
   const options = (ev.slots || []).map((s) => {
@@ -173,6 +201,28 @@ async function getResults(args, call, origin) {
     return toolText({ ...head, summary: `${pickedLine}The organizer hid the answers.`, note: 'The organizer hid the answers.' });
   const { best, leading, summary } = bestTimes(ev, people, answers);
   return toolText({ ...head, summary: pickedLine + summary, leading, best, options: options.slice(0, 100) });
+}
+
+/** Who's coming to an RSVP: the counts everyone sees, and the names unless the organizer hid them. */
+function rsvpResults(ev, origin) {
+  const c = ev.rsvpCount;
+  const o = ev.options?.[0];
+  const when = o ? span(o.start, o.end, { ...ev, slotMinutes: o.end - o.start >= 86_400_000 ? 1440 : 0 }) : null;
+  const by = (status) => (ev.participants || []).filter((p) => p.rsvp?.status === status).map((p) => p.name);
+  const spots = ev.rsvp?.cap != null ? ` of ${ev.rsvp.cap} spots` : '';
+  return {
+    title: ev.title,
+    link: `${origin}/e/${ev.id}`,
+    timezone: ev.timezone,
+    ...(when && { when }),
+    going: c.going,
+    maybe: c.maybe,
+    cantGo: c.no,
+    waitlist: c.waitlist,
+    ...(c.spotsLeft != null && { spotsLeft: c.spotsLeft }),
+    summary: `${c.going} going${spots}${c.waitlist ? `, ${c.waitlist} on the waitlist` : ''}, ${c.maybe} maybe, ${c.no} can’t go.`,
+    ...(!ev.hideNames && { who: { going: by('going'), waitlist: by('waitlist'), maybe: by('maybe'), cantGo: by('no') } }),
+  };
 }
 
 /** "Fri, Nov 6 – Sun, Nov 8" or "Fri, Nov 6, 7:00 PM – 9:00 PM": a ranked stretch, in the poll's time zone. */
