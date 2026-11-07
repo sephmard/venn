@@ -129,6 +129,24 @@ test('once the date is picked, a new guest just says if they can make it', async
   expect(ev.participants.find((p) => p.name === 'Riley').availability).toEqual({ [day(dates[1])]: 2 });
 });
 
+test('once the date is picked, a guest’s own answer speaks of that date alone', async ({ page, request }) => {
+  const { id, adminToken } = await datesPoll(request, []);
+  const bo = await (
+    await request.post(`/api/events/${id}/participants`, {
+      data: { name: 'Bo', availability: { [day(dates[0])]: 2, [day(dates[1])]: 2 } },
+    })
+  ).json();
+  await page.goto(`/e/${id}#edit=${bo.id}.${bo.editToken}`);
+  await expect(page.locator('#my-picks')).toContainText('2 yes');
+  await finalize(request, id, adminToken, day(dates[1]));
+  await page.reload();
+  const picks = page.locator('#my-picks');
+  await expect(picks).toHaveText(/Your answer:\s*✓\s*you can make it/);
+  await expect(picks).not.toContainText(/Jan 10|2 yes|other/);
+  await page.locator('#answer-final [data-final-vote="0"]').click();
+  await expect(picks).toHaveText(/Your answer:\s*×\s*you can’t make it/);
+});
+
 test('the organizer picks the whole overlap, and the timeline marks all of it', async ({ page, request, isMobile }) => {
   const at = (h) => Date.parse(`2030-01-08T${h}:00:00-05:00`);
   const { id, adminToken } = await (
