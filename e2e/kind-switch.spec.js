@@ -72,6 +72,7 @@ test('if the Date form can’t load, the vote form comes back working and says s
 // Seph (2026-11-07): going between Date, Vote and RSVP, the switch and its line stay put, right
 // under the heading; whatever differs (the Use AI box, the sections) comes after them.
 test('the switch and its line stay in place on all three forms', async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 560 }); // a short phone: the first field starts below the fold
   await page.goto('/new');
   const sw = page.locator('.kind-switch');
   const where = async () => [(await sw.boundingBox()).y, (await page.locator('#kind-note').boundingBox()).y];
@@ -86,6 +87,7 @@ test('the switch and its line stay in place on all three forms', async ({ page }
     await expect(page).toHaveURL(new RegExp(`${path}$`));
     await expect(page.locator('#create')).not.toHaveAttribute('aria-busy', 'true');
     expect(await where()).toEqual(first);
+    expect(await page.evaluate(() => scrollY)).toBe(0); // focusing the form's first field doesn't scroll it
     const h1 = await page.locator('#create h1').boundingBox();
     expect(first[0] - (h1.y + h1.height)).toBeLessThan(24); // nothing between the heading and the switch
   }
