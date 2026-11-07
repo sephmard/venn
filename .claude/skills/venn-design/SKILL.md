@@ -219,6 +219,11 @@ the same PR** (and CLAUDE.md if it's a rule that matters in review).
 
 - Simple and sexy. Four values, framed as benefits (what people get), not features. No feature
   promo sections on the home page (the brand-template section was taken off for this).
+- **The three kinds** (Seph, 2026-11-07): right after the hero, "One link, three ways." and three
+  cards, Date, Vote and RSVP, each with the same line as under the create form's switch
+  (`KIND_NOTES` in create.js; change both together) and opening its form. Each card's emoji sits in
+  a circle in one of the hero Venn's colours (neon rings in retro). Three columns on desktop; on
+  phones, three slim rows with the circle on the left. Create a Venn stays the one big button.
 - **Retro is the default, for the website and for new polls.** The site's footer has **Classic mode**
   (a switch, off) for the classic look, remembered in the browser. The home page's address says
   which: `venn.day` for retro, `venn.day/classic` for classic, so a copied link previews the look

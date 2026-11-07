@@ -73,3 +73,22 @@ test('Works with Claude: one quiet line under Create a Venn, to Venn’s page in
   await expect(page.locator('.hero .claude-note img, .hero .claude-note svg')).toHaveCount(0);
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
 });
+
+test('the three kinds: each card opens its form, with the same line the form shows', { tag: '@site' }, async ({ page }) => {
+  for (const [name, path] of [
+    ['Date', '/new'],
+    ['Vote', '/new/topic'],
+    ['RSVP', '/new/rsvp'],
+  ]) {
+    await page.goto('/');
+    const card = page.locator('.kinds').getByRole('link', { name: new RegExp(`^${name} `) });
+    await expect(card).toHaveAttribute('href', path);
+    const line = (await card.locator('span').last().textContent()).trim();
+    expect((await card.boundingBox()).height).toBeGreaterThanOrEqual(44);
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+    await card.click();
+    await expect(page).toHaveURL(new RegExp(`${path}$`));
+    await expect(page.locator('.kind-switch [aria-current="page"]')).toContainText(name);
+    await expect(page.locator('#kind-note')).toHaveText(line);
+  }
+});
