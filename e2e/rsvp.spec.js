@@ -22,9 +22,12 @@ async function createRsvp(page, { cap = null, plusOnes = false, approve = false 
   await expect(page).toHaveURL(/\/new\/rsvp$/);
   await expect(page.getByRole('heading', { name: 'When is it?' })).toBeVisible();
   await page.getByLabel('Name of your poll').fill('Summer party');
-  await page.getByLabel('Date').fill('2031-06-07');
-  await page.getByLabel('Starts').fill('19:00');
-  await page.getByLabel('Ends').fill('22:00');
+  // The calendars of /new pick the one time: a day, then the evening of it.
+  await page.locator('#r-when .cal-day:not(:disabled)').nth(3).click();
+  await expect(page.locator('#r-pick')).toContainText('All day');
+  await page.getByRole('radio', { name: 'Parts of day' }).click();
+  await expect(page.locator('#r-pick')).toContainText('Evening');
+  const day = (await page.locator('#r-pick').textContent()).split(' · ')[0];
   if (cap) {
     await page.getByRole('switch', { name: 'Limit spots' }).check();
     await page.getByRole('spinbutton', { name: 'Spots' }).fill(String(cap));
@@ -38,6 +41,7 @@ async function createRsvp(page, { cap = null, plusOnes = false, approve = false 
   await page.locator('.party').waitFor({ state: 'detached' });
   await expect(page).toHaveURL(/\/e\/\w+$/);
   await expect(page.getByRole('heading', { name: 'Guest list' })).toBeVisible();
+  await expect(page.locator('.banner-final')).toContainText(day);
   return page.url();
 }
 
@@ -55,7 +59,6 @@ async function rsvp(browser, url, name, answer, guests = null) {
 
 test('an RSVP with spots: guests go in order, then a waitlist', async ({ page, browser }) => {
   const url = await createRsvp(page, { cap: 2, plusOnes: true });
-  await expect(page.locator('.banner-final')).toContainText('Sat, Jun 7');
   await expect(page.locator('#rsvp-spots')).toHaveText('2 spots left');
 
   const ana = await rsvp(browser, url, 'Ana', 'Going', 1);
@@ -147,4 +150,23 @@ test('a white-label RSVP from a brand template, on its own page and inside anoth
   await page.getByRole('button', { name: 'RSVP', exact: true }).click();
   await expect(page.locator('#save-state')).toHaveText(/You’re going/);
   await expect(page.locator('#rsvp-spots')).toHaveText('4 spots left');
+});
+
+test('the time is picked on the same calendars as a date poll: a day, a part of it, or hours', async ({ page }) => {
+  await page.goto('/new/rsvp');
+  await expect(page.locator('#r-pick')).toHaveText('Tap a day.');
+  await page.locator('#r-when .cal-day:not(:disabled)').nth(2).click();
+  // A second day replaces the first: an RSVP is for one time.
+  await page.locator('#r-when .cal-day:not(:disabled)').nth(4).click();
+  await expect(page.locator('#r-when .cal-day[aria-pressed="true"]')).toHaveCount(1);
+  const day = (await page.locator('#r-pick').textContent()).split(' · ')[0];
+  await page.getByRole('radio', { name: 'Parts of day' }).click();
+  await expect(page.locator('#r-pick')).toHaveText(`${day} · Evening, 6 – 10 PM`);
+  await page.getByRole('radio', { name: 'Hours' }).click();
+  await expect(page.locator('#r-when .tg-block')).toHaveCount(1);
+  await expect(page.locator('#r-pick')).toHaveText(`${day} · Evening, 6 – 10 PM`); // the same times
+  await page.getByRole('radio', { name: 'Days' }).click();
+  await expect(page.locator('#r-pick')).toHaveText(`${day} · All day`);
+  expect(await noSideways(page)).toBe(true);
+  await noBlockingA11y(page, 'RSVP create form');
 });
