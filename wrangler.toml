@@ -81,7 +81,9 @@ database_name = "venn"
 database_id = "REPLACE_WITH_YOUR_D1_DATABASE_ID"
 
 # The public site runs on venn.day. The deploy workflow adds the domain from the
-# CUSTOM_DOMAIN repository variable, so forks never try to claim it. To do it by hand:
+# CUSTOM_DOMAIN repository variable, so forks never try to claim it, and then turns off the
+# workers.dev address so the site answers only on its own domain. To do it by hand, add
+# workers_dev = false and preview_urls = false at the top of this file, and:
 # [[routes]]
 # pattern = "venn.day"
 # custom_domain = true
