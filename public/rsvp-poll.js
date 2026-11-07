@@ -126,11 +126,12 @@ export async function renderRsvp(ctx) {
   /** The date, big, and a way to put it in a calendar. */
   function when() {
     const { start, end } = ev.options[0];
-    const tz = allDaySpan(start, end, ev.timezone) ? ev.timezone : localTz;
+    const allDay = allDaySpan(start, end, ev.timezone); // { startDate, endDate }, or null
+    const tz = allDay ? ev.timezone : localTz;
     const d = utcToZoned(start, tz).date;
     const oneDay = d === utcToZoned(end - 1, tz).date;
     const big = oneDay
-      ? `<span class="nowrap">${esc(fmtDay.format(dateParts(d)))},</span> <span class="nowrap">${esc(fmtTimeRange(start, end, tz))}</span>`
+      ? `<span class="nowrap">${esc(fmtDay.format(dateParts(d)))},</span> <span class="nowrap">${allDay ? 'All day' : esc(fmtTimeRange(start, end, tz))}</span>`
       : esc(fmtWhen(start, end, tz));
     const info = {
       title: ev.title,
@@ -138,7 +139,7 @@ export async function renderRsvp(ctx) {
       location: ev.location,
       start,
       end,
-      allDay: !!allDaySpan(start, end, ev.timezone),
+      allDay, // the calendars want its dates, not true
     };
     // The organizer's calendar invites everyone going who gave their email (add-to-calendar.js).
     const guests = ev.isAdmin
