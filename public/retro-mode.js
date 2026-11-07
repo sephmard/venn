@@ -33,8 +33,10 @@
   const apply = () => {
     root.classList.toggle('retro', on);
     // What the stylesheet can't swap: the tab icon, the browser bar's colour, Finn's stickers.
-    const icon = document.querySelector('link[rel="icon"][type="image/svg+xml"]');
-    if (icon) icon.href = on ? '/logo-retro.svg?v=1' : '/favicon.svg?v=5';
+    for (const l of document.querySelectorAll('link[rel="icon"]'))
+      l.href = l.href.replace(/\/(favicon|logo-retro)\.(svg|ico)\?v=\d+/, (_, n, x) =>
+        on ? `/logo-retro.${x}?v=1` : `/favicon.${x}?v=5`,
+      );
     for (const m of document.querySelectorAll('meta[name="theme-color"]'))
       m.content = on ? '#0d0221' : m.media.includes('dark') ? '#0f1112' : '#faf8f4';
     for (const img of document.querySelectorAll('[data-stickers] img'))

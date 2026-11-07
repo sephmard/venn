@@ -493,13 +493,20 @@ test('poll links get their own preview in chat apps, before and after the date i
   await expect(page).toHaveTitle('Dinner at <Finn’s> · Venn');
 });
 
-test('poll pages get their own tab icon', async ({ page }) => {
+test("every page's tab shows Venn's logo; Classic mode's is the green one", async ({ page }) => {
   const icon = page.locator('link[rel="icon"][type="image/svg+xml"]');
-  await page.goto('/new');
-  await expect(icon).toHaveAttribute('href', /\/favicon\.svg/);
-  await page.goto('/e/doesnotexist');
-  await expect(icon).toHaveAttribute('href', /\/favicon-poll\.svg/);
-  await expect(page.locator('link[rel="icon"][sizes]')).toHaveAttribute('href', /\/favicon-poll\.ico/);
+  const ico = page.locator('link[rel="icon"][sizes]');
+  for (const path of ['/new', '/e/doesnotexist']) {
+    await page.goto(path);
+    await expect(icon).toHaveAttribute('href', /\/logo-retro\.svg\?v=1$/);
+    await expect(ico).toHaveAttribute('href', /\/logo-retro\.ico\?v=1$/);
+  }
+  await page.evaluate(() => localStorage.setItem('venn:retro', '0'));
+  for (const path of ['/new', '/e/doesnotexist']) {
+    await page.goto(path);
+    await expect(icon).toHaveAttribute('href', /\/favicon\.svg\?v=5$/);
+    await expect(ico).toHaveAttribute('href', /\/favicon\.ico\?v=5$/);
+  }
 });
 
 test('organizer sets up a webhook from the Notifications panel', async ({ page }) => {
@@ -1269,8 +1276,8 @@ test('installable: manifest and icons are served', async ({ request }) => {
   const manifest = await (await request.get('/manifest.webmanifest')).json();
   expect(manifest.name).toBe('Venn');
   for (const icon of manifest.icons) expect((await request.get(icon.src)).status()).toBe(200);
-  // Browser tabs: SVG and .ico favicons for the app and for poll pages, and the website's retro logo.
-  for (const path of ['/favicon.svg', '/favicon.ico', '/favicon-poll.svg', '/favicon-poll.ico', '/logo-retro.svg']) {
+  // Browser tabs: Venn's logo and Classic mode's, as SVG and .ico.
+  for (const path of ['/favicon.svg', '/favicon.ico', '/logo-retro.svg', '/logo-retro.ico']) {
     const res = await request.get(path);
     expect(res.status()).toBe(200);
     expect(res.headers()['content-type']).toMatch(/image/);
