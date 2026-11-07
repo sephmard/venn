@@ -134,9 +134,11 @@ export async function copy(text, done = 'Link copied', button = null) {
   }
   toast(done);
   if (button && button.textContent !== 'Link copied ✓') {
-    const was = button.textContent;
+    // As it was, markup and all ("Copy<span> template link</span>": the words are for wide screens).
+    const key = 'innerHTML' in button ? 'innerHTML' : 'textContent';
+    const was = button[key];
     button.textContent = 'Link copied ✓';
-    setTimeout(() => (button.textContent = was), 2e3);
+    setTimeout(() => (button[key] = was), 2e3);
   }
   return true;
 }

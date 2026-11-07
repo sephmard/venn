@@ -119,6 +119,16 @@ test('copy puts the text on the clipboard and says so on the button, or shows it
   assert.equal(button.textContent, 'Link copied ✓'); // for two seconds, then as it was
   t.mock.timers.tick(2000);
   assert.equal(button.textContent, 'Copy template link');
+  // A button with markup (a short "Copy" for wide screens) gets its markup back, not just its words.
+  const marked = {
+    innerHTML: '<span class="copy-what">Copy template link</span><span class="copy-short">Copy</span>',
+    textContent: '',
+  };
+  const was = marked.innerHTML;
+  await ui.copy('https://venn.day/new?brand=abc', 'Template link copied', marked);
+  assert.equal(marked.textContent, 'Link copied ✓');
+  t.mock.timers.tick(2000);
+  assert.equal(marked.innerHTML, was);
 
   // The clipboard says no: a selected, read-only box under the button's row, never prompt().
   globalThis.prompt = () => assert.fail('no browser dialogs');

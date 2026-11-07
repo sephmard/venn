@@ -188,7 +188,14 @@ the same PR** (and CLAUDE.md if it's a rule that matters in review).
   taking all the room the step leaves, the step's settings on the page (no card, no heading: the bar
   names it) and as tall as they need (scrolling past half the screen), and one bar: **Back · "3/9
   Colours" · Next**, where the step's name opens every step. Starting looks are one row, swiped
-  sideways. Signing in to save is the whole screen, with "Back to your template".
+  sideways. Signing in to save is the whole screen, with "Back to your template". **Wide screens**
+  (Seph, 2026-11-04: "looks rough in desktop"; Ivy's spec): the page widens to 1280px; at 1200 and
+  up the steps list, the step (at least 520px, its content at most 640px) and the preview; at
+  960–1199 no list but the step menu ("3 of 10 · Colours") at the top of the step. Each step is a
+  card with Back · Save · Next in one row right under it, and "N of 10" stays for screen readers
+  only. A link reads label, field with a short **Copy** beside it (its name keeps which link), then
+  the hint; where the column is narrow, Copy goes under the field with its full name. Phones as
+  they were.
 - Colours are made readable (WCAG AA) rather than refused. Answers are green, amber and pink unless the template picks its own. On a branded poll the brand's look replaces retro.
 - **Always the Venn retro logo** (Seph, 2026-11-01): the header shows the retro logo in every look, classic included; the organization's logo sits beside the poll, never in place of Venn's.
 - Its polls show the logo and name above the poll for everyone. Deleted, they're plain Venn again.
