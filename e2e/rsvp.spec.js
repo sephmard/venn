@@ -170,3 +170,20 @@ test('the time is picked on the same calendars as a date poll: a day, a part of 
   expect(await noSideways(page)).toBe(true);
   await noBlockingA11y(page, 'RSVP create form');
 });
+
+test('an all-day RSVP opens, for the organizer and for guests', async ({ page, browser }) => {
+  await page.goto('/new/rsvp');
+  await page.getByLabel('Name of your poll').fill('Picnic');
+  await page.locator('#r-when .cal-day:not(:disabled)').nth(3).click();
+  await expect(page.locator('#r-pick')).toContainText('All day');
+  await page.getByLabel(/Your name/).fill('Priya');
+  await page.click('#submit');
+  await page.locator('.party-go').click();
+  await page.locator('.party').waitFor({ state: 'detached' });
+  await expect(page.locator('.banner-final')).toContainText('All day');
+  await expect(page.getByRole('heading', { name: 'Guest list' })).toBeVisible();
+  const g = await (await browser.newContext()).newPage();
+  await g.goto(page.url());
+  await expect(g.locator('.banner-final')).toContainText('All day');
+  await expect(g.getByRole('button', { name: 'Going', exact: true })).toBeVisible();
+});
