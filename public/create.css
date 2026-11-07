@@ -982,7 +982,11 @@ button.emoji-tile:focus-visible {
 /* Date or Vote: the same small switch at the top of both forms. */
 .kind-switch {
   max-width: 280px;
-  margin: -8px 0 20px;
+  margin: -8px 0 0;
+}
+/* What the kind on is for, under the switch. */
+.kind-note {
+  margin: 8px 0 20px;
 }
 /* The form being left: quieter after a moment, so a quick switch doesn't flash. */
 .create[aria-busy='true'] > :not(.kind-switch) {
