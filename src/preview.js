@@ -24,6 +24,8 @@ const GENERIC = {
 };
 
 const POLL_PATH = /^\/e\/([A-Za-z0-9]{1,40})\/?$/;
+// The create forms, which a template's share link (/new?brand=<id>) opens.
+const NEW_PATH = /^\/new(?:\/(?:pick|free|topic))?\/?$/;
 
 const escAttr = (s) =>
   String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
@@ -175,7 +177,9 @@ export async function appShell(html, opts) {
  * one): a white-label template (src/embed.js) leaves Venn's name out of the page from the first
  * paint, and its embed page (/embed/<id>) may be framed by the template's websites.
  */
-export async function pollShell(html, { pathname, origin, store }) {
+export async function pollShell(html, { pathname, search = '', origin, store }) {
+  if (NEW_PATH.test(pathname))
+    return { html: await templateShell(html, { pathname, search, origin, store }), headers: frameHeaders() };
   const embed = EMBED_PATH.exec(pathname);
   const m = embed || POLL_PATH.exec(pathname);
   if (!m) return { html, headers: frameHeaders() };
@@ -203,4 +207,33 @@ export async function pollShell(html, { pathname, origin, store }) {
       )
     : previewTags(preview, { origin, url });
   return { html: injectTags(shell, tags), headers: frameHeaders(embed && brand?.embedSites) };
+}
+
+/**
+ * A template's share link (/new?brand=<id>): its preview names the template, so a chat shows
+ * whose poll form it opens. A white-label template's leaves Venn's name and image out. Any other
+ * create link, or a template that's gone, keeps the shell as it is.
+ */
+async function templateShell(html, { pathname, search, origin, store }) {
+  const id = new URLSearchParams(search).get('brand');
+  if (!id || !/^[A-Za-z0-9]{1,32}$/.test(id)) return html;
+  let brand = null;
+  try {
+    brand = await store.getBrand(id);
+  } catch (e) {
+    console.error(e);
+  }
+  const name = String(brand?.name || '').trim();
+  if (!name) return html;
+  const url = `${origin}${pathname}?brand=${id}`;
+  const title = `Make a poll with ${name}`;
+  if (brand.hideVenn)
+    return injectTags(
+      html,
+      previewTags(
+        { title, description: 'Find the day that works for everyone. No sign-up.', image: null },
+        { origin, url, pageTitle: title, siteName: name },
+      ),
+    );
+  return injectTags(html, previewTags({ title, description: GENERIC.description, image: OG_IMAGES.retroVote }, { origin, url }));
 }

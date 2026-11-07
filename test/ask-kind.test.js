@@ -102,6 +102,10 @@ test('a question for the group reads as one; a plan with no time does not', () =
     'is the book swap on',
     'what kind of dog should we get',
     'Ask the team whether to cancel',
+    // "free" inside a word isn't about time (Remy's note on #286).
+    'Should we get a gluten-free cake?',
+    'Is the sugar-free one ok?',
+    'Should the chickens be free-range?',
   ])
     assert.equal(readsAsQuestion(p), true, p);
   for (const p of [
@@ -120,6 +124,7 @@ test('a question for the group reads as one; a plan with no time does not', () =
     'Dinner with the Smiths sometime?',
     'Book club with Sam?',
     'Are you free for lunch?',
+    'Who is free Friday?',
   ])
     assert.equal(readsAsQuestion(p), false, p);
 });

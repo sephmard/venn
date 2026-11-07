@@ -134,7 +134,7 @@ async function serveStatic(url, res, store) {
   // Poll pages carry the poll's own link preview (src/preview.js), as on Cloudflare.
   let headers = SECURITY_HEADERS;
   if (status === 200 && isAppRoute(pathname))
-    ({ html: data, headers } = await pollShell(data.toString(), { pathname, origin: url.origin, store }));
+    ({ html: data, headers } = await pollShell(data.toString(), { pathname, search: url.search, origin: url.origin, store }));
   // ...and /classic, the home page in its classic look, the classic one.
   if (status === 200 && pathname === '/classic') data = homePage(data.toString(), url);
   res.writeHead(status, { ...headers, 'content-type': TYPES[extname(file)] || 'application/octet-stream' });
