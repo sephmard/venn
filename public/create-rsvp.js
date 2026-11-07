@@ -140,6 +140,6 @@ export function renderRsvpForm() {
     );
   }
   update();
-  $('#title').focus();
+  $('#title').focus({ preventScroll: true });
   return () => when.cleanup();
 }
