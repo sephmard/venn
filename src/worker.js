@@ -70,7 +70,12 @@ async function servePage(request, env, url) {
     // poll pages carry the poll's own link preview (src/preview.js), so the page isn't app.html as it is.
     const asset = await env.ASSETS.fetch(new Request(new URL('/app', url)));
     // An embed page (src/embed.js) may be framed by its template's websites, so it brings its own headers.
-    const shell = await pollShell(await asset.text(), { pathname: url.pathname, origin: siteOrigin(env, url), store });
+    const shell = await pollShell(await asset.text(), {
+      pathname: url.pathname,
+      search: url.search,
+      origin: siteOrigin(env, url),
+      store,
+    });
     const html = shell.html;
     const headers = new Headers(asset.headers);
     for (const k of ['content-length', 'content-encoding', 'etag', 'last-modified', 'x-frame-options']) headers.delete(k);

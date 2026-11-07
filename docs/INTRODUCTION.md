@@ -113,7 +113,8 @@ src/
   notify.js        email and webhook notifications
   ai.js            AI features (Claude)
   routes.js        which paths the app handles
-  preview.js       each poll's link preview (title, date, image), put into the app shell for /e/:id
+  preview.js       each poll's link preview (title, date, image), put into the app shell for /e/:id,
+                   and a template share link's (/new?brand=:id)
   worker.js        Cloudflare Worker entry point
 server.js          Node server entry point
 test/              unit and API tests (node:test)

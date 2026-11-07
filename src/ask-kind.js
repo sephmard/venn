@@ -68,9 +68,9 @@ export function readsAsQuestion(prompt) {
   );
 }
 // A question about getting together ("Can we do book club sometime?", "Who can make it?") still
-// asks when, so it stays the date poll's.
+// asks when, so it stays the date poll's. "Free" counts only on its own: "gluten-free" isn't a time.
 const ASKS_WHEN =
-  /\b(?:when(?:['’]s)?|sometime|soon|free|available|meet(?:ing)? up|get together|catch up|make it|hang out|how about)\b|\bwho (?:can|could) (?:make|come|join)\b/i;
+  /\b(?:when(?:['’]s)?|sometime|soon|(?<![-‐])free(?![-‐])|available|meet(?:ing)? up|get together|catch up|make it|hang out|how about)\b|\bwho (?:can|could) (?:make|come|join)\b/i;
 
 /**
  * The fixed time of a vote whose days come to one date ("pizza or tacos on Friday?"): "Friday,
