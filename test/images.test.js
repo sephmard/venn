@@ -420,3 +420,74 @@ test('images: a poll’s icon is its picture or an emoji, never both', () => {
   assert.equal(iconOf({ emoji: '🎂' }).emoji, '🎂');
   assert.match(iconOf().hint, /^Or use a picture of your own/);
 });
+
+test('API: a white-label poll’s link preview shows its card only when drawn with the template’s logo', async () => {
+  const made = (await call('/api/brands', { method: 'POST', body: { name: 'Trailblazers', hideVenn: true } })).data;
+  const other = (await call('/api/brands', { method: 'POST', body: { name: 'Other', hideVenn: true } })).data.id;
+  const { id, admin } = await newPoll({ brand: made.id });
+  const image = (body) => call(`/api/events/${id}/image`, { method: 'PUT', body, headers: admin });
+  const og = async () => {
+    const html = await (await fetch(`${baseUrl}/e/${id}`)).text();
+    assert.doesNotMatch(html, /og\.png|og-retro\.png/);
+    return [html.match(/property="og:image" content="([^"]*)"/)?.[1], html.match(/name="twitter:card" content="([^"]*)"/)[1]];
+  };
+
+  // A card drawn with Venn's mark (from before, or for another template): the poll's picture, small.
+  let { v } = (await image({ icon: b64(JPEG), card: b64(JPEG), cardBrand: other })).data.image;
+  assert.deepEqual(await og(), [`${baseUrl}/api/events/${id}/icon.jpg?v=${v}`, 'summary']);
+  // With a logo, the template's logo instead.
+  const logo = await call(`/api/brands/${made.id}/logo`, {
+    method: 'PUT',
+    body: { logo: b64(PNG) },
+    headers: { 'x-admin-token': made.adminToken },
+  });
+  assert.equal(logo.status, 200);
+  const [src, kind] = await og();
+  assert.match(src, new RegExp(`^${baseUrl}/api/brands/${made.id}/logo\\?v=\\d+$`));
+  assert.equal(kind, 'summary');
+  // Drawn with its template's logo and name: the card, big. Editing the poll keeps it.
+  ({ v } = (await image({ icon: b64(JPEG), card: b64(JPEG), cardBrand: made.id })).data.image);
+  const card = [`${baseUrl}/api/events/${id}/card.jpg?v=${v}`, 'summary_large_image'];
+  assert.deepEqual(await og(), card);
+  assert.equal(
+    (await call(`/api/events/${id}`, { method: 'PUT', body: { ...poll, title: 'Cake!' }, headers: admin })).status,
+    200,
+  );
+  assert.deepEqual(await og(), card);
+  // A new picture without it, or none at all, and the card isn't shown.
+  await image({ icon: b64(JPEG), card: b64(JPEG) });
+  assert.equal((await og())[1], 'summary');
+  await image({ icon: b64(JPEG), card: b64(JPEG), cardBrand: made.id });
+  await call(`/api/events/${id}/image`, { method: 'DELETE', headers: admin });
+  assert.match((await og())[0], /\/logo\?v=/);
+});
+
+test('pictures: a white-label template’s card has its logo and name, no Venn and no Finn', () => {
+  const logo = { width: 400, height: 100 }; // four times as wide as tall: as wide as a logo goes
+  const org = { name: 'Tarheel Trailblazers', logo };
+  const L = layoutPreview(measure, 'Hike', true, org);
+  assert.equal(L.retro, false); // the plain look, never Venn's retro one
+  assert.deepEqual(L.brand.org.logo, { x: 80, y: 104 - 32, w: 256, h: 64 });
+  assert.equal(L.brand.org.name.x, 80 + 256 + 16);
+  assert.ok(L.brand.org.name.x + L.brand.org.name.maxWidth <= L.tile.x - 48);
+
+  const { ctx, calls, texts } = fakeContext();
+  const picture = { fake: true };
+  drawPreview(ctx, L, picture, { sticker: true }, logo);
+  assert.deepEqual(texts(), ['Tarheel Trailblazers', 'Hike', 'Find the day that works for everyone.']);
+  assert.deepEqual(
+    calls.filter((c) => c[0] === 'drawImage').map((c) => c[1]),
+    [picture, logo],
+  );
+  assert.equal(calls.filter((c) => c[0] === 'arc').length, 0); // no Venn mark
+
+  // A logo with the name in it can leave the name out; with no logo, the name alone.
+  const quiet = fakeContext();
+  drawPreview(quiet.ctx, layoutPreview(measure, 'Hike', false, { ...org, hideName: true }), picture, null, logo);
+  assert.deepEqual(quiet.texts(), ['Hike', 'Find the day that works for everyone.']);
+  const plain = fakeContext();
+  const named = layoutPreview(measure, 'Hike', false, { name: 'Acme', hideName: true, logo: null });
+  assert.equal(named.brand.org.name.x, 80);
+  drawPreview(plain.ctx, named, picture);
+  assert.deepEqual(plain.texts(), ['Acme', 'Hike', 'Find the day that works for everyone.']);
+});

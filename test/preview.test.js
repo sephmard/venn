@@ -425,3 +425,24 @@ test("Worker: when making a page fails, Venn's own page instead of Cloudflare's 
   // And once the assets are back, pages are made as before.
   assert.equal((await fetchPath('/nope')).status, 404);
 });
+
+test("a white-label poll's tab shows its template's logo, not Venn's icon", async () => {
+  const polls = {
+    a: { id: 'a', title: 'Hike', brand: 'wl' },
+    b: { id: 'b', title: 'Hike', brand: 'nologo' },
+    c: { id: 'c', title: 'Hike', brand: 'club' },
+  };
+  const brands = {
+    wl: { id: 'wl', name: 'Acme', hideVenn: true, logoV: 7 },
+    nologo: { id: 'nologo', name: 'Acme', hideVenn: true, logoV: null },
+    club: { id: 'club', name: 'Club', logoV: 3 },
+  };
+  const store = { getPreview: async (id) => polls[id] || null, getBrand: async (id) => brands[id] || null };
+  const at = (id) => appShell(SHELL, { pathname: `/e/${id}`, origin: 'https://venn.day', store });
+  const icons = (html) => [...html.matchAll(/<link rel="icon"[^>]*>/g)].map((m) => m[0]);
+
+  assert.deepEqual(icons(await at('a')), ['<link rel="icon" href="/api/brands/wl/logo?v=7" />']);
+  // No logo, or not white label: Venn's icons, as they are.
+  assert.deepEqual(icons(await at('b')), icons(SHELL));
+  assert.deepEqual(icons(await at('c')), icons(SHELL));
+});

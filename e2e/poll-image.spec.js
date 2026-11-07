@@ -203,3 +203,53 @@ test("a poll's tile gets one of Venn's own backgrounds: picked on the tile, show
   expect((await (await request.get(`/api/events/${id}`)).json()).tile).toBeUndefined();
   await expect(page.locator('.poll-head .emoji-tile')).not.toHaveAttribute('data-tile', /.*/);
 });
+
+test("a white-label template's polls get a link preview with its logo and name, and no Finn", async ({ page, request }) => {
+  // A white-label template with a logo: a wide one, as most are.
+  const made = await (await request.post('/api/brands', { data: { name: 'Trailblazers', hideVenn: true } })).json();
+  await page.goto('/');
+  const logo = await page.evaluate(() => {
+    const c = Object.assign(document.createElement('canvas'), { width: 300, height: 100 });
+    const ctx = c.getContext('2d');
+    ctx.fillStyle = '#13294b';
+    ctx.fillRect(0, 0, 300, 100);
+    ctx.fillStyle = '#7bafd4';
+    ctx.fillRect(20, 20, 260, 60);
+    return c.toDataURL('image/png').split(',')[1];
+  });
+  const put = await request.put(`/api/brands/${made.id}/logo`, {
+    data: { logo },
+    headers: { 'x-admin-token': made.adminToken },
+  });
+  expect(put.ok()).toBe(true);
+
+  await page.goto(`/new/pick?brand=${made.id}`);
+  await expect(page.locator('.brand-bar')).toContainText('Trailblazers');
+  await page.fill('#title', 'Saturday hike');
+  await page.fill('#organizer', 'Sam');
+  await addOptions(page, 2);
+  await page.getByRole('button', { name: 'Change the icon' }).click();
+  await page.setInputFiles('#icon-file', {
+    name: 'hike.png',
+    mimeType: 'image/png',
+    buffer: Buffer.from(await fixture(page), 'base64'),
+  });
+  const preview = page.getByRole('img', { name: "How your poll's link looks when it's shared" });
+  await expect.poll(() => preview.evaluate((img) => img.naturalWidth)).toBe(1200);
+  // Finn is Venn's: not on this preview, and not offered.
+  await expect(page.getByRole('group', { name: 'Finn on your link preview' })).toBeHidden();
+
+  await page.click('#submit');
+  await page.getByRole('button', { name: /^(View poll|Open .+ →)$/ }).click();
+  await expect(page).toHaveURL(/\/e\/\w+$/);
+  const id = page.url().split('/e/')[1];
+  const ev = await (await request.get(`/api/events/${id}`)).json();
+
+  // Chat apps get the card, drawn with the template's logo and name; the page names the template.
+  const html = await (await request.get(`/e/${id}`)).text();
+  expect(/<meta property="og:image" content="([^"]+)"/.exec(html)[1]).toMatch(
+    new RegExp(`/api/events/${id}/card\\.jpg\\?v=${ev.image.v}$`),
+  );
+  expect(html).toContain('<meta property="og:site_name" content="Trailblazers" />');
+  expect(html).toContain('<meta name="twitter:card" content="summary_large_image" />');
+});

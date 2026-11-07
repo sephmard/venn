@@ -43,11 +43,15 @@ jobs:
         env:
           D1_DATABASE_ID: ${{ vars.D1_DATABASE_ID }}
         run: sed -i "s/REPLACE_WITH_YOUR_D1_DATABASE_ID/${D1_DATABASE_ID}/" wrangler.toml
+      # With its own domain, the Worker answers only there: no workers.dev address and no
+      # per-version preview addresses on workers.dev. Without one (a fork), workers.dev stays on.
       - name: Set custom domain
         if: vars.CUSTOM_DOMAIN != ''
         env:
           CUSTOM_DOMAIN: ${{ vars.CUSTOM_DOMAIN }}
-        run: printf '\n[[routes]]\npattern = "%s"\ncustom_domain = true\n' "$CUSTOM_DOMAIN" >> wrangler.toml
+        run: |
+          sed -i '1i workers_dev = false\npreview_urls = false' wrangler.toml
+          printf '\n[[routes]]\npattern = "%s"\ncustom_domain = true\n' "$CUSTOM_DOMAIN" >> wrangler.toml
       - name: Send email with Cloudflare
         env:
           # Accepted as a variable or a secret, in any case, so a slip in the settings doesn't

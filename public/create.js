@@ -149,6 +149,8 @@ function noTemplate() {
 }
 /** The form is a white-label template's (it hides Venn), so it offers no AI. */
 export const whiteLabel = () => !!brand?.hideVenn;
+/** The white-label template the form is in, or null: its polls' link previews show its logo and name. */
+export const whiteLabelBrand = () => (brand?.hideVenn ? brand : null);
 
 // ---------- editing or duplicating a poll ----------
 
@@ -252,9 +254,7 @@ export function kindSwitch(on) {
   const brand = new URLSearchParams(location.search).get('brand');
   const q = brand ? `?brand=${encodeURIComponent(brand)}` : '';
   const link = (k, href, label) => `<a href="${href}${q}" data-link${k === on ? ' aria-current="page"' : ''}>${label}</a>`;
-  // The switch comes first, right under the heading, so it stays put whichever kind is on. The Use AI
-  // bar this form showed last time (ai-draft.js) follows the line, drawn with the switch so that
-  // going between kinds doesn't make it pop in a moment later and push the form down.
+  // The switch first, so it never moves; then the Use AI bar shown last time (ai-draft.js).
   const bar = askBars[`${on}|${brand || ''}`];
   return `<nav class="seg kind-switch" aria-label="Kind of Venn">${link('date', '/new', '📅 Date')}${link('topic', '/new/topic', '🗳️ Vote')}${link('rsvp', '/new/rsvp', '🎟️ RSVP')}</nav><p class="hint kind-note" id="kind-note">${KIND_NOTES[on]}</p>${err}${bar ? `<div class="ask" id="ask" data-early>${bar}</div>` : ''}`;
 }
