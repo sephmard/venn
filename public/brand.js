@@ -609,7 +609,6 @@ function showForm(b, token, start, draft = null) {
     <form id="brand-form" class="create brand-page brand-editor" novalidate>
       <h1>${b ? 'Your brand template' : 'Make a brand template'}</h1>
       <nav class="steps" aria-label="Steps"><ol>${stepList}</ol></nav>
-      ${previewBox(true)}
       <div class="step-panels">
         ${b ? panel('share', links(b, token, others)) : ''}
         ${panel(
@@ -774,6 +773,7 @@ function showForm(b, token, start, draft = null) {
         <button type="submit" class="btn" id="submit">${b ? 'Save' : 'Save template'}</button>
         <button type="button" class="btn btn-primary" id="next">Next</button>
       </div>
+      ${previewBox(true)}
     </form>`;
 
   const picked = (attr, key = attr) => $(`[data-${attr}][aria-checked="true"]`)?.dataset[key] || '';
@@ -858,6 +858,7 @@ function showForm(b, token, start, draft = null) {
     show();
   };
 
+  const mid = globalThis.matchMedia?.('(min-width: 960px) and (max-width: 1199px)');
   /** Open a step: its settings, and the part of the poll it changes. */
   const go = (i, { focus = true } = {}) => {
     at = Math.max(0, Math.min(ids.length - 1, i));
@@ -868,7 +869,7 @@ function showForm(b, token, start, draft = null) {
       else s.removeAttribute('aria-current');
       s.classList.toggle('done', n < at);
     }
-    $('#menu-of').textContent = `${at + 1}/${ids.length}`;
+    $('#menu-of').textContent = mid?.matches ? `${at + 1} of ${ids.length} ·` : `${at + 1}/${ids.length}`;
     $('#menu-name').textContent = steps[at][1];
     $('#step-menu').open = false;
     const last = at === ids.length - 1;
@@ -884,6 +885,17 @@ function showForm(b, token, start, draft = null) {
     // On a phone each step starts at its top.
     $('.step-panels').scrollTop = 0;
   };
+  // 960–1199 has no room for the steps list: the step menu goes to the top of the step column,
+  // before the step (so the order stays steps, step, Back, Save, Next), and back to the bar on phones.
+  const placeMenu = () => {
+    const menu = $('#step-menu');
+    if (!menu) return;
+    if (mid?.matches) $('.step-panels').prepend(menu);
+    else $('#back').after(menu);
+    $('#menu-of').textContent = mid?.matches ? `${at + 1} of ${ids.length} ·` : `${at + 1}/${ids.length}`;
+  };
+  if (mid) mid.onchange = placeMenu;
+  placeMenu();
   go(at, { focus: false });
   show();
   offerColours();
@@ -950,6 +962,7 @@ function showForm(b, token, start, draft = null) {
     offerColours();
   };
   for (const c of $$('[data-copy]')) c.onclick = () => copy(c.dataset.copy, c.dataset.done, c);
+  for (const i of $$('.link-row input')) i.onfocus = () => i.select();
   if ($('#b-leave')) $('#b-leave').onclick = () => leave(b);
   wireDefault(b);
   if (b) drawSharing(b, token);
@@ -1289,14 +1302,16 @@ const links = (b, token, others) => {
   const owner = b.role !== 'admin';
   return `
   <div class="brand-links">
+    <div class="link-block"><p class="link-label" aria-hidden="true">Template link</p>
     <p class="hint">Anyone with this link makes a new poll of their own in this look. They don’t see your polls or answers.</p>
-    <p class="link-row"><input type="text" readonly value="${esc(shareUrl(id))}" aria-label="Template link"><button type="button" class="btn btn-primary" data-copy="${esc(shareUrl(id))}" data-done="Template link copied">Copy template link</button></p>
+    <p class="link-row"><input type="text" readonly value="${esc(shareUrl(id))}" aria-label="Template link"><button type="button" class="btn btn-primary" data-copy="${esc(shareUrl(id))}" data-done="Template link copied"><span class="copy-what">Copy template link</span><span class="copy-short" aria-hidden="true">Copy</span></button></p></div>
     ${
       !owner
         ? '<p class="hint">Shared with you to edit: you can change it. Its owner shares it.</p>'
         : token
-          ? `<p class="hint">Your manage link changes this template. Keep it private, as nobody can send it to you again.</p>
-    <p class="link-row"><input type="text" readonly value="${esc(manageUrl(id, token))}" aria-label="Your manage link"><button type="button" class="btn" data-copy="${esc(manageUrl(id, token))}" data-done="Manage link copied. Keep it private.">Copy manage link</button></p>`
+          ? `<div class="link-block"><p class="link-label" aria-hidden="true">Your manage link</p>
+    <p class="hint">Your manage link changes this template. Keep it private, as nobody can send it to you again.</p>
+    <p class="link-row"><input type="text" readonly value="${esc(manageUrl(id, token))}" aria-label="Your manage link"><button type="button" class="btn" data-copy="${esc(manageUrl(id, token))}" data-done="Manage link copied. Keep it private."><span class="copy-what">Copy manage link</span><span class="copy-short" aria-hidden="true">Copy</span></button></p></div>`
           : // Kept with the account: no manage link to give, it opens wherever they sign in.
             '<p class="hint">You manage this template from your account. Sign in on any device and it’s in My polls.</p>'
     }

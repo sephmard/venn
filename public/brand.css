@@ -596,10 +596,205 @@
   .brand-page > * {
     grid-column: 1;
   }
+  .brand-page > .preview-box {
+    grid-column: 2;
+    grid-row: 1 / span 20;
+    align-self: start;
+    top: 16px;
+    margin: 0;
+    padding: 0;
+    border: 0;
+    background: none;
+  }
+  .brand-page #pv-frame {
+    width: 100%;
+    height: min(calc(100svh - 120px), 820px);
+    margin: 0;
+    border: 1.5px solid var(--border);
+    border-radius: var(--radius-lg);
+  }
+
+  /* The editor on wide screens (Ivy's spec, specs/builder-desktop.md; Seph, 2026-11-04: "looks rough
+     in desktop"): a wider page, the step column at least 520px, the step bar under its card. */
+  main:has(> .brand-editor),
+  main.brand-wide {
+    max-width: 1280px;
+    padding-inline: 24px;
+  }
   .brand-editor {
-    grid-template-columns: 220px minmax(0, 1fr) 400px;
+    grid-template-columns: minmax(0, 1fr) 360px;
     grid-template-rows: auto auto 1fr;
+    column-gap: 32px;
     align-items: start;
+  }
+  .brand-editor > h1 {
+    grid-column: 1;
+    margin: 0 0 20px;
+    font-size: 2rem;
+  }
+  .brand-editor .step-panels,
+  .brand-editor .step-bar {
+    grid-column: 1;
+    width: 100%;
+    max-width: 640px;
+  }
+  .brand-editor > .preview-box {
+    grid-column: 2;
+  }
+  /* The step's card. */
+  .brand-editor .step.sheet {
+    margin: 0;
+    padding: 24px;
+    border-radius: var(--radius-lg);
+  }
+  .brand-editor .step h2 {
+    margin: 0 0 16px;
+    font-size: 1.25rem;
+  }
+  /* "1 of 10" is for screen readers here: the steps list (or the step menu) shows where you are. */
+  .brand-editor .step h2 .step-of {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+  }
+  /* Back, then what's saved, Save and Next on the right, right under the card. */
+  .brand-editor .step-bar {
+    position: static;
+    flex-wrap: wrap;
+    justify-content: flex-start;
+    gap: 12px;
+    margin: 16px 0 0;
+    padding: 0;
+    border: 0;
+    background: none;
+  }
+  .brand-editor .step-bar .btn {
+    min-width: 120px;
+  }
+  .brand-editor .step-bar .error {
+    order: -1;
+    flex: 1 0 100%;
+  }
+  .brand-editor .step-bar .error:empty {
+    display: none;
+  }
+  .brand-editor .step-bar #back {
+    margin-right: auto;
+  }
+  .brand-editor .step-bar .save-state {
+    color: var(--muted);
+    font-size: 0.875rem;
+    white-space: nowrap;
+  }
+  /* Links: a label, the field taking the room with a short Copy beside it, then the hint; stacked
+     when the column is narrow (the container query below). */
+  .brand-editor .step-panels {
+    container-type: inline-size;
+  }
+  .brand-links .link-block {
+    display: flex;
+    flex-direction: column;
+    margin: 0 0 24px;
+  }
+  .brand-links .link-label {
+    display: block;
+    margin: 0 0 6px;
+    font-size: 0.875rem;
+    font-weight: 600;
+  }
+  .brand-links .link-block .hint {
+    order: 2;
+    margin: 8px 0 0;
+  }
+  .brand-links .link-row {
+    align-items: center;
+    margin: 0;
+  }
+  .brand-links .link-row input {
+    flex: 1 1 auto;
+    min-height: 44px;
+    font-size: 16px;
+  }
+  .brand-links .link-row .btn {
+    flex: none;
+    min-width: 96px;
+    min-height: 44px;
+  }
+  .brand-links .copy-what {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+  }
+  .brand-links .delete-row {
+    margin-top: 24px;
+    padding-top: 24px;
+    border-top: 1px solid var(--border);
+  }
+}
+@media (min-width: 960px) and (max-width: 1199px) {
+  .brand-editor .step-panels > .step-menu {
+    position: relative;
+    margin: 0 0 12px;
+  }
+  .brand-editor .step-panels > .step-menu summary {
+    display: inline-flex;
+    justify-content: flex-start;
+    padding: 0 16px;
+    border: 1.5px solid var(--border);
+    border-radius: 999px;
+    background: var(--surface);
+  }
+  .brand-editor .step-panels > .step-menu summary::after {
+    content: '▾';
+  }
+  .brand-editor .step-panels > .step-menu[open] summary::after {
+    content: '▴';
+  }
+  .brand-editor .step-panels > .step-menu ol {
+    position: absolute;
+    top: calc(100% + 4px);
+    left: 0;
+    z-index: 6;
+    min-width: 260px;
+    max-height: 60svh;
+    padding: 8px 12px;
+    overflow-y: auto;
+    border: 1.5px solid var(--border);
+    border-radius: var(--radius);
+    background: var(--bg);
+    box-shadow: 0 12px 30px rgba(0, 0, 0, 0.3);
+  }
+}
+@media (max-width: 959px) {
+  .brand-links .link-label,
+  .brand-links .copy-short {
+    display: none;
+  }
+}
+@container (max-width: 559px) {
+  .brand-links .link-row {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  .brand-links .copy-what {
+    position: static;
+    width: auto;
+    height: auto;
+    clip-path: none;
+  }
+  .brand-links .copy-short {
+    display: none;
+  }
+}
+@media (min-width: 1200px) {
+  .brand-editor {
+    grid-template-columns: 184px minmax(0, 1fr) clamp(340px, 28vw, 400px);
   }
   .brand-editor > h1 {
     grid-column: 1 / 3;
@@ -609,7 +804,7 @@
     grid-column: 1;
     grid-row: 2 / span 2;
     position: sticky;
-    top: 12px;
+    top: 16px;
   }
   .brand-editor .steps li + li {
     margin-top: 4px;
@@ -621,32 +816,8 @@
   .brand-editor .step-bar {
     grid-column: 2;
   }
-  .brand-editor .step-bar {
-    position: static;
-    margin: 0;
-    padding: 4px 0 0;
-    border: 0;
-    background: none;
-  }
-  .brand-page > .preview-box {
-    grid-column: 2;
-    grid-row: 1 / span 20;
-    align-self: start;
-    top: 12px;
-    margin: 0;
-    padding: 0;
-    border: 0;
-    background: none;
-  }
   .brand-editor > .preview-box {
     grid-column: 3;
-  }
-  .brand-page #pv-frame {
-    width: 100%;
-    height: calc(100svh - 90px);
-    margin: 0;
-    border: 1.5px solid var(--border);
-    border-radius: var(--radius-lg);
   }
 }
 /* Signing in to save a new template (where the server has sign-in): the ways to sign in, by Save. */
