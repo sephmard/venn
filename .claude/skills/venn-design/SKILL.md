@@ -163,10 +163,17 @@ the same PR** (and CLAUDE.md if it's a rule that matters in review).
   sign-in card that comes back to the editor. (If a session ends while editing, Save reads **Sign in
   to save** and the draft survives the sign-in.) Templates that exist keep working by their links and can be added on
   My polls. With no sign-in on the server, anyone can save, as before.
-- **Only polls are branded.** The website, /brand and the create page keep Venn's own look (retro
-  by default); /brand shows a **live preview** (Seph, 2026-11-01: he wants to see the template change while he makes it): the real poll page with a sample poll in a frame, as a Guest or the Organizer, updated with every edit, clickable, nothing saved; beside the form on desktop, pinned over it on phones, and the create page shows whose template
+- **Polls and their create form are branded.** The website and /brand keep Venn's own look (retro
+  by default). A template's create form (/new?brand=, or an account's default) takes the template's
+  colours, fonts and corners, with Venn's top bar kept even for white label (Seph, 2026-11-04: "make a
+  poll with it does not actually use the template"). /brand shows a **live preview** (Seph, 2026-11-01: he wants to see the template change while he makes it): the real poll page with a sample poll in a frame, as a Guest or the Organizer, updated with every edit, clickable, nothing saved; beside the form on desktop, pinned over it on phones, and the create page shows whose template
   it is (logo and name). The menu has "For organizations"; the home page has **no** brand
-  section (Seph, 2026-11-01: keep the website simple).
+  section (Seph, 2026-11-01: keep the website simple). Its owner opening their own "use" invite link
+  sees what recipients see, with "Manage your template" (Seph, 2026-11-04). Making one with AI is the
+  first thing in a new template, not a row in My polls' Built in (Seph, 2026-11-04).
+- **Works with Claude** (Seph, 2026-11-04): one plain text line under the home page's Create a Venn,
+  to claude.ai/directory/venn in a new tab. It's not in the menu, and it uses no Anthropic logo
+  (that needs Anthropic's permission).
 - **The editor is a click-through, not a scroll** (Seph, 2026-11-01: only the top of the preview
   changed, so he couldn't tell what a setting did). Nine steps in the poll page's order: Name and
   logo, Starting look, Colours, Answers, Headings, Text, Corners and buttons, White label, Poll details
