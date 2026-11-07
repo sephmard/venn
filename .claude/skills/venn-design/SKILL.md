@@ -320,8 +320,14 @@ the same PR** (and CLAUDE.md if it's a rule that matters in review).
 white-label too, with the creator in control of reminders, caps and requests to join)
 
 - A third segment in the switch: **📅 Date · 🗳️ Vote · 🎟️ RSVP** (/new/rsvp). The form is the
-  plan card, **When is it?** (Date, Starts, Ends, All day), **Guest list** (Limit spots, Plus-ones,
-  Approve each RSVP: switches, off by default) and About you, with the Deadline row as on the others.
+  plan card, **When is it?**, **Guest list** and About you, with the Deadline row as on the others.
+- **When is it?** reuses /new's calendars: **Days · Parts of day · Hours**, picking one time (a new
+  pick replaces the last; a day alone is all day; switching keeps the date). A line under them says
+  the pick ("Wed, Nov 11 · Evening, 6 – 10 PM"), and it is also the line above Create a Venn. No
+  native date or time fields: iPhones drew them past the card (Seph, 2026-11-07).
+- **Guest list** reuses /new's Days in a row row: **Limit spots** and **Plus-ones** are switches with
+  the − n + stepper beside them once on; **Approve each RSVP** is a switch. The organizer's RSVP
+  settings use the same rows.
 - Guests see the date big ("You're invited"), one line for spots ("9 spots left · RSVPs need
   approval"), then **Are you coming?** Going · Maybe · Can't go (the picked date's three buttons),
   **Bringing** when plus-ones are on, and a status line once sent ("You're #2 on the waitlist…").
