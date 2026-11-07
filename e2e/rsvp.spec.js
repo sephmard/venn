@@ -26,7 +26,7 @@ async function createRsvp(page, { cap = null, plusOnes = false, approve = false 
   await expect(page).toHaveURL(/\/new\/rsvp$/);
   await expect(page.locator('#kind-note')).toHaveText('Date set? See who’s coming.');
   await expect(page.getByRole('heading', { name: 'When is it?' })).toBeVisible();
-  await page.getByLabel('Name your event').fill('Summer party');
+  await page.getByLabel("What's it called?").fill('Summer party');
   // The calendars of /new pick the one time: a day, then the evening of it.
   await page.locator('#r-when .cal-day:not(:disabled)').nth(3).click();
   await expect(page.locator('#r-pick')).toContainText('All day');
@@ -178,7 +178,7 @@ test('the time is picked on the same calendars as a date poll: a day, a part of 
 
 test('an all-day RSVP opens, for the organizer and for guests', async ({ page, browser }) => {
   await page.goto('/new/rsvp');
-  await page.getByLabel('Name your event').fill('Picnic');
+  await page.getByLabel("What's it called?").fill('Picnic');
   await page.locator('#r-when .cal-day:not(:disabled)').nth(3).click();
   await expect(page.locator('#r-pick')).toContainText('All day');
   await page.getByLabel(/Your name/).fill('Priya');

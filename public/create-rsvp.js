@@ -84,7 +84,7 @@ export function renderRsvpForm() {
     const cap = $('#r-cap-on').checked ? Number($('#r-cap').value) : null;
     setReady(
       pickLabel(when?.get()),
-      [!$('#title').value.trim(), 'Add a name for your event', '#title', null, 'its name'],
+      [!$('#title').value.trim(), 'Give it a name', '#title', null, 'its name'],
       [!t, 'Pick the date', '#r-when', null, 'the date'],
       [
         cap != null && !(Number.isInteger(cap) && cap >= 1 && cap <= 1000),

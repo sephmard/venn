@@ -55,7 +55,7 @@ test('after a Vote form that can’t load, times can still be drawn on hours', a
 
 test('if the Date form can’t load, the vote form comes back working and says so', async ({ page }) => {
   await page.goto('/new/topic');
-  await page.getByLabel('Your question').fill('Where to?');
+  await page.getByLabel("What's it called?").fill('Where to?');
   await page.getByLabel('Option 1', { exact: true }).fill('Cabin');
   await page.route('**/create-free.js', (r) => r.abort());
   await page.click('.kind-switch a[href="/new"]');
@@ -63,7 +63,7 @@ test('if the Date form can’t load, the vote form comes back working and says s
   await expect(page.locator('.kind-switch a[href^="/new/topic"]')).toHaveAttribute('aria-current', 'page');
   await expect(page).toHaveURL(/\/new\/topic$/);
   expect(await page.locator('#create').evaluate((f) => f.inert)).toBe(false);
-  await expect(page.getByLabel('Your question')).toHaveValue('Where to?');
+  await expect(page.getByLabel("What's it called?")).toHaveValue('Where to?');
   await expect(page.getByLabel('Option 1', { exact: true })).toHaveValue('Cabin');
   await page.getByLabel('Option 2', { exact: true }).fill('Beach');
   await expect(page.getByLabel('Option 2', { exact: true })).toHaveValue('Beach');
@@ -80,17 +80,17 @@ test('the switch and its line stay in place on all three forms', async ({ page }
   expect(await page.evaluate(() => document.activeElement === document.body)).toBe(true); // nothing focused on arrival
   await expect(page.locator('#title')).toHaveAttribute('autocomplete', 'off'); // no contact AutoFill for a poll's name
   const first = await where();
-  await expect(page.locator('label[for="title"]')).toHaveText('Name your event');
-  for (const [name, path, label] of [
-    ['Vote', '/new/topic', 'Your question'],
-    ['RSVP', '/new/rsvp', 'Name your event'],
-    ['Date', '/new', 'Name your event'],
+  await expect(page.locator('label[for="title"]')).toHaveText("What's it called?");
+  for (const [name, path] of [
+    ['Vote', '/new/topic'],
+    ['RSVP', '/new/rsvp'],
+    ['Date', '/new'],
   ]) {
     await sw.getByRole('link', { name }).click();
     await expect(page).toHaveURL(new RegExp(`${path}$`));
     await expect(page.locator('#create')).not.toHaveAttribute('aria-busy', 'true');
     expect(await where()).toEqual(first);
-    await expect(page.locator('label[for="title"]')).toHaveText(label);
+    await expect(page.locator('label[for="title"]')).toHaveText("What's it called?"); // one label on all three forms
     expect(await page.evaluate(() => scrollY)).toBe(0);
     // No field takes focus (on a phone that opens the keyboard): it stays on the switch.
     await expect(sw.getByRole('link', { name })).toBeFocused();
