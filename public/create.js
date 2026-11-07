@@ -236,6 +236,12 @@ export function rememberAsk(bars) {
   for (const [kind, bar] of Object.entries(bars)) askBars[`${kind}|${brand}`] = bar;
 }
 
+/** What each kind is for, in a few words under the switch (one line on a phone). */
+export const KIND_NOTES = {
+  date: 'Find the day that works.',
+  topic: 'Pick what or where.',
+  rsvp: 'Date set? See who’s coming.',
+};
 /**
  * Which kind of Venn: find a date (/new) or vote on what or where (/new/topic). The same switch on
  * both forms, in the same place, so going between them feels like one page. A brand template stays.
@@ -251,7 +257,7 @@ export function kindSwitch(on) {
   // The Use AI bar this form showed last time (ai-draft.js), drawn with the switch so that going
   // between Date and Vote doesn't make it pop in a moment later and push the form down.
   const bar = askBars[`${on}|${brand || ''}`];
-  return `${bar ? `<div class="ask" id="ask" data-early>${bar}</div>` : ''}<nav class="seg kind-switch" aria-label="Kind of Venn">${link('date', '/new', '📅 Date')}${link('topic', '/new/topic', '🗳️ Vote')}${link('rsvp', '/new/rsvp', '🎟️ RSVP')}</nav>${err}`;
+  return `${bar ? `<div class="ask" id="ask" data-early>${bar}</div>` : ''}<nav class="seg kind-switch" aria-label="Kind of Venn">${link('date', '/new', '📅 Date')}${link('topic', '/new/topic', '🗳️ Vote')}${link('rsvp', '/new/rsvp', '🎟️ RSVP')}</nav><p class="hint kind-note" id="kind-note">${KIND_NOTES[on]}</p>${err}`;
 }
 
 // Date or Vote, tapped: the form being left takes no typing while the next one loads. If that one
