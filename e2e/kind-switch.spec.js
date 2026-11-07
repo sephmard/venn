@@ -68,3 +68,25 @@ test('if the Date form can’t load, the vote form comes back working and says s
   await page.getByLabel('Option 2', { exact: true }).fill('Beach');
   await expect(page.getByLabel('Option 2', { exact: true })).toHaveValue('Beach');
 });
+
+// Seph (2026-11-07): going between Date, Vote and RSVP, the switch and its line stay put, right
+// under the heading; whatever differs (the Use AI box, the sections) comes after them.
+test('the switch and its line stay in place on all three forms', async ({ page }) => {
+  await page.goto('/new');
+  const sw = page.locator('.kind-switch');
+  const where = async () => [(await sw.boundingBox()).y, (await page.locator('#kind-note').boundingBox()).y];
+  await expect(page.locator('#kind-note')).toBeVisible();
+  const first = await where();
+  for (const [name, path] of [
+    ['Vote', '/new/topic'],
+    ['RSVP', '/new/rsvp'],
+    ['Date', '/new'],
+  ]) {
+    await sw.getByRole('link', { name }).click();
+    await expect(page).toHaveURL(new RegExp(`${path}$`));
+    await expect(page.locator('#create')).not.toHaveAttribute('aria-busy', 'true');
+    expect(await where()).toEqual(first);
+    const h1 = await page.locator('#create h1').boundingBox();
+    expect(first[0] - (h1.y + h1.height)).toBeLessThan(24); // nothing between the heading and the switch
+  }
+});

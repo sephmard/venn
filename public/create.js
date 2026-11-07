@@ -252,10 +252,11 @@ export function kindSwitch(on) {
   const brand = new URLSearchParams(location.search).get('brand');
   const q = brand ? `?brand=${encodeURIComponent(brand)}` : '';
   const link = (k, href, label) => `<a href="${href}${q}" data-link${k === on ? ' aria-current="page"' : ''}>${label}</a>`;
-  // The Use AI bar this form showed last time (ai-draft.js), drawn with the switch so that going
-  // between Date and Vote doesn't make it pop in a moment later and push the form down.
+  // The switch comes first, right under the heading, so it stays put whichever kind is on. The Use AI
+  // bar this form showed last time (ai-draft.js) follows the line, drawn with the switch so that
+  // going between kinds doesn't make it pop in a moment later and push the form down.
   const bar = askBars[`${on}|${brand || ''}`];
-  return `${bar ? `<div class="ask" id="ask" data-early>${bar}</div>` : ''}<nav class="seg kind-switch" aria-label="Kind of Venn">${link('date', '/new', '📅 Date')}${link('topic', '/new/topic', '🗳️ Vote')}${link('rsvp', '/new/rsvp', '🎟️ RSVP')}</nav><p class="hint kind-note" id="kind-note">${KIND_NOTES[on]}</p>${err}`;
+  return `<nav class="seg kind-switch" aria-label="Kind of Venn">${link('date', '/new', '📅 Date')}${link('topic', '/new/topic', '🗳️ Vote')}${link('rsvp', '/new/rsvp', '🎟️ RSVP')}</nav><p class="hint kind-note" id="kind-note">${KIND_NOTES[on]}</p>${err}${bar ? `<div class="ask" id="ask" data-early>${bar}</div>` : ''}`;
 }
 
 // Date or Vote, tapped: the form being left takes no typing while the next one loads. If that one

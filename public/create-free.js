@@ -659,7 +659,7 @@ export function renderFree() {
       },
     );
   }
-  // The Use AI box above Date · Vote (ai-draft.js) picks days as taps would, or plain words without AI.
+  // The Use AI box under Date · Vote (ai-draft.js) picks days as taps would, or plain words without AI.
   const showLevel = (next) => {
     level = null;
     return setLevel(next);
