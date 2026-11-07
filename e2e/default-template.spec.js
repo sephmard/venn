@@ -121,6 +121,8 @@ test('Use no template is for this poll only; a template link and a copied poll c
   // The same through the Date switch.
   await page.getByRole('link', { name: '📅 Date' }).click();
   await expect(page).toHaveURL(/\/new\?brand=none$/);
+  // The date form is drawn (the vote form being left is busy, and takes no typing).
+  await expect(page.locator('#create')).not.toHaveAttribute('aria-busy', 'true');
   await page.fill('#title', 'Team picnic');
   await expect.poll(() => page.evaluate(() => sessionStorage.getItem('venn:draft:free') || '')).toContain('Team picnic');
   await page.reload();
@@ -183,6 +185,7 @@ test('a draft keeps what it started in; an occasion or typed title is never repl
   await page.goto('/new');
   await expect(page.locator('#default-note')).toBeVisible();
   await page.fill('#title', 'Team lunch at noon');
+  await expect.poll(() => page.evaluate(() => sessionStorage.getItem('venn:draft:free') || '')).toContain('Team lunch at noon');
   await page.reload();
   await expect(page.locator('#title')).toHaveValue('Team lunch at noon');
   await expect(page.locator('.brand-bar')).toContainText('Acme');

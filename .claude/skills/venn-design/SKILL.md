@@ -308,6 +308,9 @@ the same PR** (and CLAUDE.md if it's a rule that matters in review).
   sits right under the heading with its line, at the same height on all three forms. What differs
   between kinds (the Use AI box, which RSVP doesn't have; notes about a template or a draft) comes
   after the line, so only the form below it changes.
+- **No field is focused when a create form opens** (Seph, 2026-11-07: the keyboard and "AutoFill
+  Contact" popping up on tapping Date was "disruptive"): after a switch, focus stays on the switch.
+  The poll's name field has `autocomplete="off"`, so iOS doesn't offer contacts for it.
 - **The question comes first** (the owner, 2026-11: "you can't put in the actual question"): the
   first card, "What are you deciding?", has **Pick from options · Yes or no**, then **Your question**,
   empty (no "Get-together" name), its example fitting the kind ("Where should we eat?" / "Should we
