@@ -75,7 +75,7 @@ export function renderTopic() {
   $('#emoji-tile').textContent = '🗳️';
   Object.assign($('#title'), { value: '', placeholder: ASK.options });
   $('#title').dataset.seed = '';
-  $('label[for="title"]').textContent = 'Your question';
+  $('label[for="title"]').textContent = "What's it called?";
   // Options to choose between, or one yes-or-no question: asked before the question is typed.
   $('.title-row').insertAdjacentHTML(
     'beforebegin',
@@ -203,7 +203,7 @@ export function renderTopic() {
     const few = kind === 'options' && n < 2;
     setReady(
       kind === 'yesno' ? 'A yes or no question' : `${plural(n, 'option')} to vote on`,
-      [!$('#title').value.trim(), 'Add your question', '#title', null, 'your question'],
+      [!$('#title').value.trim(), 'Give it a name', '#title', null, 'its name'],
       [few, 'Add at least two options to create the poll', () => inputs().find((i) => !i.value.trim()), null, 'options'],
       [
         !!twice,

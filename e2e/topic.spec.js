@@ -24,7 +24,7 @@ async function createTopic(page, { title, options, yesNo = false, single = false
     await expect(page.locator('#title')).toHaveAttribute('placeholder', 'Should we do a book swap?');
     await expect(page.locator('#yesno')).toHaveText(/Everyone answers\s*Yes\s*No/);
   }
-  await page.getByLabel('Your question').fill(title);
+  await page.getByLabel("What's it called?").fill(title);
   if (!yesNo) {
     for (let i = 0; i < options.length; i++) {
       if (i >= 2) await page.getByRole('button', { name: '+ Add option' }).click();
@@ -287,8 +287,8 @@ test('the topic form says what is missing', async ({ page }) => {
   await page.getByLabel(/Your name/).fill('Lee');
   await page.getByLabel('Option 1', { exact: true }).fill('Dune');
   await page.getByLabel('Option 2', { exact: true }).fill('Piranesi');
-  await expect(page.locator('#summary')).toContainText('Add your question');
-  await page.getByLabel('Your question').fill('Which book next?');
+  await expect(page.locator('#summary')).toContainText('Give it a name');
+  await page.getByLabel("What's it called?").fill('Which book next?');
   await page.getByLabel('Option 1', { exact: true }).fill('Dune');
   await page.getByLabel('Option 2', { exact: true }).fill('dune');
   await expect(page.locator('#summary')).toContainText('in the list twice');

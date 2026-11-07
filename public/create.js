@@ -302,7 +302,7 @@ export function planFields(kind) {
       <div class="title-row">
         <button type="button" class="emoji-tile" id="emoji-tile" aria-label="Change the icon" aria-expanded="false">🗓️</button>
         <div class="grow">
-          <label for="title">Name of your poll</label>
+          <label for="title">What's it called?</label>
           <input id="title" type="text" maxlength="120" autocomplete="off" value="${SEED}" data-seed="${SEED}" placeholder="${kind === 'free' ? 'Summer cabin trip' : "Dinner at Rosa's"}">
         </div>
       </div>

@@ -15,7 +15,7 @@ test('signed out, no deadline on the form; signed in, a vote closes answers and 
 
   // Signed out: the form is as it was, with no Deadline row.
   await page.goto('/new/topic');
-  await expect(page.getByLabel('Your question')).toBeVisible();
+  await expect(page.getByLabel("What's it called?")).toBeVisible();
   await expect(page.locator('#deadline-opts')).toBeHidden();
   // A poll's organizer, signed out: Deadline says to sign in, and nothing else.
   const made = await (
@@ -41,7 +41,7 @@ test('signed out, no deadline on the form; signed in, a vote closes answers and 
   await page.getByRole('link', { name: 'Continue with Google' }).click();
   await expect(page.locator('.acct-who')).toBeVisible();
   await page.goto('/new/topic');
-  await page.getByLabel('Your question').fill('Which book next?');
+  await page.getByLabel("What's it called?").fill('Which book next?');
   await page.getByLabel('Option 1', { exact: true }).fill('Dune');
   await page.getByLabel('Option 2', { exact: true }).fill('Emma');
   await page.getByLabel(/Your name/).fill('Priya');

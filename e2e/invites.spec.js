@@ -17,14 +17,14 @@ test('paste a list, the poll is emailed to each, more can be added later', async
 
   // Signed out: no row for it.
   await page.goto('/new/topic');
-  await expect(page.getByLabel('Your question')).toBeVisible();
+  await expect(page.getByLabel("What's it called?")).toBeVisible();
   await expect(page.locator('#invite-opts')).toBeHidden();
 
   await page.goto('/me');
   await page.getByRole('link', { name: 'Continue with Google' }).click();
   await expect(page.locator('.acct-who')).toBeVisible();
   await page.goto('/new/topic');
-  await page.getByLabel('Your question').fill('Which book next?');
+  await page.getByLabel("What's it called?").fill('Which book next?');
   await page.getByLabel('Option 1', { exact: true }).fill('Dune');
   await page.getByLabel('Option 2', { exact: true }).fill('Emma');
   await page.getByLabel(/Your name/).fill('Priya');

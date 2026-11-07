@@ -233,6 +233,7 @@ test('a poll made from a landing page is counted as coming from it', async ({ pa
 test('easter eggs: Finn reacts to a few names and to a template tapped over and over', async ({ page }) => {
   await page.clock.setFixedTime(new Date(2026, 9, 30, 12)); // a Friday
   await page.goto('/new/pick');
+  await page.locator('#title').click(); // a tap selects the name Venn gave it
   await page.locator('#title').pressSequentially('Taco Tuesday');
   await expect(page.locator('#toast')).toHaveText('Taco Tuesday, on a Friday? Finn won’t tell.');
   await expect(page.locator('.egg')).toHaveCount(1); // a burst, out of the way…
@@ -250,6 +251,7 @@ test('easter eggs: Finn reacts to a few names and to a template tapped over and 
 test('easter eggs: nothing moves when the device asks for less motion', async ({ page }) => {
   await page.emulateMedia({ reducedMotion: 'reduce' });
   await page.goto('/new/free');
+  await page.locator('#title').click(); // a tap selects the name Venn gave it
   await page.locator('#title').pressSequentially('Secret Santa');
   await expect(page.locator('#toast')).toHaveText(/^Shh\./);
   await expect(page.locator('.egg')).toHaveCount(0);

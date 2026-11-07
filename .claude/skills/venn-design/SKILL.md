@@ -312,7 +312,7 @@ the same PR** (and CLAUDE.md if it's a rule that matters in review).
   Contact" popping up on tapping Date was "disruptive"): after a switch, focus stays on the switch.
   The poll's name field has `autocomplete="off"`, so iOS doesn't offer contacts for it.
 - **The question comes first** (the owner, 2026-11: "you can't put in the actual question"): the
-  first card, "What are you deciding?", has **Pick from options · Yes or no**, then **Your question**,
+  first card, "What are you deciding?", has **Pick from options · Yes or no**, then **What's it called?**,
   empty (no "Get-together" name), its example fitting the kind ("Where should we eat?" / "Should we
   do a book swap?"). No date-poll templates (Friendsgiving…) and a 🗳️ tile instead of the calendar.
   Yes or no shows its fixed answers as **Yes** / **No** chips ("Everyone answers"), never as boxes,

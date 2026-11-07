@@ -36,6 +36,7 @@ import {
   youFields,
   TAP_KEY,
   fromUrl,
+  focusStart,
 } from './create.js';
 
 // ---------- "Vote on a few dates" ----------
@@ -571,7 +572,7 @@ export function renderPick() {
   getConfig().then((c) => c.ai && !src && import('./ai-draft.js').then((m) => $('#create') && m.aiDraft($('#create'), load)));
   if (src) prefill();
   else prefillTitle();
-  $('#title').focus();
+  focusStart();
   return () => {
     mounts++;
     view?.cleanup();
