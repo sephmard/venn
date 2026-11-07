@@ -166,6 +166,45 @@ test('the app shell gets one title and one description, replaced', async () => {
   assert.equal(errors.length, 1);
 });
 
+test('a template share link previews the template; white label leaves Venn out; others stay as they are', async () => {
+  const brands = {
+    club: { id: 'club', name: 'Riverside <Book> Club' },
+    wl: { id: 'wl', name: 'Acme', hideVenn: true },
+  };
+  const store = { getBrand: async (id) => brands[id] || null };
+  const at = (pathname, search) => appShell(SHELL, { pathname, search, origin: 'https://venn.day', store });
+
+  const club = await at('/new', '?brand=club');
+  assert.equal(titleOf(club), 'Make a poll with Riverside &lt;Book&gt; Club · Venn');
+  assert.equal(meta(club, 'og:url'), 'https://venn.day/new?brand=club');
+  assert.equal(meta(club, 'og:site_name'), 'Venn');
+  assert.equal(meta(club, 'og:image'), 'https://venn.day/og-retro.png');
+  assert.equal(club.match(/<title>/g).length, 1);
+
+  const wl = await at('/new/topic', '?brand=wl&x=1');
+  assert.equal(titleOf(wl), 'Make a poll with Acme');
+  assert.equal(meta(wl, 'og:site_name'), 'Acme');
+  assert.equal(meta(wl, 'og:url'), 'https://venn.day/new/topic?brand=wl');
+  assert.equal(meta(wl, 'og:image'), undefined);
+  const said = [
+    titleOf(wl),
+    ...[...wl.matchAll(/<meta (?:name|property)="(?:description|og:[a-z_]+)" content="([^"]*)"/g)].map((m) => m[1]),
+  ];
+  assert.doesNotMatch(said.join(' '), /Venn/);
+
+  // No template, "Use no template", a bad id or one that's gone: the shell as it is.
+  for (const search of ['', '?brand=none', '?brand=gone', '?brand=../x', '?brand='])
+    assert.equal(await at('/new', search), SHELL);
+  const broken = { getBrand: async () => Promise.reject(new Error('db down')) };
+  const log = console.error;
+  console.error = () => {};
+  try {
+    assert.equal(await appShell(SHELL, { pathname: '/new', search: '?brand=club', origin: '', store: broken }), SHELL);
+  } finally {
+    console.error = log;
+  }
+});
+
 // ---------- both servers ----------
 
 /** Create a poll, answer it, and optionally pick the date, through `fetchPath`. */
