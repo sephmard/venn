@@ -3,6 +3,18 @@
 
 let cleanup = () => {};
 
+// Tab icon: Venn's logo; the green one in Classic mode. A white-label poll's own stays.
+function tabIcon() {
+  let c;
+  try {
+    c = localStorage.getItem('venn:retro') === '0';
+  } catch {}
+  for (const l of document.querySelectorAll('link[rel=icon]'))
+    l.href = l.href.replace(/\/(favicon|favicon-poll|logo-retro)\.(svg|ico)\?v=\d+/, (_, n, x) =>
+      c ? `/favicon.${x}?v=5` : `/logo-retro.${x}?v=1`,
+    );
+}
+
 async function route() {
   cleanup();
   cleanup = () => {};
@@ -19,9 +31,7 @@ async function route() {
   // a new poll's is set below, before it's drawn; a poll's once it loads (event.js), and an edited or
   // copied one's once its poll does (create.js).
   const look = !poll && !/[?&](edit|copy)=/.test(location.search) && import('./retro-look.js');
-  // Poll pages get their own tab icon.
-  for (const l of document.querySelectorAll('link[rel=icon]'))
-    l.href = l.href.replace(/favicon[^.]*/, poll ? 'favicon-poll' : 'favicon');
+  tabIcon();
   let off;
   // The bar's Create a Venn shows on every page but the create pages, where the form is the way on
   // (app-look.js sets this first, before the page is drawn).
