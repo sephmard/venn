@@ -75,7 +75,7 @@ export async function keep(k, ownPart, putBack, sharedParts) {
   if (!form.isConnected) return;
   $('#title').dispatchEvent(new Event('input'));
   // Said once, quietly, with a way to start again; it goes at the first change.
-  ($('.kind-switch') || $('#create h1')).insertAdjacentHTML(
+  ($('#kind-note') || $('.kind-switch') || $('#create h1')).insertAdjacentHTML(
     'afterend',
     `<p class="draft-note" id="draft-note">${d.fromAi ? 'Made into a vote. Check the options.' : 'Picked up where you left off.'} <button type="button" class="link-btn" id="draft-reset">Start over</button></p>`,
   );

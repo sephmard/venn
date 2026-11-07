@@ -18,8 +18,13 @@ const noSideways = (page) => page.evaluate(() => document.documentElement.scroll
 /** Make an RSVP from /new, through the switch, and land on it as its organizer. */
 async function createRsvp(page, { cap = null, plusOnes = false, approve = false } = {}) {
   await page.goto('/new');
+  // A few words under the switch say what each kind is for.
+  await expect(page.locator('#kind-note')).toHaveText('Find the day that works.');
+  await page.getByRole('link', { name: '🗳️ Vote' }).click();
+  await expect(page.locator('#kind-note')).toHaveText('Pick what or where.');
   await page.getByRole('link', { name: '🎟️ RSVP' }).click();
   await expect(page).toHaveURL(/\/new\/rsvp$/);
+  await expect(page.locator('#kind-note')).toHaveText('Date set? See who’s coming.');
   await expect(page.getByRole('heading', { name: 'When is it?' })).toBeVisible();
   await page.getByLabel('Name of your poll').fill('Summer party');
   // The calendars of /new pick the one time: a day, then the evening of it.

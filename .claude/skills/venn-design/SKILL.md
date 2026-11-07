@@ -296,6 +296,9 @@ the same PR** (and CLAUDE.md if it's a rule that matters in review).
   stays), in the same place, and nothing else: no intro paragraph, no "Deciding what or where?" or
   "Pick a date instead" links (the owner, 2026-11: "the same between polls, and elegant. Not
   verbose"). The switch is hidden when editing or copying a poll.
+- **Under the switch, a few words say what the kind on is for** (Seph, 2026-11-07: "very, very
+  concise", clear on a phone): "Find the day that works." · "Pick what or where." · "Date set? See
+  who's coming." One line at 375px, in the hint style (`KIND_NOTES` in create.js).
 - **The question comes first** (the owner, 2026-11: "you can't put in the actual question"): the
   first card, "What are you deciding?", has **Pick from options · Yes or no**, then **Your question**,
   empty (no "Get-together" name), its example fitting the kind ("Where should we eat?" / "Should we

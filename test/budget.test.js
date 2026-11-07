@@ -76,7 +76,7 @@ const PAGES = {
   'topic poll page': [['event.js', 'topic-poll.js'], ['topic.css'], 64.75], // +0.25 for RSVPs' hand-off in the shared event.js, +0.25 for an honest leader (Favourite only with the most yeses; Everyone could go), +0.25 for a tidy footer and create bar (the small print under a hairline, Create a Venn full width on phones, 44px link targets that keep lines tight), +0.75 for keeping an unsent answer, as on a date poll, and the organizer's keep-your-link line, +0.5 for tile styles: Venn's own backgrounds behind a poll's emoji (shared styles), +0.25 for Poll not found in the visitor's look (retro unless Classic mode), +0.25 for a part of the day under its date in big type, and times that never break (keep() in ui.js), +0.25 for asking "Are you sure?" in the page instead of the browser's confirm() (the dialog's styles; its code loads when asked), +0.25 for compact rows: a day with one part is one row, the row its button (event.js),  +0.75 for the website's top bar and menu on every app page
   // RSVPs: the date is set, who's coming? (/new/rsvp), and their poll page, which is the poll page's
   // code plus its own (rsvp-poll.js, rsvp.css), loaded only for RSVPs.
-  'RSVP page': ['create-rsvp.js', ['create.css'], 56], // +2 for picking the time on /new's own calendars (rsvp-when.js; the calendars themselves load on demand)
+  'RSVP page': ['create-rsvp.js', ['create.css'], 56.25], // +0.25 for a few words under the Date · Vote · RSVP switch saying what each is for; // +2 for picking the time on /new's own calendars (rsvp-when.js; the calendars themselves load on demand)
   'RSVP poll page': [['event.js', 'rsvp-poll.js'], ['rsvp.css'], 63.25],
 };
 

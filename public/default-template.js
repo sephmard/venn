@@ -55,7 +55,7 @@ export async function startFor(kind, stored) {
 
 /** Under the form's heading, once the default is in: what it is, and a way out for this poll only. */
 export function defaultLine(name, useNone) {
-  const at = $('.kind-switch') || $('#create h1');
+  const at = $('#kind-note') || $('.kind-switch') || $('#create h1');
   at?.insertAdjacentHTML(
     'afterend',
     `<p class="default-note" id="default-note">Using your default template, ${esc(name)}. <button type="button" class="link-btn" id="no-template">Use no template</button></p>`,
