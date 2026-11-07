@@ -66,7 +66,6 @@ ${jsonLd.map((d) => `<script type="application/ld+json">${JSON.stringify(d).repl
 <summary aria-label="Menu"><svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16" stroke="currentColor" stroke-width="2" stroke-linecap="round" /></svg></summary>
 <div class="menu-panel">
 <a href="/brand">For organizations</a>
-<a href="https://claude.ai/directory/venn" target="_blank" rel="noopener">Use with AI<span aria-hidden="true">&nbsp;↗</span><span class="sr-only"> (opens Claude in a new tab)</span></a>
 <a href="https://docs.venn.day">For developers</a>
 <a href="/#contact">Contact</a>
 </div>

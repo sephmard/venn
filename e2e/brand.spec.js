@@ -181,10 +181,11 @@ test('brand template: make one, share it, and its polls show the organization’
   await expect(team.locator('.brand-bar')).toHaveText('Acme Inc.');
   await expect(team.locator('#title')).toHaveValue('Team lunch');
   await expect(team.locator('#location')).toHaveValue('The office');
-  // Only the poll is branded: the create page keeps Venn's own look.
-  await expect(team.locator('html')).toHaveClass(/retro/);
-  await expect(team.locator('html')).not.toHaveClass(/branded/);
-  await expect(team.locator('.footer .classic-switch')).toBeHidden(); // the poll gets the brand's look
+  // The create page is in the template's look too, as its poll will be (Seph, Nov 4).
+  await expect(team.locator('html')).toHaveClass(/branded/);
+  await expect(team.locator('html')).not.toHaveClass(/retro/);
+  expect(await accent(team)).not.toBe(venn);
+  await expect(team.locator('.footer .classic-switch')).toBeHidden();
   await pickDays(team, 2);
   await team.fill('#organizer', 'Sam');
   await team.click('#submit');
@@ -302,10 +303,12 @@ test('brand template: describe the organization, and AI suggests a starting look
   await expect.poll(async () => (await (await page.request.get(`/api/brands/${id}`)).json()).emoji).toBe('🧗');
 });
 
-test('brand template: Make one with AI starts at the description, fills it all in, and Undo puts it back', async ({ page }) => {
+test('brand template: a new one starts with the AI description, fills it all in, and Undo puts it back', async ({ page }) => {
+  // Older links (?ai=1) go straight to the description, now on the first step of a new template.
   await page.goto('/brand/new?ai=1');
   await expect(page.locator('#ai-prompt')).toBeFocused();
-  await expect(page.locator('[data-panel="look"]')).toBeVisible();
+  await expect(page.locator('[data-panel="name"] #ai-prompt')).toBeVisible();
+  await expect(page.locator('#ai-look label')).toHaveText('Describe your organization, and Venn suggests a look');
   await page.fill('#ai-prompt', 'Summit Gym, a climbing gym, orange and charcoal, friendly and bold');
   await page.click('#ai-go');
   await expect(page.locator('#ai-done')).toHaveText('Summit Gym 🧗 · colours, fonts and corners · “Climb night”Undo');

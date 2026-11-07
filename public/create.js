@@ -77,6 +77,9 @@ async function useBrand(id, fill, quiet = false) {
   if (!b) return quiet || templateLine(GONE, 'hint');
   if (brandId !== id || !$('#create')) return;
   look.brandForm((brand = b), fill, $, esc);
+  // The form in the template's own colours, fonts and corners, as its polls will be. Venn's top bar
+  // stays, even for a white-label template: this is still Venn's page for making the poll.
+  look.brandLook({ ...b, hideVenn: false });
   if (b.hideVenn) {
     $('#ask')?.remove(); // a white-label template's polls offer no AI (ai-draft.js)
     rememberAsk({ date: '', topic: '' });
@@ -125,6 +128,9 @@ function noTemplate() {
   brand = brandId = null;
   defaulted = false;
   $('.brand-bar')?.remove();
+  // Venn's own look again (retro unless they chose Classic).
+  import('./brand-look.js').then((m) => m.brandLook(null));
+  import('./retro-look.js').then((m) => m.retroLook(m.wantsRetro()));
   const title = $('#title');
   if (was?.title && title.value === was.title) title.value = title.dataset.seed = SEED;
   if (was?.where && $('#location').value === was.where) $('#location').value = '';

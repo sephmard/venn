@@ -472,12 +472,13 @@ async function route(
         const linkRole = secret && (await store.brandInviteRole(brand.id, await sha256(secret)));
         if (!secret) return error(403, 'Open the invite link again to add this template.');
         if (!linkRole) return error(403, 'This invite link was turned off. Ask for a new one.');
-        if ((await store.ownerOf('brand', brand.id)) === user.id) return json({ role: 'owner' });
+        // `link`: what the link gives, so its owner opening it to check sees what others will.
+        if ((await store.ownerOf('brand', brand.id)) === user.id) return json({ role: 'owner', link: linkRole });
         const had = await store.brandRole(brand.id, user.id);
         const next = had === 'admin' ? 'admin' : linkRole;
         if (next !== had) await store.setBrandMember(brand.id, user.id, next, now());
         count('brand.joined', { role: next });
-        return json({ role: next });
+        return json({ role: next, link: linkRole });
       })();
       res.headers.append('set-cookie', cookie(joinCookie.name, '', { url, maxAge: 0, path: joinCookie.path }));
       return res;

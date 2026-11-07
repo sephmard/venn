@@ -13,13 +13,18 @@ const noSideways = async (page) =>
 async function audit(page, label) {
   await page.evaluate(() => (document.getElementById('toast').textContent = ''));
   // Let opening animations (the sheet fades in) finish, or axe measures half-faded text.
+  // At most 2s: a look changing (a template's form) restarts colour transitions, and one that's
+  // replaced mid-way may never report finished.
   await page.evaluate(() =>
-    Promise.all(
-      document
-        .getAnimations()
-        .filter((a) => a.effect?.getTiming().iterations !== Infinity)
-        .map((a) => a.finished.catch(() => {})),
-    ),
+    Promise.race([
+      Promise.all(
+        document
+          .getAnimations()
+          .filter((a) => a.effect?.getTiming().iterations !== Infinity)
+          .map((a) => a.finished.catch(() => {})),
+      ),
+      new Promise((done) => setTimeout(done, 2000)),
+    ]),
   );
   const results = await new AxeBuilder({ page }).withTags(['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa', 'wcag22aa']).analyze();
   const blocking = results.violations.filter((v) => v.impact === 'serious' || v.impact === 'critical');
@@ -297,16 +302,11 @@ test('For organizations needs an account: sign in first, then make a template; a
   await expect(page.locator('#b-bg')).toHaveValue('#0d0221');
   await expect(page.locator('[data-font="retro"]')).toHaveAttribute('aria-checked', 'true');
   await noSideways(page);
-  // Where the server has AI, Built in also offers to make one from a sentence.
+  // Making one with AI is part of a new template now, not a row of Built in (Seph, Nov 4).
   await mockConfig(page, { ai: true });
   await page.goto('/me');
   await page.getByRole('tab', { name: /Templates/ }).click();
-  await expect(page.locator('.acct-brand .acct-row b')).toHaveText(['Retro', 'Classic', 'Make one with AI', 'Acme Inc.']);
-  await expect(page.getByRole('link', { name: 'Describe it: make a template with AI' })).toHaveAttribute(
-    'href',
-    '/brand/new?ai=1',
-  );
-  await audit(page, 'Templates with Make one with AI');
+  await expect(page.locator('.acct-brand .acct-row b')).toHaveText(['Retro', 'Classic', 'Acme Inc.']);
   await page.unroute('**/api/config');
 
   // A new poll's page has no look picker: the template's own New poll gives its look.
@@ -385,6 +385,14 @@ test('sharing a template: an admin invite lets them change it, a user invite add
   await share.getByRole('button', { name: 'Copy link to use' }).click();
   expect(await owner.page.evaluate(() => navigator.clipboard.readText())).toBe(invite);
   await expect(share).toContainText('1 invite link works');
+  // The owner opening it to check sees what people will, not the editor, and can go back to it.
+  await owner.page.goto(invite.replace(/^https?:\/\/[^/]+/, ''));
+  await expect(owner.page.locator('#use-check')).toContainText('This is your link to use');
+  await expect(owner.page.locator('#brand-form')).toHaveCount(0);
+  await expect(owner.page.getByRole('link', { name: 'Make a poll with it' })).toBeVisible();
+  await noSideways(owner.page);
+  await owner.page.getByRole('link', { name: 'Manage your template' }).click();
+  await expect(owner.page.locator('#brand-form')).toBeVisible();
 
   // Someone opens it signed out: sign in, and it's in their templates, to use but not change.
   const guest = await signedIn(`member-${run}`);
