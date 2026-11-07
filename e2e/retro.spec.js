@@ -15,6 +15,11 @@ test(
     await expect(page.locator('.brand .logo-classic')).toBeHidden();
     await expect(sticker).toHaveAttribute('src', /\/stickers\/retro\/finn-/);
     await expect(page.locator('link[rel="icon"][type="image/svg+xml"]')).toHaveAttribute('href', /logo-retro\.svg/);
+    // Venn's logo in the page itself, for search results, chat apps and browsers that take the .ico.
+    const served = await (await page.request.get('/')).text();
+    expect(served).toContain('<link rel="icon" href="/logo-retro.ico?v=1" sizes="32x32" />');
+    expect(served).toContain('<link rel="icon" href="/logo-retro.svg?v=1" type="image/svg+xml" />');
+    await expect(page.locator('link[rel="icon"][sizes]')).toHaveAttribute('href', /logo-retro\.ico/);
     await expect(page).toHaveURL(/\/$/);
 
     // In the footer, not the menu.
@@ -30,6 +35,9 @@ test(
     await expect(page.locator('.brand .logo-retro')).toBeVisible();
     await expect(page.locator('.brand .logo-classic')).toBeHidden();
     await expect(sticker).toHaveAttribute('src', /\/stickers\/finn-/);
+    // Classic mode's tab icon is the green one, .ico too.
+    await expect(page.locator('link[rel="icon"][type="image/svg+xml"]')).toHaveAttribute('href', /favicon\.svg/);
+    await expect(page.locator('link[rel="icon"][sizes]')).toHaveAttribute('href', /favicon\.ico/);
     await expect(page).toHaveURL(/\/classic$/); // the address to copy shares the classic look
 
     // Remembered: other pages, and the logo's link home, stay classic.

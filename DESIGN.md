@@ -86,8 +86,8 @@ Lines stay under 65 characters. Italic serif is the only emphasis inside headlin
 - **Logo:** three circles in a triangle, a three-way Venn. One shade where one circle covers, a deeper one where two overlap, and the deepest green where all three meet. Each shade is a green gradient. The header shows `favicon.svg` itself, so there is one source.
 - The hero's background is the same three circles, very large and soft (radial `--mint` glows), behind the start card.
 - **Tab icons** (all from `npm run icons`, which renders each SVG to an `.ico` of 16, 32 and 48 px). Each place has its own, so tabs are easy to tell apart:
-  - **Site and app** (`favicon.svg`): the logo itself.
-  - **Poll pages** (`favicon-poll.svg`, swapped in by `app.js` on `/e/:id`): the Venn in white on a green-gradient tile, with its centre lit up.
+  - **Site and app, poll pages included** (`logo-retro.svg`): Venn's neon logo (Seph, 2026-11-07: "I want the pages to have this logo"). Someone who chose Classic mode gets the green `favicon.svg` instead (`app.js` tabIcon; `retro-mode.js` on the website). The green poll-page tile (`favicon-poll.svg`) is no longer used.
+  - **White-label polls:** their template's logo (`src/preview.js` tabIcon), or Venn's when the template has none.
   - **Docs** (`site-src/favicon.svg`): the logo on a dark ink tile.
 
   All are drawn on a 16 px grid so they stay sharp in a browser tab. The home-screen icon (`icons/icon.svg`) puts the logo on `--paper`, inside the maskable safe zone. When an icon changes, bump the `?v=` on the icon links so browsers drop their cached copy.

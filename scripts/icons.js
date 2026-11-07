@@ -1,7 +1,7 @@
 // Renders the icons: `npm run icons`.
 // - public/icons/*.png from public/icons/icon-retro.svg (app and home-screen icons, in the retro look)
-// - tab icons as .ico (16, 32 and 48 px) from their SVGs: public/favicon, public/favicon-poll
-//   (poll pages) and site-src/favicon (docs.venn.day)
+// - tab icons as .ico (16, 32 and 48 px) from their SVGs: public/logo-retro (Venn's tab icon),
+//   public/favicon (Classic mode), public/favicon-poll (no longer used) and site-src/favicon (docs.venn.day)
 import { readFileSync, writeFileSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -50,11 +50,12 @@ async function writeIco(svgFile, icoFile) {
   writeFileSync(icoFile, Buffer.concat([header, ...pngs]));
 }
 
-// Three tab icons: the site and app, poll pages, and the docs site.
+// The tab icons: Venn's logo (the app and the website), Classic mode's, the old poll pages', and the docs site's.
 const root = join(pub, '..');
 await writeIco(join(pub, 'favicon.svg'), join(pub, 'favicon.ico'));
 await writeIco(join(pub, 'favicon-poll.svg'), join(pub, 'favicon-poll.ico'));
+await writeIco(join(pub, 'logo-retro.svg'), join(pub, 'logo-retro.ico'));
 await writeIco(join(root, 'site-src', 'favicon.svg'), join(root, 'site-src', 'favicon.ico'));
 
 await browser.close();
-console.log('wrote public/icons/*.png and the three favicon .ico files');
+console.log('wrote public/icons/*.png and the favicon .ico files');

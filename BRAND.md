@@ -58,7 +58,8 @@ Friendly, plain and short, like a helpful friend in the group chat.
 
 - **The mark:** three circles in a triangle, a three-way Venn, darkest where all three meet. Never redraw it, stretch it, recolour it outside these versions, or add effects.
 - **Neon (default):** `public/logo-retro.svg`, cyan, magenta and yellow rings with a sunset at the centre. It is the header mark in **every** look: retro, classic and on branded polls.
-- **Green (classic):** `public/favicon.svg`, green gradients. Used for the classic tab icon, the app icon and link previews in the classic look.
+- **Neon is also the tab icon** on every page, polls included (Seph, 2026-11-07).
+- **Green (classic):** `public/favicon.svg`, green gradients. Used for the tab icon of people who chose Classic mode, the app icon and link previews in the classic look.
 - **Wordmark:** the mark beside "Venn" in the page's heading font, at 28px in the top bar.
 - **Other organizations' logos** (brand templates) sit beside the poll, never in place of Venn's.
 - **White label** is the one exception: a template with **Hide Venn's name and logo** switched on (off by default) shows its polls with no Venn mark, top bar, footer or Finn, and only such polls. Emails to its guests who answered (when the organizer is one of the template's own people) go out as "Acme via Venn" at the server's own address; invitations and reminders stay "Venn" (Seph, 2026-11-03: the lead decides the From name. Venn's name always stays in the sender and the address never changes, because anyone can name a template anything). See [docs/EMBED.md](docs/EMBED.md).
