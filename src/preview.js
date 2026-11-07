@@ -243,7 +243,18 @@ export async function pollShell(html, { pathname, search = '', origin, store }) 
         { origin, url, pageTitle: preview.title, siteName: brand.name },
       )
     : previewTags(preview, { origin, url });
-  return { html: injectTags(shell, tags), headers: frameHeaders(embed && brand?.embedSites) };
+  const page = brand?.hideVenn ? tabIcon(shell, brand) : shell;
+  return { html: injectTags(page, tags), headers: frameHeaders(embed && brand?.embedSites) };
+}
+
+/**
+ * A white-label poll's tab icon: its template's logo in place of Venn's, or Venn's left as it is
+ * when the template has no logo. (app.js swaps only Venn's own icons, so it leaves this one.)
+ */
+export function tabIcon(html, brand) {
+  if (brand.logoV == null) return html;
+  const href = escAttr(logoPath(brand.id, brand.logoV));
+  return html.replace(/<link rel="icon"[^>]*>(\s*<link rel="icon"[^>]*>)*/, `<link rel="icon" href="${href}" />`);
 }
 
 /**
