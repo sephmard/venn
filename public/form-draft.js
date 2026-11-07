@@ -52,7 +52,8 @@ export async function keep(k, ownPart, putBack, sharedParts) {
   if (!form) return (kind = null);
   for (const type of ['input', 'change', 'click']) form.addEventListener(type, changed);
   const d = cleanFormDraft(readStored(sessionStorage, formDraftKey(k)), new Date().toLocaleDateString('en-CA'));
-  if (!formDraftHasWork(d)) return;
+  // A name typed before this was listening (the form was drawn a moment before) is kept too.
+  if (!formDraftHasWork(d)) return shared.seeded() || changed();
   restoring = true;
   try {
     const tpl = d.occasion != null && $(`[data-occasion="${d.occasion}"]`);
