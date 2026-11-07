@@ -149,6 +149,8 @@ function noTemplate() {
 }
 /** The form is a white-label template's (it hides Venn), so it offers no AI. */
 export const whiteLabel = () => !!brand?.hideVenn;
+/** The white-label template the form is in, or null: its polls' link previews show its logo and name. */
+export const whiteLabelBrand = () => (brand?.hideVenn ? brand : null);
 
 // ---------- editing or duplicating a poll ----------
 

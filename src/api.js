@@ -1132,6 +1132,7 @@ async function route(
         if (ev.seriesOf) next.seriesOf = ev.seriesOf;
         if (ev.brand) {
           next.brand = ev.brand;
+          if (ev.cardBrand === ev.brand) next.cardBrand = ev.cardBrand; // its card shows the organization's logo
           delete next.tile; // the organization's look has its own tile
         }
         // Its deadline: as sent, or as it was when not sent; a new one needs an account.
@@ -1439,19 +1440,24 @@ async function route(
       return json(res);
     }
 
-    // PUT /api/events/:id/image  { icon, card? }: the poll's own picture, in base64 (src/images.js).
-    // DELETE /api/events/:id/image: back to the emoji.
+    // PUT /api/events/:id/image  { icon, card?, cardBrand? }: the poll's own picture, in base64
+    // (src/images.js). `cardBrand`: the card was drawn with its template's logo and name, not Venn's,
+    // so a white-label poll's link preview can show it. DELETE /api/events/:id/image: back to the emoji.
     if (parts.length === 3 && parts[2] === 'image') {
       if (method !== 'PUT' && method !== 'DELETE') return error(405, 'Method not allowed');
       if (!isAdmin) return error(403, "Only the organizer can change the poll's picture");
+      const { id: _id, adminHash, finalStart, createdAt, cardBrand: was = null, ...data } = ev;
       if (method === 'DELETE') {
         await store.deleteImage(ev.id);
+        if (was) await store.updateEvent(ev.id, data);
         return json({ image: null });
       }
       const body = await readJson(request, MAX_IMAGE_BODY);
       const icon = parseImage(body.icon, 'icon');
       const card = body.card == null ? null : parseImage(body.card, 'card');
+      const cardBrand = card && ev.brand && body.cardBrand === ev.brand ? ev.brand : null;
       const v = await store.setImage(ev.id, { icon, card, now: now() });
+      if (cardBrand !== was) await store.updateEvent(ev.id, cardBrand ? { ...data, cardBrand } : data);
       return json({ image: { v, card: !!card, type: icon.type } });
     }
 
