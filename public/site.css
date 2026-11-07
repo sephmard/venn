@@ -694,18 +694,18 @@ h2 em {
     grid-template-rows: auto auto;
     justify-items: start;
     align-items: center;
-    column-gap: 16px;
+    column-gap: 14px;
     row-gap: 0;
-    padding: 14px 18px;
+    padding: 14px 16px;
     border-radius: 20px;
     text-align: left;
   }
   .kind-dot {
     grid-row: 1 / 3;
-    width: 52px;
-    height: 52px;
+    width: 48px;
+    height: 48px;
     margin: 0;
-    font-size: 1.5rem;
+    font-size: 1.375rem;
   }
   .kind b {
     font-size: 1.125rem;
