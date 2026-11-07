@@ -47,3 +47,13 @@ test('on RSVP, the box fills the form in place; Undo puts back what was there', 
   await expect(page.locator('#r-plus-on')).not.toBeChecked();
   await expect(page.locator('#r-pick strong')).toHaveCount(0);
 });
+
+test('the box sits in the same place on Date and RSVP', async ({ page }) => {
+  const at = async (path) => {
+    await page.goto(path);
+    const bar = page.getByRole('button', { name: 'Describe it, and Venn sets it up' });
+    await expect(bar).toBeVisible();
+    return (await bar.boundingBox()).y;
+  };
+  expect(Math.abs((await at('/new')) - (await at('/new/rsvp')))).toBeLessThanOrEqual(1);
+});
