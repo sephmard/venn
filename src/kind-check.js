@@ -7,27 +7,24 @@
 
 import Anthropic from '@anthropic-ai/sdk';
 import { aiBudget, AiUnavailableError, draftAny, meteredClient, weekOf } from './ai.js';
-import { casesForHour, jevEnabled, jevKind, jevReview, SURE } from './jev.js';
+import { casesForHour, jevEnabled, jevKind, SURE } from './jev.js';
 import { recordUsage, usageEnabled } from './usage.js';
 
 /**
  * Today's picker's answer: { got } as one of the four kinds, plus, for a vote that isn't yes or
- * no, { filled } ('yes' when it came with options to pick from, 'no' when it came empty), and
- * the `draft` itself when there was one.
+ * no, { filled } ('yes' when it came with options to pick from, 'no' when it came empty).
  */
 export async function claudeKind(env, text, { now, anthropic }) {
   try {
     const out = await draftAny(env, { prompt: text, timezone: 'America/New_York' }, { now, anthropic, jev: false });
-    if (out.kind === 'vote' && out.yesNo) return { got: 'yesno', draft: out };
-    return out.kind === 'vote'
-      ? { got: 'vote', filled: out.options?.length >= 2 ? 'yes' : 'no', draft: out }
-      : { got: out.kind, draft: out };
+    if (out.kind === 'vote' && out.yesNo) return { got: 'yesno' };
+    return out.kind === 'vote' ? { got: 'vote', filled: out.options?.length >= 2 ? 'yes' : 'no' } : { got: out.kind };
   } catch (e) {
     return { got: e instanceof AiUnavailableError ? 'none' : 'error' };
   }
 }
 
-/** Run this hour's cases. Returns what was counted, for tests: [{ case, by, got, sure?, filled?, review?, reviewSure? }]. */
+/** Run this hour's cases. Returns what was counted, for tests: [{ case, by, got, sure?, filled? }]. */
 export async function checkKinds({ store, env, now, fetch, anthropic }) {
   const cases = casesForHour(new Date(now).getUTCHours());
   if (!cases.length || !jevEnabled(env) || !usageEnabled(env)) return [];
@@ -51,17 +48,7 @@ export async function checkKinds({ store, env, now, fetch, anthropic }) {
     if (jev) await spend(jev.cost);
     await count({ case: c.id, by: 'jev', got: jev?.kind ?? 'error', sure: jev && jev.p >= SURE ? 'yes' : 'no' });
     if (!claude) continue;
-    const { draft, ...read } = await claudeKind(env, c.text, { now, anthropic: claude });
-    // Would Jev send this draft back to Claude? Counted beside whether it was right, so the two can
-    // be compared before Jev's review decides anything in real requests (docs/AI.md, "Jev").
-    const review = draft && (await jevReview(env, c.text, draft, { fetch }));
-    if (review) await spend(review.cost);
-    await count({
-      case: c.id,
-      by: 'claude',
-      ...read,
-      ...(draft && { review: review?.verdict ?? 'error', reviewSure: review && review.p >= SURE ? 'yes' : 'no' }),
-    });
+    await count({ case: c.id, by: 'claude', ...(await claudeKind(env, c.text, { now, anthropic: claude })) });
   }
   return counted;
 }
