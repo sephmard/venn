@@ -5,6 +5,7 @@ import {
   ValidationError,
   YES,
   allDaySpan,
+  isRsvpPoll,
   isTopicPoll,
   isValidTimeZone,
   buildSlots,
@@ -24,7 +25,9 @@ import {
   normalizeEventInput,
   normalizeName,
   normalizeNote,
+  normalizeRsvp,
 } from './validate.js';
+import { normalizeGuests, rsvpKey, rsvpView } from './rsvp.js';
 import { SECURITY_HEADERS } from './security-headers.js';
 import { IMAGE_FILES, IMAGE_LIMITS, MAX_IMAGE_BODY, imagePath, imageResponse, parseImage } from './images.js';
 import { BRAND_ID_RE, BRAND_ROLES, MAX_BRAND_INVITES, hidesVenn, whiteLabelOf, normalizeBrand, publicBrand } from './brands.js';
@@ -169,13 +172,23 @@ function applyPrivacy(event, body) {
  * A note on an answer goes with it, except that a guest sees no one else's when names or answers
  * are hidden: a note can say who wrote it.
  */
-function publicEvent(ev, participants, { isAdmin, ownHash = null, ownId = null, emails = new Map(), notes = new Map() }) {
+function publicEvent(
+  ev,
+  participants,
+  { isAdmin, ownHash = null, ownId = null, emails = new Map(), notes = new Map(), rsvps = null },
+) {
   // `repeat`: how often a plan repeated, on polls from before that was taken out.
   const { adminHash, hostId, repeat, ...rest } = ev;
   const own = (p) => (ownHash !== null && p.editHash === ownHash) || (ownId !== null && p.id === ownId);
-  const visible = isAdmin || !ev.hideResults ? participants : participants.filter(own);
+  // An RSVP: each answer's place on the guest list, and the totals everyone sees (src/rsvp.js).
+  const rsvp = isRsvpPoll(ev) ? rsvpView(ev, participants, rsvps || new Map()) : null;
+  // Who asked to join, and whom the organizer turned away, only the organizer and that person see.
+  const hidden = (p) => rsvp && !own(p) && ['requested', 'declined'].includes(rsvp.of.get(p.id)?.status);
+  const shown = isAdmin || !ev.hideResults ? participants : participants.filter(own);
+  const visible = isAdmin ? shown : shown.filter((p) => !hidden(p));
   let guest = 0;
-  const list = visible.map(({ editHash, ...p }) => {
+  const list = visible.map(({ editHash, ...q }) => {
+    const p = rsvp ? { ...q, rsvp: rsvp.of.get(q.id) } : q;
     const note = notes.get(p.id);
     if (isAdmin || own({ editHash, id: p.id }))
       return { ...p, ...(emails.has(p.id) && { email: emails.get(p.id) }), ...(note && { note }) };
@@ -188,7 +201,8 @@ function publicEvent(ev, participants, { isAdmin, ownHash = null, ownId = null, 
     isAdmin,
     ...(isAdmin && hostId && { hostId }),
     participants: list,
-    ...(visible !== participants && { responses: participants.length }),
+    ...(rsvp && { rsvpCount: rsvp.counts }),
+    ...(shown !== participants && { responses: participants.length }),
     ...(ownId && { yourAnswer: ownId }),
   };
 }
@@ -937,12 +951,16 @@ async function route(
       const adminToken = randomId(24);
       // `hostAnswers`: the times the organizer offers count as their own answer (yes to all).
       // A topic poll's organizer votes like everyone else: only an answer they marked counts as theirs.
+      // An RSVP's organizer is hosting: they RSVP only if they choose to, like a guest.
       const host = body.hostAnswers === true &&
+        !isRsvpPoll(event) &&
         (!isTopicPoll(event) || body.hostAvailability != null) && { id: randomId(10), editToken: randomId(24) };
       if (host) event.hostId = host.id;
       // Checked before anything is saved, so a bad answer doesn't leave a poll behind.
       const hostAnswer = host && hostAvailability(event, body.hostAvailability);
       await store.createEvent({ id, event, adminHash: await sha256(adminToken), now: now() });
+      // An RSVP's date is set from the start.
+      if (isRsvpPoll(event)) await store.setFinal(id, event.options[0].start);
       await keepWithAccount('poll', id);
       if (host)
         await store.insertParticipant({
@@ -1092,7 +1110,8 @@ async function route(
           if (!limited.ok) return tooFast(limited);
         }
         const notes = await store.listNotes(ev.id);
-        const out = publicEvent(ev, await store.listParticipants(ev.id), { isAdmin, ownHash, ownId, emails, notes });
+        const rsvps = isRsvpPoll(ev) ? await store.listRsvps(ev.id) : null;
+        const out = publicEvent(ev, await store.listParticipants(ev.id), { isAdmin, ownHash, ownId, emails, notes, rsvps });
         if (wantsResults && !('responses' in out)) out.results = pollResults(ev, out.slots, out.participants);
         // Its brand template's look, while the template lasts (deleted, the poll is plain Venn again).
         const brand = ev.brand && (await store.getBrand(ev.brand));
@@ -1156,7 +1175,8 @@ async function route(
         await store.setNotify(ev.id, settings);
         await store.setReminderDue(ev.id, due);
         if (kept.invitees.length) waitUntil(invite(ev.id));
-        if (!keep) await store.setFinal(ev.id, null);
+        if (isRsvpPoll(next)) await store.setFinal(ev.id, next.options[0].start);
+        else if (!keep) await store.setFinal(ev.id, null);
         count('poll.edited', kindOf(next));
         return json({ ok: true });
       }
@@ -1336,6 +1356,22 @@ async function route(
       return json(Object.fromEntries(PRIVACY.map((k) => [k, !!next[k]])));
     }
 
+    // PUT /api/events/:id/rsvp  { cap, plusOnes, approve }: an RSVP's guest list settings, any time.
+    // Switching approval on approves everyone already going, so nobody who was in has to ask again.
+    if (parts.length === 3 && parts[2] === 'rsvp' && method === 'PUT') {
+      if (!isAdmin) return error(403, 'Only the organizer can change these settings');
+      if (!isRsvpPoll(ev)) return error(404, 'This poll is not an RSVP');
+      const rsvp = normalizeRsvp(await readJson(request));
+      if (rsvp.approve && !ev.rsvp.approve) {
+        const key = rsvpKey(ev);
+        const going = (await store.listParticipants(ev.id)).filter((p) => p.availability[key] === YES).map((p) => p.id);
+        await store.approveGoing(ev.id, going);
+      }
+      const { id: _id, adminHash, finalStart, createdAt, ...data } = ev;
+      await store.updateEvent(ev.id, { ...data, rsvp });
+      return json(rsvp);
+    }
+
     // GET|PUT /api/events/:id/deadline  { deadline, remindEvery, invitees }: when answers close, and
     // who to remind until then (src/deadline.js). Organizer only: it's the one place invitees' emails are.
     if (parts.length === 3 && parts[2] === 'deadline') {
@@ -1424,6 +1460,7 @@ async function route(
     if (parts.length === 3 && parts[2] === 'finalize' && method === 'POST') {
       if (!isAdmin) return error(403, 'Only the organizer can pick the final time');
       const body = await readJson(request);
+      if (isRsvpPoll(ev)) throw new ValidationError("An RSVP's date is set. Duplicate it to change the date.");
       if (isTopicPoll(ev)) {
         const option = body.option === undefined ? body.start : body.option;
         if (option !== null && !buildSlots(ev).includes(option))
@@ -1465,6 +1502,13 @@ async function route(
 
     if (parts[2] !== 'participants') return error(404, 'Not found');
     const slots = buildSlots(ev);
+    /** An RSVP's answer: plus-ones, and their place in line. The organizer's own RSVP needs no approval. */
+    const saveRsvp = (pid, availability, body) => {
+      const going = availability[rsvpKey(ev)] === YES;
+      const guests = normalizeGuests(ev, body.guests, going);
+      // An answer the organizer enters or edits with their link counts as approved by them.
+      return store.setRsvp(ev.id, pid, { going, guests, approval: isAdmin ? 'approved' : null, now: now() });
+    };
 
     // PUT /api/events/:id/participants/:pid/push  { push: subscription } | { pushRemove: endpoint }
     // A guest's phone, told when the date is picked. With their own edit token.
@@ -1506,6 +1550,20 @@ async function route(
       return json({ ok: true });
     }
 
+    // PUT /api/events/:id/participants/:pid/approval  { approved: true | false | null }: the organizer
+    // lets someone in, says no, or takes it back, when an RSVP waits for approval.
+    if (parts.length === 5 && parts[4] === 'approval' && method === 'PUT') {
+      if (!isAdmin) return error(403, 'Only the organizer can approve RSVPs');
+      if (!isRsvpPoll(ev)) return error(404, 'This poll is not an RSVP');
+      const p = await store.getParticipant(ev.id, parts[3]);
+      if (!p) return error(404, 'Response not found');
+      const { approved } = await readJson(request);
+      if (approved !== true && approved !== false && approved !== null)
+        throw new ValidationError('approved must be true, false or null');
+      await store.setRsvpApproval(ev.id, p.id, approved === null ? null : approved ? 'approved' : 'declined', now());
+      return json({ ok: true });
+    }
+
     // After the deadline, only the organizer can answer (src/deadline.js).
     if (parts[2] === 'participants' && (method === 'POST' || method === 'PUT') && !isAdmin && isClosed(ev, now()))
       return error(403, `Answers closed on ${closesLabel(ev)}.`);
@@ -1535,6 +1593,7 @@ async function route(
       });
       if (email) await store.setParticipantEmail(ev.id, id, email);
       if (note) await store.setParticipantNote(ev.id, id, note);
+      if (isRsvpPoll(ev)) await saveRsvp(id, availability, body);
       await sendCopy(ev, copyTo, { participantId: id, editToken, name, availability });
       // The organizer's first answer (sent with their link) is theirs: they aren't told about it, and
       // the poll can still be changed until someone else answers.
@@ -1576,6 +1635,7 @@ async function route(
         // Sent without a note (an older page, or its module didn't load), the note stays as it was.
         const note = 'note' in body ? normalizeNote(body.note) : (await store.listNotes(ev.id)).get(p.id);
         await store.updateParticipant({ id: p.id, eventId: ev.id, name, availability, now: now() });
+        if (isRsvpPoll(ev)) await saveRsvp(p.id, availability, body);
         // Changed with its link while signed in: from now on it's with the account too.
         if (byLink && !isHost) await keepWithAccount('answer', p.id);
         // An answer sent with an email field sets it, or takes it away when left empty.

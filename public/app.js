@@ -45,12 +45,20 @@ async function route() {
     // /new/topic: a Venn about what, not when (create-topic.js).
     const pick = path === '/new/pick';
     const topic = path === '/new/topic';
-    const page = import(pick ? './create-pick.js' : topic ? './create-topic.js' : './create-free.js'); // fetched alongside the look
+    // /new/rsvp: the date is set; who's coming? (create-rsvp.js)
+    const rsvp = path === '/new/rsvp';
+    const page = import(pick ? './create-pick.js' : topic ? './create-topic.js' : rsvp ? './create-rsvp.js' : './create-free.js'); // fetched alongside the look
     if (look) {
       const { retroLook, wantsRetro } = await look;
       retroLook(wantsRetro());
     }
-    off = pick ? (await page).renderPick() : topic ? (await page).renderTopic() : (await page).renderFree();
+    off = pick
+      ? (await page).renderPick()
+      : topic
+        ? (await page).renderTopic()
+        : rsvp
+          ? (await page).renderRsvpForm()
+          : (await page).renderFree();
   }
   if (typeof off === 'function') cleanup = off;
 }

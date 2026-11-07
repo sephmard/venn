@@ -2,6 +2,8 @@
 
 export function inviteText({ organizer, title, emoji, pick, set, mode }) {
   const what = [title, emoji].filter(Boolean).join(' ');
+  if (mode === 'rsvp')
+    return `${organizer ? `${organizer} invited you: ${what}.` : `You're invited: ${what}.`} Are you coming? (no sign-up)`;
   if (mode === 'topic')
     return `${organizer ? `${organizer} wants the group's pick: ${what}` : what} Tap the ones you'd go with (no sign-up)`;
   if (set) return `It's set: ${what}! Add it to your calendar:`;

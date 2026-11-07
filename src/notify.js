@@ -373,7 +373,22 @@ export function deadlineReminderEmail({
   last = false,
   retro = false,
   whiteLabel = null,
+  rsvp = null,
 }) {
+  // `rsvp`: the event's date (src/preview.js setLabel), when it's an RSVP.
+  if (rsvp)
+    return rsvpReminderEmail({
+      title,
+      organizer,
+      closes,
+      when: rsvp,
+      answerUrl,
+      unsubscribeUrl,
+      last,
+      retro,
+      whiteLabel,
+      pollUrl,
+    });
   const who = organizer ? `${organizer} is` : "You're";
   const subject = last ? `Last chance: when works for “${title}”?` : `When works for “${title}”?`;
   const lead = organizer
@@ -384,6 +399,22 @@ export function deadlineReminderEmail({
     `${heading(last ? 'Last chance to answer ⏳' : 'When works for you? 🗓️')}${para(escHtml(lead))}${para(
       `Answers close <strong>${escHtml(closes)}</strong>. It takes a few seconds, no sign-up.`,
     )}${button(answerUrl, 'Answer the poll')}`,
+    `You get these reminders because the organizer invited this address to “${escHtml(title)}”. <a href="${escHtml(unsubscribeUrl)}" style="color:#6b6d70">Stop these reminders</a>.`,
+    pollUrl,
+    { whiteLabel },
+  );
+  return { subject, text, html: styled(html, retro) };
+}
+
+/** An RSVP's reminder: are you coming, and when RSVPs close. */
+function rsvpReminderEmail({ title, organizer, closes, when, answerUrl, unsubscribeUrl, last, retro, whiteLabel, pollUrl }) {
+  const subject = last ? `Last chance to RSVP: “${title}”` : `Are you coming? “${title}”, ${when}`;
+  const lead = `${organizer || 'The organizer'} hasn't heard from you about “${title}” on ${when}.`;
+  const text = `${lead}\n\nRSVPs close ${closes}. One tap, no sign-up:\n\n${answerUrl}\n\nStop these reminders: ${unsubscribeUrl}\n`;
+  const html = emailLayout(
+    `${heading(last ? 'Last chance to RSVP ⏳' : 'Are you coming? 🎟️')}${para(escHtml(lead))}${para(
+      `RSVPs close <strong>${escHtml(closes)}</strong>. One tap, no sign-up.`,
+    )}${button(answerUrl, 'RSVP')}`,
     `You get these reminders because the organizer invited this address to “${escHtml(title)}”. <a href="${escHtml(unsubscribeUrl)}" style="color:#6b6d70">Stop these reminders</a>.`,
     pollUrl,
     { whiteLabel },
@@ -407,18 +438,26 @@ export function inviteEmail({
   unsubscribeUrl,
   retro = false,
   whiteLabel = null,
+  rsvp = null,
 }) {
   const who = organizer || 'Someone';
-  const subject = topic ? `${who} wants your vote: “${title}”` : `${who} invited you: when works for “${title}”?`;
-  const lead = topic
-    ? `${who} is asking the group to vote on “${title}”, and would love your answer.`
-    : `${who} is finding a time for “${title}”, and would love to know when works for you.`;
-  const by = closes ? ` Answers close ${closes}.` : '';
+  // `rsvp`: the event's date, when it's an RSVP: the date is set, so the question is who's coming.
+  const subject = rsvp
+    ? `${who} invited you: “${title}”, ${rsvp}`
+    : topic
+      ? `${who} wants your vote: “${title}”`
+      : `${who} invited you: when works for “${title}”?`;
+  const lead = rsvp
+    ? `${who} invited you to “${title}” on ${rsvp}. Are you coming?`
+    : topic
+      ? `${who} is asking the group to vote on “${title}”, and would love your answer.`
+      : `${who} is finding a time for “${title}”, and would love to know when works for you.`;
+  const by = closes ? ` ${rsvp ? 'RSVPs' : 'Answers'} close ${closes}.` : '';
   const text = `${lead}\n\nIt takes a few seconds, no sign-up.${by}\n\n${answerUrl}\n\nNot for you? Stop emails about this poll: ${unsubscribeUrl}\n`;
   const html = emailLayout(
-    `${heading(topic ? 'Your vote, please 🗳️' : 'When works for you? 🗓️')}${para(escHtml(lead))}${para(
-      `It takes a few seconds, no sign-up.${closes ? ` Answers close <strong>${escHtml(closes)}</strong>.` : ''}`,
-    )}${button(answerUrl, topic ? 'Vote' : 'Answer the poll')}`,
+    `${heading(rsvp ? 'You’re invited 🎟️' : topic ? 'Your vote, please 🗳️' : 'When works for you? 🗓️')}${para(escHtml(lead))}${para(
+      `It takes a few seconds, no sign-up.${closes ? ` ${rsvp ? 'RSVPs' : 'Answers'} close <strong>${escHtml(closes)}</strong>.` : ''}`,
+    )}${button(answerUrl, rsvp ? 'RSVP' : topic ? 'Vote' : 'Answer the poll')}`,
     `You got this because ${escHtml(who)} added this address to “${escHtml(title)}”${whiteLabel ? '' : ' on Venn'}. <a href="${escHtml(unsubscribeUrl)}" style="color:#6b6d70">Stop emails about this poll</a>.`,
     pollUrl,
     { whiteLabel },
@@ -430,7 +469,18 @@ export function inviteEmail({
  * To the organizer, when answers close: who answered, and the best time so far, ready to pick.
  * `best` is that time in the poll's zone, or null when nobody's free at the same time.
  */
-export function answersClosedEmail({ title, answered, waiting, best, topic = false, pollUrl, unsubscribeUrl, retro = false }) {
+export function answersClosedEmail({
+  title,
+  answered,
+  waiting,
+  best,
+  topic = false,
+  rsvp = null,
+  pollUrl,
+  unsubscribeUrl,
+  retro = false,
+}) {
+  if (rsvp) return rsvpClosedEmail({ title, counts: rsvp, waiting, pollUrl, unsubscribeUrl, retro });
   const subject = `Answers are in for “${title}”`;
   const count = `${answered} ${answered === 1 ? 'person' : 'people'} answered${waiting ? `; ${waiting} didn't` : ''}.`;
   const lead = topic ? 'The favourite so far' : 'The best time so far';
@@ -441,6 +491,31 @@ export function answersClosedEmail({ title, answered, waiting, best, topic = fal
     `${heading('Answers are in 🎉')}${para(`Answers for <strong>${escHtml(title)}</strong> are closed. ${escHtml(count)}`)}${para(
       best ? `${lead}: <strong>${escHtml(best)}</strong>.` : escHtml(pick),
     )}${button(pollUrl, action)}`,
+    stopFooter(unsubscribeUrl),
+    pollUrl,
+    { signed: false },
+  );
+  return { subject, text, html: styled(html, retro) };
+}
+
+/** To the organizer, when RSVPs close: who's coming. `counts` are src/rsvp.js's. */
+function rsvpClosedEmail({ title, counts, waiting, pollUrl, unsubscribeUrl, retro }) {
+  const subject = `RSVPs are in for “${title}”`;
+  const parts = [
+    `${counts.going} going`,
+    counts.waitlist && `${counts.waitlist} on the waitlist`,
+    counts.requested && `${counts.requested} waiting for you`,
+    counts.maybe && `${counts.maybe} maybe`,
+    counts.no && `${counts.no} can't go`,
+    waiting && `${waiting} didn't answer`,
+  ].filter(Boolean);
+  const line = `${parts.join(', ')}.`;
+  const text = `RSVPs for “${title}” are closed. ${line}\n\nSee who's coming:\n\n${pollUrl}\n\nStop these emails: ${unsubscribeUrl}\n`;
+  const html = emailLayout(
+    `${heading('RSVPs are in 🎉')}${para(`RSVPs for <strong>${escHtml(title)}</strong> are closed.`)}${para(escHtml(line))}${button(
+      pollUrl,
+      "See who's coming",
+    )}`,
     stopFooter(unsubscribeUrl),
     pollUrl,
     { signed: false },

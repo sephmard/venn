@@ -12,6 +12,7 @@ import { ValidationError, isTopicPoll } from '../public/core.js';
 import { whiteLabelOf } from './brands.js';
 import { mayEmail } from './recipients.js';
 import { publicOrigin } from './site.js';
+import { setLabel } from './preview.js';
 import { closesLabel, invitedUrl, isClosed, isDecided } from './deadline.js';
 import { emailEnabled, inviteEmail, normalizeEmail, sendEmail, unsubscribeHeaders, unsubscribeLink } from './notify.js';
 
@@ -104,6 +105,7 @@ export async function sendInvites({ store, env = {}, fetchImpl = fetch, id, user
       organizer: ev.organizer,
       closes,
       topic: isTopicPoll(ev),
+      rsvp: ev.rsvp ? setLabel(ev, ev.options[0].start) : null,
       pollUrl,
       answerUrl: invitedUrl(pollUrl, i.email),
       unsubscribeUrl: `${pollUrl}#unsubscribe=${unsubscribeToken}`,

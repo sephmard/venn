@@ -316,6 +316,20 @@ the same PR** (and CLAUDE.md if it's a rule that matters in review).
   (remembered); the sort button then names the kind, "Votes", not a truncated sort.
 - Not yet: guests suggesting options, ranked choice, AI features.
 
+**RSVPs** (the owner asked, 2026-11-07: "I already picked the date but want to know who is coming",
+white-label too, with the creator in control of reminders, caps and requests to join)
+
+- A third segment in the switch: **📅 Date · 🗳️ Vote · 🎟️ RSVP** (/new/rsvp). The form is the
+  plan card, **When is it?** (Date, Starts, Ends, All day), **Guest list** (Limit spots, Plus-ones,
+  Approve each RSVP: switches, off by default) and About you, with the Deadline row as on the others.
+- Guests see the date big ("You're invited"), one line for spots ("9 spots left · RSVPs need
+  approval"), then **Are you coming?** Going · Maybe · Can't go (the picked date's three buttons),
+  **Bringing** when plus-ones are on, and a status line once sent ("You're #2 on the waitlist…").
+- The organizer hosts, so their page has no RSVP of its own: the guest list takes the width, with
+  Approve / Decline on requests (only they see who's asking) and **RSVP settings** first among the
+  tools. Say organizer, never host, in the interface.
+- Not yet: telling someone when they come off the waitlist or are approved; a reminder on the day.
+
 **Never**
 
 - Never put the owner's name in the product, the website or the docs.

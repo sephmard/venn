@@ -130,7 +130,7 @@ export function cookie(name, value, { url, maxAge, path = '/api' }) {
 // (src/api.js join), and never an #admin= or #edit= token, another site, or anything else:
 // anything that doesn't fit goes to /me.
 const NEXT_PATH = /^\/(?!\/)[\w\-/.]*$/;
-const NEXT_QUERY_PATH = /^\/(new|new\/topic|brand\/new|brand\/[A-Za-z0-9]{1,32})$/;
+const NEXT_QUERY_PATH = /^\/(new|new\/topic|new\/rsvp|brand\/new|brand\/[A-Za-z0-9]{1,32})$/;
 const NEXT_QUERY = {
   brand: /^[A-Za-z0-9]{1,32}$/,
   look: /^(retro|classic)$/,

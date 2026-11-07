@@ -249,7 +249,7 @@ export function kindSwitch(on) {
   // The Use AI bar this form showed last time (ai-draft.js), drawn with the switch so that going
   // between Date and Vote doesn't make it pop in a moment later and push the form down.
   const bar = askBars[`${on}|${brand || ''}`];
-  return `${bar ? `<div class="ask" id="ask" data-early>${bar}</div>` : ''}<nav class="seg kind-switch" aria-label="Kind of Venn">${link('date', '/new', '📅 Date')}${link('topic', '/new/topic', '🗳️ Vote')}</nav>${err}`;
+  return `${bar ? `<div class="ask" id="ask" data-early>${bar}</div>` : ''}<nav class="seg kind-switch" aria-label="Kind of Venn">${link('date', '/new', '📅 Date')}${link('topic', '/new/topic', '🗳️ Vote')}${link('rsvp', '/new/rsvp', '🎟️ RSVP')}</nav>${err}`;
 }
 
 // Date or Vote, tapped: the form being left takes no typing while the next one loads. If that one
@@ -259,12 +259,13 @@ addEventListener('click', (e) => {
   if (!a) return;
   const was = a.parentNode.querySelector('[aria-current]');
   const vote = a.pathname === '/new/topic';
+  const rsvp = a.pathname === '/new/rsvp';
   was.ariaCurrent = null;
   a.ariaCurrent = 'page';
   Object.assign(a.closest('form'), { inert: true, ariaBusy: true });
   $('#switch-err')?.remove();
-  import(vote ? './create-topic.js' : './create-free.js').catch(() => {
-    failed = vote ? 'Vote' : 'Date';
+  import(vote ? './create-topic.js' : rsvp ? './create-rsvp.js' : './create-free.js').catch(() => {
+    failed = vote ? 'Vote' : rsvp ? 'RSVP' : 'Date';
     history.replaceState(null, '', was.href);
     dispatchEvent(new PopStateEvent('popstate'));
   });

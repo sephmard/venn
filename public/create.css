@@ -1016,3 +1016,46 @@ button.emoji-tile:focus-visible {
   opacity: 0.6;
   transition: opacity 0.2s 0.1s;
 }
+/* /new/rsvp: the date and times side by side, and the guest list's switches (create-rsvp.js). */
+.rsvp-when-fields {
+  display: grid;
+  gap: 12px;
+}
+.rsvp-time {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+.rsvp-time[hidden] {
+  display: none;
+}
+.rsvp-when-fields input {
+  width: 100%;
+}
+.rsvp-create .switch {
+  margin-top: 12px;
+}
+.rsvp-settings {
+  display: grid;
+  gap: 4px;
+}
+.rsvp-settings .switch {
+  margin-top: 0;
+}
+.rsvp-cap {
+  display: grid;
+  gap: 6px;
+  padding: 0 0 8px 4px;
+}
+.rsvp-cap input,
+.rsvp-cap select {
+  max-width: 12rem;
+}
+.rsvp-cap .hint {
+  margin: 0;
+}
+@container (min-width: 600px) {
+  .rsvp-when-fields {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 2fr);
+  }
+}

@@ -117,6 +117,26 @@ curl -X POST https://venn.day/api/events \
 
 Answers map option ids to `2` (yes) or `1` (if needed), as `availability: { "1": 2, "2": 1 }`; with `single`, one id at most. `slots` is the list of ids. The organizer picks with `POST /api/events/:id/finalize { "option": 1 }`; the poll then has `picked: 1` (and no `finalStart`). Topic polls have no `.ics` file (`404`) and no AI features. To find a date for what was picked, make a date poll with `seriesOf` set to the topic poll's id.
 
+## RSVPs
+
+An RSVP is for a date that's already set: guests say Going, Maybe or Can't go. Made at `/new/rsvp` in the app.
+
+```sh
+curl -X POST https://venn.day/api/events \
+  -H 'content-type: application/json' \
+  -d '{"mode":"rsvp","title":"Summer party","organizer":"Sam","timezone":"Europe/London","start":1781200800000,"end":1781211600000,"rsvp":{"cap":20,"plusOnes":1,"approve":true}}'
+```
+
+| Field           | What it does                                                                                           |
+| --------------- | ------------------------------------------------------------------------------------------------------ |
+| `mode`          | `"rsvp"`.                                                                                              |
+| `start`, `end`  | The date, in UTC milliseconds. The poll comes back as a one-option poll with `finalStart` already set. |
+| `rsvp.cap`      | Optional: spots, 1 to 1000 (plus-ones count). Once they're taken, new RSVPs join a waitlist, in order. |
+| `rsvp.plusOnes` | Optional: how many guests each person may bring, 1 to 5. Answers send `guests`.                        |
+| `rsvp.approve`  | Optional: each Going waits for the organizer before it counts.                                         |
+
+Answers key the one option's start: `2` going, `1` maybe, nothing for can't go, with `guests` for plus-ones. Each participant comes back with `rsvp: { status, guests, place? }` (status `going`, `waitlist`, `requested`, `declined`, `maybe` or `no`) and the poll with `rsvpCount: { going, people, waitlist, requested, maybe, no, spotsLeft }`. The organizer changes the settings with `PUT /api/events/:id/rsvp { cap, plusOnes, approve }` and lets someone in with `PUT /api/events/:id/participants/:pid/approval { "approved": true | false | null }`. Deadlines and invitations work as on any poll.
+
 ## The next one of a plan
 
 Book clubs, run clubs and game nights come round again. Once the date is picked, the organizer's "Plan the next one" opens `/new/pick?copy=<id>&next` (or `/new/free`): the poll copied, with dates that have passed dropped, or all moved on by whole weeks when none are left, at the same local times whatever daylight saving does. The code is in [`public/copy-poll.js`](../public/copy-poll.js). A plain copy (`?copy=<id>`, "Duplicate poll") does the same without `&next`.

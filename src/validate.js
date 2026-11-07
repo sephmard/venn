@@ -61,6 +61,7 @@ export function normalizeEventInput(input) {
   }
   if (input.mode === 'options') return normalizeOptionsEvent(input, base);
   if (input.mode === 'topic') return normalizeTopicEvent(input, base);
+  if (input.mode === 'rsvp') return normalizeRsvpEvent(input, base);
   if (input.windows != null) return normalizeWindowsEvent(input, base);
 
   if (!Array.isArray(input.dates) || input.dates.length === 0) throw new ValidationError('Pick at least one date');
@@ -211,6 +212,46 @@ function normalizeTopicEvent(input, base) {
     if (options.length < 2) throw new ValidationError('Add at least two options to pick one');
     ev.single = true;
   }
+  return ev;
+}
+
+/** The most people an RSVP can cap at, and the most plus-ones each guest can bring. */
+export const RSVP_LIMITS = { cap: 1000, plusOnes: 5 };
+
+/**
+ * The organizer's RSVP settings: `cap` (spots, with a waitlist once they're taken), `plusOnes`
+ * (how many guests each person may bring) and `approve` (each RSVP waits for the organizer).
+ * Only the ones switched on are kept.
+ */
+export function normalizeRsvp(input) {
+  if (input == null) return {};
+  if (typeof input !== 'object' || Array.isArray(input)) throw new ValidationError('Invalid RSVP settings');
+  const out = {};
+  if (input.cap != null) {
+    const cap = Number(input.cap);
+    if (!Number.isInteger(cap) || cap < 1 || cap > RSVP_LIMITS.cap)
+      throw new ValidationError(`Spots must be a whole number from 1 to ${RSVP_LIMITS.cap}`);
+    out.cap = cap;
+  }
+  if (input.plusOnes != null && input.plusOnes !== 0) {
+    const n = Number(input.plusOnes);
+    if (!Number.isInteger(n) || n < 1 || n > RSVP_LIMITS.plusOnes)
+      throw new ValidationError(`Plus-ones must be from 0 to ${RSVP_LIMITS.plusOnes}`);
+    out.plusOnes = n;
+  }
+  if (input.approve != null && typeof input.approve !== 'boolean') throw new ValidationError('approve must be true or false');
+  if (input.approve) out.approve = true;
+  return out;
+}
+
+/**
+ * An RSVP: the date is already picked, `{ start, end }` in UTC milliseconds, and guests say Going,
+ * Maybe or Can't go (yes, if needed or no to its one option). Kept as a one-option poll whose date
+ * is set, so calendars, reminders and emails work as on any picked date; `rsvp` holds its settings.
+ */
+function normalizeRsvpEvent(input, base) {
+  const ev = normalizeOptionsEvent({ options: [{ start: input.start, end: input.end }] }, base);
+  ev.rsvp = normalizeRsvp(input.rsvp);
   return ev;
 }
 

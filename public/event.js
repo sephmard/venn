@@ -174,6 +174,12 @@ export async function renderEvent(id, navigate) {
 
   // A topic poll (options, not times) has its own page, loaded only for those (topic-poll.js).
   const cls = document.documentElement.classList;
+  // An RSVP (the date is set; who's coming?) has its own too (rsvp-poll.js).
+  if (st.ev.rsvp)
+    return (await import('./rsvp-poll.js')).renderRsvp({
+      ...{ id, navigate, authHeaders, hash, ev: st.ev, brandBar: brandJs?.brandBar },
+      ...{ load: () => load().then(() => st.ev), embedded: cls.contains('embed'), whiteLabel: cls.contains('white-label') },
+    });
   if (st.ev.mode === 'topic')
     return (await import('./topic-poll.js')).renderTopicPoll({
       ...{ id, navigate, authHeaders, hash, ev: st.ev, brandBar: brandJs?.brandBar },

@@ -190,6 +190,8 @@ export const isPartsPoll = (ev) => isOptionsPoll(ev) && ev.layout === 'parts';
 export const isOptionsPoll = (ev) => ev.mode === 'options';
 /** A topic poll: people vote on options (places, books, yes or no), not times. Keyed by option id. */
 export const isTopicPoll = (ev) => ev.mode === 'topic';
+/** An RSVP: the date is set (its one option), and guests say whether they're coming. */
+export const isRsvpPoll = (ev) => !!ev.rsvp;
 /** Polls where people mark whole days rather than times of day. */
 export const isDaysPoll = (ev) => !isOptionsPoll(ev) && ev.slotMinutes === DAY_MINUTES;
 
