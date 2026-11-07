@@ -46,8 +46,9 @@ document.head.insertAdjacentHTML(
   .ai-use .ai-star { transform-origin: center; transform-box: fill-box; animation: ai-twinkle 2.8s ease-in-out 0.4s 2; }
   @keyframes ai-twinkle { 0%, 100% { transform: scale(1) rotate(0); } 50% { transform: scale(1.18) rotate(12deg); } }
   @media (prefers-color-scheme: dark) { .ai-use { --ai-b: #a68bff; } }
-  /* The one box above Date · Vote: closed, a quiet line that looks like an empty field. */
+  /* The one box under Date · Vote · RSVP: closed, a quiet line that looks like an empty field. */
   .ask { margin: 0 0 16px; }
+  .ask:empty { display: none; }
   .white-label .ask { display: none; }
   .ask-bar { display: flex; align-items: center; gap: 10px; width: 100%; min-height: 48px; padding: 0 14px;
     font: inherit; font-size: 16px; text-align: start; color: var(--muted); cursor: text;
@@ -270,7 +271,7 @@ function wire(fill, button = BUTTON) {
   });
 }
 
-// ---------- the one box above Date · Vote (/new and /new/topic) ----------
+// ---------- the one box under Date · Vote (/new and /new/topic) ----------
 
 const ASK_KEY = 'venn:ask'; // what the box filled, carried to the other form when it picked that kind
 const ASK_TTL = 60_000;
@@ -309,9 +310,9 @@ const askBar = (ai) =>
   }</span></button>`;
 
 /**
- * Put the box above the Date · Vote switch: a quiet bar that opens into the box, in place. With no
- * box to offer (`box` false), only the place where a result shows. Returns false where there's no
- * switch (editing or copying a poll) or the page is a white-label template's.
+ * Put the box under the Date · Vote · RSVP switch and its line: a quiet bar that opens into the
+ * box, in place. With no box to offer (`box` false), only the place where a result shows. Returns
+ * false where there's no switch (editing or copying a poll) or the page is a white-label template's.
  */
 async function mountAsk(box, ai, jev) {
   const sw = $('.kind-switch');
@@ -329,7 +330,11 @@ async function mountAsk(box, ai, jev) {
   if (early) {
     early.removeAttribute('data-early');
     early.innerHTML = html; // the same bar, now working
-  } else sw.insertAdjacentHTML('beforebegin', `<div class="ask" id="ask">${html}</div>`);
+  } else {
+    // Under the switch and the lines that follow it, just before the form's first section.
+    const at = sw.closest('form')?.querySelector(':scope > .sheet');
+    (at || sw).insertAdjacentHTML(at ? 'beforebegin' : 'afterend', `<div class="ask" id="ask">${html}</div>`);
+  }
   rememberAsk(ai ? { date: bar, topic: bar } : { date: askBar(false), topic: '' });
   if (!box) return true;
   const open = (yes) => {

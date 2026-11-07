@@ -1,4 +1,4 @@
-// The one Use AI box above Date · Vote (ai-draft.js, src/ask-kind.js): the same place on both
+// The one Use AI box under Date · Vote · RSVP (ai-draft.js, src/ask-kind.js): the same place on both
 // forms, Venn picks the kind and moves to the other form when it needs to, carrying a brand
 // template's link, keeping what was typed, never creating anything, and one request a press.
 import { test, expect } from '@playwright/test';
@@ -16,13 +16,13 @@ const aiCalls = (page) => {
   return calls;
 };
 
-test('the box sits above Date · Vote, in the same place on both forms, and the old buttons are gone', async ({ page }) => {
+test('the box sits under Date · Vote · RSVP, in the same place on both forms, and the old buttons are gone', async ({ page }) => {
   const at = async (path) => {
     await page.goto(path);
     const bar = page.getByRole('button', { name: 'Describe it, and Venn sets it up' });
     await expect(bar).toBeVisible();
-    const [b, s] = [await bar.boundingBox(), await page.locator('.kind-switch').boundingBox()];
-    expect(b.y + b.height).toBeLessThanOrEqual(s.y);
+    const [b, s] = [await bar.boundingBox(), await page.locator('#kind-note').boundingBox()];
+    expect(b.y).toBeGreaterThanOrEqual(s.y + s.height); // the switch and its line first, then the box
     expect(b.height).toBeGreaterThanOrEqual(44);
     await expect(page.locator('.ai-head')).toHaveCount(0); // no Use AI beside a section's heading
     await expect(page.getByRole('button', { name: 'Use AI' })).toHaveCount(0);

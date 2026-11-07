@@ -219,7 +219,7 @@ export async function draftDays(env, { prompt, timezone }, { now, anthropic } = 
   return draft;
 }
 
-// ---------- 1c. The one "Use AI" box above Date · Vote: Venn picks the kind ----------
+// ---------- 1c. The one "Use AI" box under Date · Vote: Venn picks the kind ----------
 
 const NO_DAYS = "Couldn't find any days in that description. Try mentioning when.";
 const NOTHING = "Couldn't tell what to set up from that. Try naming the choices, or when.";

@@ -888,7 +888,7 @@ async function route(
       return json(await draftPoll(env, { prompt, timezone }, { now: now(), anthropic }));
     }
 
-    // POST /api/ai/draft  { prompt, timezone } — the one Use AI box above Date · Vote, which picks
+    // POST /api/ai/draft  { prompt, timezone } — the one Use AI box under Date · Vote, which picks
     // the kind (ai.js draftAny, ask-kind.js). One request, one allowance, whichever form it fills.
     if (isAi && anyDraft) {
       const { prompt, timezone } = await readJson(request);
