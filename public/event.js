@@ -554,6 +554,18 @@ export async function renderEvent(id, navigate) {
     const maybe = label(IF_NEEDED);
     box.hidden = !hasAnswer();
     if (box.hidden) return;
+    // Once the date is picked, the answer is about that date alone; the other dates are settled.
+    if (ev().finalStart != null) {
+      const said = st.declined ? 0 : (st.mine[[...finalSet()][0]] ?? 0);
+      const [cls, icon, text] =
+        said === YES
+          ? ['yes', '✓', 'you can make it']
+          : said === IF_NEEDED
+            ? ['maybe', '~', 'if needed']
+            : ['no', '×', 'you can’t make it'];
+      box.innerHTML = `<p><b>Your answer:</b> <span class="chip ${cls}"><span aria-hidden="true">${icon}</span> ${text}</span></p>`;
+      return;
+    }
     if (!yes.length && !maybe.length) {
       box.innerHTML = `<p><b>Your answer:</b> none of these work for you.</p>`;
       return;
@@ -1408,7 +1420,7 @@ export async function renderEvent(id, navigate) {
     $('#best-h').hidden = empty;
     if (empty) {
       $('#best').innerHTML = `<div class="empty-state">
-        ${n ? '<h3>Only your answer so far</h3><p class="hint">Share the link to see where everyone overlaps.</p>' : '<div class="venn-art" aria-hidden="true"><i></i><i></i><i></i></div><p><b>No answers yet.</b></p>'}
+        ${n ? '<h3>Only your answer so far</h3><p class="hint">Share the link to see where everyone overlaps.</p>' : '<div class="venn-art" aria-hidden="true"><i></i><i></i><i></i></div><p>Answers show up here as people reply.</p>'}
         <button class="btn" data-share>${canShare ? 'Share the poll' : 'Copy invite link'}</button>
         ${n ? `<div><button type="button" class="link-btn" id="pick-anyway">Pick ${listMode ? 'a date' : 'a time'} anyway</button></div>` : ''}
       </div>`;
