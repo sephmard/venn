@@ -20,9 +20,7 @@
   gap: 6px;
   margin-top: 16px;
 }
-.rsvp-plus select,
-.rsvp-settings select,
-.rsvp-settings input[type='number'] {
+.rsvp-plus select {
   max-width: 12rem;
 }
 .rsvp-group + .rsvp-group {
@@ -67,19 +65,11 @@ ol.rsvp-list {
 .rsvp-acts .link-btn {
   min-height: 44px;
 }
-.rsvp-settings {
-  display: grid;
-  gap: 10px;
-}
-.rsvp-cap {
-  display: grid;
-  gap: 6px;
-  padding-left: 4px;
-}
-.rsvp-cap .hint {
-  margin: 0;
-}
 /* The organizer hosts: no RSVP of their own, so the guest list takes the width. */
 .rsvp-poll .panels:has(> :only-child) {
   grid-template-columns: minmax(0, 1fr);
+}
+/* The organizer's RSVP settings: the shared switch rows, spaced by the form's own gap. */
+.rsvp-settings .inline-field {
+  margin: 0;
 }

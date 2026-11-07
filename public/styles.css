@@ -584,6 +584,35 @@ select:focus {
   font-family: var(--display);
   font-weight: 700;
 }
+/* A switch with its setting on the same line, such as Days in a row on /new and Limit spots on an
+   RSVP: shared by the create pages and the organizer's panel. */
+.opt-note {
+  margin-left: 4px;
+  font-size: 0.8rem;
+  font-weight: 500;
+  color: var(--muted);
+}
+.inline-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+.inline-row {
+  margin-bottom: 12px;
+}
+.inline-row label {
+  margin: 0;
+}
+.inline-row .stepper {
+  gap: 6px;
+  flex-shrink: 0;
+}
+.inline-row .stepper input {
+  width: 64px; /* room for four digits, such as 1000 spots */
+  padding-inline: 4px;
+}
 .switch {
   display: inline-flex;
   align-items: center;

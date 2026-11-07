@@ -481,33 +481,6 @@ button.emoji-tile:focus-visible {
     font-size: 0.875rem;
   }
 }
-.opt-note {
-  margin-left: 4px;
-  font-size: 0.8rem;
-  font-weight: 500;
-  color: var(--muted);
-}
-/* "Days in a row" and its stepper on one line. */
-.inline-row {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-}
-.inline-row {
-  margin-bottom: 12px;
-}
-.inline-row label {
-  margin: 0;
-}
-.inline-row .stepper {
-  gap: 6px;
-  flex-shrink: 0;
-}
-.inline-row .stepper input {
-  width: 52px;
-}
 .sub-h {
   font-size: 1rem;
   margin: 0 0 8px;
@@ -1016,46 +989,12 @@ button.emoji-tile:focus-visible {
   opacity: 0.6;
   transition: opacity 0.2s 0.1s;
 }
-/* /new/rsvp: the date and times side by side, and the guest list's switches (create-rsvp.js). */
-.rsvp-when-fields {
-  display: grid;
-  gap: 12px;
+/* /new/rsvp: the line under the calendars that says the one time picked (rsvp-when.js). */
+.rsvp-pick {
+  margin: 12px 0 0;
+  min-height: 1.5em;
+  color: var(--muted);
 }
-.rsvp-time {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 12px;
-}
-.rsvp-time[hidden] {
-  display: none;
-}
-.rsvp-when-fields input {
-  width: 100%;
-}
-.rsvp-create .switch {
-  margin-top: 12px;
-}
-.rsvp-settings {
-  display: grid;
-  gap: 4px;
-}
-.rsvp-settings .switch {
-  margin-top: 0;
-}
-.rsvp-cap {
-  display: grid;
-  gap: 6px;
-  padding: 0 0 8px 4px;
-}
-.rsvp-cap input,
-.rsvp-cap select {
-  max-width: 12rem;
-}
-.rsvp-cap .hint {
-  margin: 0;
-}
-@container (min-width: 600px) {
-  .rsvp-when-fields {
-    grid-template-columns: minmax(0, 1fr) minmax(0, 2fr);
-  }
+.rsvp-pick strong {
+  color: var(--text);
 }
