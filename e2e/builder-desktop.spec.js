@@ -93,3 +93,25 @@ test('builder at 960: the step menu at the top of the step column, links stacked
   await page.setViewportSize({ width: 390, height: 800 });
   await expect(page.locator('.step-bar > #step-menu summary')).toHaveText(/1\/10\s*Share/);
 });
+
+test('builder: the keyboard goes steps, the step, Back, Save, Next, then the preview', async ({ page }, info) => {
+  test.skip(info.project.name !== 'desktop', 'wide screens only');
+  await page.setViewportSize({ width: 1200, height: 900 });
+  const id = await template(page, `keys-${Date.now()}`);
+  await page.goto(`/brand/${id}#organizer`);
+  await expect(page.locator('[data-panel="share"]')).toBeVisible();
+  const sorted = await page.evaluate(
+    (sels) => {
+      const els = sels.map((s) => document.querySelector(s));
+      return els.every((el, i) => i === 0 || els[i - 1].compareDocumentPosition(el) & Node.DOCUMENT_POSITION_FOLLOWING);
+    },
+    ['.steps', '.step-panels', '#back', '#submit', '#next', '.brand-editor > .preview-box'],
+  );
+  expect(sorted).toBe(true);
+  // The preview still sits beside the step, at the top.
+  const [pv, panels] = [
+    await page.locator('.brand-editor > .preview-box').boundingBox(),
+    await page.locator('.step-panels').boundingBox(),
+  ];
+  expect(pv.x).toBeGreaterThan(panels.x + panels.width);
+});

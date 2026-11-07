@@ -609,7 +609,6 @@ function showForm(b, token, start, draft = null) {
     <form id="brand-form" class="create brand-page brand-editor" novalidate>
       <h1>${b ? 'Your brand template' : 'Make a brand template'}</h1>
       <nav class="steps" aria-label="Steps"><ol>${stepList}</ol></nav>
-      ${previewBox(true)}
       <div class="step-panels">
         ${b ? panel('share', links(b, token, others)) : ''}
         ${panel(
@@ -774,6 +773,7 @@ function showForm(b, token, start, draft = null) {
         <button type="submit" class="btn" id="submit">${b ? 'Save' : 'Save template'}</button>
         <button type="button" class="btn btn-primary" id="next">Next</button>
       </div>
+      ${previewBox(true)}
     </form>`;
 
   const picked = (attr, key = attr) => $(`[data-${attr}][aria-checked="true"]`)?.dataset[key] || '';
