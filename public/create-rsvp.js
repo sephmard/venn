@@ -11,6 +11,7 @@ import {
   formReady,
   keepDraft,
   kindSwitch,
+  focusStart,
   loadSource,
   nameAndEmail,
   planFields,
@@ -144,6 +145,6 @@ export function renderRsvpForm() {
   // The Use AI box (ai-draft.js) fills in the name, the day and time, and the guest list.
   if (!src)
     getConfig().then((c) => import('./ai-draft.js').then((m) => $('#create') && m.aiRsvp(when, { ready: formReady() }, c)));
-  $('#title').focus({ preventScroll: true });
+  focusStart();
   return () => when.cleanup();
 }

@@ -11,6 +11,7 @@ import {
   fillCommon,
   formReady,
   kindSwitch,
+  focusStart,
   loadSource,
   nameAndEmail,
   planEmoji,
@@ -312,6 +313,6 @@ export function renderTopic() {
         ),
       ),
     );
-  $('#title').focus({ preventScroll: true });
+  focusStart();
   return () => {};
 }

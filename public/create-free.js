@@ -21,6 +21,7 @@ import { $, $$, app, dateParts, dayLabel, esc, fmtDay, getConfig, plural, rove, 
 import {
   formReady,
   kindSwitch,
+  focusStart,
   brush,
   createBar,
   explainNotReady,
@@ -667,7 +668,7 @@ export function renderFree() {
   const row = () => ($('#in-row').checked ? +$('#span').value : 1);
   const hooks = { empty, setRow, show: showLevel, level: () => level, row, ready: formReady() };
   if (!src) getConfig().then((c) => import('./ai-draft.js').then((m) => m.aiDays(st, hooks, c)));
-  $('#title').focus({ preventScroll: true });
+  focusStart();
   return () => {
     painter?.cleanup();
     cal?.cleanup();

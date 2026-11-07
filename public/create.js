@@ -259,11 +259,19 @@ export function kindSwitch(on) {
   return `<nav class="seg kind-switch" aria-label="Kind of Venn">${link('date', '/new', '📅 Date')}${link('topic', '/new/topic', '🗳️ Vote')}${link('rsvp', '/new/rsvp', '🎟️ RSVP')}</nav><p class="hint kind-note" id="kind-note">${KIND_NOTES[on]}</p>${err}${bar ? `<div class="ask" id="ask" data-early>${bar}</div>` : ''}`;
 }
 
+let switched = false;
+/** A form drawn: no field is focused (on a phone that opens the keyboard); after a switch, focus stays on it. */
+export function focusStart() {
+  if (switched) $('.kind-switch [aria-current]')?.focus({ preventScroll: true });
+  switched = false;
+}
+
 // Date or Vote, tapped: the form being left takes no typing while the next one loads. If that one
 // can't, the router redraws the one left (its calendar was already unhooked) from its draft.
 addEventListener('click', (e) => {
   const a = e.defaultPrevented && e.target.closest?.('.kind-switch a');
   if (!a) return;
+  switched = true;
   const was = a.parentNode.querySelector('[aria-current]');
   const vote = a.pathname === '/new/topic';
   const rsvp = a.pathname === '/new/rsvp';
@@ -295,7 +303,7 @@ export function planFields(kind) {
         <button type="button" class="emoji-tile" id="emoji-tile" aria-label="Change the icon" aria-expanded="false">🗓️</button>
         <div class="grow">
           <label for="title">Name of your poll</label>
-          <input id="title" type="text" maxlength="120" value="${SEED}" data-seed="${SEED}" placeholder="${kind === 'free' ? 'Summer cabin trip' : "Dinner at Rosa's"}">
+          <input id="title" type="text" maxlength="120" autocomplete="off" value="${SEED}" data-seed="${SEED}" placeholder="${kind === 'free' ? 'Summer cabin trip' : "Dinner at Rosa's"}">
         </div>
       </div>
       <details class="reveal" id="more-box">
