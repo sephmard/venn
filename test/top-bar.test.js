@@ -33,8 +33,9 @@ test('Works with Claude is on the home page, under Create a Venn, and not in the
   // One quiet line under the hero's button, opening Venn's page in Claude in a new tab.
   const hero = read('public/index.html').match(/<section class="hero"[\s\S]*?<\/section>/)[0];
   assert.match(hero, /<p class="claude-note">\s*<a href="https:\/\/claude\.ai\/directory\/venn" target="_blank" rel="noopener"/);
-  // The list further down still says what happens next: you connect it in Claude.
+  // The list further down keeps it short: "Works with Claude. Add it", and the link says where it goes.
   const home = read('public/index.html').match(/<ul class="hl-list">[\s\S]*?<\/ul>/)[0];
   assert.match(home, /href="https:\/\/claude\.ai\/directory\/venn" target="_blank" rel="noopener"/);
-  assert.match(home, /where you connect it/);
+  assert.match(home, /Works with Claude\.\s*<a[^>]*>Add it/);
+  assert.match(home, /opens Venn's page in Claude, in a new tab/);
 });
