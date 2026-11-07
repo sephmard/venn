@@ -104,9 +104,6 @@ export const USAGE_EVENTS = {
     got: [...POLL_KINDS, 'error'],
     sure: YN,
     filled: YN,
-    // Jev's read of the Claude picker's draft: ready, or fix (send it back to Claude), and how sure.
-    review: ['ready', 'fix', 'error'],
-    reviewSure: YN,
   },
   // Browser
   view: {
