@@ -616,6 +616,111 @@ h2 em {
   margin-top: 24px;
 }
 
+/* The three kinds of Venn, each a way into its form, in the hero's three circle colours. */
+.kinds-sec h2 {
+  text-align: center;
+}
+.kinds {
+  list-style: none;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 20px;
+  max-width: 960px;
+  margin: 40px auto 0;
+  padding: 0;
+}
+.kind {
+  display: grid;
+  justify-items: center;
+  gap: 6px;
+  height: 100%;
+  padding: 32px 20px 28px;
+  border-radius: 24px;
+  background: var(--card);
+  box-shadow: var(--card-shadow);
+  color: var(--ink);
+  text-align: center;
+  text-decoration: none;
+  transition: transform 0.2s;
+}
+.kind:hover {
+  transform: translateY(-3px);
+}
+.kind b {
+  font-size: 1.25rem;
+}
+.kind span:last-child {
+  color: var(--ink-2);
+}
+.kind-dot {
+  display: grid;
+  place-items: center;
+  width: 64px;
+  height: 64px;
+  margin-bottom: 8px;
+  border-radius: 50%;
+  font-size: 1.75rem;
+  background: var(--dot);
+}
+.k1 {
+  --dot: #b8ecd6;
+}
+.k2 {
+  --dot: #ffd9a0;
+}
+.k3 {
+  --dot: #b9d4f5;
+}
+@media (prefers-color-scheme: dark) {
+  .k1 {
+    --dot: #1d5c46;
+  }
+  .k2 {
+    --dot: #6b4a16;
+  }
+  .k3 {
+    --dot: #24456e;
+  }
+}
+/* Phones: three slim rows, the circle on the left. */
+@media (max-width: 640px) {
+  .kinds {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 12px;
+    margin-top: 28px;
+  }
+  .kind {
+    grid-template-columns: auto minmax(0, 1fr);
+    grid-template-rows: auto auto;
+    justify-items: start;
+    align-items: center;
+    column-gap: 14px;
+    row-gap: 0;
+    padding: 14px 16px;
+    border-radius: 20px;
+    text-align: left;
+  }
+  .kind-dot {
+    grid-row: 1 / 3;
+    width: 48px;
+    height: 48px;
+    margin: 0;
+    font-size: 1.375rem;
+  }
+  .kind b {
+    font-size: 1.125rem;
+    align-self: end;
+  }
+  .kind span:last-child {
+    align-self: start;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .kind {
+    transition: none;
+  }
+}
+
 /* For groups */
 .groups {
   display: grid;
@@ -1794,6 +1899,29 @@ html.retro .hero-art::after {
       0 46px,
       0 0;
   }
+}
+
+/* The three kinds: neon rings, like the Venn's. */
+html.retro .kind-dot {
+  background: rgb(var(--neon) / 0.2);
+  box-shadow:
+    inset 0 0 0 2px rgb(var(--neon)),
+    0 0 22px -4px rgb(var(--neon));
+}
+html.retro .k1 {
+  --neon: 45 226 230;
+}
+html.retro .k2 {
+  --neon: 255 60 172;
+}
+html.retro .k3 {
+  --neon: 255 211 25;
+}
+html.retro .kind b {
+  font-family: var(--serif);
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
 }
 
 /* The Venn in neon: glowing rings that light up where they cross. */
