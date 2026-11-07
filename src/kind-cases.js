@@ -6,9 +6,10 @@
 //   date:  a time to find (including a choice between named days or times)
 //   vote:  a choice between things (places, food, books, themes), named or still to come
 //   yesno: one yes-or-no question
+//   rsvp:  the day is set; who's coming?
 //   none:  nothing to set up
 
-export const KINDS = ['date', 'vote', 'yesno', 'none'];
+export const KINDS = ['date', 'vote', 'yesno', 'rsvp', 'none'];
 
 export const KIND_CASES = [
   // Seph's own (Nov 4 2026) and the #286 cases
@@ -72,6 +73,12 @@ export const KIND_CASES = [
   ['k53', 'Which snacks should I bring to the game?', 'vote'],
   ['k54', 'Ideas for the team offsite activity?', 'vote'],
   ['k55', 'What color should we paint the kitchen?', 'vote'],
+  // The day is set, who's coming? (Seph, Nov 7)
+  ['k56', 'Dinner at mine Saturday 7pm, 10 people max, plus-ones ok', 'rsvp'],
+  ['k57', 'RSVP for my birthday drinks on Friday the 20th', 'rsvp'],
+  ['k58', 'Who’s coming to the BBQ this Sunday at 2?', 'rsvp'],
+  ['k59', 'Book club is on Thursday, see who can come', 'rsvp'],
+  ['k60', 'Guest list for the launch party on December 4, 50 spots', 'rsvp'],
 ].map(([id, text, kind]) => ({ id, text, kind }));
 
 /** The cases' ids, for the usage counts the server keeps of each check (src/usage.js, kind.check). */

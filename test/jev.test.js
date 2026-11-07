@@ -99,7 +99,7 @@ test('the fixed cases: about 50, unique, every kind, and short enough to send', 
   assert.equal(KIND_CASES.find((c) => c.id === 'k01').kind, 'yesno');
 });
 
-test('the baseline: the word rules alone settle 14 of the 55 cases right', () => {
+test('the baseline: the word rules alone settle 18 of the 60 cases right', () => {
   // Today's picker settles a case by its words first (saidKind, then choicesOfWords without AI);
   // the rest is the Claude read, which only the server's check can score. Pinned, so the number in
   // docs/AI.md can't drift without the test saying so.
@@ -111,16 +111,16 @@ test('the baseline: the word rules alone settle 14 of the 55 cases right', () =>
   };
   const right = KIND_CASES.filter((c) => rules(c.text) === c.kind).map((c) => c.id);
   const wrong = KIND_CASES.filter((c) => rules(c.text) && rules(c.text) !== c.kind).map((c) => c.id);
-  assert.equal(right.length, 14);
+  assert.equal(right.length, 18); // 14 of the first 55, and 4 of the 5 RSVPs
   assert.deepEqual(wrong, ['k20', 'k21']); // "which works better, Thursday or Friday?" reads as a vote
 });
 
-test('the check covers every case once a day, 5 an hour in the first 11 hours (UTC)', () => {
+test('the check covers every case once a day, 5 an hour in the first 12 hours (UTC)', () => {
   const seen = [];
   for (let h = 0; h < 24; h++) {
     const cases = casesForHour(h);
     assert.ok(cases.length <= 5);
-    if (h >= 11) assert.equal(cases.length, 0, `hour ${h}`);
+    if (h >= 12) assert.equal(cases.length, 0, `hour ${h}`);
     seen.push(...cases.map((c) => c.id));
   }
   assert.deepEqual(

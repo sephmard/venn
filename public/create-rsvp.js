@@ -8,6 +8,7 @@ import {
   draftChanged,
   explainNotReady,
   fillCommon,
+  formReady,
   keepDraft,
   kindSwitch,
   loadSource,
@@ -25,7 +26,7 @@ import {
 } from './create.js';
 import { fields, values, wireFields } from './rsvp-fields.js';
 import { pickLabel, whenPicker } from './rsvp-when.js';
-import { $, app, localTz, todayStr, track } from './ui.js';
+import { $, app, getConfig, localTz, todayStr, track } from './ui.js';
 
 /**
  * The event's start and end in UTC milliseconds, from the form's date and times in time zone `tz`:
@@ -140,6 +141,9 @@ export function renderRsvpForm() {
     );
   }
   update();
+  // The Use AI box (ai-draft.js) fills in the name, the day and time, and the guest list.
+  if (!src)
+    getConfig().then((c) => import('./ai-draft.js').then((m) => $('#create') && m.aiRsvp(when, { ready: formReady() }, c)));
   $('#title').focus();
   return () => when.cleanup();
 }

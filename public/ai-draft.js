@@ -275,7 +275,10 @@ function wire(fill, button = BUTTON) {
 
 const ASK_KEY = 'venn:ask'; // what the box filled, carried to the other form when it picked that kind
 const ASK_TTL = 60_000;
-const PATHS = { free: '/new', topic: '/new/topic' };
+const PATHS = { free: '/new', topic: '/new/topic', rsvp: '/new/rsvp' };
+/** The form each kind of draft fills: a date poll on /new, a vote on /new/topic, an RSVP on /new/rsvp. */
+const FORM_OF = { date: 'free', vote: 'topic', rsvp: 'rsvp' };
+const formAt = (path) => Object.keys(PATHS).find((k) => PATHS[k] === path) || 'free';
 const PLACEHOLDERS = ['Book club, any weeknight in the next two weeks', 'Dinner Friday: Rosa’s, Luigi’s or Thai'];
 
 /** Choices to name in a line: "Italian, Thai or Mexican". */
@@ -295,7 +298,7 @@ const askBox = (ai, jev) => `<div class="ai-draft" id="ai-draft" hidden>
     <div class="ai-go-row">
       <p class="hint"><span id="ai-sent">${
         ai
-          ? `Venn picks a date poll or a vote. Sent to Anthropic’s Claude${jev ? ' and TypeSafe’s Jev' : ''}.`
+          ? `Venn picks Date, Vote or RSVP. Sent to Anthropic’s Claude${jev ? ' and TypeSafe’s Jev' : ''}.`
           : 'Venn reads this itself.'
       }</span> ${ai ? 'Check everything before you create the poll.' : 'Check the days before you create the poll.'} <span id="ai-key-link"></span></p>
       <button type="button" class="link-btn" id="ai-close">Close</button>
@@ -321,7 +324,7 @@ async function mountAsk(box, ai, jev) {
   if (!sw || (!early && $('#ask')) || whiteLabel()) {
     if (sw && early) {
       early.remove();
-      rememberAsk({ date: '', topic: '' });
+      rememberAsk({ date: '', topic: '', rsvp: '' });
     }
     return false;
   }
@@ -335,7 +338,7 @@ async function mountAsk(box, ai, jev) {
     const at = sw.closest('form')?.querySelector(':scope > .sheet');
     (at || sw).insertAdjacentHTML(at ? 'beforebegin' : 'afterend', `<div class="ask" id="ask">${html}</div>`);
   }
-  rememberAsk(ai ? { date: bar, topic: bar } : { date: askBar(false), topic: '' });
+  rememberAsk(ai ? { date: bar, topic: bar, rsvp: bar } : { date: askBar(false), topic: '', rsvp: '' });
   if (!box) return true;
   const open = (yes) => {
     $('#ai-draft').hidden = !yes;
@@ -377,6 +380,8 @@ const switchTo = (to) => $(`.kind-switch a[href^="${PATHS[to]}"]:not([aria-curre
 /** The first line of the result: the kind Venn picked, and why, in words. */
 function kindLine(d) {
   if (d.kind === 'date') return 'Venn made this a date poll, because you asked when.';
+  if (d.kind === 'rsvp')
+    return d.when ? 'Venn made this an RSVP, because the date is set.' : 'Venn made this an RSVP. Pick the date below.';
   if (d.why === 'both' && d.note) return `Venn made this a vote, because ${d.note.split(',')[0]} is already set.`;
   const check = d.suggested && d.options.length > 1 ? ' Check the options it suggested.' : '';
   if (d.why === 'both' && check)
@@ -392,7 +397,7 @@ function kindLine(d) {
 }
 
 /**
- * The box on a create form. `here` is 'free' (/new) or 'topic' (/new/topic); `apply(draft)` fills
+ * The box on a create form. `here` is 'free' (/new), 'topic' (/new/topic) or 'rsvp' (/new/rsvp); `apply(draft)` fills
  * this form from the box's answer and returns { said, undo, changed }: what it read, how to put the
  * form back, and what to light up. A draft of the other kind goes to the other form, which shows it.
  */
@@ -404,7 +409,8 @@ async function askHere(here, apply, { ai, jev, box = true, ready }) {
     const { said, undo, changed } = await apply(draft);
     light(changed);
     $('#create')?.dispatchEvent(new Event('change')); // the form's draft (form-draft.js) follows
-    const replaced = had && `It replaced the ${here === 'topic' ? 'vote' : 'date poll'} you’d started. Undo brings it back.`;
+    const started = { free: 'date poll', topic: 'vote', rsvp: 'RSVP' }[here];
+    const replaced = had && `It replaced the ${started} you’d started. Undo brings it back.`;
     if (moved || draft.why === 'both') said.note = [said.note, replaced].filter(Boolean).join(' ') || '';
     said.kind = kindLine(draft); // always: the kind Venn made, and why
     done(said, async () => {
@@ -413,7 +419,7 @@ async function askHere(here, apply, { ai, jev, box = true, ready }) {
       if (!moved || back === location.pathname) return;
       track('ai.ask', { undone: 'yes' });
       await new Promise((r) => setTimeout(r)); // the form's draft is kept first
-      switchTo(here === 'topic' ? 'free' : 'topic');
+      switchTo(formAt(back));
     });
     // Choices with a time: the days AI read are one tap away, with no second request.
     const days = here === 'topic' && draft.date;
@@ -449,7 +455,7 @@ async function askHere(here, apply, { ai, jev, box = true, ready }) {
         body: { prompt, timezone: $('#tz').value },
         headers: aiHeaders(),
       });
-      const to = draft.kind === 'vote' ? 'topic' : 'free';
+      const to = FORM_OF[draft.kind] || 'free';
       if (to !== here) return handOff(to, draft, prompt);
       closeBox();
       await show(draft, prompt);
@@ -611,6 +617,98 @@ export function aiTopic(fill, snapshot, { ai, jev, ready } = { ai: true }) {
   );
   if (ai)
     asked.then(() => $('#ai-go') && hintOnOpen(usedLine('This week’s free AI requests are used up, so Venn reads this itself.')));
+}
+
+/**
+ * On an RSVP (/new/rsvp): the same box. The day is set, so AI fills in its name, emoji, place, the
+ * day and time (`when`, rsvp-when.js's picker) and the guest list. Undo puts back exactly what was
+ * there. Without AI there's no box here, but an RSVP the box on another form made still lands.
+ */
+export function aiRsvp(when, { ready } = {}, { ai, jev } = { ai: true }) {
+  if (!$('#r-when')) return;
+  let filled = {}; // what AI itself filled in last time: asking again may replace those, never what was typed
+  const asked = askHere(
+    'rsvp',
+    async (draft) => {
+      const [{ iconEmoji, setIconEmoji, iconBg, setIconBg }, guests, { pickLabel }] = await Promise.all([
+        import('./create.js'),
+        import('./rsvp-fields.js'),
+        import('./rsvp-when.js'),
+      ]);
+      const form = $('#create');
+      const [t, where] = [$('#title'), $('#location')];
+      const before = {
+        title: t.value,
+        seed: t.dataset.seed,
+        where: where.value,
+        emoji: iconEmoji(),
+        bg: iconBg(),
+        pick: when.get(),
+        guests: guests.values(form),
+        filled,
+      };
+      const ours = (now, was) => !now.trim() || now === was;
+      const changed = [];
+      const next = {};
+      if (draft.title && (ours(t.value, filled.title) || t.value === t.dataset.seed)) {
+        t.value = next.title = draft.title;
+        t.dispatchEvent(new Event('input'));
+        changed.push(t);
+      }
+      const tile = $('#emoji-tile');
+      if (draft.emoji && ours(before.emoji, filled.emoji) && (await setIconEmoji(draft.emoji))) {
+        next.emoji = draft.emoji;
+        changed.push(tile);
+      }
+      if (draft.tile && ours(before.bg, filled.bg) && (await setIconBg(draft.tile))) {
+        next.bg = draft.tile;
+        if (!changed.includes(tile)) changed.push(tile);
+      }
+      if (draft.location && ours(where.value, filled.where)) {
+        where.value = next.where = draft.location;
+        $('#more-box').open = true;
+        changed.push(where);
+      }
+      filled = next;
+      if (draft.when) {
+        when.set(draft.when);
+        changed.push($('#r-when'));
+      }
+      const setGuests = (g) => {
+        $('.rsvp-settings').innerHTML = guests.fields(g);
+        guests.wireFields(form);
+      };
+      if (draft.rsvp) {
+        setGuests(draft.rsvp);
+        changed.push(...$$('.rsvp-settings .inline-field').filter((el) => el.querySelector('input:checked')));
+      }
+      const g = draft.rsvp || {};
+      const list = [
+        g.cap && plural(g.cap, 'spot'),
+        g.plusOnes && (g.plusOnes > 1 ? `${g.plusOnes} plus-ones each` : 'Plus-ones'),
+        g.approve && 'Approve each RSVP',
+      ].filter(Boolean);
+      const said = {
+        head: changed.includes(t) ? t.value : '',
+        when: [pickLabel(draft.when), ...list].filter(Boolean).join(' · '),
+        note: draft.note || '',
+      };
+      const undo = async () => {
+        filled = before.filled;
+        t.value = before.title;
+        t.dataset.seed = before.seed ?? '';
+        t.dispatchEvent(new Event('input'));
+        where.value = before.where;
+        if (iconEmoji() !== before.emoji) await setIconEmoji(before.emoji);
+        if (iconBg() !== before.bg) await setIconBg(before.bg);
+        when.set(before.pick);
+        setGuests(before.guests);
+      };
+      return { said, undo, changed };
+    },
+    { ai, jev, box: ai, ready },
+  );
+  if (ai) asked.then(() => $('#ai-go') && hintOnOpen(usedLine()));
 }
 
 /** On "vote on a few dates": "Use AI" beside "When could it be?"; `load(options, tz)` fills in the options. */

@@ -8,6 +8,8 @@
 //      between make a vote, a time to find makes a date poll. Choices and a time both: the vote
 //      comes first (the time goes in its note, or "Find a date for it" finds it after).
 //   3. Neither: nothing to fill in.
+//   An RSVP (the day is set, who's coming?) is said in words ("RSVP", "plus-ones", "10 people
+//   max") or read by the model, and needs no more than one day.
 
 import { weekdayOf } from '../public/core.js';
 
@@ -26,27 +28,36 @@ const DATE_WORDS = new RegExp(
   'i',
 );
 
-/** 'vote', 'date' or null: what the request's own words ask for. The earlier phrase wins. */
+// "RSVP", "who's coming", "guest list", "plus-ones", "10 people max": the day is set, who's coming?
+const RSVP_WORDS =
+  /\b(?:rsvps?\b|who['’]?s (?:coming|in)\b|who (?:is|will be) coming\b|guest ?list\b|plus[- ]ones?\b|\d+\s+spots\b|\d+\s+(?:people|guests)\s+max\b|(?:max(?:imum)?|cap(?:ped)? at|limit(?:ed)? to)\s+(?:of\s+)?\d+\s+(?:people|guests|spots)\b)/i;
+
+/** 'vote', 'date', 'rsvp' or null: what the request's own words ask for. The earlier phrase wins. */
 export function saidKind(prompt) {
   const text = String(prompt ?? '');
-  const vote = text.search(VOTE_WORDS);
-  const date = text.search(DATE_WORDS);
-  if (vote < 0 && date < 0) return null;
-  if (date < 0) return 'vote';
-  if (vote < 0) return 'date';
-  return date <= vote ? 'date' : 'vote';
+  const found = [
+    ['date', text.search(DATE_WORDS)],
+    ['vote', text.search(VOTE_WORDS)],
+    ['rsvp', text.search(RSVP_WORDS)],
+  ].filter(([, at]) => at >= 0);
+  if (!found.length) return null;
+  return found.reduce((a, b) => (b[1] < a[1] ? b : a))[0];
 }
 
 /**
- * The kind for this request, from its words and the days model's draft ({ days, vote? }, as
- * days-draft.js shapes it): { kind: 'date' | 'vote', why: 'words' | 'open' | 'both' }, or null when
- * there's nothing to fill in. `why` is for usage counts (ai.used): `both` means a time and choices.
+ * The kind for this request, from its words, the days model's draft ({ days, vote? }, as
+ * days-draft.js shapes it) and its RSVP read (`fixed`, days-draft.js rsvpOf): { kind: 'date' |
+ * 'vote' | 'rsvp', why: 'words' | 'open' | 'both' | 'fixed' }, or null when there's nothing to fill
+ * in. `why` is for usage counts (ai.used): `both` means a time and choices, `fixed` a day that's set.
+ * An RSVP is for one day: words or a read that say RSVP over several days make a date poll.
  */
-export function pickKind(prompt, draft) {
+export function pickKind(prompt, draft, fixed = null) {
   const days = draft?.days?.length > 0;
   const vote = draft?.vote;
   const said = saidKind(prompt);
+  if (said === 'rsvp') return !fixed || fixed.dates <= 1 ? { kind: 'rsvp', why: 'words' } : { kind: 'date', why: 'words' };
   if (said) return { kind: said, why: 'words' };
+  if (fixed?.said && fixed.dates === 1) return { kind: 'rsvp', why: 'fixed' };
   // Choices to pick between. A plan that's deciding where *and* when, with nothing named to pick
   // from yet, stays a date poll (its "Vote on it first" link is still there).
   if (vote && (!vote.both || vote.options.length >= 2)) return { kind: 'vote', why: days ? 'both' : 'open' };
@@ -129,8 +140,10 @@ export function choicesOfWords(prompt) {
  * days the read found; "nothing to set up" is never taken from Jev, so Claude's read and the word
  * rules still get their say. `why` keeps the meaning it has in pickKind, for the card's words.
  */
-export function jevPick(jev, draft, sure = 0.8) {
+export function jevPick(jev, draft, sure = 0.8, fixed = null) {
   if (!jev || !(jev.p >= sure)) return null;
+  // An RSVP is one day: with several, it's a date poll after all, so the other reads decide.
+  if (jev.kind === 'rsvp') return !fixed || fixed.dates <= 1 ? { kind: 'rsvp', why: 'fixed' } : null;
   const days = draft?.days?.length > 0;
   const named = draft?.vote?.options?.length >= 2;
   if (jev.kind === 'date') return days ? { kind: 'date', why: 'open' } : null;

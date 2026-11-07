@@ -82,7 +82,7 @@ async function useBrand(id, fill, quiet = false) {
   look.brandLook({ ...b, hideVenn: false });
   if (b.hideVenn) {
     $('#ask')?.remove(); // a white-label template's polls offer no AI (ai-draft.js)
-    rememberAsk({ date: '', topic: '' });
+    rememberAsk({ date: '', topic: '', rsvp: '' });
   }
   const sw = $('.footer .classic-switch');
   if (sw) sw.hidden = true; // the template's look, not Venn's
