@@ -45,8 +45,9 @@ These come from the owner and outrank habits and defaults. Check every change ag
 
 Friendly, plain and short, like a helpful friend in the group chat.
 
-- **The strongest line, once.** Drop a heading that restates the sentence under it. "Free, with no trial, no paid plan and no catch." is the whole message.
-- **Benefits, not features.** Say what people get ("No account and no app, just the link."), not what the software has.
+- **Concise, elegant, simple. Always.** The owner's standing rule for all copy. Each line says one thing in as few words as it takes, then stops; a link names the action ("Add it"), not the steps behind it. If a line wraps on a phone, cut it.
+- **The strongest line, once.** Drop a heading that restates the sentence under it. "Free. No trial, no catch." is the whole message.
+- **Benefits, not features.** Say what people get ("No account, no app. Just a link."), not what the software has.
 - **Plain words, short sentences.** Sentence case for headings and buttons. Buttons say what they do: Create a Venn, Copy link, Pick this time?
 - **Calm, never pushy.** No exclamation marks in Finn's lines or the interface (the two celebrations are the exception), no urgency, no hype words ("revolutionary", "seamless").
 - **Errors say what happened and what to do**, in the page, never in a browser `alert()` or `confirm()`.
