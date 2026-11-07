@@ -1,4 +1,4 @@
-// The box above Date · Vote on a Venn without AI ("Say when, and Venn picks the days"): Venn reads plain words itself (src/days-parse.js) and fills
+// The box under Date · Vote on a Venn without AI ("Say when, and Venn picks the days"): Venn reads plain words itself (src/days-parse.js) and fills
 // in the days for review, with Undo, as Use AI does. On the Venn with sign-in (ACCOUNTS_URL), which
 // has no AI (NO_AI_URL, for a local run on other ports).
 import { test, expect } from '@playwright/test';

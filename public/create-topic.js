@@ -277,7 +277,7 @@ export function renderTopic() {
       },
     ).then(() => linked && $('#create') && press(linked));
   }
-  // The Use AI box above Date · Vote (ai-draft.js) writes the question and the options; without AI
+  // The Use AI box under Date · Vote (ai-draft.js) writes the question and the options; without AI
   // there's no box here, but a vote the box on /new made still lands.
   if (!src)
     getConfig().then((c) =>

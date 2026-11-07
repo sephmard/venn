@@ -1,4 +1,4 @@
-// The one "Use AI" box above Date · Vote on /new and /new/topic: which kind of poll a request
+// The one "Use AI" box under Date · Vote on /new and /new/topic: which kind of poll a request
 // asks for, a date poll or a vote. Pure, so the rule can be tested without a model
 // (test/ask-kind.test.js). The policy: docs/AI.md, "Which kind of poll".
 //

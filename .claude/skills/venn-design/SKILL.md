@@ -304,6 +304,10 @@ the same PR** (and CLAUDE.md if it's a rule that matters in review).
 - **Under the switch, a few words say what the kind on is for** (Seph, 2026-11-07: "very, very
   concise", clear on a phone): "Find the day that works." · "Pick what or where." · "Date set? See
   who's coming." One line at 375px, in the hint style (`KIND_NOTES` in create.js).
+- **The switch never moves** (Seph, 2026-11-07: going between kinds was "jumpy, and janky"): it
+  sits right under the heading with its line, at the same height on all three forms. What differs
+  between kinds (the Use AI box, which RSVP doesn't have; notes about a template or a draft) comes
+  after the line, so only the form below it changes.
 - **The question comes first** (the owner, 2026-11: "you can't put in the actual question"): the
   first card, "What are you deciding?", has **Pick from options · Yes or no**, then **Your question**,
   empty (no "Get-together" name), its example fitting the kind ("Where should we eat?" / "Should we

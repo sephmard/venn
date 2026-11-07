@@ -154,7 +154,7 @@ for (const scheme of ['light', 'dark']) {
       }
     });
 
-    test('the Use AI box above Date · Vote: open, and after it moves to the other form, in both looks', async ({ page }) => {
+    test('the Use AI box under Date · Vote: open, and after it moves to the other form, in both looks', async ({ page }) => {
       for (const look of ['', '?retro=0']) {
         await page.goto(`/new${look}`);
         await page.click('#ai-open');
