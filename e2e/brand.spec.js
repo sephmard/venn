@@ -308,6 +308,7 @@ test('brand template: a new one starts with the AI description, fills it all in,
   await page.goto('/brand/new?ai=1');
   await expect(page.locator('#ai-prompt')).toBeFocused();
   await expect(page.locator('[data-panel="name"] #ai-prompt')).toBeVisible();
+  await expect(page.locator('#ai-look label')).toHaveText('Describe your organization, and Venn suggests a look');
   await page.fill('#ai-prompt', 'Summit Gym, a climbing gym, orange and charcoal, friendly and bold');
   await page.click('#ai-go');
   await expect(page.locator('#ai-done')).toHaveText('Summit Gym 🧗 · colours, fonts and corners · “Climb night”Undo');

@@ -991,6 +991,7 @@ function showForm(b, token, start, draft = null) {
           (m) =>
             $('#ai-look') &&
             m.aiLook($('#ai-look'), {
+              first: !b,
               name: () => $('#b-name').value.trim(),
               apply: (d) => {
                 const [nameIn, titleIn] = [$('#b-name'), $('#b-title')];

@@ -642,10 +642,11 @@ export function aiDraft(form, load) {
  * `name()` is the organization's name so far; `apply(draft)` fills it in and returns
  * { changed, text, undo }: the elements it changed, a line saying what it did, and how to put it back.
  */
-export function aiLook(host, { name, apply }) {
+export function aiLook(host, { name, apply, first = false }) {
   host.innerHTML = box(
     'ai-inline',
-    'Or describe your organization',
+    // A new template starts with it; an existing one offers it beside the starting looks.
+    first ? 'Describe your organization, and Venn suggests a look' : 'Or describe your organization',
     'Riverside Runners, a running club, bright orange, friendly and bold',
     'Suggest a look',
     'You can change everything after.',
