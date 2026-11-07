@@ -234,16 +234,16 @@ export function rememberAsk(bars) {
   for (const [kind, bar] of Object.entries(bars)) askBars[`${kind}|${brand}`] = bar;
 }
 
-/**
- * Which kind of Venn: find a date (/new) or vote on what or where (/new/topic). The same switch on
- * both forms, in the same place, so going between them feels like one page. A brand template stays.
- */
 /** What each kind is for, in a few words under the switch (one line on a phone). */
 export const KIND_NOTES = {
   date: 'Find the day that works.',
   topic: 'Pick what or where.',
   rsvp: 'Date set? See who’s coming.',
 };
+/**
+ * Which kind of Venn: find a date (/new) or vote on what or where (/new/topic). The same switch on
+ * both forms, in the same place, so going between them feels like one page. A brand template stays.
+ */
 export function kindSwitch(on) {
   const err =
     failed &&
