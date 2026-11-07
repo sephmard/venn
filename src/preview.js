@@ -5,6 +5,7 @@
 import { allDaySpan, buildSlots, isOptionsPoll, meetingEnd, rankTimes } from '../public/core.js';
 import { imagePath } from './images.js';
 import { EMBED_PATH, frameHeaders } from './embed.js';
+import { logoPath } from './brands.js';
 
 // Static images, rendered by `npm run og` (scripts/og-image.js): one to ask, one once it's set,
 // and both again for polls in the retro look.
@@ -123,10 +124,39 @@ export function pollPreview(ev) {
   return { title, description, image: own || (ev.retro ? OG_IMAGES.retroSet : OG_IMAGES.set) };
 }
 
-/** The <head> tags for a preview. Every value is escaped; `url` and image paths are made absolute against `origin`. */
+/**
+ * A white-label poll's (or template link's) image: never Venn's. The poll's card when it was drawn
+ * with the template's logo and name (public/poll-image.js), else the template's logo, small, else
+ * the poll's own picture, small, else none.
+ */
+export function whiteLabelImage(ev, brand) {
+  if (ev?.id && ev.image?.card && ev.cardBrand && ev.cardBrand === brand.id)
+    return { path: imagePath(ev.id, ev.image, 'card'), alt: ev.title };
+  if (brand.logoV != null) return { path: logoPath(brand.id, brand.logoV), alt: brand.name, small: true };
+  if (ev?.id && ev.image) return { path: imagePath(ev.id, ev.image), alt: ev.title, small: true };
+  return null;
+}
+
+/**
+ * The <head> tags for a preview. Every value is escaped; `url` and image paths are made absolute
+ * against `origin`. A `small` image (a logo or a square picture) shows beside the title, not over it.
+ */
 export function previewTags({ title, description, image }, { origin, url, pageTitle = `${title} · Venn`, siteName = 'Venn' }) {
   const meta = (attr, key, value) => `<meta ${attr}="${key}" content="${escAttr(value)}" />`;
-  // A white-label poll with no picture of its own has no image: Venn's would show Venn's name.
+  if (image?.small)
+    return [
+      `<title>${escAttr(pageTitle)}</title>`,
+      meta('name', 'description', description),
+      meta('property', 'og:type', 'website'),
+      meta('property', 'og:site_name', siteName),
+      meta('property', 'og:url', url),
+      meta('property', 'og:title', title),
+      meta('property', 'og:description', description),
+      meta('property', 'og:image', origin + image.path),
+      meta('property', 'og:image:alt', image.alt),
+      meta('name', 'twitter:card', 'summary'),
+    ].join('\n    ');
+  // With no picture, no image: Venn's would show Venn's name.
   if (!image)
     return [
       `<title>${escAttr(pageTitle)}</title>`,
@@ -209,16 +239,28 @@ export async function pollShell(html, { pathname, search = '', origin, store }) 
   const preview = pollPreview(ev);
   const tags = brand?.hideVenn
     ? previewTags(
-        { ...preview, image: ev.image?.card ? preview.image : null },
+        { ...preview, image: whiteLabelImage(ev, brand) },
         { origin, url, pageTitle: preview.title, siteName: brand.name },
       )
     : previewTags(preview, { origin, url });
-  return { html: injectTags(shell, tags), headers: frameHeaders(embed && brand?.embedSites) };
+  const page = brand?.hideVenn ? tabIcon(shell, brand) : shell;
+  return { html: injectTags(page, tags), headers: frameHeaders(embed && brand?.embedSites) };
+}
+
+/**
+ * A white-label poll's tab icon: its template's logo in place of Venn's, or Venn's left as it is
+ * when the template has no logo. (app.js swaps only Venn's own icons, so it leaves this one.)
+ */
+export function tabIcon(html, brand) {
+  if (brand.logoV == null) return html;
+  const href = escAttr(logoPath(brand.id, brand.logoV));
+  return html.replace(/<link rel="icon"[^>]*>(\s*<link rel="icon"[^>]*>)*/, `<link rel="icon" href="${href}" />`);
 }
 
 /**
  * A template's share link (/new?brand=<id>): its preview names the template, so a chat shows
- * whose poll form it opens. A white-label template's leaves Venn's name and image out. Any other
+ * whose poll form it opens. A white-label template's leaves Venn's name and image out, and shows
+ * its logo instead. Any other
  * create link, or a template that's gone, keeps the shell as it is.
  */
 async function templateShell(html, { pathname, search, origin, store }) {
@@ -238,7 +280,7 @@ async function templateShell(html, { pathname, search, origin, store }) {
     return injectTags(
       html,
       previewTags(
-        { title, description: 'Find the day that works for everyone. No sign-up.', image: null },
+        { title, description: 'Find the day that works for everyone. No sign-up.', image: whiteLabelImage(null, brand) },
         { origin, url, pageTitle: title, siteName: name },
       ),
     );

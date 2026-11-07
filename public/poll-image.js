@@ -43,6 +43,15 @@ const CSS = `
 .icon-preview{display:block;width:100%;height:auto;margin-top:12px;border:1px solid var(--border);border-radius:12px}
 `;
 
+// A white-label template's form (create.js): its polls' cards show its logo and name, not Venn's,
+// and no Finn. Asked of the page's own create.js, already loaded, when a card is drawn.
+let page = null;
+const org = () => page?.whiteLabelBrand?.() || null;
+async function loadOrg() {
+  page ??= await import('./create.js').catch(() => ({}));
+  return org();
+}
+
 // The panel's state, for the tile on the page now. A new create page starts afresh.
 let S = null;
 const live = () => S?.tile?.isConnected && S.tile === $('#emoji-tile');
@@ -99,6 +108,7 @@ function show() {
   if (icon.picture && $('#icon-emoji')) $('#icon-emoji').value = '';
   if ($('#icon-hint')) $('#icon-hint').textContent = icon.hint;
   if ($('#icon-finn')) $('#icon-finn').hidden = !s.picture;
+  noFinn(org());
   preview();
 }
 
@@ -117,6 +127,11 @@ export function stickerButtons(selected = '') {
     .join('');
 }
 
+/** A white-label template's preview has no Finn, so the panel doesn't offer him: just the preview. */
+function noFinn(o) {
+  for (const el of [$('#icon-finn-h'), $('#icon-finn .icon-stickers')]) if (el) el.hidden = !!o;
+}
+
 /** Draw the link preview in the panel, as people will see it when the link is shared. */
 let drawing = 0;
 export async function preview() {
@@ -125,7 +140,9 @@ export async function preview() {
   if (!img || !s.picture) return;
   const n = ++drawing;
   const title = $('#title')?.value.trim() || $('#title')?.placeholder || '';
-  const card = await previewCard(s.picture.blob, title, s.sticker, retro()).catch(() => null);
+  const o = await loadOrg();
+  noFinn(o);
+  const card = await previewCard(s.picture.blob, title, s.sticker, retro(), o).catch(() => null);
   if (!card || n !== drawing || !img.isConnected) return;
   if (img.src.startsWith('blob:')) URL.revokeObjectURL(img.src);
   img.src = URL.createObjectURL(card);
@@ -351,10 +368,12 @@ export async function squareIcon(img) {
 /**
  * Where everything goes on the link-preview card: the picture big on the right, on a white tile, and
  * Venn's mark, the poll's name and a line about Venn on the left, like Venn's own (public/og.png).
- * `retro`: in the retro look (public/og-retro.png), the name in chrome capitals. Pure, so it's
- * tested without a browser.
+ * `retro`: in the retro look (public/og-retro.png), the name in chrome capitals. `org`: a white-label
+ * template's { name, hideName, logo } (logo: a picture, or null), whose logo and name take Venn's
+ * place, in the plain look. Pure, so it's tested without a browser.
  */
-export function layoutPreview(measure, title, retro = false) {
+export function layoutPreview(measure, title, retro = false, org = null) {
+  if (org) retro = false;
   const { width: W, height: H } = CARD;
   const pad = 80;
   const tile = { size: 440, x: W - pad - 440, y: (H - 440) / 2 };
@@ -369,6 +388,16 @@ export function layoutPreview(measure, title, retro = false) {
   const lh = t.size * 1.04;
   const line = { text: 'Find the day that works for everyone.', font: `500 26px ${SANS}`, h: 26 * 1.4 };
   const brand = { x: pad, y: 104, size: 44, font: retro ? `900 30px ${ORBITRON}` : `700 32px ${SANS}` };
+  if (org) {
+    // The logo as tall as fits (64px), up to four times as wide, then the name unless the logo says it.
+    const [w, h] = org.logo ? sizeOf(org.logo) : [0, 0];
+    const lh = w && h ? Math.min(64, (64 * 4 * h) / w) : 0;
+    const logo = lh ? { x: pad, y: brand.y - lh / 2, w: (lh * w) / h, h: lh } : null;
+    const named = !(org.hideName && logo);
+    const nameX = logo ? pad + logo.w + 16 : pad;
+    const name = named ? String(org.name || '').trim() : '';
+    brand.org = { logo, name: name && { text: name, x: nameX, maxWidth: maxWidth - (nameX - pad) } };
+  }
   const top = brand.y + 40;
   const textH = t.lines.length * lh + 24 + line.h;
   const y0 = top + Math.max(0, (H - pad - top - textH) / 2);
@@ -385,9 +414,11 @@ export function layoutPreview(measure, title, retro = false) {
 
 /**
  * Draw the link-preview card (a layout from layoutPreview) with the poll's picture, and the Finn
- * `sticker` the organizer chose (a picture from finn-stickers.js) on its corner.
+ * `sticker` the organizer chose (a picture from finn-stickers.js) on its corner. `logo`: a
+ * white-label template's logo, as a picture, when the layout has one.
  */
-export function drawPreview(ctx, L, picture, sticker = null) {
+export function drawPreview(ctx, L, picture, sticker = null, logo = null) {
+  if (L.brand.org) sticker = null; // Finn is Venn's
   const { width: W, height: H, tile } = L;
   const T = L.retro ? RETRO : PLAIN;
   ctx.fillStyle = T.bg;
@@ -426,20 +457,25 @@ export function drawPreview(ctx, L, picture, sticker = null) {
     ctx.restore();
   }
 
-  // Venn's mark and name.
-  const { x, y, size: m, font } = L.brand;
-  const centers = [
-    [x + m * 0.35, y - m * 0.14],
-    [x + m * 0.65, y - m * 0.14],
-    [x + m * 0.5, y + m * 0.13],
-  ];
-  if (L.retro) rings(ctx, centers, m * 0.29);
-  else venn(ctx, centers, m * 0.29);
+  // Venn's mark and name, or a white-label template's logo and name.
+  const { x, y, size: m, font, org } = L.brand;
   ctx.textBaseline = 'middle';
   ctx.textAlign = 'left';
   ctx.fillStyle = T.ink;
   ctx.font = font;
-  ctx.fillText(L.retro ? 'VENN' : 'Venn', x + m + 10, y);
+  if (org) {
+    if (org.logo) ctx.drawImage(logo, org.logo.x, org.logo.y, org.logo.w, org.logo.h);
+    if (org.name) ctx.fillText(org.name.text, org.name.x, y, org.name.maxWidth);
+  } else {
+    const centers = [
+      [x + m * 0.35, y - m * 0.14],
+      [x + m * 0.65, y - m * 0.14],
+      [x + m * 0.5, y + m * 0.13],
+    ];
+    if (L.retro) rings(ctx, centers, m * 0.29);
+    else venn(ctx, centers, m * 0.29);
+    ctx.fillText(L.retro ? 'VENN' : 'Venn', x + m + 10, y);
+  }
 
   ctx.font = L.title.font;
   if (L.retro) {
@@ -520,11 +556,24 @@ async function loadRetroFont() {
   await Promise.race([document.fonts?.load('900 64px Orbitron').catch(() => {}), new Promise((r) => setTimeout(r, 1500))]);
 }
 
-/** The 1200 × 630 card for the poll's link previews, as a JPEG. */
-async function previewCard(blob, title, stickerKey = '', retro = false) {
-  const [picture, sticker] = await Promise.all([
+/** A white-label template's logo (its public path), ready to draw, or null. */
+async function logoPicture(path) {
+  if (!path) return null;
+  const res = await fetch(path);
+  if (!res.ok) throw new Error(res.statusText);
+  return decode(await res.blob());
+}
+
+/**
+ * The 1200 × 630 card for the poll's link previews, as a JPEG. `brand`: a white-label template
+ * (create.js), whose logo and name go where Venn's would.
+ */
+async function previewCard(blob, title, stickerKey = '', retro = false, brand = null) {
+  if (brand) [retro, stickerKey] = [false, ''];
+  const [picture, sticker, logo] = await Promise.all([
     decode(blob),
     stickerPicture(stickerKey, retro).catch(() => null),
+    brand ? logoPicture(brand.logo).catch(() => null) : null,
     retro ? loadRetroFont() : loadFonts(),
   ]);
   const [c, ctx] = canvas(CARD.width, CARD.height);
@@ -532,7 +581,8 @@ async function previewCard(blob, title, stickerKey = '', retro = false) {
     ctx.font = font;
     return ctx.measureText(t).width;
   };
-  drawPreview(ctx, layoutPreview(measure, title, retro), picture, sticker);
+  const org = brand && { name: brand.name, hideName: brand.hideName, logo };
+  drawPreview(ctx, layoutPreview(measure, title, retro, org), picture, sticker, logo);
   return jpeg(c, CARD_BYTES);
 }
 
@@ -573,8 +623,9 @@ export async function upload(id, adminToken, title) {
       s.had = false;
       return null;
     }
-    const card = await previewCard(s.picture.blob, title, s.sticker, retro()).catch(() => null);
-    const body = { icon: s.picture.url, ...(card && { card: await dataUrl(card) }) };
+    const o = await loadOrg();
+    const card = await previewCard(s.picture.blob, title, s.sticker, retro(), o).catch(() => null);
+    const body = { icon: s.picture.url, ...(card && { card: await dataUrl(card), ...(o && { cardBrand: o.id }) }) };
     const { image } = await api(`events/${encodeURIComponent(id)}/image`, { method: 'PUT', body, headers });
     s.had = true;
     save(id, { sticker: s.sticker });
