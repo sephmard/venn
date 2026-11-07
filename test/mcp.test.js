@@ -215,7 +215,7 @@ test('create_venn takes exactly one of days, times or options, and says what to 
     assert.equal(r.isError, true, JSON.stringify(args));
     return r.data;
   };
-  assert.match(await err({}), /exactly one of days, times or options/);
+  assert.match(await err({}), /exactly one of days, times, options or rsvp/);
   assert.match(await err({ days: ['2030-01-10'], options: ['A'] }), /exactly one/);
   assert.match(
     await err({ times: [{ start: '2030-01-10T18:00:00Z', end: '2030-01-10T19:00:00Z' }], options: ['A'] }),
@@ -257,7 +257,37 @@ test('a date poll with hidden answers still says how many answered', async () =>
 test('the tools tell an assistant when to vote and when to find a date', async () => {
   const { body } = await rpc('tools/list');
   const create = body.result.tools.find((t) => t.name === 'create_venn');
-  assert.deepEqual(Object.keys(create.inputSchema.properties).slice(2, 6), ['days', 'times', 'options', 'single']);
+  assert.deepEqual(Object.keys(create.inputSchema.properties).slice(2, 7), ['days', 'times', 'options', 'rsvp', 'single']);
   assert.match(create.description, /exactly one of/);
   assert.match(create.description, /options/);
+});
+
+test('create an RSVP: the date is set; its results say who’s coming', async () => {
+  const made = await tool('create_venn', {
+    title: 'Dinner at mine',
+    timezone: 'America/New_York',
+    rsvp: { start: '2030-01-12T19:00:00-05:00', end: '2030-01-12T21:00:00-05:00', spots: 3, plusOnes: 1 },
+  });
+  assert.equal(made.isError, undefined);
+  const id = made.data.link.match(/\/e\/(\w+)$/)[1];
+  const ev = await (await fetch(`${base}/api/events/${id}`)).json();
+  assert.deepEqual(ev.rsvp, { cap: 3, plusOnes: 1 });
+  const key = ev.slots[0];
+  for (const [name, a, guests] of [
+    ['Bo', 2, 1],
+    ['Cy', 2, 0],
+    ['Di', 2, 0],
+    ['Ed', 1, 0],
+  ])
+    await post(`events/${id}/participants`, { name, availability: { [key]: a }, guests });
+  const { data } = await tool('get_venn_results', { poll: id });
+  assert.equal(data.when, 'Sat, Jan 12, 7:00 PM – 9:00 PM');
+  assert.equal(data.going, 3);
+  assert.equal(data.waitlist, 1);
+  assert.equal(data.spotsLeft, 0);
+  assert.equal(data.summary, '3 going of 3 spots, 1 on the waitlist, 1 maybe, 0 can’t go.');
+  assert.deepEqual(data.who, { going: ['Bo', 'Cy'], waitlist: ['Di'], maybe: ['Ed'], cantGo: [] });
+  const bad = await tool('create_venn', { title: 'x', timezone: 'UTC', rsvp: { start: 'Saturday' } });
+  assert.equal(bad.isError, true);
+  assert.match(bad.data, /ISO 8601/);
 });

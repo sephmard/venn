@@ -34,6 +34,29 @@ function reply(body) {
     // A choice, not a time: "choose between …" names the choices and no days; "where and when"
     // is a vote about where plus this week's evenings.
     const plain = { decide: 'when', question: '', choices: [] };
+    // An RSVP: the day is set ("Saturday 7pm"), with its guest list.
+    if (/people max/i.test(text))
+      return {
+        ...base,
+        ...plain,
+        title: 'Dinner at mine',
+        tile: 'dusk',
+        location: '',
+        timeOfDay: 'clock',
+        usualParts: [],
+        firstDate: today,
+        lastDate: '',
+        daysInRow: 1,
+        days: named(['Saturday'])
+          .filter(({ date }) => date > today)
+          .slice(0, 1)
+          .map(({ date }) => day(date, { from: '19:00' })),
+        decide: 'rsvp',
+        spots: 10,
+        plusOnes: 1,
+        approve: false,
+        note: '',
+      };
     if (/choose between/i.test(text))
       return {
         ...base,

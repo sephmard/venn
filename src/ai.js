@@ -6,7 +6,7 @@ import { bindingAllows } from './limits.js';
 import Anthropic from '@anthropic-ai/sdk';
 import { BUTTONS, CORNERS, FONTS, isHex } from '../public/brand-look.js';
 import { firstEmoji } from '../public/emoji.js';
-import { DAYS_SCHEMA, DAYS_SYSTEM, daysPrompt, shapeDays } from './days-draft.js';
+import { DAYS_SCHEMA, DAYS_SYSTEM, basicsOf, daysPrompt, rsvpOf, shapeDays } from './days-draft.js';
 import { eitherQuestion, fixedTime, jevPick, pickKind, readsAsQuestion } from './ask-kind.js';
 import { jevAnswers, jevKind, MAX_ANSWER_OPTIONS, SURE } from './jev.js';
 import {
@@ -245,14 +245,22 @@ export async function draftAny(env, { prompt, timezone }, { now, anthropic, fetc
     prompt: daysPrompt(text, { today, timezone, nowMinutes }),
   });
   const days = shapeDays(out, { today, nowMinutes, text });
-  const fromJev = jevPick(await kindRead, days, SURE);
+  const fixed = rsvpOf(out, { today, nowMinutes });
+  const fromJev = jevPick(await kindRead, days, SURE, fixed);
   // Nothing to pick from and no time to find ("ask my wife if she thinks I'm cute"): a question
   // for the group, so a vote. The vote writer says whether it's yes or no.
-  const fromRules = !fromJev && (pickKind(text, days) || (readsAsQuestion(text) ? { kind: 'vote', why: 'question' } : null));
+  const fromRules =
+    !fromJev && (pickKind(text, days, fixed) || (readsAsQuestion(text) ? { kind: 'vote', why: 'question' } : null));
   const picked = fromJev
     ? { ...fromJev, by: 'jev' }
     : fromRules && { ...fromRules, by: fromRules.why === 'words' ? 'words' : 'claude' };
   if (!picked) throw new AiUnavailableError(NO_DAYS);
+  // The day is set, who's coming? Claude's read fills the RSVP: its name, the day and time (when it
+  // gave one day), and the guest list. With no day, the person picks it on the form.
+  if (picked.kind === 'rsvp') {
+    const note = [String(out.note || '').trim(), fixed.note].filter(Boolean).join(' ').slice(0, 240);
+    return { ...picked, ...basicsOf(out), when: fixed.when, rsvp: fixed.rsvp, note };
+  }
   if (picked.kind === 'date') {
     if (!days.days.length) throw new AiUnavailableError(NO_DAYS);
     return { ...picked, ...days };

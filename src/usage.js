@@ -88,8 +88,8 @@ export const USAGE_EVENTS = {
   'calendar.ics': {},
   'ai.used': {
     feature: ['draft', 'days', 'topic', 'ask', 'template', 'answer', 'summary', 'message'],
-    picked: ['date', 'vote'], // the one Use AI box (ask): which kind it made, and why (ask-kind.js)
-    why: ['words', 'open', 'both', 'question'],
+    picked: ['date', 'vote', 'rsvp'], // the one Use AI box (ask): which kind it made, and why (ask-kind.js)
+    why: ['words', 'open', 'both', 'question', 'fixed'],
     // who chose: Jev when it was sure, else Claude's read or the words; for Answer for me, the calendar
     // when every time was busy
     by: ['jev', 'claude', 'words', 'calendar'],

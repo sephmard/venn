@@ -17,7 +17,7 @@ test('AI allowance: while the free requests last, no key link and no word about 
   await page.goto('/new');
   await open(page);
   await expect(hint(page)).toHaveText(
-    'Venn picks a date poll or a vote. Sent to Anthropic’s Claude. Check everything before you create the poll.',
+    'Venn picks Date, Vote or RSVP. Sent to Anthropic’s Claude. Check everything before you create the poll.',
   );
   await expect(keyLink(page)).toHaveCount(0);
   await page.goto('/new/topic');
@@ -35,7 +35,7 @@ test('AI hint: where Jev picks the kind (config jev), the box says the sentence 
     await page.goto(path);
     await open(page);
     await expect(hint(page)).toHaveText(
-      'Venn picks a date poll or a vote. Sent to Anthropic’s Claude and TypeSafe’s Jev. Check everything before you create the poll.',
+      'Venn picks Date, Vote or RSVP. Sent to Anthropic’s Claude and TypeSafe’s Jev. Check everything before you create the poll.',
     );
   }
 });
@@ -77,7 +77,7 @@ test('AI allowance: used up on Create a Venn, it says Venn reads the words itsel
   await page.fill('#ai-key-in', `sk-ant-${'x'.repeat(30)}`);
   await page.click('#ai-key-save');
   await expect(hint(page)).toHaveText(
-    'Venn picks a date poll or a vote. Sent to Anthropic’s Claude. Check everything before you create the poll. Your key',
+    'Venn picks Date, Vote or RSVP. Sent to Anthropic’s Claude. Check everything before you create the poll. Your key',
   );
   await expect(heading).toHaveText('Describe what you’re planning');
 });
