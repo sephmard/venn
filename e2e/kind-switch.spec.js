@@ -80,15 +80,17 @@ test('the switch and its line stay in place on all three forms', async ({ page }
   expect(await page.evaluate(() => document.activeElement === document.body)).toBe(true); // nothing focused on arrival
   await expect(page.locator('#title')).toHaveAttribute('autocomplete', 'off'); // no contact AutoFill for a poll's name
   const first = await where();
-  for (const [name, path] of [
-    ['Vote', '/new/topic'],
-    ['RSVP', '/new/rsvp'],
-    ['Date', '/new'],
+  await expect(page.locator('label[for="title"]')).toHaveText('Name your event');
+  for (const [name, path, label] of [
+    ['Vote', '/new/topic', 'Your question'],
+    ['RSVP', '/new/rsvp', 'Name your event'],
+    ['Date', '/new', 'Name your event'],
   ]) {
     await sw.getByRole('link', { name }).click();
     await expect(page).toHaveURL(new RegExp(`${path}$`));
     await expect(page.locator('#create')).not.toHaveAttribute('aria-busy', 'true');
     expect(await where()).toEqual(first);
+    await expect(page.locator('label[for="title"]')).toHaveText(label);
     expect(await page.evaluate(() => scrollY)).toBe(0);
     // No field takes focus (on a phone that opens the keyboard): it stays on the switch.
     await expect(sw.getByRole('link', { name })).toBeFocused();
