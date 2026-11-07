@@ -180,9 +180,12 @@ function publicEvent(
   // `repeat`: how often a plan repeated, on polls from before that was taken out.
   const { adminHash, hostId, repeat, ...rest } = ev;
   const own = (p) => (ownHash !== null && p.editHash === ownHash) || (ownId !== null && p.id === ownId);
-  const visible = isAdmin || !ev.hideResults ? participants : participants.filter(own);
   // An RSVP: each answer's place on the guest list, and the totals everyone sees (src/rsvp.js).
   const rsvp = isRsvpPoll(ev) ? rsvpView(ev, participants, rsvps || new Map()) : null;
+  // Who asked to join, and whom the organizer turned away, only the organizer and that person see.
+  const hidden = (p) => rsvp && !own(p) && ['requested', 'declined'].includes(rsvp.of.get(p.id)?.status);
+  const shown = isAdmin || !ev.hideResults ? participants : participants.filter(own);
+  const visible = isAdmin ? shown : shown.filter((p) => !hidden(p));
   let guest = 0;
   const list = visible.map(({ editHash, ...q }) => {
     const p = rsvp ? { ...q, rsvp: rsvp.of.get(q.id) } : q;
@@ -199,7 +202,7 @@ function publicEvent(
     ...(isAdmin && hostId && { hostId }),
     participants: list,
     ...(rsvp && { rsvpCount: rsvp.counts }),
-    ...(visible !== participants && { responses: participants.length }),
+    ...(shown !== participants && { responses: participants.length }),
     ...(ownId && { yourAnswer: ownId }),
   };
 }
@@ -1503,6 +1506,7 @@ async function route(
     const saveRsvp = (pid, availability, body) => {
       const going = availability[rsvpKey(ev)] === YES;
       const guests = normalizeGuests(ev, body.guests, going);
+      // An answer the organizer enters or edits with their link counts as approved by them.
       return store.setRsvp(ev.id, pid, { going, guests, approval: isAdmin ? 'approved' : null, now: now() });
     };
 

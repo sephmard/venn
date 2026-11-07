@@ -176,7 +176,7 @@ export async function renderRsvp(ctx) {
           <span class="emoji-tile big"${tileAttr(ev.tile)} aria-hidden="true">${picture ? `<img src="${esc(picture)}" alt="">` : esc(ev.emoji || '🎟️')}</span>
           <div class="poll-head-text">
             <h1 id="ev-title">${esc(ev.title)}</h1>
-            <p class="poll-meta">${ev.organizer ? `<span class="host">${avatar(ev.organizer, 'av-xs')}Asked by ${esc(ev.organizer)}</span>` : ''}<span class="answered">${c.going ? `${c.going} going` : 'No RSVPs yet'}</span></p>
+            <p class="poll-meta">${ev.organizer ? `<span class="host">${avatar(ev.organizer, 'av-xs')}By ${esc(ev.organizer)}</span>` : ''}<span class="answered">${c.going ? `${c.going} going` : 'No RSVPs yet'}</span></p>
             ${ev.description ? `<p class="desc">${esc(ev.description)}</p>` : ''}
             ${ev.location ? `<p class="where"><span aria-hidden="true">📍</span> ${esc(ev.location)}</p>` : ''}
           </div>

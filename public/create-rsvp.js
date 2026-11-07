@@ -107,7 +107,7 @@ export function renderRsvpForm() {
     const t = times();
     const cap = $('#r-cap-on').checked ? Number($('#r-cap').value) : null;
     setReady(
-      'A date that’s set',
+      'Date set · guests RSVP',
       [!$('#title').value.trim(), 'Add a name for your poll', '#title', null, 'its name'],
       [!t, 'Pick the date and start time', $('#r-date').value ? '#r-from' : '#r-date', null, 'the date'],
       [

@@ -75,7 +75,11 @@ test('the guest list: spots fill in the order people said Going, then a waitlist
   assert.deepEqual(of.get('c'), { status: 'waitlist', guests: 0, place: 2 });
   assert.equal(of.get('d').status, 'maybe');
   assert.equal(of.get('e').status, 'no');
-  assert.deepEqual(counts, { going: 2, people: 1, waitlist: 2, requested: 0, maybe: 1, no: 1, spotsLeft: 1 });
+  // One spot is free, but nobody skips the line, so new RSVPs wait too: no spots left.
+  assert.deepEqual(counts, { going: 2, people: 1, waitlist: 2, requested: 0, maybe: 1, no: 1, spotsLeft: 0 });
+  // With nobody waiting, the free spots are reported.
+  const open = rsvpView({ ...ev, rsvp: { cap: 5, plusOnes: 2 } }, [list[0][0]], new Map([list[0][1]]));
+  assert.equal(open.counts.spotsLeft, 3);
 });
 
 test('creating an RSVP sets its date, with no answer for the organizer', async () => {
@@ -126,7 +130,7 @@ test('the organizer changes spots, plus-ones and approval any time', async () =>
   // Approval switched on: those already going stay in; new RSVPs wait for the organizer.
   await call(`/api/events/${id}/rsvp`, { method: 'PUT', body: { cap: 5, approve: true }, headers: admin });
   await answer(id, 'Cy', YES);
-  ({ data: ev } = await call(`/api/events/${id}`));
+  ({ data: ev } = await call(`/api/events/${id}`, { headers: admin }));
   assert.deepEqual(statuses(ev), { Ana: 'going', Ben: 'going', Cy: 'requested' });
   assert.equal(ev.rsvpCount.requested, 1);
   assert.equal((await call(`/api/events/${id}/rsvp`, { method: 'PUT', body: { cap: 0 }, headers: admin })).status, 400);
@@ -141,11 +145,20 @@ test('approval: an RSVP counts once the organizer lets it in', async () => {
   assert.equal((await call(path(ana), { method: 'PUT', body: { approved: 'yes' }, headers: admin })).status, 400);
   await call(path(ben), { method: 'PUT', body: { approved: true }, headers: admin });
   await call(path(ana), { method: 'PUT', body: { approved: false }, headers: admin });
-  let { data: ev } = await call(`/api/events/${id}`);
+  let { data: ev } = await call(`/api/events/${id}`, { headers: admin });
   assert.deepEqual(statuses(ev), { Ana: 'declined', Ben: 'going' });
+  // Other guests never see who asked to join or who was turned away; the person themselves does.
+  const cy = await answer(id, 'Cy', YES);
+  ({ data: ev } = await call(`/api/events/${id}`));
+  assert.deepEqual(statuses(ev), { Ben: 'going' });
+  ({ data: ev } = await call(`/api/events/${id}`, { headers: { 'x-edit-token': ana.editToken } }));
+  assert.deepEqual(statuses(ev), { Ana: 'declined', Ben: 'going' });
+  ({ data: ev } = await call(`/api/events/${id}`, { headers: { 'x-edit-token': cy.editToken } }));
+  assert.deepEqual(statuses(ev), { Ben: 'going', Cy: 'requested' });
+  await call(`/api/events/${id}/participants/${cy.id}`, { method: 'DELETE', headers: admin });
   // Approved after Ben, with no spot left: the waitlist. Nobody let in earlier is bumped.
   await call(path(ana), { method: 'PUT', body: { approved: true }, headers: admin });
-  ({ data: ev } = await call(`/api/events/${id}`));
+  ({ data: ev } = await call(`/api/events/${id}`, { headers: admin }));
   assert.deepEqual(statuses(ev), { Ana: 'waitlist', Ben: 'going' });
   // The organizer's own RSVP needs no approval.
   await call(`/api/events/${id}/participants`, {

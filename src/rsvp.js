@@ -56,7 +56,8 @@ export function rsvpView(ev, participants, rows = new Map()) {
       requested: count('requested'),
       maybe: count('maybe'),
       no: count('no'),
-      spotsLeft: cap == null ? null : Math.max(0, cap - heads),
+      // Nobody skips the line, so once anyone waits, new RSVPs wait too: no spots left.
+      spotsLeft: cap == null ? null : waiting ? 0 : Math.max(0, cap - heads),
     },
   };
 }
