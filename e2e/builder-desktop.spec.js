@@ -34,7 +34,13 @@ for (const width of [1200, 1440]) {
     expect((await box(page, '.step-panels')).width).toBeGreaterThanOrEqual(520);
     const input = page.locator('.brand-links .link-row input').first();
     await expect(input).toHaveValue(/\/new\?brand=/);
-    expect(await input.evaluate((el) => el.scrollWidth <= el.clientWidth)).toBe(true);
+    // Measured on the link people get (venn.day, not this test's longer localhost:8794 origin) with a
+    // fixed id: a random one made this pass or fail on how wide its letters happened to be.
+    const fits = (el) => {
+      el.value = 'https://venn.day/new?brand=Mw9QzKx7Wm';
+      return el.scrollWidth <= el.clientWidth;
+    };
+    expect(await input.evaluate(fits)).toBe(true);
     const copy = page.getByRole('button', { name: 'Copy template link' });
     // It reads "Copy" (the label above says which link); its name stays "Copy template link".
     await expect(copy.locator('.copy-short')).toBeVisible();
