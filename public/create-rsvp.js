@@ -144,6 +144,6 @@ export function renderRsvpForm() {
   // The Use AI box (ai-draft.js) fills in the name, the day and time, and the guest list.
   if (!src)
     getConfig().then((c) => import('./ai-draft.js').then((m) => $('#create') && m.aiRsvp(when, { ready: formReady() }, c)));
-  $('#title').focus();
+  $('#title').focus({ preventScroll: true });
   return () => when.cleanup();
 }

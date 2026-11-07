@@ -312,6 +312,6 @@ export function renderTopic() {
         ),
       ),
     );
-  $('#title').focus();
+  $('#title').focus({ preventScroll: true });
   return () => {};
 }
