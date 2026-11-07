@@ -4,9 +4,9 @@
 import { allDaySpan, utcToZoned } from './core.js';
 import { dateParts, esc, fmtDay } from './ui.js';
 
-/** "⏳ Answers close Fri, Nov 6, 5:00 PM", on this device's clock (src/deadline.js). */
-export const closesLine = (at) =>
-  `<p class="deadline-line"><span aria-hidden="true">⏳</span> Answers ${Date.now() >= at ? 'closed' : 'close'} ${esc(
+/** "⏳ Answers close Fri, Nov 6, 5:00 PM", on this device's clock (src/deadline.js); `what` closes. */
+export const closesLine = (at, what = 'Answers') =>
+  `<p class="deadline-line"><span aria-hidden="true">⏳</span> ${what} ${Date.now() >= at ? 'closed' : 'close'} ${esc(
     new Intl.DateTimeFormat(undefined, {
       weekday: 'short',
       month: 'short',

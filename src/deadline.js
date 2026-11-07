@@ -22,6 +22,7 @@ import { whiteLabelOf } from './brands.js';
 import { mayEmail, recipientCap, withinDailyLimit } from './recipients.js';
 import { publicOrigin } from './site.js';
 import { normalizeInvitees } from './invites.js';
+import { rsvpView } from './rsvp.js';
 
 export { MAX_INVITEES } from './invites.js';
 
@@ -57,8 +58,8 @@ export const closesLabel = (ev) =>
  */
 export const isClosed = (ev, now) => ev.deadline != null && !isDecided(ev) && now >= ev.deadline;
 
-/** Whether the organizer has picked: the date, or a vote's option. */
-export const isDecided = (ev) => ev.finalStart != null || ev.picked != null;
+/** Whether the organizer has picked: the date, or a vote's option. An RSVP's date is set from the start. */
+export const isDecided = (ev) => (ev.finalStart != null || ev.picked != null) && !ev.rsvp;
 
 /**
  * Check what the organizer sent: `{ deadline, remindEvery, invitees }`, each optional. Invitees don't
@@ -175,6 +176,7 @@ async function remindRound({ store, env, fetchImpl, ev, r, site, last, mail, now
         last,
         retro: ev.retro,
         whiteLabel,
+        rsvp: ev.rsvp ? setLabel(ev, ev.options[0].start) : null,
       });
       const headers = unsubscribeHeaders(unsubscribeLink(site, ev.id, unsubscribeToken));
       // Past the poll's daily cap (src/recipients.js): not sent, and not counted as a reminder.
@@ -273,7 +275,10 @@ export async function sendDeadlines({ store, env = {}, now = Date.now(), fetchIm
         const waiting = (r.invitees || []).filter((i) => !answeredEmails.has(i.email)).length;
         const others = people.filter((p) => p.id !== ev.hostId).length;
         const unsubscribeUrl = `${pollUrl}#unsubscribe=${settings.unsubscribeToken}`;
+        // An RSVP: who's coming, not a time to pick.
+        const rsvp = ev.rsvp ? rsvpView(ev, people, await store.listRsvps(id)).counts : null;
         const msg = answersClosedEmail({
+          rsvp,
           title: ev.title,
           answered: others,
           waiting,

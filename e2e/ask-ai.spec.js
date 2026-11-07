@@ -98,12 +98,12 @@ test('choices on a set day: a vote with the day in its note, and the date poll o
 test('nothing typed is lost: moving keeps each form’s draft, and Undo brings back the vote it replaced', async ({ page }) => {
   await page.goto('/new/topic');
   await page.fill('#title', 'Book club');
-  await page.locator('.kind-switch a[href^="/new"]:not([href^="/new/topic"])').click();
+  await page.locator('.kind-switch a[href="/new"]').click();
   await expect(page).toHaveURL(/\/new$/);
   await ask(page, 'dinner Friday');
   await page.locator('.kind-switch a[href^="/new/topic"]').click();
   await expect(page.locator('#title')).toHaveValue('Book club');
-  await page.locator('.kind-switch a[href^="/new"]:not([href^="/new/topic"])').click();
+  await page.locator('.kind-switch a[href="/new"]').click();
   await expect(page).toHaveURL(/\/new$/);
   await ask(page, 'a vote on films');
   await expect(page).toHaveURL(/\/new\/topic$/);

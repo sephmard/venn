@@ -25,7 +25,7 @@ const GENERIC = {
 
 const POLL_PATH = /^\/e\/([A-Za-z0-9]{1,40})\/?$/;
 // The create forms, which a template's share link (/new?brand=<id>) opens.
-const NEW_PATH = /^\/new(?:\/(?:pick|free|topic))?\/?$/;
+const NEW_PATH = /^\/new(?:\/(?:pick|free|topic|rsvp))?\/?$/;
 
 const escAttr = (s) =>
   String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
@@ -105,6 +105,13 @@ export function pollPreview(ev) {
         : `${spanLabel(ev, slots)}. Tap when you're free.`;
     return { title, description: `${who} ${ask} No sign-up.`, image: own || (ev.retro ? OG_IMAGES.retroVote : OG_IMAGES.vote) };
   }
+  // An RSVP: the date, and the question.
+  if (ev.rsvp)
+    return {
+      title,
+      description: `${setLabel(ev, ev.finalStart ?? ev.options[0].start)}. Are you coming? RSVP, no sign-up.`,
+      image: own || (ev.retro ? OG_IMAGES.retroSet : OG_IMAGES.set),
+    };
   let description = `It's set: ${setLabel(ev, ev.finalStart)}`;
   const answers = ev.answers || [];
   if (!ev.hideResults && !ev.hideNames && answers.length) {

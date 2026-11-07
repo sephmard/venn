@@ -67,6 +67,16 @@ const SCHEMA = [
      note TEXT NOT NULL
    )`,
   `CREATE INDEX IF NOT EXISTS participant_notes_event ON participant_notes(event_id)`,
+  // An RSVP's answers (src/rsvp.js): the plus-ones someone brings, when they first said Going (the
+  // waitlist's order), and the organizer's approval when RSVPs wait for it ('approved' | 'declined').
+  `CREATE TABLE IF NOT EXISTS rsvp_answers (
+     participant_id TEXT PRIMARY KEY,
+     event_id TEXT NOT NULL,
+     guests INTEGER NOT NULL DEFAULT 0,
+     going_at INTEGER,
+     approval TEXT
+   )`,
+  `CREATE INDEX IF NOT EXISTS rsvp_answers_event ON rsvp_answers(event_id)`,
   // Usage stats (src/usage.js): a count per day, event and set of properties. Nothing else.
   `CREATE TABLE IF NOT EXISTS usage_counts (
      day TEXT NOT NULL,
@@ -297,6 +307,7 @@ export function createStore(db, { clock = Date.now } = {}) {
       await init();
       await db.run('DELETE FROM participant_emails WHERE event_id = ?', [id]);
       await db.run('DELETE FROM participant_notes WHERE event_id = ?', [id]);
+      await db.run('DELETE FROM rsvp_answers WHERE event_id = ?', [id]);
       await db.run('DELETE FROM email_recipients WHERE event_id = ?', [id]);
       await db.run('DELETE FROM notifications WHERE event_id = ?', [id]);
       await db.run('DELETE FROM event_images WHERE event_id = ?', [id]);
@@ -969,6 +980,7 @@ export function createStore(db, { clock = Date.now } = {}) {
       await db.run('DELETE FROM participants WHERE event_id = ? AND id = ?', [eventId, id]);
       await db.run('DELETE FROM participant_emails WHERE participant_id = ?', [id]);
       await db.run('DELETE FROM participant_notes WHERE participant_id = ?', [id]);
+      await db.run('DELETE FROM rsvp_answers WHERE participant_id = ?', [id]);
       await db.run("DELETE FROM owners WHERE kind = 'answer' AND item_id = ?", [id]);
     },
 
@@ -1083,6 +1095,59 @@ export function createStore(db, { clock = Date.now } = {}) {
       await db.run(
         'INSERT INTO participant_notes (participant_id, event_id, note) VALUES (?, ?, ?) ON CONFLICT(participant_id) DO UPDATE SET note = excluded.note',
         [id, eventId, note],
+      );
+    },
+
+    /**
+     * Someone's RSVP: `going` (they said Going), the plus-ones they bring, and the organizer's
+     * `approval` when one is given now (null keeps the one they have). They keep their place in
+     * line while they stay Going; saying anything else gives it up.
+     */
+    async setRsvp(eventId, id, { going, guests, approval = null, now }) {
+      await init();
+      await db.run(
+        `INSERT INTO rsvp_answers (participant_id, event_id, guests, going_at, approval) VALUES (?, ?, ?, ?, ?)
+         ON CONFLICT(participant_id) DO UPDATE SET guests = excluded.guests,
+           going_at = CASE WHEN excluded.going_at IS NULL THEN NULL ELSE COALESCE(rsvp_answers.going_at, excluded.going_at) END,
+           approval = COALESCE(excluded.approval, rsvp_answers.approval)`,
+        [id, eventId, guests, going ? now : null, approval],
+      );
+    },
+
+    /**
+     * The organizer approves ('approved'), declines ('declined') or undoes (null) someone's RSVP.
+     * Approved, they join the line then, so nobody let in earlier is bumped by them.
+     */
+    async setRsvpApproval(eventId, id, approval, now) {
+      await init();
+      await db.run(
+        `INSERT INTO rsvp_answers (participant_id, event_id, guests, going_at, approval) VALUES (?, ?, 0, NULL, ?)
+         ON CONFLICT(participant_id) DO UPDATE SET approval = excluded.approval,
+           going_at = CASE WHEN excluded.approval = 'approved' AND rsvp_answers.going_at IS NOT NULL THEN ? ELSE rsvp_answers.going_at END`,
+        [id, eventId, approval, now],
+      );
+    },
+
+    /** Everyone Going without an answer from the organizer is approved (approval just switched on). */
+    async approveGoing(eventId, ids) {
+      await init();
+      for (const id of ids)
+        await db.run(
+          `INSERT INTO rsvp_answers (participant_id, event_id, guests, going_at, approval) VALUES (?, ?, 0, NULL, 'approved')
+           ON CONFLICT(participant_id) DO UPDATE SET approval = COALESCE(rsvp_answers.approval, 'approved')`,
+          [id, eventId],
+        );
+    },
+
+    /** Participant id → { guests, goingAt, approval }, for one RSVP. */
+    async listRsvps(eventId) {
+      await init();
+      const rows = await db.all('SELECT * FROM rsvp_answers WHERE event_id = ?', [eventId]);
+      return new Map(
+        rows.map((r) => [
+          r.participant_id,
+          { guests: Number(r.guests) || 0, goingAt: r.going_at ?? null, approval: r.approval ?? null },
+        ]),
       );
     },
 

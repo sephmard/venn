@@ -17,8 +17,8 @@ import { KIND_CASE_IDS, KINDS as POLL_KINDS } from './kind-cases.js';
 const BUCKETS = ['1', '2-3', '4-7', '8-15', '16+'];
 const bucket = (n) => (n <= 1 ? '1' : n <= 3 ? '2-3' : n <= 7 ? '4-7' : n <= 15 ? '8-15' : '16+');
 const YN = ['yes', 'no'];
-const KINDS = ['pick', 'free', 'topic'];
-const DETAILS = ['times', 'allday', 'trips', 'days', 'parts', 'hours', 'choices', 'one', 'yesno'];
+const KINDS = ['pick', 'free', 'topic', 'rsvp'];
+const DETAILS = ['cap', 'approve', 'open', 'times', 'allday', 'trips', 'days', 'parts', 'hours', 'choices', 'one', 'yesno'];
 const PLANS = {
   '🍝': 'dinner',
   '🍻': 'drinks',
@@ -108,7 +108,7 @@ export const USAGE_EVENTS = {
   // Browser
   view: {
     client: true,
-    page: ['chooser', 'pick', 'free', 'poll'],
+    page: ['chooser', 'pick', 'free', 'poll', 'rsvp'],
     as: ['guest', 'organizer', 'answered'],
     from: FROM,
   },
@@ -136,6 +136,7 @@ export function cleanUsage(name, props = {}, { client = false } = {}) {
 
 /** Which kind of poll this is: { kind: 'pick' | 'free', detail }. */
 export function pollKind(ev) {
+  if (ev.rsvp) return { kind: 'rsvp', detail: ev.rsvp.cap ? 'cap' : ev.rsvp.approve ? 'approve' : 'open' };
   if (ev.mode === 'topic') return { kind: 'topic', detail: ev.options.length === 1 ? 'yesno' : ev.single ? 'one' : 'choices' };
   if (isPartsPoll(ev)) return { kind: 'free', detail: 'parts' };
   if (isOptionsPoll(ev)) {
